@@ -3,7 +3,7 @@
 ## 계층
 - `stalker/` — 제품(L0)
   - `core/` — 카드(`cards.py`), 7카드 평가기(`evaluator.py`), MC 에퀴티(`equity.py`), 프리플랍 레인지(`ranges.py`, `data/preflop_equity.json` 필요 — 아직 미생성)
-  - (예정) `tournament/` 설정·엔진, `agents/` 봇·상대모델·적응형 AI, `records/` 기록 스키마·저장, `pipeline/` 데이터 생성, `typing/` 스팟 택소노미·유형화, `service/` 학습 서비스
+  - (예정, ADR 0002) `tournament/` 설정·러너(PokerKit 위), `oracle/` 프리플랍 ICM 솔버·TexasSolver 연동·전략 라이브러리, `adapt/` 상대 모델·적응 계층, `agents/` 벤치마크 봇, `records/` 기록 스키마·저장, `pipeline/` 데이터 생성, `typing/` 스팟 택소노미·유형화, `service/` 학습 서비스
 - `referee/` — 심판(보호 경로). 게이트·가드·지표.
 - `harness/` — 하네스(L1/L2). 프로토콜, 루틴 지침, 스케줄, 훅, 실험 기록.
 - `ops` 브랜치 — 운영 데이터(STATE, journal, metrics, reports).
