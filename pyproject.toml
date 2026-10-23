@@ -16,7 +16,7 @@ dev = ["pytest>=8"]
 include = ["stalker*", "referee*"]
 
 [tool.setuptools.package-data]
-stalker = ["data/*.json"]
+stalker = ["data/*.json", "tournament/presets/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
