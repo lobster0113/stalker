@@ -155,6 +155,9 @@ class TournamentConfig:
             raise ValueError(f"hand_no={hand_no}: hands are numbered from 1.")
         return hand_no - 1
 
+    def level_index_for_hand(self, hand_no: int) -> int:
+        return self.level_index_at(self._t_from_hand(hand_no))
+
     def level_at(self, hand_no: int) -> BlindLevel:
         return self.levels[self.level_index_at(self._t_from_hand(hand_no))]
 
