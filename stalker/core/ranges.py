@@ -15,9 +15,9 @@ PREFLOP_TABLE = DATA_DIR / "preflop_equity.json"
 
 @lru_cache(maxsize=1)
 def preflop_equity() -> dict[str, list[float]]:
-    """class -> [equity vs 1 random hand, vs 2, ... vs 5]. Built by `python -m stalker build-tables`."""
+    """class -> [equity vs 1 random hand, vs 2, ... vs 5]. Built by `python -m stalker.tools.build_tables`."""
     if not PREFLOP_TABLE.exists():
-        raise FileNotFoundError(f"{PREFLOP_TABLE} missing; run `python -m stalker build-tables`")
+        raise FileNotFoundError(f"{PREFLOP_TABLE} missing; run `python -m stalker.tools.build_tables`")
     return json.loads(PREFLOP_TABLE.read_text())
 
 

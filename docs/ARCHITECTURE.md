@@ -2,7 +2,8 @@
 
 ## 계층
 - `stalker/` — 제품(L0)
-  - `core/` — 카드(`cards.py`), 7카드 평가기(`evaluator.py`), MC 에퀴티(`equity.py`), 프리플랍 레인지(`ranges.py`, `data/preflop_equity.json` 필요 — 아직 미생성)
+  - `core/` — 카드(`cards.py`), 7카드 평가기(`evaluator.py`), MC 에퀴티(`equity.py`), 프리플랍 레인지(`ranges.py`, `data/preflop_equity.json`: 169 클래스 × 랜덤 상대 1~5명 에퀴티, `python -m stalker.tools.build_tables`로 고정 시드 재생성)
+  - `tools/` — 오프라인 생성 도구(`build_tables.py`: 프리플랍 에퀴티 테이블)
   - (예정) `tournament/` 설정·엔진, `agents/` 봇·상대모델·적응형 AI, `records/` 기록 스키마·저장, `pipeline/` 데이터 생성, `typing/` 스팟 택소노미·유형화, `service/` 학습 서비스
 - `referee/` — 심판(보호 경로). 게이트·가드·지표.
 - `harness/` — 하네스(L1/L2). 프로토콜, 루틴 지침, 스케줄, 훅, 실험 기록.
