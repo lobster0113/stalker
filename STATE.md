@@ -1,6 +1,6 @@
 # STATE (2026-10-24, bootstrap)
 ## 현재 단계
-Phase 1 — L0-1) 기반. ADR 0002(공개 솔버 조합 + 자체 공백 메우기) 채택.
+P0/P1 — 사용자 연구보고서 채택(ADR 0003): 핵심 AI = 게임-경계 인식 RL 정책, 최소 성공 = ICMizer 상회(referee/GATES.md). 솔버는 참조기·참조 봇·교사 역할(ADR 0002 부분 대체).
 ## 이번 주 초점
 1. 게임 기반: 프리플랍 테이블(#1), 설정(#2), ICM(#3), PokerKit 래퍼(#5), 토너먼트 러너(#6) — 정답성이 모든 지표의 바닥.
 2. 기록 스키마 v1(#7) — 1)의 출력 = 2)의 입력, 데이터 충분성 기준(referee/DATA_SUFFICIENCY.md)의 대상.
@@ -8,6 +8,7 @@ Phase 1 — L0-1) 기반. ADR 0002(공개 솔버 조합 + 자체 공백 메우�
 ## 지표 요약
 tests_passed=8 (CI 첫 스냅샷). 제품 지표 아직 없음.
 ## 경보
+- NEEDS_HUMAN.md: NH-1(P3 연산 자원, 예고), NH-2(선택: ICMizer 대조 세트).
 - 클라우드 루틴에서 gh CLI 미인증 → GitHub MCP 도구 사용(PROTOCOL §0). ops 브랜치 push 가능 여부 첫 실행에서 확인 중.
 - 리포 상호작용 제한(collaborators_only) 2027-04-23 만료 — 에이전트는 갱신 불가. 만료 전 Auditor가 PROTOCOL §8 신뢰 규칙만으로 충분한지 재평가.
 ## 진행 중 실험
