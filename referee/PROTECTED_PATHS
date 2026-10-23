@@ -1,0 +1,11 @@
+# 심판 경로: 'referee-change' 라벨이 있어야 수정 가능 (prefix 매칭)
+[referee-change]
+referee/
+docs/CHARTER.md
+
+# 하네스 경로: 'harness-change' 라벨이 있어야 수정 가능
+[harness-change]
+harness/
+CLAUDE.md
+.claude/
+.github/

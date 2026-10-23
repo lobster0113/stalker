@@ -1,0 +1,8 @@
+{
+  "builder": {"enabled": true, "min_interval_hours": 3},
+  "reviewer": {"enabled": true, "min_interval_hours": 0, "sweep_min_interval_hours": 2},
+  "planner": {"enabled": true, "min_interval_hours": 20},
+  "researcher": {"enabled": true, "min_interval_hours": 144},
+  "gardener": {"enabled": true, "min_interval_hours": 144},
+  "auditor": {"enabled": true, "min_interval_hours": 144}
+}

@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev]" -q
+      - run: python -m referee.gates full
+
+  guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: referee-guard
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: python -m referee.guard --base "${{ github.event.pull_request.base.sha }}" --labels "$LABELS"
+
+  record-metrics:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev]" -q
+      - name: snapshot
+        env:
+          METRICS_SOURCE: ci
+        run: python -m referee.metrics > /tmp/snap.json
+      - name: append to ops branch
+        run: |
+          git config user.name "stalker-ci"
+          git config user.email "stalker-ci@users.noreply.github.com"
+          git fetch origin ops
+          git worktree add ../ops origin/ops -B ops
+          mkdir -p ../ops/metrics
+          cat /tmp/snap.json >> ../ops/metrics/history.jsonl
+          cd ../ops
+          git add metrics/history.jsonl
+          git commit -m "ci: metrics for ${GITHUB_SHA::8}"
+          for i in 1 2 3; do git push origin ops && break; git pull --rebase origin ops; done
