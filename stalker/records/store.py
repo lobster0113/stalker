@@ -68,8 +68,18 @@ def write_manifest(run_dir: str | Path, manifest: RunManifest) -> Path:
     return path
 
 
+def _loads(text: str, where: str) -> Any:
+    # json.loads accepts NaN/Infinity by default; they would slip into training data as nan/inf
+    def reject(token: str) -> Any:
+        raise RecordError(f"{where}: non-finite number {token} is not allowed; write finite values only.")
+    try:
+        return json.loads(text, parse_constant=reject)
+    except json.JSONDecodeError as exc:
+        raise RecordError(f"{where}: not valid JSON ({exc.msg}).") from None
+
+
 def read_manifest(run_dir: str | Path) -> RunManifest:
-    data = json.loads((Path(run_dir) / MANIFEST).read_text(encoding="utf-8"))
+    data = _loads((Path(run_dir) / MANIFEST).read_text(encoding="utf-8"), MANIFEST)
     _check_version(data, MANIFEST)
     return from_dict(RunManifest, data, "manifest")
 
@@ -118,10 +128,7 @@ def iter_records(run_dir: str | Path, validate: bool = True) -> Iterator[Record]
             if not line.strip():
                 continue
             where = f"{path.name}:{lineno}"
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise RecordError(f"{where}: not valid JSON ({exc.msg}).") from None
+            obj = _loads(line, where)
             if not isinstance(obj, dict) or obj.get("type") not in RECORD_TYPES or "record" not in obj:
                 raise RecordError(f"{where}: expected {{\"type\": one of {sorted(RECORD_TYPES)}, \"record\": {{...}}}}.")
             _check_version(obj["record"], where)

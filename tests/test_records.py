@@ -92,6 +92,8 @@ def test_valid_decision_round_trips_through_json():
     (lambda r: dataclasses.replace(r, action_logprob=math.log(0.3)), "action_logprob"),
     (lambda r: dataclasses.replace(r, acting_policy="ai1", probs_ai1=None), "probs_ai1 is null"),
     (lambda r: dataclasses.replace(r, action_values=(1.0,)), "action_values has 1"),
+    (lambda r: dataclasses.replace(r, action_logprob=math.nan), "action_logprob must be finite"),
+    (lambda r: dataclasses.replace(r, action_values=(math.inf, 0.0, 0.0, 0.0)), "action_values must be finite"),
     (lambda r: _obs(r, legal_action_mask=(True, True)), "legal_action_mask has 2"),
     (lambda r: _obs(r, street="flop"), "street=flop needs 3"),
     (lambda r: _obs(r, board=("As", "2c", "3d"), street="flop"), "appears twice"),
@@ -238,8 +240,11 @@ def test_loader_rejects_bad_lines(tmp_path):
         ({"type": "hand", "record": {**to_dict(_hand()), "schema_version": 2}}, "migrate"),
         ({"type": "hint", "record": to_dict(_hand())}, "expected"),
         ({"type": "decision", "record": to_dict(_decision(probs_ai0=(1.0, 1.0, 0.0, 0.0)))}, "sums to"),
+        ({"type": "decision", "record": to_dict(_decision(action_logprob=math.nan))}, "non-finite"),
+        ({"type": "decision", "record": to_dict(_decision(action_values=(math.inf, 0.0, 0.0, 0.0)))}, "non-finite"),
     ]
     for obj, needle in cases:
+        # json.dumps writes NaN/Infinity tokens by default, which is exactly the bad input to reject
         (tmp_path / RECORDS).write_text(json.dumps(good) + "\n" + json.dumps(obj) + "\n")
         with pytest.raises(RecordError, match=needle) as exc:
             load_records(tmp_path)

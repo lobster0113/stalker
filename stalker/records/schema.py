@@ -272,6 +272,8 @@ def _convert(tp: Any, v: Any, path: str) -> Any:
     if tp is float:
         if isinstance(v, bool) or not isinstance(v, (int, float)):
             raise RecordError(f"{path}: expected a number, got {v!r}.")
+        if not math.isfinite(v):
+            raise RecordError(f"{path}: non-finite number {v!r}; records hold finite floats only.")
         return float(v)
     if tp is str:
         if not isinstance(v, str):
@@ -348,6 +350,10 @@ def _validate_decision(r: DecisionRecord, hole_cards: dict[int, typing.Sequence[
         v = getattr(r, name)
         if v is not None and len(v) != n:
             e.append(f"{name} has {len(v)} entries, action_space has {n}")
+    if not math.isfinite(r.action_logprob):
+        e.append(f"action_logprob must be finite, got {r.action_logprob}")
+    if r.action_values is not None and any(not math.isfinite(x) for x in r.action_values):
+        e.append("action_values must be finite numbers")
     for name in ("probs_ai0", "probs_ai1"):
         p = getattr(r, name)
         if p is None:

@@ -7,7 +7,7 @@
 - `manifest.json` — `RunManifest`: `run_id`, `created_at`(UTC), `config`(`TournamentConfig.to_dict()`), `seed`, `git_sha`(로컬 변경이 있으면 `-dirty`), `policy_version`, `meta`, `schema_version`.
 - `records.jsonl` — 한 줄에 하나: `{"type": "decision"|"hand"|"game", "record": {...}}`.
 
-`RecordWriter`는 쓰기 전에, `iter_records`/`load_records`는 읽을 때 검증한다. 실패 메시지에는 `파일:줄`과 필드 경로가 붙는다. JSON에 NaN/Infinity는 쓰지 않는다.
+`RecordWriter`는 쓰기 전에, `iter_records`/`load_records`는 읽을 때 검증한다. 실패 메시지에는 `파일:줄`과 필드 경로가 붙는다. JSON에 NaN/Infinity는 쓰지 않으며, 읽을 때 만나면 `파일:줄`과 함께 거부한다(`action_logprob`·`action_values` 포함 모든 실수 필드).
 
 ## 식별자 (`RecordIds`)
 | 필드 | 의미 |
