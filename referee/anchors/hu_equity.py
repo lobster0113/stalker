@@ -158,10 +158,11 @@ def build(seed: int = DEFAULT_SEED, nsim: int = DEFAULT_NSIM, workers: int = 1) 
     eq = np.full((N_CLASSES, N_CLASSES), 0.5)
     for i, row in enumerate(rows):
         for k, v in enumerate(row):
+            v = round(v, 4)
             eq[i, i + 1 + k] = v
-            eq[i + 1 + k, i] = 1.0 - v
+            eq[i + 1 + k, i] = round(1.0 - v, 4)
     return {"classes": HAND_CLASSES, "seed": seed, "nsim": nsim,
-            "equity": np.round(eq, 4).tolist(), "pairs": pair_counts().tolist()}
+            "equity": eq.tolist(), "pairs": pair_counts().tolist()}
 
 
 @lru_cache(maxsize=1)

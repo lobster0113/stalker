@@ -8,6 +8,7 @@ STALKER의 모든 "좋아졌다/나빠졌다" 판정은 여기의 코드가 CI�
 | `PROTECTED_PATHS` | 라벨별 보호 경로 |
 | `guard.py` | PR이 보호 경로를 라벨 없이 바꾸면 CI 실패 |
 | `gates.py` | G0/G1/G2 게이트 (`quick`, `full`) |
+| `anchors/` | 이론 기준선: ICMizer-등가 참조기(`icm_reference.py`), HU 클래스 에퀴티 테이블(`hu_equity.py`) |
 | `metrics.py` | main 머지마다 `ops:metrics/history.jsonl`에 append되는 지표 스냅샷 |
 
 ## 앞으로 추가될 것 (Planner가 `referee-change` 이슈로 관리)

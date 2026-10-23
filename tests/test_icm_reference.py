@@ -26,10 +26,10 @@ def test_equity_table_consistency():
     combos = ir.CLASS_COMBOS
     np.testing.assert_array_equal(N.sum(axis=1), combos * 1225)
     assert N[H("AA"), H("AA")] == 6 and N[H("AKs"), H("AKs")] == 12  # 4 suits x 3 other suits
-    # Well-known all-in matchups (any equity calculator): AA-KK 81.9%, AKo-22 ~47%, AKs-QJs ~62%.
+    # Well-known all-in matchups (any equity calculator): AA-KK 81.9%, AKo-22 ~47%, AKs-QJs ~63.5%.
     assert abs(E[H("AA"), H("KK")] - 0.819) < 0.006
     assert abs(E[H("AKo"), H("22")] - 0.47) < 0.012
-    assert abs(E[H("AKs"), H("QJs")] - 0.62) < 0.015
+    assert abs(E[H("AKs"), H("QJs")] - 0.635) < 0.01
 
 
 @pytest.mark.parametrize("spot", [
@@ -68,17 +68,18 @@ def test_busted_seat_takes_its_place_payout():
 
 
 def _hu10(model="chipev"):
-    return ir.solve(ir.Spot((200, 200), 10, 20), value_model=model)
+    return ir.solve(ir.Spot((200, 200), 10, 20), value_model=model, tol=1e-5, max_iter=20000)
 
 
 def test_hu_10bb_chipev_matches_public_nash_chart():
     # HoldemResources HU push/fold Nash charts (holdemresources.net, no ante, 10bb effective):
-    # SB pushes ~58% of hands, BB calls ~37%. Edge hands: SB pushes K2o/Q6o-ish, folds 72o;
-    # BB calls A2o, K9o and folds Q5o.
+    # SB pushes ~58% of hands, BB calls ~37%. Edge hands: SB pushes K2o and Q7o, folds 72o;
+    # BB calls A2o, K9o and folds Q5o. A tight tol is needed: at 1e-3 the averaged ranges are
+    # still blurred at the edges even though the exploitability bound already holds.
     sol = _hu10()
     assert sol.converged
-    assert 0.53 <= sol.push_freq(0) <= 0.63
-    assert 0.32 <= sol.call_freq(1, 0) <= 0.42
+    assert 0.56 <= sol.push_freq(0) <= 0.60
+    assert 0.35 <= sol.call_freq(1, 0) <= 0.39
     push, call = sol.push_range(0), sol.call_range(1, 0)
     for c in ("AA", "22", "A2o", "K2o", "Q8o", "J7s", "T9s", "54s"):
         assert push[c] > 0.9, c
