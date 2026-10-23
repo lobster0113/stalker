@@ -1,0 +1,102 @@
+{
+  "name": "54-player MTT",
+  "players": 54,
+  "table_size": 9,
+  "starting_stack": 5000,
+  "levels": [
+    {
+      "sb": 25,
+      "bb": 50,
+      "ante": 0,
+      "length": 20
+    },
+    {
+      "sb": 50,
+      "bb": 100,
+      "ante": 0,
+      "length": 20
+    },
+    {
+      "sb": 75,
+      "bb": 150,
+      "ante": 0,
+      "length": 20
+    },
+    {
+      "sb": 100,
+      "bb": 200,
+      "ante": 25,
+      "length": 20
+    },
+    {
+      "sb": 150,
+      "bb": 300,
+      "ante": 37,
+      "length": 20
+    },
+    {
+      "sb": 200,
+      "bb": 400,
+      "ante": 50,
+      "length": 20
+    },
+    {
+      "sb": 300,
+      "bb": 600,
+      "ante": 75,
+      "length": 20
+    },
+    {
+      "sb": 400,
+      "bb": 800,
+      "ante": 100,
+      "length": 20
+    },
+    {
+      "sb": 500,
+      "bb": 1000,
+      "ante": 125,
+      "length": 20
+    },
+    {
+      "sb": 700,
+      "bb": 1400,
+      "ante": 175,
+      "length": 20
+    },
+    {
+      "sb": 1000,
+      "bb": 2000,
+      "ante": 250,
+      "length": 20
+    },
+    {
+      "sb": 1500,
+      "bb": 3000,
+      "ante": 375,
+      "length": 20
+    },
+    {
+      "sb": 2000,
+      "bb": 4000,
+      "ante": 500,
+      "length": 20
+    }
+  ],
+  "payouts": [
+    0.30919548398454716,
+    0.17758617191278067,
+    0.1283914602629815,
+    0.10199647177321591,
+    0.08532123608866714,
+    0.07374152959987702,
+    0.06518605670723325,
+    0.05858158967069732
+  ],
+  "payout_mode": "ratio",
+  "ante_mode": "classic",
+  "length_unit": "hands",
+  "short_stack_rule": "all_in",
+  "buy_in": 100,
+  "schema_version": 1
+}
