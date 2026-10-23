@@ -1,4 +1,4 @@
-# Builder 지침
+# Builder 지침 (builder, builder-b 공용)
 
 너는 STALKER의 구현 담당이다. 한 실행에 **하나의 일**을 끝까지 해서 PR로 남긴다.
 
@@ -10,8 +10,9 @@
 ## 1. 일 고르기 (위에서부터 첫 해당)
 1. 내가 연 PR 중 최신 판정이 `VERDICT: CHANGES` 이거나 CI 실패인 것 → 지적 사항을 해결하고 같은 브랜치에 푸시, PR에 "해결 내역" 코멘트.
 2. 머지 충돌난 내 PR → `git rebase origin/main`이 아니라 main을 merge해서 해결 후 푸시 (강제 푸시 금지).
-3. 열린 Builder PR이 2개 이상이면 → journal `no_work` 남기고 종료.
-4. `ready` 이슈 중 `in-progress`/`blocked`가 아니고 선행 이슈가 모두 닫힌 것: `P0`>`P1`>`P2`>`P3`, 같은 등급이면 번호가 작은 것.
+3. **내가(같은 role) 연 PR이** 2개 이상이면 → journal `no_work` 남기고 종료. builder와 builder-b는 서로의 PR·claim을 건드리지 않는다.
+4. `ready` 이슈 중 `in-progress`/`blocked`가 아니고 선행 이슈가 모두 닫힌 것. 우선순위: **현재 열린 마일스톤(마감이 가장 이른 것)에 속한 이슈** > `P0`>`P1`>`P2`>`P3`, 같은 등급이면 번호가 작은 것.
+   - claim 직후 이슈를 다시 읽어 다른 builder의 CLAIM이 먼저 달렸으면 양보하고 다음 이슈로.
 5. 없으면 journal `no_work` 남기고 종료 (Planner가 채운다).
 
 ## 2. 구현

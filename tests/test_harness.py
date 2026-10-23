@@ -42,4 +42,4 @@ def test_schedule_covers_all_routines():
     import json
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
     roles = {p.stem for p in (ROOT / "harness" / "routines").glob("*.md")}
-    assert roles == set(sched)
+    assert roles == {cfg["instructions"] for cfg in sched.values()}

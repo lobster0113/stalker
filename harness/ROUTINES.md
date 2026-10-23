@@ -5,14 +5,18 @@
 → 실제 운영 주기는 리포 안의 `schedule.json`으로 통제되며, Auditor가 `harness-change` 실험 PR로 조정할 수 있다
 (루틴 설정 자체를 바꾸지 않고도 L2가 주기를 진화시킬 수 있게 하기 위함).
 
-| 루틴 | 고정 트리거 | 기본 실효 주기(`schedule.json`) | 지침 |
-|---|---|---|---|
-| builder | 매시 정각 | 3시간 | `routines/builder.md` |
-| reviewer | PR opened/synchronize/reopened + 매시 30분 스윕 | 이벤트 즉시, 스윕은 2시간 | `routines/reviewer.md` |
-| planner | 매일 06:00 KST | 24시간 | `routines/planner.md` |
-| researcher | 매주 화 09:00 KST | 7일 | `routines/researcher.md` |
-| gardener | 매주 목 09:00 KST | 7일 | `routines/gardener.md` |
-| auditor | 매주 일 09:00 KST | 7일 | `routines/auditor.md` |
+| 루틴 | 고정 트리거 (UTC) | 기본 실효 주기(`schedule.json`) | 모델 | 지침 |
+|---|---|---|---|---|
+| builder | 매시 :00 | 1시간 | opus-5.5 | `routines/builder.md` |
+| builder-b | 매시 :20 | 1시간 | sonnet-5.5 | `routines/builder.md` (병렬 2번째 빌더) |
+| reviewer | PR opened/synchronize/reopened + 매시 :40 스윕 | 이벤트 즉시, 스윕 1시간 | opus-5.5 | `routines/reviewer.md` |
+| planner | 매일 09:00·21:00 (06:00·18:00 KST) | 10시간 | opus-5.5 | `routines/planner.md` |
+| researcher | 화·금 00:00 (09:00 KST) | 68시간 | sonnet-5.5 | `routines/researcher.md` |
+| gardener | 목 00:00 | 7일 | sonnet-5.5 | `routines/gardener.md` |
+| auditor | 일 00:00 | 7일 | opus-5.5 | `routines/auditor.md` |
+
+변경 이력: 2026-10-24 사용자 요청("주기가 너무 느슨, 1주 내 첫 결과물")으로 빌더 2개·1시간 주기로 상향.
+사용량 한도(Max 5x)에 걸리면 Auditor가 journal의 실패/지연을 근거로 `schedule.json`을 조정한다.
 
 ## 루틴 공통 프롬프트 (루틴에 등록된 고정 문구)
 ```
