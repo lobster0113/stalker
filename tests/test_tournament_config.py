@@ -9,25 +9,21 @@ from stalker.tournament.config import BlindLevel, ConfigError, TournamentConfig
 
 LV = (BlindLevel(25, 50, 0, 3), BlindLevel(50, 100, 0, 2), BlindLevel(100, 200, 0, 4))
 
-
 def make(**kw):
     base = dict(name="t", players=6, table_size=6, starting_stack=1500, levels=LV, payouts=(1.0,))
     base.update(kw)
     return TournamentConfig(**base)
-
 
 def test_json_roundtrip():
     cfg = make(payouts=(0.7, 0.3), buy_in=10)
     assert TournamentConfig.from_json(cfg.to_json()) == cfg
     assert json.loads(cfg.to_json())["schema_version"] == 1
 
-
 def test_unknown_schema_version_rejected():
     d = make().to_dict()
     d["schema_version"] = 99
     with pytest.raises(ConfigError, match="schema_version"):
         TournamentConfig.from_dict(d)
-
 
 @pytest.mark.parametrize("gen,expected", [
     (c.winner_take_all(), (1.0,)),
@@ -38,7 +34,6 @@ def test_simple_payout_generators(gen, expected):
     assert gen == pytest.approx(expected)
     assert sum(gen) == pytest.approx(1.0)
 
-
 def test_mtt_payouts_paid_count_and_shape():
     p = c.mtt_payouts(180, 15)
     assert len(p) == 27
@@ -46,12 +41,10 @@ def test_mtt_payouts_paid_count_and_shape():
     assert all(a > b for a, b in zip(p, p[1:]))
     assert len(c.mtt_payouts(2, 1)) == 1  # at least first place
 
-
 def test_generator_errors():
     for bad in (lambda: c.flat(0), lambda: c.top_heavy(3, 0.5), lambda: c.mtt_payouts(10, 0)):
         with pytest.raises(ConfigError):
             bad()
-
 
 @pytest.mark.parametrize("kw,msg", [
     (dict(players=1), "at least 2"),
@@ -76,13 +69,11 @@ def test_validation_errors(kw, msg):
     with pytest.raises(ConfigError, match=msg):
         make(**kw)
 
-
 def test_amount_payouts():
     cfg = make(payout_mode="amount", payouts=(60, 40), buy_in=20)
     assert cfg.prize_pool == 100
     assert cfg.payout_ratios() == pytest.approx((0.6, 0.4))
     assert make(payouts=(0.7, 0.3), buy_in=10).payout_amounts() == pytest.approx((42, 18))
-
 
 def test_level_at_and_next_level():
     cfg = make()  # level lengths 3, 2, 4 hands
@@ -95,13 +86,11 @@ def test_level_at_and_next_level():
     with pytest.raises(ValueError):
         cfg.level_at(0)
 
-
 def test_minutes_unit_uses_index_lookup():
     cfg = make(length_unit="minutes")
     assert cfg.level_index_at(0) == 0 and cfg.level_index_at(3) == 1
     with pytest.raises(ValueError, match="minutes"):
         cfg.level_at(1)
-
 
 def test_presets_load_and_cover_required_set():
     names = c.preset_names()
@@ -116,11 +105,16 @@ def test_presets_load_and_cover_required_set():
     with pytest.raises(ConfigError, match="unknown preset"):
         c.load_preset("nope")
 
+def _without_payouts(cfg):
+    return {k: v for k, v in cfg.to_dict().items() if k != "payouts"}
 
 def test_committed_presets_match_generator():
     for key, conf in build_presets.build().items():
-        assert c.load_preset(key) == conf, f"run: python -m stalker.tools.build_presets ({key})"
-
+        got = c.load_preset(key)
+        # payout floats come from ** and may differ in the last ulp across platforms
+        assert got.payouts == pytest.approx(conf.payouts, abs=1e-12), key
+        assert _without_payouts(got) == _without_payouts(conf), \
+            f"run: python -m stalker.tools.build_presets ({key})"
 
 def test_replace_revalidates():
     with pytest.raises(ConfigError):
