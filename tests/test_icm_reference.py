@@ -158,3 +158,39 @@ def test_evaluate_spot_against_nash_and_profile():
     assert exploit["loss"] > 0
     with pytest.raises(ir.SpotError, match="169 probabilities"):
         ir.evaluate_spot(lambda s, seat, p: np.ones(3), spot, nash, hero)
+
+
+def test_evaluate_spot_rejects_solution_of_another_spot():
+    spot = ir.Spot((2500, 1500, 3000), 50, 100, (50, 30, 20))
+    other = ir.Spot((2500, 1600, 3000), 50, 100, (50, 30, 20))
+    nash = ir.solve(other)
+
+    def policy(s, seat, pusher):
+        return np.ones(N_CLASSES)
+
+    with pytest.raises(ir.SpotError, match="stacks"):
+        ir.evaluate_spot(policy, spot, nash, 1)
+    payout = ir.solve(ir.Spot(spot.stacks, 50, 100, (60, 40, 0)))
+    with pytest.raises(ir.SpotError, match="payouts"):
+        ir.evaluate_spot(policy, spot, payout, 1)
+    blinds = ir.solve(ir.Spot(spot.stacks, 25, 50, (50, 30, 20)))
+    with pytest.raises(ir.SpotError, match="sb 25 != 50"):
+        ir.evaluate_spot(policy, spot, blinds, 1)
+
+
+@pytest.mark.parametrize("kwargs", [
+    dict(stacks=(1500.5, 2000), sb=50, bb=100),
+    dict(stacks=(1500, 2000), sb=50.0, bb=100),
+    dict(stacks=(1500, 2000), sb=50, bb=100, ante=1.5),
+    dict(stacks=(1500, 2000), sb=50, bb=100, bb_ante=100.0),
+    dict(stacks=(1500, True), sb=50, bb=100),
+])
+def test_spot_requires_integer_chips(kwargs):
+    with pytest.raises(ir.SpotError, match="integer"):
+        ir.Spot(**kwargs)
+
+
+def test_spot_accepts_numpy_integers_and_exposes_baseline_tol():
+    spot = ir.Spot(tuple(np.array([1500, 2000])), np.int64(50), 100)
+    assert spot.stacks == (1500, 2000) and type(spot.sb) is int
+    assert 0 < ir.BASELINE_TOL <= 1e-3

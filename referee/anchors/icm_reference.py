@@ -40,10 +40,20 @@ CLASS_COMBOS = np.array([6.0 if len(c) == 2 else (4.0 if c[2] == "s" else 12.0)
                          for c in HAND_CLASSES])
 PRIOR = CLASS_COMBOS / CLASS_COMBOS.sum()
 VALUE_MODELS = ("icm", "chipev")
+# Gate A baseline tolerance: per-seat best-response gain as a fraction of the prize pool. A
+# 0.1% bound keeps the averaged fictitious-play ranges' residual exploitability below what the
+# gate can resolve, so a policy's loss against the reference is not noise from the baseline.
+BASELINE_TOL = 1e-3
 
 
 class SpotError(ValueError):
     pass
+
+
+def _chips(name: str, x) -> int:
+    if isinstance(x, (bool, np.bool_)) or not isinstance(x, (int, np.integer)):
+        raise SpotError(f"{name} must be integer chips, got {x!r}; round it before building the Spot.")
+    return int(x)
 
 
 @dataclass(frozen=True)
@@ -56,7 +66,9 @@ class Spot:
     bb_ante: int = 0
 
     def __post_init__(self):
-        object.__setattr__(self, "stacks", tuple(self.stacks))
+        for name in ("sb", "bb", "ante", "bb_ante"):
+            object.__setattr__(self, name, _chips(name, getattr(self, name)))
+        object.__setattr__(self, "stacks", tuple(_chips("stacks", x) for x in self.stacks))
         object.__setattr__(self, "payouts", tuple(float(x) for x in self.payouts))
         n = len(self.stacks)
         if not 2 <= n <= 9:
@@ -311,7 +323,7 @@ def _solve_tree(tree: _Tree, scale: float, tol: float, max_iter: int) -> Solutio
     return Solution(spot, st, ev.value, ev.gains(st, spot.n), max_iter, False)
 
 
-def solve(spot: Spot, value_model: str = "icm", fgs_depth: int = 0, tol: float = 1e-3,
+def solve(spot: Spot, value_model: str = "icm", fgs_depth: int = 0, tol: float = BASELINE_TOL,
           max_iter: int = 5000) -> Solution:
     """Approximate equilibrium; `tol` is the per-seat best-response gain bound as a fraction
     of the prize pool (of total chips for chipev)."""
@@ -345,13 +357,18 @@ def evaluate_spot(policy_fn: PolicyFn, spot: Spot, opponents: Strategy | Solutio
     """
     if not 0 <= hero < spot.n:
         raise SpotError(f"hero seat {hero} outside 0..{spot.n - 1}.")
+    if isinstance(opponents, Solution):
+        for f in ("stacks", "sb", "bb", "ante", "bb_ante", "payouts"):
+            a, b = getattr(opponents.spot, f), getattr(spot, f)
+            if a != b:
+                raise SpotError(f"Solution was solved for another spot: {f} {a} != {b}.")
     base = opponents.strategy if isinstance(opponents, Solution) else opponents
     st = base.copy()
     if hero < spot.n - 1:
         st.push[hero] = _policy(policy_fn, spot, hero, None)
     for p in range(hero):
         st.call[hero, p] = _policy(policy_fn, spot, hero, p)
-    tree = _Tree(spot, _value_fn(spot, value_model, fgs_depth, 1e-3, 5000))
+    tree = _Tree(spot, _value_fn(spot, value_model, fgs_depth, BASELINE_TOL, 5000))
     ev = tree.evaluate(st)
     hero_ev = float(ev.value[hero])
     br = hero_ev + float(ev.gains(st, spot.n)[hero])
