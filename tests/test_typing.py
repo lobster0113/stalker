@@ -121,9 +121,27 @@ def test_clustering_shrinks_ess():
     assert cell["s1_pass"] is False
 
 
-def test_deterministic_cell_passes_with_infinite_ess():
-    cell = build_report([decision(game=f"g{g}") for g in range(4)], seed=1)["cells"][0]
-    assert cell["s1_pass"] and cell["actions"]["call"]["ess"] is None
+@pytest.mark.parametrize("n_games", [2, 3, 4, 29])
+def test_small_deterministic_cell_does_not_pass_s1(n_games):
+    cell = build_report([decision(game=f"g{g}") for g in range(n_games)], seed=1)["cells"][0]
+    assert cell["s1_pass"] is False
+    assert cell["actions"]["call"]["half_width"] >= 3 / n_games
+
+
+def test_large_deterministic_cell_passes_s1_with_labelled_ess():
+    rep = build_report([decision(game=f"g{g}") for g in range(100)], seed=1)
+    cell = rep["cells"][0]
+    call = cell["actions"]["call"]
+    assert cell["s1_pass"] and call["ess"] is None and "zero variance" in call["ess_note"]
+    assert call["half_width"] == pytest.approx(0.03)
+    md = to_markdown(rep)
+    assert "zero variance" in md and "∞" not in md
+
+
+def test_deterministic_cell_below_rule_of_three_boundary_fails():
+    # 3/n <= 0.05 needs n >= 60; MIN_GAMES alone (30) must not be enough.
+    cell = build_report([decision(game=f"g{g}") for g in range(40)], seed=1)["cells"][0]
+    assert cell["s1_pass"] is False
 
 
 def test_single_game_cell_is_flagged_not_crashing():

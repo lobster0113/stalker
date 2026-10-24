@@ -21,13 +21,13 @@ python -m stalker.pipeline.generate --preset sng9 --n 200 --seed 1 --out runs/sn
 키를 못 만드는 결정(포지션 불명 등)은 `None`이며 리포트의 `unclassified` 비율로 드러난다. 한계: BB가 림프를 받았을 때는 `unopened`로 센다. 세분화 규칙(최소 잎 크기로 자동 분할)은 후속 작업.
 
 ## 리포트 (`stalker/typing/report.py`)
-셀마다 결정 수·게임 수, 액션 범주(`fold`/`call`/`raise`/`allin`)별 평균 확률(= AI 혼합전략 빈도), 게임 단위 클러스터 부트스트랩 95% CI(`referee.stats.bootstrap_ci`, 1000회, 시드 고정), `ESS = p(1-p)/Var(p̂)`(분산 0이면 `null`), **S1** 통과 여부(평균 ≥ 5%인 모든 주요 액션의 반폭 ≤ 5%p). 게임이 2개 미만인 셀은 `insufficient_games`(데이터 부족)로 표시한다. 결정론적 셀(빈도 0 또는 1)은 분산 0이라 S1을 통과하지만 S4·S5(재현성·포화)는 아직 평가하지 않으므로 "교훈 가능"이 아니다. 정식 계산기는 #52(`referee.sufficiency`)이며 머지되면 후속 이슈에서 교체한다.
+셀마다 결정 수·게임 수, 액션 범주(`fold`/`call`/`raise`/`allin`)별 평균 확률(= AI 혼합전략 빈도), 게임 단위 클러스터 부트스트랩 95% CI(`referee.stats.bootstrap_ci`, 1000회, 시드 고정), `ESS = p(1-p)/Var(p̂)`(근사: 퍼센타일 반폭에서 분산을 역산. 분산 0이면 `null` + `ess_note`), **S1** 통과 여부(평균 ≥ 5%인 모든 주요 액션의 반폭 ≤ 5%p). 게임이 2개 미만인 셀은 `insufficient_games`(데이터 부족)로 표시한다. 분산 0 셀(결정론적 등)은 부트스트랩 반폭이 0이라 정밀도의 증거가 못 된다. 그래서 반폭을 rule-of-three 상한 `3/게임 수`로 대체하고(95%에서 반폭 ≤ 5%p이려면 게임 ≥ 60), 모든 셀은 게임 ≥ 30(`MIN_GAMES`)이어야 S1을 통과한다. 통과한 결정론적 셀도 S4·S5(재현성·포화)는 아직 평가하지 않으므로 "교훈 가능"이 아니다. 정식 계산기는 #52(`referee.sufficiency`)이며 머지되면 후속 이슈에서 교체한다.
 
 ## 리포트를 `ops` 브랜치에 올리기
 ```bash
 git fetch origin ops && git worktree add ../ops origin/ops -B ops   # 이미 있으면 git -C ../ops pull --rebase origin ops
 mkdir -p ../ops/reports/typing/<run_id>
-cp runs/<run_id>/report.json runs/<run_id>/report.md ../ops/reports/typing/<run_id>/
+cp runs/<run_id>/report.json runs/<run_id>/report.md runs/<run_id>/manifest.json ../ops/reports/typing/<run_id>/
 git -C ../ops add -A && git -C ../ops commit -m "<role>: typing report <run_id>" && git -C ../ops push origin ops
 ```
 `records.jsonl`은 크므로 올리지 않는다. `manifest.json`(설정·시드·git sha)은 같이 올려 재현 가능하게 한다.
