@@ -124,7 +124,7 @@ class TournamentEnv:
 
     def action_mask(self, hero: HeroObservation) -> tuple[bool, ...]:
         lg = hero.legal
-        return (bool(lg["fold"]), True) + (bool(lg["raise"]),) * (len(self.raise_pot_fractions) + 1)
+        return (bool(lg["fold"]), bool(lg["call"])) + (bool(lg["raise"]),) * (len(self.raise_pot_fractions) + 1)
 
     # ---- internals ----
     def _to_action(self, hero: HeroObservation, idx: int) -> Action:

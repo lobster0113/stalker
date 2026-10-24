@@ -54,10 +54,24 @@ def test_rewards_conserve_money_over_100_tournaments():
 
 def test_masked_action_rejected_and_mask_matches_legal():
     env = TournamentEnv(hyper_sng())
-    res = env.reset(np.random.default_rng(3))
-    assert res.action_mask[1] and res.action_mask[0] == res.observation.legal["fold"]
-    bad = next((i for i, m in enumerate(res.action_mask) if not m), None)
-    if bad is not None:
+    pol = np.random.default_rng(0)
+    seen_masked = {"fold": False, "raise": False}
+    for seed in range(5):
+        res = env.reset(np.random.default_rng(seed))
+        while not res.done and not all(seen_masked.values()):
+            lg = res.observation.legal
+            assert res.action_mask[0] == lg["fold"] and res.action_mask[1] == lg["call"]
+            assert set(res.action_mask[2:]) == {lg["raise"]}
+            for name, idx in (("fold", 0), ("raise", 2)):
+                if not res.action_mask[idx]:
+                    seen_masked[name] = True
+                    with pytest.raises(ValueError, match="not legal"):
+                        env.step(idx)
+            res = env.step(int(pol.choice([i for i, m in enumerate(res.action_mask) if m])))
+        if all(seen_masked.values()):
+            break
+    assert all(seen_masked.values()), "no masked fold/raise decision was reached"
+    for bad in (-1, env.n_actions):
         with pytest.raises(ValueError, match="not legal"):
             env.step(bad)
     env.close()
