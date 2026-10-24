@@ -66,3 +66,4 @@
 {"ts":"2026-10-24T17:04:08Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"열린 PR 0, ready 이슈 0 (열린 7건 모두 blocked: #16,#17,#18,#20,#39,#40,#43)","friction":"ready 큐 고갈 — planner 주기 사이에 builder가 빈 실행"}
 {"ts":"2026-10-24T17:21:07Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"ready 라벨 열린 이슈 0, 열린 PR 0","friction":""}
 {"ts":"2026-10-24T17:41:06Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 PR 0","friction":""}
+{"ts":"2026-10-24T18:04:42Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"열린 PR 0, ready 이슈 0 (열린 7건 모두 blocked: #16,#17,#18,#20,#39,#40,#43)","friction":"ready 큐 고갈 지속 — 이전 builder 실행 이후 planner가 큐를 채우지 않아 빈 실행 반복"}
