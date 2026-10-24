@@ -70,3 +70,4 @@
 {"ts":"2026-10-24T18:22:54Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"ready 이슈 없음(열린 7건 모두 blocked), 열린 PR 0","friction":""}
 {"ts":"2026-10-24T18:41:26Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"gh CLI token invalid; used GitHub MCP"}
 {"ts":"2026-10-24T19:03:54Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"열린 PR 0, ready 이슈 0 (열린 7건 모두 blocked: #16,#17,#18,#20,#39,#40,#43)","friction":"ready 큐 고갈 3회째 연속 — planner 주기가 builder 주기보다 길어 빈 실행 반복"}
+{"ts":"2026-10-24T19:23:26Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"ready 이슈 0, 열린 PR 0 (남은 이슈 모두 blocked)","friction":"STATE.md의 ready 큐(6)와 실제 GitHub 라벨 상태 불일치 — 이미 다른 실행이 처리했거나 STATE 갱신 지연"}
