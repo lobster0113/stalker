@@ -3,9 +3,11 @@
 Scheme (one *block* = one bootstrap cluster):
 - A block has one game seed. With the same seed the director draws the same seating permutation
   and (until the games diverge) the same decks, so the games below share their luck.
-- player_ids are split by a mask: even ids play the candidate (A), odd ids the baseline (B).
-  For each of `rotations` cyclic shifts of that mask, the block plays the shifted mask and its
-  complement (A and B swap every position).
+- player_ids are split by a contiguous mask: ids 0..ceil(n/2)-1 play the candidate (A), the rest
+  the baseline (B). For each of `rotations` cyclic shifts of that mask (shift r moves it by r ids),
+  the block plays the shifted mask and its complement (A and B swap every position). A contiguous
+  mask (not alternating) is used so that every allowed shift gives new masks: with n even a shift
+  by n/2 equals the complement of shift 0, so rotations <= n/2; with n odd rotations <= n.
 - Each game's diff = mean ROI of A players - mean ROI of B players; the block diff is the mean
   over its 2 * rotations games. ROI = (prize - entry) / entry with entry = prize_pool / players.
 - Agent rngs are keyed by (seed, block, game, player_id), so two instances of the same agent
@@ -56,8 +58,15 @@ class EvalResult:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
 
+def max_rotations(players: int) -> int:
+    return players // 2 if players % 2 == 0 else players
+
+
 def _masks(players: int, rotations: int) -> list[list[bool]]:
-    base = [p % 2 == 0 for p in range(players)]
+    if not 1 <= rotations <= max_rotations(players):
+        raise ValueError(f"rotations={rotations}: must be in 1..{max_rotations(players)} for {players} players "
+                         "(more shifts repeat earlier masks).")
+    base = [p < (players + 1) // 2 for p in range(players)]
     out = []
     for r in range(rotations):
         m = base[-r:] + base[:-r] if r else list(base)
@@ -72,8 +81,6 @@ def evaluate(config: TournamentConfig, candidate: AgentFactory, baseline: AgentF
     """Play `blocks` duplicate blocks and return the candidate-minus-baseline ROI diff with its CI."""
     if blocks < 2:
         raise ValueError(f"blocks={blocks}: need at least 2 blocks (clusters) for a CI.")
-    if not 1 <= rotations <= config.players:
-        raise ValueError(f"rotations={rotations}: must be in 1..players ({config.players}).")
     entry = config.prize_pool / config.players
     if entry <= 0:
         raise ValueError("prize pool is 0, ROI is undefined; set buy_in or use payout_mode='amount'.")
