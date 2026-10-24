@@ -99,10 +99,11 @@ class ObservationBuilder:
 
     def _tournament(self, obs: Observation) -> dict:
         cfg, bb = self.config, obs.bb
-        stacks = np.array(obs.all_stacks if obs.all_stacks else sorted(obs.stacks.values(), reverse=True), dtype=float)
-        mine = obs.stacks[obs.seat]
-        # place among surviving players by start-of-round chips; 1 = chip leader
-        hero_rank = 1 + int((stacks > mine).sum())
+        if not obs.all_stacks:
+            raise ValueError("Observation.all_stacks is empty; the tournament-wide stack distribution is required.")
+        stacks = np.array(obs.all_stacks, dtype=float)
+        # rank by start-of-round chips on both sides (current stacks already lose blinds/bets); 1 = chip leader
+        hero_rank = 1 + int((stacks > obs.hand_start_stack).sum())
         return {
             "level_index": cfg.level_index_for_hand(obs.hand_no),
             "blinds": {"sb": obs.sb, "bb": obs.bb, "ante": obs.ante},

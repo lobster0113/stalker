@@ -25,3 +25,7 @@ AI 정책이 보는 정보의 **유일한 출입구**는 `stalker/observe/builde
 ## 허용 / 금지
 - 허용: 본인 홀카드, 공개 보드, 공개 액션, SHOWDOWN으로 공개된 카드, 공개 토너먼트 요약.
 - 금지: 타인 비공개 카드, 덱 순서, 난수 시드/Generator, 타 테이블 개별 핸드 로그. `tests/test_observe.py`가 관측 객체를 재귀 순회해 허용 집합 밖 카드와 금지 필드명을 검사한다.
+
+## 토너먼트 요약 보충
+- `hero_rank`는 `all_stacks`와 같은 시점(라운드 시작)의 히어로 스택(`Observation.hand_start_stack`)으로 매긴다. `all_stacks`가 비어 있으면 `ValueError`(대체 분포를 쓰지 않는다).
+- 핸드 도중 합류한 메모리는 그 핸드의 `NEW_HAND`를 못 봤으므로, 좌석 매핑이 없는 SHOWDOWN 항목은 건너뛰고 다음 핸드부터 기록한다.

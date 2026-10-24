@@ -189,3 +189,44 @@ def test_mid_game_join_remembers_only_after_join():
         full.observe(e)
     assert 0 < s.get("gj").hands_seen < full.get("gj").hands_seen
     assert all(s.get("gj").opponents[p].hands <= full.get("gj").opponents[p].hands for p in s.get("gj").opponents)
+
+
+def test_hero_rank_is_consistent_with_players_remaining():
+    cfg = load_preset("6max_sng_wta")
+    agents = [Recorder(np.random.default_rng(i), cfg) for i in range(cfg.players)]
+    run_game(cfg, agents, np.random.default_rng(1), game_id="gr")
+    built = [b[0] for a in agents for b in a.built]
+    assert built
+    for ho in built:
+        assert 1 <= ho.tournament["hero_rank"] <= ho.tournament["players_remaining"]
+    first = [a.built[0][0] for a in agents]  # equal starting stacks: everyone ties for the lead
+    assert all(h.tournament["hero_rank"] == 1 for h in first)
+
+
+def test_empty_all_stacks_is_an_error():
+    cfg = load_preset("6max_sng_wta")
+    seen = []
+
+    class Grab(RandomLegalAgent):
+        def act(self, obs):
+            seen.append(obs)
+            return super().act(obs)
+
+    run_game(cfg, [Grab(np.random.default_rng(i)) for i in range(cfg.players)], np.random.default_rng(1), game_id="ge")
+    with pytest.raises(ValueError, match="all_stacks"):
+        ObservationBuilder(cfg).build(dataclasses.replace(seen[0], all_stacks=()))
+
+
+def test_mid_hand_join_does_not_crash_on_showdown():
+    cfg = load_preset("6max_sng_wta")
+    events: list[Event] = []
+    agents = [RandomLegalAgent(np.random.default_rng(i)) for i in range(cfg.players)]
+    run_game(cfg, agents, np.random.default_rng(5), observer=events.append, game_id="gm")
+    table = next(e.table_id for e in events if e.type == "NEW_HAND")
+    mine = [e for e in events if e.table_id == table]
+    sd = next(i for i, e in enumerate(mine) if e.type == "SHOWDOWN")
+    s = GameMemoryStore()
+    s.start_game("gm")
+    for e in mine[sd:]:  # this hand's NEW_HAND is missing
+        s.observe(e)
+    assert s.get("gm").showdowns == [] or all(r.hand_id != mine[sd].hand_id for r in s.get("gm").showdowns)

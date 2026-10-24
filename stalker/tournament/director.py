@@ -167,7 +167,8 @@ class _Game:
                 sb=level.sb, bb=level.bb, ante=level.ante,
                 next_blinds=None if nxt is None else (nxt.sb, nxt.bb, nxt.ante),
                 players_remaining=len(self.stacks), paid_places=len(cfg.payouts), legal=la,
-                action_history=tuple(hand.actions()), all_stacks=self.round_stacks)
+                action_history=tuple(hand.actions()), all_stacks=self.round_stacks,
+                hand_start_stack=start[seat])
             action = agent.act(obs)
             street = len(hand.board())  # 0/3/4/5 board cards = preflop/flop/turn/river
             kind = self._apply(hand, la, action)

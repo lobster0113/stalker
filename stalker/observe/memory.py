@@ -124,7 +124,9 @@ class GameMemoryStore:
             mem.recent_actions.append(PublicAction(event.hand_id, p, street, a, d["amount"]))
         elif event.type == "SHOWDOWN":
             for seat, cards in d["hands"].items():
-                p = self._seat_players[seat]
+                p = self._seat_players.get(seat)
+                if p is None:  # joined mid-hand: seat map comes from a NEW_HAND we never saw
+                    continue
                 mem.stats(p).showdowns += 1
                 mem.showdowns.append(ShowdownRecord(event.hand_id, p, tuple(cards), tuple(d["board"])))
         elif event.type == "HAND_END":
