@@ -135,8 +135,32 @@ def test_bench_without_binary_exits_2(tmp_path, monkeypatch):
     assert bench_texassolver.make_spot("turn").street() == "turn"
 
 
+def test_bench_prints_documented_json_lines(tmp_path, monkeypatch, capsys):
+    home = fake_install(tmp_path, f"""
+echo '{{"iteration":9,"exploitibility":0.8,"time_ms":1}}' > tmp_log.txt
+echo '{json.dumps(dump())}' > result.json
+""")
+    monkeypatch.setenv("STALKER_TEXASSOLVER_HOME", str(home))
+    assert bench_texassolver.main(["--streets", "river", "turn", "--accuracy", "1", "--threads", "1"]) == 0
+    lines = [json.loads(x) for x in capsys.readouterr().out.splitlines()]
+    assert [(x["street"], x["target_accuracy_pct"]) for x in lines] == [("river", 1.0), ("turn", 1.0)]
+    for x in lines:
+        assert tuple(x) == bench_texassolver.OUTPUT_FIELDS
+        assert (x["threads"], x["exploitability_pct"], x["iterations"], x["solver_version"]) == (1, 0.8, 10, "deadbeef")
+    for name in bench_texassolver.OUTPUT_FIELDS:
+        assert f"`{name}`" in bench_texassolver.__doc__, f"document JSON key {name!r} in the module docstring"
+
+
+SKIP_REASON = ("console_solver not installed: run scripts/install_texassolver.sh "
+               "(installs to $STALKER_TEXASSOLVER_HOME, default ~/.cache/stalker/texassolver)")
+
+
+def test_skip_reason_says_how_to_install():
+    assert "scripts/install_texassolver.sh" in SKIP_REASON and "STALKER_TEXASSOLVER_HOME" in SKIP_REASON
+
+
 @pytest.mark.slow
-@pytest.mark.skipif(ts.find_binary() is None, reason="console_solver not installed (scripts/install_texassolver.sh)")
+@pytest.mark.skipif(ts.find_binary() is None, reason=SKIP_REASON)
 def test_river_spot_sanity():
     r = ts.solve(RIVER, SolveSettings(accuracy=0.5, max_iteration=200), timeout=600)
     root = r.root

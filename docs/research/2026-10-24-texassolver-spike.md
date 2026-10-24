@@ -19,11 +19,11 @@
 - 덤프의 `player` 1 = OOP, 0 = IP. 루트는 해당 스트리트 OOP 첫 결정. 보드와 겹치는 콤보는 솔버가 제거한다. 액션 문자열은 `CHECK`, `FOLD`, `CALL`, `BET 50.000000`, `RAISE 200.000000` 형식(C++ `to_string`).
 - 덤프 깊이 `set_dump_rounds 1` = 현재 스트리트만. 다음 스트리트(찬스 노드 이후)가 필요하면 깊이를 올리거나 해당 보드로 다시 솔브.
 
-## 측정 결과 (이 환경)
-측정하지 못했다. 재현 명령:
+## 측정 결과
+**비어 있음 — #8-C에서 CI로 채움** (빌드·측정 잡은 #8-B). 로컬 수치는 넣지 않는다. 재현 명령:
 ```bash
 scripts/install_texassolver.sh
-python -m stalker.tools.bench_texassolver           # JSON 줄 출력
+python -m stalker.tools.bench_texassolver           # JSON 줄 출력(필드: 모듈 문서 `OUTPUT_FIELDS`)
 python -m pytest -m slow tests/test_texassolver.py  # 리버 상식 검증
 ```
 | 스트리트 | 목표 %pot | 시간 | 피크 RSS | 반복 | 스팟/일 |
