@@ -8,7 +8,7 @@ STALKER의 모든 "좋아졌다/나빠졌다" 판정은 여기의 코드가 CI�
 | `PROTECTED_PATHS` | 라벨별 보호 경로 |
 | `guard.py` | PR이 보호 경로를 라벨 없이 바꾸면 CI 실패 |
 | `gates.py` | G0/G1/G2 게이트 (`quick`, `full`) |
-| `anchors/` | 이론 기준선: ICMizer-등가 참조기(`icm_reference.py`), HU 클래스 에퀴티 테이블(`hu_equity.py`) |
+| `anchors/` | 이론 기준선: ICMizer-등가 참조기(`icm_reference.py`), HU 클래스 에퀴티 테이블(`hu_equity.py`), HU 푸시/폴드 내시·EV 손실(`pushfold.py`) |
 | `stats.py` | 게이트 통계: 클러스터 부트스트랩 CI, SPRT(무익성 중단 전용), 비열등성/우월성 판정, 필요 표본 수 |
 | `evaluate.py` | duplicate 토너먼트 평가: 후보 vs 기준 에이전트 ROI 차이와 CI, 결과 JSON(설정·시드 정책·참조기 버전) |
 | `metrics.py` | main 머지마다 `ops:metrics/history.jsonl`에 append되는 지표 스냅샷 |
