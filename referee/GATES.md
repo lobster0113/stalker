@@ -35,6 +35,7 @@
 
 ## Gate B — ICMizer-informed 참조 봇과 전체 토너먼트
 - 참조 봇: ICMizer-등가 참조기(지원 구간) + 고정 비지원 구간 전략(버전 표기, v1: 표준 오픈/3벳 차트 + 에퀴티 기반 포스트플랍 규칙). 버전업 시 이전 결과 보존.
+- 구현: `referee/agents/reference_bot.py`(`REFERENCE_BOT_VERSION`). v1 기준선 확인: 무작위 합법 봇 대비 6max·9max 각 200 토너먼트 CI 하한 > 0(slow 테스트 `tests/test_reference_bot.py`).
 - 평가: 동일 토너먼트 환경(6인·9인 × 승자독식/플랫/톱헤비/MTT형 지급)에서 반복 대전, 좌석·난수 교환 duplicate 평가, 토너먼트 단위 재표본화.
 - 통과: AI−참조봇 ROI 차이의 95% CI 하한 > 0.
 
