@@ -76,3 +76,4 @@
 {"ts":"2026-10-24T20:22:58Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"main quick gate PASS; no open PRs; no ready issues (7 open, all blocked)","friction":""}
 {"ts":"2026-10-24T20:40:56Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-10-24T21:03:46Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"gates quick PASS on e065c6a; no open PRs; no ready issues (7 open, all blocked)","friction":""}
+{"ts":"2026-10-24T21:07:36Z","role":"planner","outcome":"planned","issue":null,"pr":null,"notes":"큐 보충: #16·#39 ready 전환, 신규 #51(CI rl 잡, harness-change)·#52(충분성 계산기, referee-change), #43 선행에 #51 추가; ready 4","friction":"planner 일 1회 주기 동안 ready 큐가 소진되어 builder가 9회 빈 실행; STATE의 ready 목록이 실제 라벨과 어긋날 수 있음"}
