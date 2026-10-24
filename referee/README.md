@@ -11,6 +11,7 @@ STALKER의 모든 "좋아졌다/나빠졌다" 판정은 여기의 코드가 CI�
 | `anchors/` | 이론 기준선: ICMizer-등가 참조기(`icm_reference.py`), HU 클래스 에퀴티 테이블(`hu_equity.py`), HU 푸시/폴드 내시·EV 손실(`pushfold.py`) |
 | `stats.py` | 게이트 통계: 클러스터 부트스트랩 CI, SPRT(무익성 중단 전용), 비열등성/우월성 판정, 필요 표본 수 |
 | `evaluate.py` | duplicate 토너먼트 평가: 후보 vs 기준 에이전트 ROI 차이와 CI, 결과 JSON(설정·시드 정책·참조기 버전) |
+| `gate_r/` | Gate R 규칙 정확성 스위트: 독립 평가기·사이드팟 정산·이벤트 재생 검사, `python -m referee.gate_r` (`GATES.md` Gate R) |
 | `metrics.py` | main 머지마다 `ops:metrics/history.jsonl`에 append되는 지표 스냅샷 |
 
 ## 게이트 통계 (`stats.py`, `evaluate.py`)
@@ -32,7 +33,7 @@ STALKER의 모든 "좋아졌다/나빠졌다" 판정은 여기의 코드가 CI�
 - 재현: 블록 diff는 `evaluate(cfg, f, f, blocks=300, seed=100).block_diffs`(rotations=1, 연속 블록 마스크)의 표본 SD. 마스크를 교대→연속 블록으로 바꾼 뒤 다시 쟀다(2026-10-24, 로컬). 독립 게임 열은 마스크와 무관해 그대로다.
 
 ## 앞으로 추가될 것 (Planner가 `referee-change` 이슈로 관리)
-- 엔진 불변식 퍼저(G1), 재현성 체크(G1)
+- 재현성 체크(G1)
 - 벤치마크 봇 필드 + G2 등록 (평가기·신뢰구간은 `evaluate.py`·`stats.py`로 구현됨)
 - 적응 가치 평가: 적응형 vs 사전정보 고정 AI (G2)
 - 이론 앵커: 숏스택 push/fold 내시 대비 EV 손실 (G2)
