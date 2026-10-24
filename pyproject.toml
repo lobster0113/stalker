@@ -11,6 +11,7 @@ dependencies = ["numpy>=1.26", "pokerkit==0.7.7"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+rl = ["torch>=2.2"]  # CPU policy network (stalker/rl/policy.py); not needed for the engine or gates
 
 [tool.setuptools.packages.find]
 include = ["stalker*", "referee*"]
