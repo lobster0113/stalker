@@ -14,6 +14,7 @@
   - `anchors/` — 이론 기준선. `hu_equity.py`: numpy 벡터화 7카드 평가기(`evaluate`와 점수 동일) + 169×169 클래스 올인 에퀴티 `E`·비충돌 콤보 쌍 수 `N`(`data/hu_class_equity.json`, `python -m referee.anchors.hu_equity`로 고정 시드 재생성). `icm_reference.py`: ICMizer-등가 참조기 v1 — 액션 순서 스택(끝 2석 = SB·BB)·일반/BB 앤티·페이아웃의 푸시/폴드·단일 콜러 트리를 역귀납 평가, 가상 플레이로 플레이어별 BR 이득 ≤ 상금풀×`tol`(기본 0.1%)까지 수렴. 가치 모델 `icm`(해당 핸드 탈락자는 그 순위 상금)·`chipev`, `fgs_depth` d면 말단을 다음 핸드(버튼 1칸) 깊이 d−1 해로 평가. `evaluate_spot(policy_fn, spot, opponents, hero)`: 고정 상대(내시 `Solution` 또는 `top_percent_strategy` 같은 `Strategy`) 대비 히어로 기대 상금·BR 대비 손실. 한계(오버콜 없음, 비참여자 카드 제거 무시, 포스팅 올인 스팟 거부)는 모듈 문서에.
   - `stats.py` — 클러스터 부트스트랩 백분위 CI(`bootstrap_ci`), 정규 SPRT(`sprt`, 무익성 중단 전용), `noninferiority`/`superiority`(CI 하한 판정), `required_tournaments`(검정력 0.9·α 0.05 블록 수).
   - `evaluate.py` — `evaluate(config, candidate, baseline, blocks, seed, rotations)`: 블록마다 같은 게임 시드로 연속 블록 A/B 마스크의 `rotations`개 순환 이동과 각 보완 마스크(좌석 교환)를 플레이하는 duplicate 평가(이동마다 서로 다른 마스크, 짝수 인원은 `rotations` ≤ n/2), 블록 = 부트스트랩 클러스터. `EvalResult.to_json()`에 설정·시드 정책·참조기 버전·블록별 diff 기록.
+  - `gate_r/` — Gate R 규칙 정확성 스위트(`python -m referee.gate_r [--full]`, `gates full`에 등록, 지표 `gate_r_pass_rate`). `evaluator.py`(독립 7장 평가기)·`settlement.py`(독립 사이드팟 정산: 앤티 데드 머니, 레이어 분할, 못 이기는 핸드 머크 후 같은 좌석 팟 병합, 홀수 칩은 버튼 왼쪽 첫 승자)·`checks.py`(공개 이벤트 스트림을 독립 규칙 모델로 재생해 항목별 `Tally`)·`suite.py`(프리셋 × fast 구조 변형 × 봇 × 시드). PokerKit·`stalker.tournament.hand`를 import하지 않는다(테스트로 강제).
 - `harness/` — 하네스(L1/L2). 프로토콜, 루틴 지침, 스케줄, 훅, 실험 기록.
 - `ops` 브랜치 — 운영 데이터(STATE, journal, metrics, reports).
 

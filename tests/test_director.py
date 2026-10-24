@@ -221,3 +221,26 @@ def test_input_validation():
         bad = dataclasses.replace(cfg, **{field: value})
         with pytest.raises(ConfigError, match="not implemented"):
             run_game(bad, _agents(Passive, 6), np.random.default_rng(0))
+
+
+def test_folded_seats_leave_the_hand_and_are_never_shown():
+    class Spy(RandomLegalAgent):
+        checked = 0
+
+        def act(self, obs):
+            gone = {seat for seat, kind, _ in obs.action_history if kind == "f"}
+            assert not gone & set(obs.in_hand), "in_hand must drop folded seats"
+            Spy.checked += bool(gone)
+            return super().act(obs)
+
+    cfg = load_preset("6max_sng_wta")
+    events = []
+    run_game(cfg, _agents(Spy, cfg.players), np.random.default_rng(0), observer=events.append)
+    folded = defaultdict(set)
+    for e in events:
+        if e.type == "ACTION" and e.data["action"] == "fold":
+            folded[e.hand_id].add(e.data["seat"])
+        elif e.type == "SHOWDOWN":
+            assert not set(e.data["hands"]) & folded[e.hand_id], "folded hole cards must stay hidden"
+            assert len(e.data["hands"]) >= 2
+    assert any(folded.values()) and Spy.checked > 0

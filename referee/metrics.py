@@ -30,12 +30,20 @@ def code_size() -> dict:
     return {"stalker_loc": n}
 
 
+def gate_r() -> dict:
+    from referee.gate_r.suite import run_suite
+
+    tally = run_suite()
+    return {"gate_r_pass_rate": round(tally.pass_rate, 6), "gate_r_checks": tally.total}
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
     snap.update(test_counts())
     snap.update(code_size())
+    snap.update(gate_r())
     return snap
 
 

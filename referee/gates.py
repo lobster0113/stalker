@@ -15,7 +15,9 @@ ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
 
 # Extra full-gate checks: (name, argv). Added via referee-change PRs as the product grows.
-FULL_CHECKS: list[tuple[str, list[str]]] = []
+FULL_CHECKS: list[tuple[str, list[str]]] = [
+    ("gate_r", [PY, "-m", "referee.gate_r", "--full"]),
+]
 
 
 def _run(name: str, argv: list[str]) -> bool:
