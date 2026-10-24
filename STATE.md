@@ -1,23 +1,27 @@
-# STATE (2026-10-23, planner)
+# STATE (2026-10-24, planner)
 ## 현재 단계
-P0→P1 경계. P1 엔진 기반(#1~#3, #5~#7) 머지 완료. P0 종료에는 관측 계약 구현(#12)+Gate L 골격(#13)이, P1 종료(Gate R 100%)에는 심판 소유 Gate R 스위트(#27)가 남았다. 단계 전환 아직 아님.
+P1 종료 기준 충족: Gate R 100%(CI e5d4ee7, gate_r_pass_rate=1.0, 136973 checks). P0 잔여는 Gate L 골격(#13)뿐 → #13 머지 시 P0 종료. 실질 작업 단계는 P2(참조 봇 v1·Gate A/B 재현)로 전환. P3(RL)은 CPU 골격만 병행(#41~#43), 대규모 학습은 NH-1 대기.
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. #27 Gate R 심판 스위트(P1) — Gate R 불변식이 제품 테스트에만 있어 P1 종료를 심판이 판정할 수 없다. 심판 공백이 최우선.
-2. #12 Observation Builder·Game Memory Store(P1) → #13 Gate L — 헌장 3(기억 경계)의 바닥이며 #13·#21을 푼다.
-3. #10 ICMizer-등가 참조기 + #14 게이트 통계 평가기(P2) — P2(Gate A/B 재현)와 #15→#16→#17 사슬을 푼다. #19 고속 엔진은 병행.
+1. #13 Gate L(P1) — P0 종료 조건. 기억 경계 심판 없이는 #43(RL)·Gate C를 판정할 수 없다.
+2. #15 Gate B 참조 봇 v1(P1) — P2의 기준선. #16 유형화 → #17 학습 페이지(M1)를 푼다.
+3. #41/#42 RL env·정책(P2) — P3 착수 준비. #43 PPO 스모크의 선행.
+ready 큐(6): #13 P1, #15 P1, #41 P2, #42 P2, #38 P3, #44 P3.
 ## 지표 요약 (최근 값과 추세)
-- tests_passed 50→119 (10-23 하루, 5스냅샷), tests_failed 0, stalker_loc 709→2020. main CI green(c3b9488).
-- 제품 지표(Gate L/R/A/B/C, 강도·유형화·충분성) 아직 산출 불가. #27 머지 시 gate_r_pass_rate 첫 산출 예정.
-- 하네스: 10-23 머지 6건, CHANGES 2회(모두 1회 수정 후 머지), 리버트 0.
+- tests_passed 119→219(10-24), tests_failed 0, stalker_loc 2020→2855. main CI green(e5d4ee7).
+- gate_r_pass_rate 첫 산출 1.0(136973 checks). Gate L/A/B/C, 강도·유형화·충분성은 아직 산출 불가.
+- 하네스: 10-24 머지 8건(#28,#29,#30,#31,#34,#35,#36,#37), CHANGES 3, CLOSE 1(#32 라벨 경합, 절차 문제), 리버트 0. 열린 PR 0.
 ## 경보
-- 큐 정리: #13·#15·#16·#17·#21은 선행 미머지로 ready→blocked(코멘트 남김). 선행 머지 시 planner가 ready 복귀.
-- NEEDS_HUMAN: NH-1(연산 자원, #20·#21 대규모 학습), NH-2(ICMizer PRO, #18) open.
+- 큐 정리(이번 실행): #13·#15 blocked→ready. #8 분해(#38 A / #39 B harness-change / #40 C) 후 닫음. #21 분해(#41/#42/#43) 후 닫음. #44 신규(ICM 참조기 후속). #16·#17은 #15 대기.
+- NEEDS_HUMAN: NH-1(연산 자원, #20·대규모 학습; 결정 예정 10-25), NH-2(ICMizer PRO, #18) open.
 - friction 반복(harness 이슈 후보, Auditor 판단):
-  a) 머지된 작업 브랜치 삭제 불가 — guard_bash 훅이 `git push --delete`를 강제 푸시로 오인(4회).
-  b) 동시성 취소된 CI run이 head sha 체크 목록에 남아 최신 run 식별이 번거로움(4회).
-  c) list_issues에 milestone 없음 → 우선순위 판단에 이슈별 조회(4회). 권고: builder는 milestone 대신 P1~P3 라벨로 선택(builder.md 명시 필요 여부 검토).
-  d) gh CLI 미인증(다수) — PROTOCOL §0에 이미 반영, 추가 조치 불필요.
-- 로컬 Python 3.11 vs CI 3.12 차이로 로컬 PASS가 CI 실패를 숨김(1회) — 재발 시 후보.
+  a) 머지된 작업 브랜치 삭제 불가 — guard_bash가 `git push --delete`를 강제 푸시로 오인하고, MCP merge에는 delete 옵션이 없다(누적 7회+).
+  b) 보호 경로 PR 라벨 경합 — create_pull_request에 labels 인자가 없어 #32가 CLOSE됨(3회). 권고: builder.md에 draft→라벨→ready 순서를 명시하고, reviewer는 guard 재실행 후 판정.
+  c) gates full이 성공 시 침묵해 slow 테스트 실행 여부를 확인할 수 없고, job log blob도 프록시에 막힘(3회). 권고: CI에 테스트별 요약 출력.
+  d) 동시성 취소된 CI run이 체크 목록에 남음(5회). milestone 미조회(5회): builder는 P 라벨 우선.
+  e) 심판이 차단 수준 엔진 버그를 찾았을 때의 규칙 부재(#27, 2회). 이번엔 P0 분리(#33)로 해결.
+  f) 훅 상대경로(`python harness/hooks/guard_bash.py`) — cwd가 바뀌면 모든 Bash가 실패(1회, 영향 큼).
+  g) 고정 시드 A/A 통계 테스트가 무관한 변경에도 ~5% 확률로 깨짐(2회).
+- 로컬 Python 3.11 vs CI 3.12 차이(1회). PR CI가 낡은 base로 돎(1회).
 - 리포 상호작용 제한(collaborators_only) 2027-04-23 만료.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
 없음.
