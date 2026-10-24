@@ -162,8 +162,9 @@ def test_detects_wrong_call_amount_and_undersized_raise():
     events[i] = _replace(events[i], amount=events[i].data["amount"] + 1)
     assert _fails(cfg, events, res, "bet_sizing")
     cfg, events, res = _game()
+    bb = events[_first(events, "NEW_HAND")].data["bb"]
     i = _first(events, "ACTION", lambda e: e.data["action"] == "raise" and e.data["street"] == 0)
-    events[i] = _replace(events[i], amount=events[i].data["amount"] - 1 if events[i].data["amount"] > 101 else 51)
+    events[i] = _replace(events[i], amount=bb + 1)  # below a min raise to 2 BB, and not an all-in
     assert _fails(cfg, events, res, "bet_sizing")
 
 
@@ -176,14 +177,15 @@ def test_heads_up_button_must_post_small_blind_and_act_first():
 
 
 def test_detects_showdown_of_folded_seat():
-    cfg, events, res = _game()
-    i = _first(events, "SHOWDOWN")
-    hid = events[i].hand_id
-    folded = [e.data["seat"] for e in events if e.type == "ACTION" and e.hand_id == hid and e.data["action"] == "fold"]
-    if not folded:
-        pytest.skip("first showdown hand had no fold")
-    hands = {**events[i].data["hands"], folded[0]: ("2c", "2d")}
-    events[i] = _replace(events[i], hands=hands)
+    for seed in range(50):
+        cfg, events, res = _game(seed=seed)
+        folds = {(e.hand_id, e.data["seat"]) for e in events if e.type == "ACTION" and e.data["action"] == "fold"}
+        i = next((i for i, e in enumerate(events) if e.type == "SHOWDOWN"
+                  and any(h == e.hand_id for h, _ in folds)), None)
+        if i is not None:
+            break
+    folded = next(s for h, s in folds if h == events[i].hand_id)
+    events[i] = _replace(events[i], hands={**events[i].data["hands"], folded: ("2c", "2d")})
     assert _fails(cfg, events, res, "street_flow")
 
 
