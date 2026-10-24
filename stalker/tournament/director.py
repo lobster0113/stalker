@@ -83,6 +83,7 @@ class _Game:
         self.ranks: dict[int, int] = {}
         self.hand_id = 0
         self.illegal = 0
+        self.round_stacks: tuple[int, ...] = ()
         self.tables: dict[int, _Table] = {}
         self._next_table_id = 0
         self._seat_initial()
@@ -166,14 +167,16 @@ class _Game:
                 sb=level.sb, bb=level.bb, ante=level.ante,
                 next_blinds=None if nxt is None else (nxt.sb, nxt.bb, nxt.ante),
                 players_remaining=len(self.stacks), paid_places=len(cfg.payouts), legal=la,
-                action_history=tuple(hand.actions()))
+                action_history=tuple(hand.actions()), all_stacks=self.round_stacks,
+                hand_start_stack=start[seat])
             action = agent.act(obs)
+            street = len(hand.board())  # 0/3/4/5 board cards = preflop/flop/turn/river
             kind = self._apply(hand, la, action)
             if kind == "fold":
                 folded.add(seat)
             self._emit(Event("ACTION", self.game_id, hand_id, table.id, {
                 "seat": seat, "player_id": seat_players[seat], "action": kind[0], "amount": kind[1],
-                "pot": hand.state.total_pot_amount}), table)
+                "pot": hand.state.total_pot_amount, "street": street, "facing_bet": la.call_amount > 0}), table)
 
         alive_seats = [s for s in seat_players if s not in folded]
         if len(alive_seats) > 1:
@@ -225,6 +228,7 @@ class _Game:
             if hand_no > MAX_ROUNDS:
                 raise RuntimeError(f"game exceeded {MAX_ROUNDS} rounds; agents never bust each other out")
             busted: list[tuple[int, int]] = []
+            self.round_stacks = tuple(sorted(self.stacks.values(), reverse=True))
             for table in sorted(self.tables.values(), key=lambda t: t.id):
                 busted += self._play_hand(table, hand_no)
             if sum(self.stacks.values()) != total:
