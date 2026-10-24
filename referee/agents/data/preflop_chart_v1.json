@@ -1,0 +1,12 @@
+{
+  "version": "chart-v1",
+  "note": "Fixed non-solver preflop chart for the Gate B reference bot. Ranges are 'top fraction' of combos by heads-up equity (stalker.core.ranges.class_top_pct). Changing any value requires a new version file; earlier results stay tied to their version.",
+  "open_top_pct_by_players_behind": {"1": 0.40, "2": 0.42, "3": 0.27, "4": 0.20, "5": 0.16, "6": 0.13, "7": 0.11, "8": 0.10},
+  "open_size_bb": 2.5,
+  "open_size_per_limper_bb": 1.0,
+  "vs_open": {"threebet_top_pct": 0.05, "call_top_pct": 0.14, "bb_call_top_pct": 0.30, "threebet_size_x": 3.0},
+  "vs_3bet": {"fourbet_top_pct": 0.025, "call_top_pct": 0.06},
+  "vs_4bet_plus": {"jam_top_pct": 0.02, "call_top_pct": 0.025},
+  "bb_vs_limp_raise_top_pct": 0.12,
+  "jam_if_raise_commits_fraction": 0.4
+}

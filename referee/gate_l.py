@@ -18,6 +18,7 @@ from typing import Callable
 
 import numpy as np
 
+from referee.agents.reference_bot import ReferenceBot
 from stalker.agents.base import Agent, Event, Observation
 from stalker.agents.random_agent import RandomLegalAgent
 from stalker.observe.builder import HeroObservation, ObservationBuilder
@@ -314,8 +315,12 @@ def _random_agent() -> Agent:
     return RandomLegalAgent(np.random.default_rng(0))
 
 
+def _reference_bot() -> Agent:
+    return ReferenceBot(np.random.default_rng(0))
+
+
 # Agents under test. Register a new policy here (referee-change) so every CI run checks its isolation.
-REGISTRY: dict[str, Callable[[], Agent]] = {"random_legal": _random_agent}
+REGISTRY: dict[str, Callable[[], Agent]] = {"random_legal": _random_agent, "reference_bot_v1": _reference_bot}
 
 
 def main() -> int:
