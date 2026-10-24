@@ -44,8 +44,7 @@ from stalker.rl.policy import VARIANTS, Policy, PolicyConfig  # noqa: E402
 
 
 def make(variant: str, seed: int = 0) -> Policy:
-    torch.manual_seed(seed)
-    return Policy(PolicyConfig(variant=variant, n_actions=5))
+    return Policy(PolicyConfig(variant=variant, n_actions=5), seed)
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
@@ -67,14 +66,27 @@ def test_all_masked_row_is_an_error():
         pol(pol.collate([data[0][0]]), torch.zeros(1, 5, dtype=torch.bool))
 
 
-def test_variants_differ_only_by_memory_inputs():
+def test_ai1_differs_from_ai0_only_through_opponent_stats():
     obs, mask = sample(40)[-1]
     m = torch.tensor([mask])
     a0, a1 = make("ai0"), make("ai1")
     a1.load_state_dict(a0.state_dict())
-    stats_visible = any(s.stats and s.hands_seen for s in obs.seats)
-    assert stats_visible
+    assert any(s.stats and s.hands_seen for s in obs.seats)
     assert not torch.allclose(a0(a0.collate([obs]), m).probs, a1(a1.collate([obs]), m).probs)
+    no_stats = dataclasses.replace(obs, seats=tuple(dataclasses.replace(s, stats=None) for s in obs.seats))
+    assert torch.equal(a0(a0.collate([no_stats]), m).probs, a1(a1.collate([no_stats]), m).probs)
+
+
+def test_init_is_seeded_and_isolated_from_global_rng():
+    torch.manual_seed(123)
+    before = torch.get_rng_state()
+    p1 = make("ai2", 5)
+    assert torch.equal(torch.get_rng_state(), before)
+    torch.rand(100)
+    p2 = make("ai2", 5)
+    assert all(torch.equal(v, p2.state_dict()[k]) for k, v in p1.state_dict().items())
+    other = make("ai2", 6)
+    assert not all(torch.equal(v, other.state_dict()[k]) for k, v in p1.state_dict().items())
 
 
 @pytest.mark.parametrize("variant", VARIANTS)

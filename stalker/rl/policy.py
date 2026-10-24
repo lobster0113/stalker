@@ -42,9 +42,16 @@ class PolicyOutput(NamedTuple):
 
 
 class Policy(nn.Module):
-    def __init__(self, config: PolicyConfig | None = None) -> None:
+    def __init__(self, config: PolicyConfig | None, seed: int) -> None:
         super().__init__()
-        self.config = cfg = config or PolicyConfig()
+        # Weight init draws from torch's global RNG; fork it so the seed alone decides the weights and the
+        # caller's global RNG state is left untouched (CLAUDE.md: no global randomness).
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(seed)
+            self._build(config or PolicyConfig())
+
+    def _build(self, cfg: PolicyConfig) -> None:
+        self.config = cfg
         d = cfg.d_model
         self.seat_in = nn.Sequential(nn.Linear(SEAT_DIM, d), nn.ReLU(), nn.Linear(d, d))
         self.slot_emb = nn.Embedding(9, d)  # slot 0 = hero, then clockwise
