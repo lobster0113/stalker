@@ -221,3 +221,27 @@ def test_input_validation():
         bad = dataclasses.replace(cfg, **{field: value})
         with pytest.raises(ConfigError, match="not implemented"):
             run_game(bad, _agents(Passive, 6), np.random.default_rng(0))
+
+
+def test_folded_seats_leave_the_hand_and_are_never_shown():
+    log = []  # events and observations in the order the director produced them
+
+    class Spy(Passive):
+        def act(self, obs):
+            log.append(obs)
+            return super().act(obs)
+
+    cfg = load_preset("6max_sng_wta")
+    run_game(cfg, _agents(Spy, cfg.players), np.random.default_rng(0), observer=log.append)
+    folded = defaultdict(set)  # hand_id -> seats that have folded so far
+    shows = folds = 0
+    for item in log:
+        if isinstance(item, Observation):
+            assert not set(item.in_hand) & folded[item.hand_id]
+        elif item.type == "ACTION" and item.data["action"] == "fold":
+            folded[item.hand_id].add(item.data["seat"])
+            folds += 1
+        elif item.type == "SHOWDOWN":
+            assert not set(item.data["hands"]) & folded[item.hand_id]
+            shows += 1
+    assert folds and shows

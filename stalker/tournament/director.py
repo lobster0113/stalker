@@ -172,7 +172,7 @@ class _Game:
             action = agent.act(obs)
             street = len(hand.board())  # 0/3/4/5 board cards = preflop/flop/turn/river
             kind = self._apply(hand, la, action)
-            if kind == "fold":
+            if kind[0] == "fold":
                 folded.add(seat)
             self._emit(Event("ACTION", self.game_id, hand_id, table.id, {
                 "seat": seat, "player_id": seat_players[seat], "action": kind[0], "amount": kind[1],
