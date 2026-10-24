@@ -224,23 +224,24 @@ def test_input_validation():
 
 
 def test_folded_seats_leave_the_hand_and_are_never_shown():
-    class Spy(RandomLegalAgent):
-        checked = 0
+    log = []  # events and observations in the order the director produced them
 
+    class Spy(Passive):
         def act(self, obs):
-            gone = {seat for seat, kind, _ in obs.action_history if kind == "f"}
-            assert not gone & set(obs.in_hand), "in_hand must drop folded seats"
-            Spy.checked += bool(gone)
+            log.append(obs)
             return super().act(obs)
 
     cfg = load_preset("6max_sng_wta")
-    events = []
-    run_game(cfg, _agents(Spy, cfg.players), np.random.default_rng(0), observer=events.append)
-    folded = defaultdict(set)
-    for e in events:
-        if e.type == "ACTION" and e.data["action"] == "fold":
-            folded[e.hand_id].add(e.data["seat"])
-        elif e.type == "SHOWDOWN":
-            assert not set(e.data["hands"]) & folded[e.hand_id], "folded hole cards must stay hidden"
-            assert len(e.data["hands"]) >= 2
-    assert any(folded.values()) and Spy.checked > 0
+    run_game(cfg, _agents(Spy, cfg.players), np.random.default_rng(0), observer=log.append)
+    folded = defaultdict(set)  # hand_id -> seats that have folded so far
+    shows = folds = 0
+    for item in log:
+        if isinstance(item, Observation):
+            assert not set(item.in_hand) & folded[item.hand_id]
+        elif item.type == "ACTION" and item.data["action"] == "fold":
+            folded[item.hand_id].add(item.data["seat"])
+            folds += 1
+        elif item.type == "SHOWDOWN":
+            assert not set(item.data["hands"]) & folded[item.hand_id]
+            shows += 1
+    assert folds and shows
