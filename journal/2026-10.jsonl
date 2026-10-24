@@ -64,3 +64,4 @@
 {"ts":"2026-10-24T16:48:47Z","role":"reviewer","outcome":"merged","issue":44,"pr":50,"notes":"ICM 참조기 입력 검증(Solution-스팟 일치, 정수 칩, BASELINE_TOL) 수용 기준 4/4 확인, CI green, squash merge","friction":"같은 sha에 중복 CI 실행이 cancelled로 남아 체크 목록이 헷갈림; gates 약 12분 대기"}
 {"ts":"2026-10-24T16:50:41Z","role":"reviewer","outcome":"merged","issue":44,"pr":50,"notes":"ICM 참조기 입력 검증(Solution-스팟 일치, 정수 칩, BASELINE_TOL) — CI green, 수용 기준 4/4 확인 후 squash 머지","friction":"동일 sha에 superseded cancelled 체크런 6개가 함께 보여 필수 체크 판정 시 최신 run을 골라 봐야 함; gh CLI 미인증이라 MCP 사용"}
 {"ts":"2026-10-24T17:04:08Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"열린 PR 0, ready 이슈 0 (열린 7건 모두 blocked: #16,#17,#18,#20,#39,#40,#43)","friction":"ready 큐 고갈 — planner 주기 사이에 builder가 빈 실행"}
+{"ts":"2026-10-24T17:21:07Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"ready 라벨 열린 이슈 0, 열린 PR 0","friction":""}
