@@ -46,9 +46,27 @@ def test_deterministic_bytes(tmp_path):
 
 
 def test_aa_is_not_pass_and_random_is_not_pass(tmp_path):
-    spec, sha = load_spec(_write(tmp_path, blocks=12))  # sigma=0.5 pilot: 12 < required -> still not pass
+    # tiny pilot_sigma makes the blocks "sufficient", so the CI path really decides
+    spec, sha = load_spec(_write(tmp_path, pilot_sigma=0.01, blocks=6))
     for cand in ("reference", "random_legal"):
-        assert run_gate_b(spec, sha, f"referee.gate_b.candidates:{cand}")["verdict"] != PASS
+        res = run_gate_b(spec, sha, f"referee.gate_b.candidates:{cand}")
+        assert res["verdict"] == FAIL, cand
+
+
+def test_lower_bound_between_zero_and_delta_min_passes(tmp_path, monkeypatch):
+    from referee import evaluate as ev
+    from referee.gate_b import runner
+    from referee.stats import CI
+    real = ev.evaluate
+
+    def fake(*a, **kw):
+        res = real(*a, **kw)
+        ci = CI(mean=0.08, lo=0.05, hi=0.11, n_clusters=6, n_obs=6, level=0.95)
+        return type(res)(**{**res.__dict__, "ci": ci})
+
+    monkeypatch.setattr(runner, "evaluate", fake)
+    spec, sha = load_spec(_write(tmp_path, pilot_sigma=0.01, blocks=6))
+    assert run_gate_b(spec, sha, "referee.gate_b.candidates:random_legal")["verdict"] == PASS
 
 
 def test_sufficient_blocks_random_bot_fails(tmp_path):

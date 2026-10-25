@@ -2,7 +2,8 @@
 
 The spec is pre-registered: its sha256 goes into the result. A preset whose `blocks` is below
 `required_tournaments(pilot_sigma, delta_min, alpha, power)` is "판정 불가(표본 부족)" whatever the CI
-says; otherwise it passes when the CI lower bound is > 0 and >= delta_min, else fails.
+says; otherwise it passes when the 95% CI lower bound is > 0 (GATES.md), else fails. delta_min only sizes the
+sample: n gives power 0.9 when the true effect is delta_min.
 """
 from __future__ import annotations
 
@@ -53,7 +54,7 @@ def run_gate_b(spec: dict, spec_sha256: str, candidate_ref: str) -> dict:
         if spec["blocks"] < required:
             verdict = INSUFFICIENT
         else:
-            verdict = PASS if res.ci.lo > 0 and res.ci.lo >= spec["delta_min"] else FAIL
+            verdict = PASS if res.ci.lo > 0 else FAIL
         presets[name] = {"verdict": verdict, "ci": {"mean": res.ci.mean, "lo": res.ci.lo, "hi": res.ci.hi,
                                                     "level": res.ci.level, "n_clusters": res.ci.n_clusters},
                          "games": res.games, "illegal_actions": res.illegal_actions}
