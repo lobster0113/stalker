@@ -40,6 +40,7 @@
 - 구현: `referee/agents/reference_bot.py`(`REFERENCE_BOT_VERSION`). v1 기준선 확인: 무작위 합법 봇 대비 6max·9max 각 200 토너먼트 CI 하한 > 0(slow 테스트 `tests/test_reference_bot.py`).
 - 평가: 동일 토너먼트 환경(6인·9인 × 승자독식/플랫/톱헤비/MTT형 지급)에서 반복 대전, 좌석·난수 교환 duplicate 평가, 토너먼트 단위 재표본화.
 - 통과: AI−참조봇 ROI 차이의 95% CI 하한 > 0.
+- 실행: `python -m referee.gate_b --spec referee/gate_b/spec_v1.json --candidate module:factory --out DIR` (`factory(config)`가 `rng -> Agent`를 돌려준다. 내장 후보: `referee.gate_b.candidates:reference|random_legal`). 명세(프리셋·blocks·rotations·seed·참조 봇 버전·δ_min·pilot σ)의 sha256과 프리셋별 CI·판정(`pass`/`fail`/`판정 불가(표본 부족)`)을 `gate_b.json`·`gate_b.md`로 쓴다. blocks가 `required_tournaments(pilot σ, δ_min, 0.05, 0.9)`보다 작으면 CI와 무관하게 판정 불가이고, 프리셋 통과는 CI 하한 > 0이며(δ_min은 표본 크기 산정용) 전체 판정은 모두 pass일 때만 pass(종료 코드 0). v1 명세의 δ_min=0.1(ROI)·pilot σ=0.6은 무작위 봇 대 참조 봇 블록 차이 SD 실측(0.31~0.59)에서 잡은 예비값이며 변경은 referee-change다.
 
 ## 표본 정책 (모든 게이트 공통 — AI 성능 판정의 신뢰성이 최우선)
 - **표본 수는 사전 등록한다.** 평가 전에 검정력 분석으로 필요 토너먼트 수를 정하고(검정력 ≥ 0.9, α = 0.05, 목표 최소 효과 δ_min), 그 수를 채우기 전에는 **성공을 선언하지 않는다.** 성공 판정을 위한 조기 중단은 금지.
