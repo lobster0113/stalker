@@ -54,18 +54,33 @@ class S1Result:
     actions: tuple[ActionPrecision, ...]
 
 
+def rule_of_three(n_tournaments: int) -> float:
+    """95% upper bound 3/n on a rate never observed in n independent tournaments."""
+    return 3 / n_tournaments
+
+
 def s1_precision(cell: Cell, *, half_width: float = S1_HALF_WIDTH, major_min: float = MAJOR_MIN,
                  n_boot: int = 2000, rng: np.random.Generator) -> S1Result:
-    """Every major action's 95% cluster-bootstrap CI half-width must be <= `half_width`."""
-    if len(np.unique(cell.tournaments)) < 2:
+    """Every major action's 95% half-width, max(cluster-bootstrap, rule of three 3/n_tournaments), must be <= `half_width`.
+
+    The rule-of-three floor applies always, not only at zero variance: a bootstrap over n tournaments cannot
+    see a deviation rarer than about 1/n, so a near-deterministic action escapes it just like a deterministic
+    one (an only-at-zero floor would let one stray 0.999 decision skip the bound). With n >= ceil(3 / half_width)
+    tournaments the floor is within the criterion and only the bootstrap decides.
+    ESS is the n whose normal-approximation half-width equals the reported one; with zero bootstrap variance
+    that is the n of the rule of three, i.e. the number of tournaments.
+    """
+    n_t = len(np.unique(cell.tournaments))
+    if n_t < 2:
         return S1Result(False, ())  # one tournament: variance is not estimable, so not sufficient
     z = NormalDist().inv_cdf(0.975)
+    floor = rule_of_three(n_t)
     out = []
     for a in np.flatnonzero(cell.probs.mean(axis=0) >= major_min):
         ci = bootstrap_ci(cell.probs[:, a], cell.tournaments, n_boot=n_boot, rng=rng)
-        hw = (ci.hi - ci.lo) / 2
-        var = (hw / z) ** 2
-        ess = ci.mean * (1 - ci.mean) / var if var > 0 else float("inf")
+        boot_hw = (ci.hi - ci.lo) / 2
+        hw = max(boot_hw, floor)
+        ess = ci.mean * (1 - ci.mean) / (hw / z) ** 2 if boot_hw > 0 else float(n_t)
         out.append(ActionPrecision(int(a), ci.mean, hw, ess))
     return S1Result(bool(out) and all(r.half_width <= half_width + _EPS for r in out), tuple(out))
 

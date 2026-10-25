@@ -81,10 +81,39 @@ def test_v1_report_still_builds_with_nothing_lessonable(run_dir, tmp_path):
     (v1_run / "report.json").write_text(json.dumps(v1))
     rp, qp = build(v1_run, tmp_path / "out", max_spots=50)
     out = json.loads(rp.read_text())
-    assert validate_report(out) == [] and out["schema_version"] == 2
+    assert validate_report(out) == [] and out["schema_version"] == 3
     assert out["summary"]["lessonable_cells"] == 0 and not any(c["lessonable"] for c in out["cells"])
     assert json.loads(qp.read_text())["spots"] == []
     assert upgrade_report(out) == out  # current-schema reports pass through unchanged
+
+
+def _v2(report: dict, n_games_ab: list[int]) -> dict:
+    """The schema v2 shape: S1 without the rule-of-three floor, plus the report-side zero-variance guard."""
+    old = copy.deepcopy(report)
+    old["schema_version"] = 2
+    old["criteria"]["zero_variance_min_games"] = 60
+    for c in old["cells"]:
+        c.update(s1=True, s4=True, s5=True, lessonable=True, zero_variance_guard=False, n_games_ab=n_games_ab)
+        c["actions"]["fold"].update(main=True, half_width=0.0, ess=None, ess_note="zero variance on a half")
+        c["actions"]["call"].update(main=True, half_width=0.04, ess=150.0)
+    return old
+
+
+@pytest.mark.parametrize("n_games_ab,ok", [([59, 80], False), ([60, 61], True)])
+def test_v2_report_gets_rule_of_three_floor(run_dir, n_games_ab, ok):
+    """A v2 S1 pass survives only with >= ceil(3 / 0.05) = 60 games on each half."""
+    report = json.loads((run_dir / "report.json").read_text())
+    out = upgrade_report(_v2(report, n_games_ab))
+    assert validate_report(out) == [] and out["schema_version"] == 3
+    assert "zero_variance_min_games" not in out["criteria"]
+    n = min(n_games_ab)
+    for c in out["cells"]:
+        assert "zero_variance_guard" not in c and (c["s1"], c["lessonable"]) == (ok, ok)
+        fold, call = c["actions"]["fold"], c["actions"]["call"]
+        assert fold["ess"] == n and "ess_note" not in fold and fold["half_width"] == pytest.approx(3 / n)
+        assert call["half_width"] == pytest.approx(max(0.04, 3 / n))
+    assert out["summary"]["lessonable_cells"] == (len(out["cells"]) if ok else 0)
+    assert out["summary"]["d1_preliminary"]["lessonable_decision_share"] == (1.0 if ok else 0.0)
 
 
 def test_quiz_spots_expose_no_hidden_cards(lessonable_run, tmp_path):
