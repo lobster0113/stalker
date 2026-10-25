@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from referee.sufficiency import (Cell, judge_cell, make_cell, s1_precision, s4_reproducible,
+from referee.sufficiency import (judge_cell, make_cell, s1_precision, s4_reproducible,
                                  s5_saturated)
 
 
@@ -42,16 +42,40 @@ def test_s4_main_action_must_match():
     assert not s4_reproducible(_fixed(0.51), _fixed(0.49), tol=0.05)
 
 
-def test_s5_boundary_and_flip():
-    # tournament 0..9 mean 0.5; dropping tournaments shifts mean by a controlled amount.
-    probs = [[0.5, 0.5]] * 80 + [[0.6, 0.4]] * 20
-    cell = make_cell(probs, [i // 10 for i in range(100)])
-    # with all 10 tournaments kept at fraction=1.0 the subset equals the cell
-    assert s5_saturated(cell, fraction=1.0, rng=np.random.default_rng(0))
-    # a 20% subset can differ from the full mean (0.52) by more than 2%p
-    assert not all(s5_saturated(cell, fraction=0.2, tol=0.005, rng=np.random.default_rng(s)) for s in range(20))
-    flip = make_cell([[0.9, 0.1]] * 10 + [[0.1, 0.9]] * 11, [i for i in range(21)])
-    assert not all(s5_saturated(flip, fraction=0.3, rng=np.random.default_rng(s)) for s in range(20))
+class _FirstK:
+    """Stand-in rng that keeps the first k tournaments, so S5 boundaries are deterministic."""
+    sizes = []
+
+    def choice(self, ids, size, replace):
+        self.sizes.append(size)
+        return ids[:size]
+
+
+def _five(a, e):
+    # 5 tournaments x 10 decisions; the last differs. Default 80% keeps the first 4, so diff = (a - e) / 5.
+    return make_cell([[a, 1 - a]] * 40 + [[e, 1 - e]] * 10, [i // 10 for i in range(50)])
+
+
+@pytest.mark.parametrize("e,ok", [(0.5, True), (0.499, False), (0.7, True), (0.701, False)])
+def test_s5_boundary(e, ok):
+    # 0.6 vs e: full-cell shift is (0.6 - e) / 5 = 2%p exactly at e = 0.5 and 0.7.
+    assert s5_saturated(_five(0.6, e), rng=_FirstK()) is ok
+
+
+def test_s5_main_action_flip_fails():
+    assert not s5_saturated(_five(0.9, 0.0), rng=_FirstK())
+
+
+def test_s5_two_tournaments_cannot_be_judged():
+    cell = make_cell([[0.9, 0.1]] * 10 + [[0.1, 0.9]] * 12, [0] * 10 + [1] * 12)
+    assert not s5_saturated(cell, rng=np.random.default_rng(0))
+
+
+def test_s5_subset_never_exceeds_fraction():
+    _FirstK.sizes.clear()
+    cell = make_cell([[0.6, 0.4]] * 14, [i // 2 for i in range(14)])  # 7 tournaments -> 5 (71%), not 6 (86%)
+    s5_saturated(cell, rng=_FirstK())
+    assert _FirstK.sizes == [5]
 
 
 def test_same_seed_same_result_and_lessonable():
@@ -65,4 +89,3 @@ def test_invalid_input_has_fix_hint():
         make_cell([[0.5, 0.6]], [0])
     with pytest.raises(ValueError, match="one per decision"):
         make_cell([[0.5, 0.5]], [0, 1])
-    assert isinstance(_fixed(0.5), Cell)

@@ -86,7 +86,9 @@ def s5_saturated(cell: Cell, *, fraction: float = S5_FRACTION, tol: float = S5_T
                  rng: np.random.Generator) -> bool:
     """A random `fraction` of tournaments agrees with the full cell (same main action, within `tol`)."""
     ids = np.unique(cell.tournaments)
-    k = max(1, int(round(len(ids) * fraction)))
+    k = int(len(ids) * fraction)  # floor: never keep more than `fraction`, which would loosen the criterion
+    if k < 1 or k >= len(ids):
+        return False  # the subset equals the full cell, so saturation cannot be judged; collect more tournaments
     keep = rng.choice(ids, size=k, replace=False)
     mask = np.isin(cell.tournaments, keep)
     return _agree(Cell(cell.probs[mask], cell.tournaments[mask]), cell, tol)
