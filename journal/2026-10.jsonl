@@ -138,3 +138,4 @@
 {"ts":"2026-10-25T18:41:02Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"gh CLI token invalid; used GitHub MCP tools"}
 {"ts":"2026-10-25T19:25:06Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"open issues only #18(NH-2),#20(NH-1) blocked; no PRs; main quick gate green","friction":"gates quick silent on success and exceeds 120s foreground timeout"}
 {"ts":"2026-10-25T19:40:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
+{"ts":"2026-10-25T20:14:31Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"no open PRs; open issues only #18(NH-2),#20(NH-1) blocked on human decisions; main gates quick PASS","friction":"gates quick takes >2min with no progress output, exceeds foreground timeout"}
