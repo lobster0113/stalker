@@ -135,3 +135,4 @@
 {"ts":"2026-10-25T17:40:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"gh CLI unauthenticated; used GitHub MCP"}
 {"ts":"2026-10-25T18:15:15Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"gates quick PASS(b598ced). open PR 0, ready 0. blocked #18(NH-2)·#20(NH-1)은 NH 대기라 언블록 불가.","friction":"ready 큐 고갈 재발(#61~#65 모두 머지). pip install+gates quick이 120s 타임아웃을 넘겨 백그라운드 대기 필요."}
 {"ts":"2026-10-25T18:23:01Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"ready 이슈 없음; 열린 이슈 #18(NH-2)·#20(NH-1)만 남고 둘 다 NH 대기라 언블록 불가","friction":"gates quick이 120s 타임아웃 초과(백그라운드로 밀림), 큐 확인에 필요한 정보가 STATE.md와 실제 이슈 상태가 어긋남"}
+{"ts":"2026-10-25T18:41:02Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"gh CLI token invalid; used GitHub MCP tools"}
