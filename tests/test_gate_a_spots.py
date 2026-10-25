@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from collections import Counter
 
@@ -40,6 +41,8 @@ def test_hash_is_stable_and_versioned():
     (lambda s: s.update(players=7), "players"),
     (lambda s: s.update(stacks=[10, 20]), "spot"),  # post-blind stack too small is rejected by Spot
     (lambda s: s.update(ante=5, bb_ante=5), "spot"),
+    (lambda s: s.update(players=9), "stacks"),      # players must equal len(stacks)
+    (lambda s: s.update(pusher=1), "pusher"),       # push spots have no pusher
 ])
 def test_invalid_spot_rejected(tmp_path, mutate, msg):
     s = _first()
@@ -59,3 +62,36 @@ def test_all_spots_solve_within_budget():
     for sid, spot, _ in load_spots():
         assert ir.solve(spot).converged, sid
     assert time.time() - t0 < 60
+
+
+def _eff_bb(spot, m):
+    """Effective stack in bb: push = min(hero, largest stack behind); call = min(hero, pusher)."""
+    h, st = m["hero"], spot.stacks
+    other = max(st[h + 1:]) if m["kind"] == "push" else st[m["pusher"]]
+    return min(st[h], other) / spot.bb
+
+
+def test_v1_effective_stacks_in_range():
+    for sid, spot, m in load_spots():
+        assert 7 <= _eff_bb(spot, m) <= 20, f"{sid}: effective stack outside 7..20bb"
+
+
+def test_v1_ids_match_data():
+    pos = {6: ["utg", "hj", "co", "btn", "sb", "bb"], 9: ["utg", "utg1", "utg2", "lj", "hj", "co", "btn", "sb", "bb"]}
+    for sid, spot, m in load_spots():
+        bb = int(re.search(r"-(\d+)bb", sid).group(1))
+        names = pos[m["players"]]
+        assert f"-{names[m['hero']]}-" in sid or sid.split("-")[2] == names[m["hero"]], sid
+        if m["kind"] == "push":
+            assert spot.stacks[m["hero"]] == bb * spot.bb, sid
+        else:
+            assert sid.split("-vs-")[1].startswith(names[m["pusher"]] + "-"), sid
+            assert spot.stacks[m["pusher"]] == bb * spot.bb, sid
+
+
+def test_call_spot_requires_valid_pusher(tmp_path):
+    s = next(r for r in json.loads(SPOTS_V1.read_text())["spots"] if r["kind"] == "call")
+    for bad in (None, s["hero"], -1):
+        s["pusher"] = bad
+        with pytest.raises(SpotSetError, match="pusher"):
+            load_spots(_write(tmp_path, [s]))

@@ -19,7 +19,7 @@ class SpotSetError(ValueError):
 
 
 def load_spots(path: str | Path = SPOTS_V1) -> list[tuple[str, Spot, dict]]:
-    """Return [(id, Spot, meta)] with meta = {hero, kind, players, bubble}."""
+    """Return [(id, Spot, meta)] with meta = {hero, kind, players, bubble, pusher}; pusher is None for push spots."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     out, seen = [], set()
     for i, raw in enumerate(data.get("spots", [])):
@@ -34,6 +34,9 @@ def load_spots(path: str | Path = SPOTS_V1) -> list[tuple[str, Spot, dict]]:
             raise SpotSetError(f"spot {sid}: kind {raw['kind']!r} must be one of {KINDS}.")
         if raw["players"] not in PLAYERS:
             raise SpotSetError(f"spot {sid}: players {raw['players']!r} must be one of {PLAYERS}.")
+        if len(raw["stacks"]) != raw["players"]:
+            raise SpotSetError(f"spot {sid}: players {raw['players']} but {len(raw['stacks'])} stacks; "
+                               f"make them equal.")
         try:
             spot = Spot(tuple(raw["stacks"]), raw["sb"], raw["bb"], tuple(raw["payouts"]),
                         raw["ante"], raw["bb_ante"])
@@ -45,7 +48,15 @@ def load_spots(path: str | Path = SPOTS_V1) -> list[tuple[str, Spot, dict]]:
         if isinstance(hero, bool) or not isinstance(hero, int) or not lo <= hero <= hi:
             raise SpotSetError(f"spot {sid}: hero {hero!r} must be a seat in {lo}..{hi} for a "
                                f"{raw['kind']} spot with {spot.n} seats.")
-        out.append((sid, spot, {k: raw[k] for k in ("hero", "kind", "players", "bubble")}))
+        pusher = raw.get("pusher")
+        if raw["kind"] == "call" and (isinstance(pusher, bool) or not isinstance(pusher, int)
+                                      or not 0 <= pusher < hero):
+            raise SpotSetError(f"spot {sid}: call spot needs integer pusher in 0..{hero - 1} (a seat before "
+                               f"hero {hero}); add a 'pusher' field.")
+        if raw["kind"] == "push" and pusher is not None:
+            raise SpotSetError(f"spot {sid}: push spot must not have 'pusher'; remove it.")
+        meta = {k: raw[k] for k in ("hero", "kind", "players", "bubble")}
+        out.append((sid, spot, {**meta, "pusher": pusher}))
     return out
 
 
