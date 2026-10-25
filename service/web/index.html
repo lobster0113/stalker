@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>STALKER 학습</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>STALKER</h1>
+  <nav>
+    <button id="tab-types" aria-selected="true">유형 목록</button>
+    <button id="tab-quiz" aria-selected="false">퀴즈</button>
+  </nav>
+</header>
+<main>
+  <section id="view-types">
+    <p id="types-summary" class="muted"></p>
+    <div class="table-wrap"><table id="types-table"><thead></thead><tbody></tbody></table></div>
+  </section>
+  <section id="view-quiz" hidden>
+    <p id="quiz-score" class="muted"></p>
+    <div id="quiz-spot"></div>
+    <div id="quiz-options" class="options"></div>
+    <div id="quiz-result" aria-live="polite"></div>
+    <button id="quiz-next" hidden>다음 스팟</button>
+  </section>
+  <p id="error" role="alert" hidden></p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
