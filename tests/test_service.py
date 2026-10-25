@@ -1,4 +1,5 @@
 import copy
+import dataclasses
 import json
 import re
 from pathlib import Path
@@ -6,7 +7,9 @@ from pathlib import Path
 import pytest
 
 from stalker.pipeline.generate import main as generate_main
-from stalker.service.build import build, validate_quiz, validate_report
+from stalker.records.schema import DecisionRecord
+from stalker.records.store import iter_records
+from stalker.service.build import _spot, build, validate_quiz, validate_report
 
 WEB = Path(__file__).resolve().parent.parent / "service" / "web"
 
@@ -31,9 +34,27 @@ def test_build_outputs_validate_and_are_deterministic(run_dir, tmp_path):
 
 def test_quiz_spots_expose_no_hidden_cards(run_dir, tmp_path):
     _, qp = build(run_dir, tmp_path, max_spots=50)
-    for s in json.loads(qp.read_text())["spots"]:
+    card = re.compile(r"[2-9TJQKA][cdhs]")
+    spots = json.loads(qp.read_text())["spots"]
+    assert spots
+    for s in spots:
         assert len(s["hole_cards"]) == 2 and set(s) >= {"id", "cell", "options", "probs"}
         assert len(s["options"]) >= 2
+        # id / cell label are free of card-like tokens only by construction; check the card-bearing fields
+        shown = set(s["hole_cards"]) | set(s["board"])
+        assert set(card.findall(json.dumps({k: v for k, v in s.items() if k not in ("id", "cell")}))) <= shown
+        assert not set(s) & {"chosen_action", "probs_ai1", "acting_policy", "opponent_hole_cards", "hole_cards_opp"}
+
+
+def test_quiz_values_follow_legal_actions(run_dir):
+    recs = [r for r in iter_records(run_dir) if isinstance(r, DecisionRecord) and sum(r.table_observation.legal_action_mask) >= 2]
+    r = recs[0]
+    n = len(r.table_observation.action_space)
+    vals = tuple(float(i) * 10 + 1 for i in range(n))
+    spot = _spot(dataclasses.replace(r, action_values=vals), None)
+    legal = [i for i, ok in enumerate(r.table_observation.legal_action_mask) if ok]
+    assert spot is not None and len(spot["values"]) == len(spot["options"]) == len(legal)
+    assert spot["values"] == [vals[i] for i in legal]
 
 
 def test_validators_report_fixable_problems():

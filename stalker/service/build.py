@@ -1,4 +1,4 @@
-"""Build `service/web/data/` for the learning page (docs/SERVICE.md).
+"""Build `service/web/data/` for the learning page (see service/web/README.md).
 
 `report.json` is the typing report copied as is (after a schema check); `quiz.json` holds quiz spots cut from
 decision records. A spot carries only what the player may see (public table state, own hole cards, legal actions)
