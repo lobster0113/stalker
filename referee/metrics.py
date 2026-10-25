@@ -37,6 +37,19 @@ def gate_r() -> dict:
     return {"gate_r_pass_rate": round(tally.pass_rate, 6), "gate_r_checks": tally.total}
 
 
+def gate_l(report=None) -> dict:
+    """`report` lets tests inject a Report; CI leaves it None and runs the real Gate L."""
+    if report is None:
+        from referee.gate_l import run_gate_l
+
+        report = run_gate_l()
+    items = {k: [int(p), int(t)] for k, (p, t) in sorted(report.counts.items())}
+    passed = sum(p for p, _ in items.values())
+    total = sum(t for _, t in items.values())
+    return {"gate_l_pass_rate": round(passed / total, 6) if total else 0.0, "gate_l_checks": total,
+            "gate_l_items": items}
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
@@ -44,6 +57,7 @@ def snapshot() -> dict:
     snap.update(test_counts())
     snap.update(code_size())
     snap.update(gate_r())
+    snap.update(gate_l())
     return snap
 
 
