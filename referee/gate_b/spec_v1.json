@@ -1,0 +1,12 @@
+{
+  "name": "gate_b_spec_v1",
+  "reference_version": "refbot-v1+icm-ref-v1+chart-v1+post-v1+short15bb",
+  "presets": ["6max_sng_wta", "6max_sng_topheavy", "9max_sng_503020", "9max_sng_flat"],
+  "blocks": 400,
+  "rotations": 3,
+  "seed": 20261025,
+  "delta_min": 0.1,
+  "pilot_sigma": 0.6,
+  "alpha": 0.05,
+  "power": 0.9
+}
