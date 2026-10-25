@@ -62,6 +62,7 @@ jobs:
                                        "git_sha": os.environ["GITHUB_SHA"]}}))
           EOF
       - name: bench
+        # per-solve cap below the 60-min job limit: a runaway flop solve fails fast and earlier lines survive
         env:
           # inputs go through env, not ${{ }} in the script, so they cannot inject shell
           STREETS: ${{ inputs.streets }}
@@ -69,7 +70,7 @@ jobs:
         run: |
           read -ra streets <<< "$STREETS"
           read -ra accuracy <<< "$ACCURACY"
-          python -m stalker.tools.bench_texassolver --streets "${streets[@]}" --accuracy "${accuracy[@]}" | tee -a "$OUT"
+          python -m stalker.tools.bench_texassolver --streets "${streets[@]}" --accuracy "${accuracy[@]}" --timeout 1200 | tee -a "$OUT"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

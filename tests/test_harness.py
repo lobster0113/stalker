@@ -121,6 +121,8 @@ def test_texassolver_job_is_manual_capped_and_secretless():
     pos = [wf.index(s) for s in order]
     assert pos == sorted(pos)
     assert '"runner":' in wf and "if: always()" in wf
+    (cap,) = re.findall(r"bench_texassolver .*--timeout (\d+)", wf)
+    assert int(cap) < 60 * 60
     # inputs reach the shell only via env; `${{ inputs.* }}` inside `run:` would allow injection
     assert all("${{ inputs." not in line for line in wf.splitlines() if "run:" in line or "python -m" in line)
 

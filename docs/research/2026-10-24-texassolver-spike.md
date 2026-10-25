@@ -30,7 +30,7 @@ gh workflow run texassolver.yml --ref main -f streets="river turn" -f accuracy="
 ```
 MCP: `actions_run_trigger`(method `run_workflow`, `workflow_id: texassolver.yml`, `ref: main`, 필요하면 `inputs: {streets, accuracy}`).
 잡 순서: 설치(`actions/cache`, 키 = 설치 스크립트 `COMMIT`) → 바이너리 존재 확인(slow 테스트가 조용히 skip되지 않게) → `pytest -m slow tests/test_texassolver.py` → 러너 사양 → `bench_texassolver`.
-결과는 아티팩트 `texassolver-bench-<run_id>`의 `texassolver-bench.jsonl`: 첫 줄 `{"runner": {os, cpu_model, cpus, mem_mb, python, solver_version, git_sha}}`, 이후 솔브마다 한 줄(`OUTPUT_FIELDS`). 플랍 0.3%가 60분을 넘기면 `streets`/`accuracy` 입력으로 나눠 돌린다.
+결과는 아티팩트 `texassolver-bench-<run_id>`의 `texassolver-bench.jsonl`: 첫 줄 `{"runner": {os, cpu_model, cpus, mem_mb, python, solver_version, git_sha}}`, 이후 솔브마다 한 줄(`OUTPUT_FIELDS`). 솔브 한 건은 1200초에서 끊긴다(`TexasSolverError`로 벤치 종료). 그때나 잡이 60분 제한에 걸리면 아티팩트에는 그 앞의 줄만 남으므로, 줄 수를 확인하고 빠진 조합은 `streets`/`accuracy` 입력으로 나눠 다시 돌린다.
 
 로컬 재현 명령(수치는 참고용):
 ```bash
