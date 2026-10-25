@@ -27,7 +27,7 @@ python -m stalker.pipeline.generate --preset sng9 --n 200 --seed 1 --out runs/sn
 
 요약: `cells`, `lessonable_cells`, `d1_preliminary.lessonable_decision_share`(교훈 가능 셀이 차지하는 결정 비율). 이 D1은 **예비값**이다. 이 데이터(참조 봇)의 결정 빈도로 가중했을 뿐 실전 출현 빈도가 아니므로 D1 판정이 아니다.
 
-한계: 심판의 S1은 분산 0 셀에서 반폭 0을 정밀하다고 읽는다. 그래서 결정론적인 작은 셀(쪽마다 게임 2개 이상)도 S1을 통과할 수 있다. 이전 v1 리포트는 rule-of-three 상한(3/게임 수)과 최소 30게임으로 이를 막았다. 이 보호는 심판(`referee/`) 쪽에서 다시 넣어야 한다(후속 `referee-change` 이슈 제안).
+**분산 0 가드(임시 강화)**: 심판의 S1은 분산 0인 행동의 부트스트랩 반폭 0을 정밀하다고 읽는다. 그래서 결정론적인 작은 셀(쪽마다 게임 2개)도 S1·S4·S5를 통과한다(로컬 sng6 30게임에서 교훈 가능 12셀이 전부 이런 셀이었다, 참고용). 기준 강화는 언제든 가능하므로(`referee/DATA_SUFFICIENCY.md`), 주요 행동의 분산이 0인 쪽은 rule-of-three로 게임 ≥ `ceil(3 / S1_HALF_WIDTH)` = 60이어야 `lessonable`이 된다. `s1`은 심판 판정 그대로 두고, 가드가 막았으면 `zero_variance_guard: true`다. 이 보호는 심판(`referee.sufficiency`)으로 옮겨야 한다(후속 `referee-change` 이슈 제안).
 
 학습 페이지 빌더(`stalker/service/build.py`)는 v1 리포트도 읽는다(`upgrade_report`). v1은 S4/S5를 판정하지 않았으므로 모든 셀이 `lessonable: false`가 된다. 퀴즈는 `lessonable` 셀에서만 뽑고, 페이지는 나머지 셀을 "표본 부족"으로 표시한다.
 

@@ -6,10 +6,16 @@ independently seeded datasets, so each cell's games are split by order of first 
 halves: `stalker.pipeline.generate` seeds game i with `[seed, i]`, so the halves come from disjoint seed sets.
 Both halves are judged (`judge_cell(A, B)` and `judge_cell(B, A)`); a cell is `lessonable` only if S1 and S5 hold
 on both halves and S4 holds between them. Per-action half-width/ESS are the worse of the two halves.
+
+Interim strengthening (DATA_SUFFICIENCY allows tightening at any time): the referee's S1 reads a zero-variance
+action's bootstrap half-width 0 as precise, so a 2-game deterministic half would pass. Until the referee bounds
+that itself, a half with a zero-variance main action needs ceil(3 / S1_HALF_WIDTH) games (rule of three) before
+the cell is lessonable; `s1` itself stays the referee's verdict and `zero_variance_guard` says when this blocked.
 """
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,11 +23,12 @@ from typing import Iterable
 
 import numpy as np
 
-from referee.sufficiency import Verdict, judge_cell, make_cell
+from referee.sufficiency import S1_HALF_WIDTH, Verdict, judge_cell, make_cell
 from stalker.records.schema import DecisionRecord
 from stalker.typing.spots import ACTION_CATEGORIES, category_probs, spot_key
 
 REPORT_SCHEMA_VERSION = 2
+ZERO_VARIANCE_MIN_GAMES = math.ceil(3 / S1_HALF_WIDTH)  # rule of three: 95% bound 3/n <= S1 half-width
 
 
 @dataclass(frozen=True)
@@ -52,7 +59,8 @@ def build_report(decisions: Iterable[DecisionRecord], *, players: int | None = N
         "schema_version": REPORT_SCHEMA_VERSION,
         "source": source or {},
         "criteria": {"judge": "referee.sufficiency.judge_cell", "lessonable": "S1 and S4 and S5",
-                     "split": "games by first-appearance order: even -> A, odd -> B", "cluster": "game_id", "seed": seed},
+                     "split": "games by first-appearance order: even -> A, odd -> B", "cluster": "game_id", "seed": seed,
+                     "zero_variance_min_games": ZERO_VARIANCE_MIN_GAMES},
         "decisions": total,
         "unclassified": {"count": unclassified, "ratio": unclassified / total if total else 0.0},
         "summary": {
@@ -80,7 +88,7 @@ def _cell(label: str, key, obs: list[_Obs], game_order: dict[str, int], seed: in
     cell = {"label": label, "key": key.__dict__.copy(), "n_decisions": len(obs), "n_games": len({o.game_id for o in obs}),
             "n_games_ab": [len({o.game_id for o in h}) for h in halves],
             "actions": {a: {"mean": float(m)} for a, m in zip(ACTION_CATEGORIES, means)},
-            "s1": False, "s4": False, "s5": False, "lessonable": False, "status": "ok"}
+            "s1": False, "s4": False, "s5": False, "lessonable": False, "zero_variance_guard": False, "status": "ok"}
     if min(cell["n_games_ab"]) < 2:
         # S1 needs two tournaments on each half, so it cannot pass; skip the referee call.
         cell["status"] = "insufficient_games"
@@ -89,7 +97,9 @@ def _cell(label: str, key, obs: list[_Obs], game_order: dict[str, int], seed: in
     a, b = (make_cell([[o.probs[x] for x in ACTION_CATEGORIES] for o in h], [o.game_id for o in h]) for h in halves)
     va, vb = judge_cell(a, b, seed=_side_seed(seed, index, 0)), judge_cell(b, a, seed=_side_seed(seed, index, 1))
     cell.update(s1=va.s1.passed and vb.s1.passed, s4=va.s4, s5=va.s5 and vb.s5)
-    cell["lessonable"] = cell["s1"] and cell["s4"] and cell["s5"]
+    cell["zero_variance_guard"] = any(n < ZERO_VARIANCE_MIN_GAMES and any(not math.isfinite(p.ess) for p in v.s1.actions)
+                                      for v, n in zip((va, vb), cell["n_games_ab"]))
+    cell["lessonable"] = cell["s1"] and cell["s4"] and cell["s5"] and not cell["zero_variance_guard"]
     _precision(cell, (va, vb))
     return cell
 
@@ -131,7 +141,7 @@ def to_markdown(report: dict, top: int = 40) -> str:
                 continue
             ess = "n/a (zero variance)" if x["ess"] is None else f"{x['ess']:.0f}"
             cols.append(f"{x['mean']:.2f} (±{x['half_width']:.2f}, {ess})")
-        verdict = "가능" if c["lessonable"] else "표본 부족"
+        verdict = "가능" if c["lessonable"] else "표본 부족 (분산 0, 게임 부족)" if c["zero_variance_guard"] else "표본 부족"
         ga, gb = c["n_games_ab"]
         lines.append(f"| {c['label']} | {c['n_decisions']} | {c['n_games']} ({ga}/{gb}) | " + " | ".join(cols)
                      + f" | {mark[c['s1']]} | {mark[c['s4']]} | {mark[c['s5']]} | {verdict} |")

@@ -124,12 +124,20 @@ def test_clustering_shrinks_ess():
 
 
 def test_large_deterministic_cell_is_lessonable():
-    rep = build_report([decision(game=f"g{g}") for g in range(100)], seed=1)
+    rep = build_report([decision(game=f"g{g}") for g in range(120)], seed=1)
     cell = rep["cells"][0]
     call = cell["actions"]["call"]
     assert cell["lessonable"] and call["ess"] is None and "zero variance" in call["ess_note"]
     md = to_markdown(rep)
     assert "zero variance" in md and "∞" not in md and "가능" in md
+
+
+@pytest.mark.parametrize("n_games", [4, 10, 118])
+def test_small_deterministic_cell_is_held_back_by_rule_of_three(n_games):
+    """The referee's S1 passes these (half-width 0); the guard needs 60 games on each half."""
+    cell = build_report([decision(game=f"g{g}") for g in range(n_games)], seed=1)["cells"][0]
+    assert cell["s1"] and cell["s4"] and cell["s5"]
+    assert cell["zero_variance_guard"] and not cell["lessonable"]
 
 
 def test_two_game_cell_is_not_lessonable():
