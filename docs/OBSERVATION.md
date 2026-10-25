@@ -29,3 +29,7 @@ AI 정책이 보는 정보의 **유일한 출입구**는 `stalker/observe/builde
 ## 토너먼트 요약 보충
 - `hero_rank`는 `all_stacks`와 같은 시점(라운드 시작)의 히어로 스택(`Observation.hand_start_stack`)으로 매긴다. `all_stacks`가 비어 있으면 `ValueError`(대체 분포를 쓰지 않는다).
 - 핸드 도중 합류한 메모리는 그 핸드의 `NEW_HAND`를 못 봤으므로, 좌석 매핑이 없는 SHOWDOWN 항목은 건너뛰고 다음 핸드부터 기록한다.
+
+## director `Observation`의 공개 보충 필드
+- `ante_mode`: 이 핸드 레벨의 앤티 방식 `none|classic|bb_ante` (앤티가 0인 레벨은 `none`). 추론 대신 직접 읽는다.
+- `action_order`: 이번 스트리트에서 아직 행동할 수 있는 좌석(폴드·올인 제외)을 현재 행동자부터 시계 방향으로 나열. 프리플랍 첫 행동자는 UTG(헤즈업은 버튼=SB). 둘 다 공개 정보이며 기본값(`"none"`, `()`)으로 기존 생성자 호출과 호환된다. RL `HeroObservation`은 아직 쓰지 않는다.

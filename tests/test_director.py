@@ -245,3 +245,42 @@ def test_folded_seats_leave_the_hand_and_are_never_shown():
             assert not set(item.data["hands"]) & folded[item.hand_id]
             shows += 1
     assert folds and shows
+
+
+class _OrderProbe(Passive):
+    seen: list = []
+
+    def act(self, obs: Observation) -> Action:
+        _OrderProbe.seen.append(obs)
+        return super().act(obs)
+
+
+def _expected_first(obs: Observation) -> int:
+    """Preflop opener when nobody has acted yet: UTG (the button heads-up), skipping blind posters who are all-in."""
+    seats = sorted(obs.stacks)
+    after = [s for s in seats if s > obs.button] + [s for s in seats if s <= obs.button]
+    order = [obs.button, after[0]] if len(after) == 2 else after[2:] + after[:2]
+    return next(s for s in order if obs.stacks[s] > 0)
+
+
+@pytest.mark.parametrize("preset,mode", [("mtt54", "classic"), ("mtt180_bbante", "bb_ante"),
+                                         ("6max_sng_wta", "none"), ("9max_sng_flat", "none")])
+def test_observation_ante_mode_and_action_order(preset, mode):
+    _OrderProbe.seen = []
+    cfg, _, _ = _play(preset, _OrderProbe)
+    seen = _OrderProbe.seen
+    assert seen
+    flop = 0
+    for obs in seen:
+        assert obs.ante_mode == (mode if obs.ante else "none")
+        order = obs.action_order
+        assert order[0] == obs.seat and len(set(order)) == len(order)
+        assert set(order) <= set(obs.in_hand)
+        assert all(obs.stacks[s] > 0 for s in order)
+        # seats act in clockwise order starting from the actor
+        clockwise = sorted(order, key=lambda s: (s - obs.seat) % cfg.table_size)
+        assert list(order) == clockwise
+        if not obs.action_history:
+            assert obs.seat == _expected_first(obs)
+        flop += bool(obs.board)
+    assert flop

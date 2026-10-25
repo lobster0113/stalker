@@ -60,6 +60,8 @@ class Observation:
     action_history: tuple[tuple[int, str, int], ...]  # public (seat, 'f'|'cc'|'cbr', amount) this hand
     all_stacks: tuple[int, ...] = ()  # every surviving player's chips at round start, descending (public summary)
     hand_start_stack: int = 0  # own chips at the start of this hand, comparable with all_stacks
+    ante_mode: str = "none"  # 'none' | 'classic' | 'bb_ante' for this hand's level (public)
+    action_order: tuple[int, ...] = ()  # seats that can still act this street, starting with `seat`
 
 
 class Agent:
