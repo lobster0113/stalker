@@ -1,11 +1,11 @@
-"""Typing report: per-cell decision counts, action frequencies with clustered 95% CIs, ESS and the S1 verdict.
+"""Typing report: per-cell decision counts, action frequencies and the referee's S1/S4/S5 verdicts.
 
-Frequencies are the mean of the AI's mixed-strategy probabilities (`probs_ai0`) per action category. Decisions of
-one game are correlated, so the CI resamples whole games (`referee.stats.bootstrap_ci`); ESS = p(1-p)/Var(p_hat).
-S1 (referee/DATA_SUFFICIENCY.md): every main action (mean >= MAIN_ACTION_MIN) has CI half-width <= S1_HALF_WIDTH.
-Zero-variance cells (every probability identical) would get half-width 0 from the bootstrap, so they use the
-rule-of-three bound 3/n_games instead, and any cell needs MIN_GAMES independent games before S1 can pass.
-Only S1 is evaluated here; S4/S5 come from `referee.sufficiency` once it replaces this in a follow-up.
+Frequencies are the mean of the AI's mixed-strategy probabilities (`probs_ai0`) per action category.
+Sufficiency is judged only by `referee.sufficiency.judge_cell` (referee/DATA_SUFFICIENCY.md §1). S4 needs two
+independently seeded datasets, so each cell's games are split by order of first appearance into even and odd
+halves: `stalker.pipeline.generate` seeds game i with `[seed, i]`, so the halves come from disjoint seed sets.
+Both halves are judged (`judge_cell(A, B)` and `judge_cell(B, A)`); a cell is `lessonable` only if S1 and S5 hold
+on both halves and S4 holds between them. Per-action half-width/ESS are the worse of the two halves.
 """
 from __future__ import annotations
 
@@ -17,16 +17,11 @@ from typing import Iterable
 
 import numpy as np
 
-from referee.stats import bootstrap_ci
+from referee.sufficiency import Verdict, judge_cell, make_cell
 from stalker.records.schema import DecisionRecord
 from stalker.typing.spots import ACTION_CATEGORIES, category_probs, spot_key
 
-REPORT_SCHEMA_VERSION = 1
-S1_HALF_WIDTH = 0.05
-MAIN_ACTION_MIN = 0.05
-MIN_GAMES = 30
-Z95 = 1.959964
-N_BOOT = 1000
+REPORT_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -36,67 +31,80 @@ class _Obs:
 
 
 def build_report(decisions: Iterable[DecisionRecord], *, players: int | None = None, seed: int = 0,
-                 n_boot: int = N_BOOT, source: dict | None = None) -> dict:
+                 source: dict | None = None) -> dict:
     cells: dict[str, list[_Obs]] = defaultdict(list)
     keys = {}
+    game_order: dict[str, int] = {}
     total = unclassified = 0
     for r in decisions:
         total += 1
+        game_order.setdefault(r.ids.game_id, len(game_order))
         key = spot_key(r, players)
         if key is None:
             unclassified += 1
             continue
         keys[key.label()] = key
         cells[key.label()].append(_Obs(r.ids.game_id, category_probs(r)))
-    out_cells = []
-    for i, label in enumerate(sorted(cells)):
-        out_cells.append(_cell(label, keys[label], cells[label], np.random.default_rng([seed, i]), n_boot))
+    out_cells = [_cell(label, keys[label], cells[label], game_order, seed, i) for i, label in enumerate(sorted(cells))]
     classified = total - unclassified
-    passing = [c for c in out_cells if c["s1_pass"]]
+    lessonable = [c for c in out_cells if c["lessonable"]]
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "source": source or {},
-        "criteria": {"s1_half_width": S1_HALF_WIDTH, "main_action_min": MAIN_ACTION_MIN, "min_games": MIN_GAMES, "ci_level": 0.95,
-                     "cluster": "game_id", "n_boot": n_boot, "seed": seed},
+        "criteria": {"judge": "referee.sufficiency.judge_cell", "lessonable": "S1 and S4 and S5",
+                     "split": "games by first-appearance order: even -> A, odd -> B", "cluster": "game_id", "seed": seed},
         "decisions": total,
         "unclassified": {"count": unclassified, "ratio": unclassified / total if total else 0.0},
         "summary": {
             "cells": len(out_cells),
-            "s1_pass_cells": len(passing),
-            "s1_pass_decision_share": sum(c["n_decisions"] for c in passing) / classified if classified else 0.0,
+            "lessonable_cells": len(lessonable),
+            "d1_preliminary": {
+                "lessonable_decision_share": sum(c["n_decisions"] for c in lessonable) / classified if classified else 0.0,
+                "note": "예비: 이 데이터의 결정 빈도로 가중. 실전 출현 빈도가 아니므로 D1 판정이 아니다.",
+            },
         },
         "cells": out_cells,
     }
 
 
-def _cell(label: str, key, obs: list[_Obs], rng: np.random.Generator, n_boot: int) -> dict:
-    games = {o.game_id for o in obs}
-    cell = {"label": label, "key": key.__dict__.copy(), "n_decisions": len(obs), "n_games": len(games),
-            "actions": {}, "s1_pass": False, "status": "ok"}
-    means = {a: float(np.mean([o.probs[a] for o in obs])) for a in ACTION_CATEGORIES}
-    if len(games) < 2 or len(obs) < 2:
+def _side_seed(seed: int, cell_index: int, side: int) -> int:
+    return int(np.random.SeedSequence([seed, cell_index, side]).generate_state(1)[0])
+
+
+def _cell(label: str, key, obs: list[_Obs], game_order: dict[str, int], seed: int, index: int) -> dict:
+    halves: tuple[list[_Obs], list[_Obs]] = ([], [])
+    for o in obs:
+        halves[game_order[o.game_id] % 2].append(o)
+    probs = np.array([[o.probs[a] for a in ACTION_CATEGORIES] for o in obs])
+    means = probs.mean(axis=0)
+    cell = {"label": label, "key": key.__dict__.copy(), "n_decisions": len(obs), "n_games": len({o.game_id for o in obs}),
+            "n_games_ab": [len({o.game_id for o in h}) for h in halves],
+            "actions": {a: {"mean": float(m)} for a, m in zip(ACTION_CATEGORIES, means)},
+            "s1": False, "s4": False, "s5": False, "lessonable": False, "status": "ok"}
+    if min(cell["n_games_ab"]) < 2:
+        # S1 needs two tournaments on each half, so it cannot pass; skip the referee call.
         cell["status"] = "insufficient_games"
-        cell["actions"] = {a: {"mean": m} for a, m in means.items()}
-        return cell
-    ids = [o.game_id for o in obs]
-    main_ok = []
-    for a in ACTION_CATEGORIES:
-        ci = bootstrap_ci([o.probs[a] for o in obs], ids, n_boot=n_boot, rng=rng)
-        half = (ci.hi - ci.lo) / 2
-        p = ci.mean
-        entry = {"mean": p, "lo": ci.lo, "hi": ci.hi, "half_width": half}
-        if half > 1e-12:
-            entry["ess"] = p * (1 - p) / (half / Z95) ** 2 if 0 < p < 1 else None
-        else:
-            # Bootstrap spread of a constant is 0, which is not precision: bound it by the games seen.
-            half = max(half, 3.0 / len(games))
-            entry.update(half_width=half, ess=None, ess_note="zero variance; half-width is the 3/n_games bound")
-        cell["actions"][a] = entry
-        if p >= MAIN_ACTION_MIN:
-            cell["actions"][a]["main"] = True
-            main_ok.append(half <= S1_HALF_WIDTH)
-    cell["s1_pass"] = bool(main_ok) and all(main_ok) and len(games) >= MIN_GAMES
+        if not all(halves):
+            return cell
+    a, b = (make_cell([[o.probs[x] for x in ACTION_CATEGORIES] for o in h], [o.game_id for o in h]) for h in halves)
+    va, vb = judge_cell(a, b, seed=_side_seed(seed, index, 0)), judge_cell(b, a, seed=_side_seed(seed, index, 1))
+    cell.update(s1=va.s1.passed and vb.s1.passed, s4=va.s4, s5=va.s5 and vb.s5)
+    cell["lessonable"] = cell["s1"] and cell["s4"] and cell["s5"]
+    _precision(cell, (va, vb))
     return cell
+
+
+def _precision(cell: dict, verdicts: tuple[Verdict, Verdict]) -> None:
+    worst: dict[int, tuple[float, float]] = {}
+    for v in verdicts:
+        for p in v.s1.actions:
+            hw, ess = worst.get(p.action, (0.0, float("inf")))
+            worst[p.action] = (max(hw, p.half_width), min(ess, p.ess))
+    for i, (hw, ess) in sorted(worst.items()):
+        entry = cell["actions"][ACTION_CATEGORIES[i]]
+        entry.update(main=True, half_width=hw, ess=ess if np.isfinite(ess) else None)
+        if not np.isfinite(ess):
+            entry["ess_note"] = "zero variance on a half; the referee's S1 reads half-width 0 as precise"
 
 
 def to_markdown(report: dict, top: int = 40) -> str:
@@ -104,16 +112,16 @@ def to_markdown(report: dict, top: int = 40) -> str:
     lines = [
         "# Typing report v0", "",
         f"- decisions: {report['decisions']} (unclassified: {u['count']}, {u['ratio']:.1%})",
-        f"- cells: {s['cells']}, S1 pass: {s['s1_pass_cells']} "
-        f"(share of classified decisions: {s['s1_pass_decision_share']:.1%})",
-        f"- S1: every main action (mean >= {report['criteria']['main_action_min']:.0%}) has 95% CI half-width "
-        f"<= {report['criteria']['s1_half_width']:.0%}p; CI clusters = {report['criteria']['cluster']}",
+        f"- cells: {s['cells']}, lessonable (S1·S4·S5, `referee.sufficiency`): {s['lessonable_cells']}",
+        f"- D1 예비값 (이 데이터의 결정 빈도 가중, 판정 아님): {s['d1_preliminary']['lessonable_decision_share']:.1%}",
+        f"- S4 split: {report['criteria']['split']}; CI clusters = {report['criteria']['cluster']}",
         *([f"- source: {json.dumps(report['source'], ensure_ascii=False)}"] if report["source"] else []), "",
         f"## Largest {top} cells", "",
-        "| cell (stage/stack bb/pos/street/pot/opp) | decisions | games | " + " | ".join(
-            f"{a} (±hw, ESS)" for a in ACTION_CATEGORIES) + " | S1 |",
-        "|---|---|---|" + "---|" * len(ACTION_CATEGORIES) + "---|",
+        "| cell (stage/stack bb/pos/street/pot/opp) | decisions | games (A/B) | " + " | ".join(
+            f"{a} (±hw, ESS)" for a in ACTION_CATEGORIES) + " | S1 | S4 | S5 | 교훈 |",
+        "|---|---|---|" + "---|" * len(ACTION_CATEGORIES) + "---|---|---|---|",
     ]
+    mark = {True: "✓", False: "✗"}
     for c in sorted(report["cells"], key=lambda c: -c["n_decisions"])[:top]:
         cols = []
         for a in ACTION_CATEGORIES:
@@ -123,8 +131,10 @@ def to_markdown(report: dict, top: int = 40) -> str:
                 continue
             ess = "n/a (zero variance)" if x["ess"] is None else f"{x['ess']:.0f}"
             cols.append(f"{x['mean']:.2f} (±{x['half_width']:.2f}, {ess})")
-        verdict = "pass" if c["s1_pass"] else "데이터 부족" if c["status"] != "ok" else "fail"
-        lines.append(f"| {c['label']} | {c['n_decisions']} | {c['n_games']} | " + " | ".join(cols) + f" | {verdict} |")
+        verdict = "가능" if c["lessonable"] else "표본 부족"
+        ga, gb = c["n_games_ab"]
+        lines.append(f"| {c['label']} | {c['n_decisions']} | {c['n_games']} ({ga}/{gb}) | " + " | ".join(cols)
+                     + f" | {mark[c['s1']]} | {mark[c['s4']]} | {mark[c['s5']]} | {verdict} |")
     return "\n".join(lines) + "\n"
 
 
