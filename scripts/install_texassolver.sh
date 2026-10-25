@@ -36,7 +36,13 @@ git -C "$WORK/src" fetch -q --depth 1 origin "$COMMIT" \
     || fail "cannot fetch $REPO_URL@$COMMIT — check network/proxy access to github.com"
 git -C "$WORK/src" checkout -q FETCH_HEAD
 
-cmake -S "$WORK/src" -B "$WORK/build" -DCMAKE_BUILD_TYPE=Release >"$WORK/cmake.log" 2>&1 \
+# console_solver doesn't use the Python bindings, but the vendored pybind11 2.2 configure step imports
+# distutils, which Python 3.12 removed (CI run 40171427531 failed here). Drop that subdirectory only.
+sed -i '/^add_subdirectory(ext\/pybind11)/d' "$WORK/src/CMakeLists.txt"
+
+# Vendored googletest/fmt declare cmake_minimum_required < 3.5, which CMake 4 rejects without this.
+cmake -S "$WORK/src" -B "$WORK/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    >"$WORK/cmake.log" 2>&1 \
     || { tail -20 "$WORK/cmake.log" >&2; fail "cmake configure failed (log above)"; }
 cmake --build "$WORK/build" --target console_solver -j "$JOBS" >"$WORK/build.log" 2>&1 \
     || { tail -30 "$WORK/build.log" >&2; fail "build failed (log above)"; }
