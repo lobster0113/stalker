@@ -2,6 +2,8 @@ import copy
 import dataclasses
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,7 +11,7 @@ import pytest
 from stalker.pipeline.generate import main as generate_main
 from stalker.records.schema import DecisionRecord
 from stalker.records.store import iter_records
-from stalker.service.build import _spot, build, validate_quiz, validate_report
+from stalker.service.build import _spot, build, upgrade_report, validate_quiz, validate_report
 
 WEB = Path(__file__).resolve().parent.parent / "service" / "web"
 
@@ -21,7 +23,32 @@ def run_dir(tmp_path_factory):
     return d
 
 
-def test_build_outputs_validate_and_are_deterministic(run_dir, tmp_path):
+@pytest.fixture
+def lessonable_run(run_dir, tmp_path):
+    """run_dir with every cell marked lessonable (2 games are far too few for real verdicts)."""
+    d = tmp_path / "lessonable_run"
+    shutil.copytree(run_dir, d)
+    report = json.loads((d / "report.json").read_text())
+    for c in report["cells"]:
+        c.update(s1=True, s4=True, s5=True, lessonable=True)
+    (d / "report.json").write_text(json.dumps(report))
+    return d
+
+
+def _v1(report: dict) -> dict:
+    """The schema v1 shape of a report (before referee.sufficiency): S1 only, no S4/S5/lessonable."""
+    old = copy.deepcopy(report)
+    old["schema_version"] = 1
+    old["summary"] = {"cells": len(old["cells"]), "s1_pass_cells": 0, "s1_pass_decision_share": 0.0}
+    for c in old["cells"]:
+        c["s1_pass"] = c.pop("s1")
+        for k in ("s4", "s5", "lessonable", "n_games_ab"):
+            c.pop(k)
+    return old
+
+
+def test_build_outputs_validate_and_are_deterministic(lessonable_run, tmp_path):
+    run_dir = lessonable_run
     rp, qp = build(run_dir, tmp_path / "a", max_spots=10, seed=1)
     report, quiz = json.loads(rp.read_text()), json.loads(qp.read_text())
     assert validate_report(report) == [] and validate_quiz(quiz) == []
@@ -32,8 +59,36 @@ def test_build_outputs_validate_and_are_deterministic(run_dir, tmp_path):
     assert all(s["cell"] in labels for s in quiz["spots"])
 
 
-def test_quiz_spots_expose_no_hidden_cards(run_dir, tmp_path):
-    _, qp = build(run_dir, tmp_path, max_spots=50)
+def test_quiz_takes_spots_only_from_lessonable_cells(run_dir, lessonable_run, tmp_path):
+    report = json.loads((run_dir / "report.json").read_text())
+    assert report["summary"]["lessonable_cells"] == 0  # 2 games: nothing is sufficient
+    _, qp = build(run_dir, tmp_path / "none", max_spots=50)
+    assert json.loads(qp.read_text())["spots"] == []
+    some = json.loads((lessonable_run / "report.json").read_text())
+    keep = {c["label"] for c in some["cells"][::2]}
+    for c in some["cells"]:
+        c["lessonable"] = c["label"] in keep
+    (lessonable_run / "report.json").write_text(json.dumps(some))
+    _, qp = build(lessonable_run, tmp_path / "some", max_spots=500)
+    spots = json.loads(qp.read_text())["spots"]
+    assert spots and {s["cell"] for s in spots} <= keep
+
+
+def test_v1_report_still_builds_with_nothing_lessonable(run_dir, tmp_path):
+    v1_run = tmp_path / "v1_run"
+    shutil.copytree(run_dir, v1_run)
+    v1 = _v1(json.loads((run_dir / "report.json").read_text()))
+    (v1_run / "report.json").write_text(json.dumps(v1))
+    rp, qp = build(v1_run, tmp_path / "out", max_spots=50)
+    out = json.loads(rp.read_text())
+    assert validate_report(out) == [] and out["schema_version"] == 2
+    assert out["summary"]["lessonable_cells"] == 0 and not any(c["lessonable"] for c in out["cells"])
+    assert json.loads(qp.read_text())["spots"] == []
+    assert upgrade_report(out) == out  # current-schema reports pass through unchanged
+
+
+def test_quiz_spots_expose_no_hidden_cards(lessonable_run, tmp_path):
+    _, qp = build(lessonable_run, tmp_path, max_spots=50)
     card = re.compile(r"[2-9TJQKA][cdhs]")
     spots = json.loads(qp.read_text())["spots"]
     assert spots
@@ -67,9 +122,25 @@ def test_committed_sample_data_is_valid():
     report = json.loads((WEB / "data" / "report.json").read_text())
     quiz = json.loads((WEB / "data" / "quiz.json").read_text())
     assert validate_report(report) == [] and validate_quiz(quiz) == []
-    bad = copy.deepcopy(quiz)
-    bad["spots"][0]["probs"] = [1.0]
-    assert validate_quiz(bad)
+    lessonable = {c["label"] for c in report["cells"] if c["lessonable"]}
+    assert all(s["cell"] in lessonable for s in quiz["spots"])
+
+
+def test_page_badge_shows_insufficient_unless_lessonable():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node not installed; the badge logic in app.js is plain JS")
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+    fn = re.search(r"^function cellBadge\(c\) \{.*?^\}", js, re.S | re.M).group(0)
+    cells = [{"lessonable": True, "s1": True, "s4": True, "s5": True},
+             {"lessonable": False, "s1": True, "s4": True, "s5": False, "status": "ok"},
+             {"s1_pass": True, "status": "ok"}]  # a cell without the field is never taught
+    out = subprocess.run([node, "-e", fn + f"\nfor (const c of {json.dumps(cells)}) console.log(cellBadge(c));"],
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    assert "교훈 가능" in out[0] and "표본 부족" not in out[0]
+    assert all("표본 부족" in o and "교훈 가능" not in o for o in out[1:])
+    assert "S5 ✗" in out[1]
+    assert "s1_pass" not in js
 
 
 def test_html_has_required_elements():

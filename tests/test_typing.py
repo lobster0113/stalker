@@ -97,63 +97,74 @@ def _many(n_games, per_game, p_fold, rng):
     return out
 
 
-def test_report_s1_pass_and_fail_by_sample_size():
+def test_report_lessonable_by_sample_size():
     rng = np.random.default_rng(0)
-    big = build_report(_many(1200, 1, 0.5, rng), seed=1)
+    big = build_report(_many(2400, 1, 0.3, rng), seed=1)  # p=0.5 would make the main action a coin flip (S4/S5)
     (cell,) = big["cells"]
     fold = cell["actions"]["fold"]
-    assert cell["s1_pass"] and fold["half_width"] <= 0.05
-    p = fold["mean"]
-    assert fold["ess"] == pytest.approx(p * (1 - p) / ((fold["hi"] - fold["lo"]) / 2 / 1.959964) ** 2)
-    assert 900 < fold["ess"] < 1500  # independent games: ESS about n
+    assert cell["n_games_ab"] == [1200, 1200]
+    assert cell["s1"] and cell["s4"] and cell["s5"] and cell["lessonable"] and fold["half_width"] <= 0.05
+    assert 900 < fold["ess"] < 1500  # independent games: ESS about n of the half
+    assert big["summary"]["lessonable_cells"] == 1
+    assert big["summary"]["d1_preliminary"]["lessonable_decision_share"] == 1.0
     small = build_report(_many(20, 1, 0.5, rng), seed=1)
-    assert small["cells"][0]["s1_pass"] is False
+    assert small["cells"][0]["s1"] is False and small["cells"][0]["lessonable"] is False
+    assert small["summary"]["lessonable_cells"] == 0
 
 
 def test_clustering_shrinks_ess():
-    """Same decisions, but each game repeats one outcome 20 times: raw n is 400 yet ESS is about 20."""
+    """Same decisions, but each game repeats one outcome 20 times: raw n is 400 yet ESS is about 10 per half."""
     rng = np.random.default_rng(1)
     outcomes = [float(rng.random() < 0.5) for _ in range(20)]
     dec = [decision(game=f"g{g}", probs=(o, 1 - o, 0.0)) for g, o in enumerate(outcomes) for _ in range(20)]
     cell = build_report(dec, seed=1)["cells"][0]
     assert cell["n_decisions"] == 400
     assert cell["actions"]["fold"]["ess"] < 60
-    assert cell["s1_pass"] is False
+    assert cell["s1"] is False and cell["lessonable"] is False
 
 
-@pytest.mark.parametrize("n_games", [2, 3, 4, 29])
-def test_small_deterministic_cell_does_not_pass_s1(n_games):
-    cell = build_report([decision(game=f"g{g}") for g in range(n_games)], seed=1)["cells"][0]
-    assert cell["s1_pass"] is False
-    assert cell["actions"]["call"]["half_width"] >= 3 / n_games
-
-
-def test_large_deterministic_cell_passes_s1_with_labelled_ess():
-    rep = build_report([decision(game=f"g{g}") for g in range(100)], seed=1)
+def test_large_deterministic_cell_is_lessonable():
+    rep = build_report([decision(game=f"g{g}") for g in range(120)], seed=1)
     cell = rep["cells"][0]
     call = cell["actions"]["call"]
-    assert cell["s1_pass"] and call["ess"] is None and "zero variance" in call["ess_note"]
-    assert call["half_width"] == pytest.approx(0.03)
+    assert cell["lessonable"] and call["ess"] is None and "zero variance" in call["ess_note"]
     md = to_markdown(rep)
-    assert "zero variance" in md and "∞" not in md
+    assert "zero variance" in md and "∞" not in md and "가능" in md
 
 
-def test_deterministic_cell_below_rule_of_three_boundary_fails():
-    # 3/n <= 0.05 needs n >= 60; MIN_GAMES alone (30) must not be enough.
-    cell = build_report([decision(game=f"g{g}") for g in range(40)], seed=1)["cells"][0]
-    assert cell["s1_pass"] is False
+@pytest.mark.parametrize("n_games", [4, 10, 118])
+def test_small_deterministic_cell_is_held_back_by_rule_of_three(n_games):
+    """The referee's S1 passes these (half-width 0); the guard needs 60 games on each half."""
+    cell = build_report([decision(game=f"g{g}") for g in range(n_games)], seed=1)["cells"][0]
+    assert cell["s1"] and cell["s4"] and cell["s5"]
+    assert cell["zero_variance_guard"] and not cell["lessonable"]
+
+
+def test_two_game_cell_is_not_lessonable():
+    rep = build_report([decision(game="g0"), decision(game="g1"), decision(game="g1")], seed=1)
+    cell = rep["cells"][0]
+    assert cell["n_games_ab"] == [1, 1] and cell["status"] == "insufficient_games"
+    assert (cell["s1"], cell["lessonable"]) == (False, False)
+
+
+def test_halves_disagreeing_fail_s4():
+    """Even games always fold, odd games always call: each half is precise but they disagree, so S4 fails."""
+    dec = [decision(game=f"g{g}", probs=(1.0, 0.0, 0.0) if g % 2 == 0 else (0.0, 1.0, 0.0)) for g in range(200)]
+    cell = build_report(dec, seed=1)["cells"][0]
+    assert cell["s1"] and cell["s5"] and not cell["s4"] and not cell["lessonable"]
 
 
 def test_single_game_cell_is_flagged_not_crashing():
     rep = build_report([decision(), decision()])
-    assert rep["cells"][0]["status"] == "insufficient_games" and rep["cells"][0]["s1_pass"] is False
-    assert "데이터 부족" in to_markdown(rep)
+    cell = rep["cells"][0]
+    assert cell["status"] == "insufficient_games" and cell["lessonable"] is False and cell["n_games_ab"] == [1, 0]
+    assert "표본 부족" in to_markdown(rep)
 
 
 def test_report_is_reproducible_and_json_safe():
     dec = _many(30, 3, 0.4, np.random.default_rng(2))
     a, b = build_report(dec, seed=5), build_report(dec, seed=5)
-    assert a == b
+    assert a == b and a["schema_version"] == 2
     json.dumps(a, allow_nan=False)
 
 

@@ -30,6 +30,26 @@ DEFAULT_RAISE_FRACTIONS = (0.5, 1.0)
 GAME_START, GAME_END = "game_start", "game_end"
 
 
+def action_mask(hero: HeroObservation, raise_pot_fractions: tuple[float, ...]) -> tuple[bool, ...]:
+    lg = hero.legal
+    return (bool(lg["fold"]), bool(lg["call"])) + (bool(lg["raise"]),) * (len(raise_pot_fractions) + 1)
+
+
+def index_to_action(hero: HeroObservation, idx: int, raise_pot_fractions: tuple[float, ...]) -> Action:
+    """ActionSpec index -> engine Action; shared by the env and agents that play a trained policy outside it."""
+    lg = hero.legal
+    if idx == 0:
+        return Action("fold")
+    if idx == 1:
+        return Action("call")
+    lo, hi = lg["min_raise_to"], lg["max_raise_to"]
+    if idx == len(raise_pot_fractions) + 2:
+        return Action("raise", hi)
+    frac = raise_pot_fractions[idx - 2]
+    target = hero.seats[0].bet + lg["call_amount"] + frac * (hero.pot + lg["call_amount"])
+    return Action("raise", int(min(hi, max(lo, round(target)))))
+
+
 @dataclass(frozen=True)
 class StepResult:
     player_id: int | None  # who acts next; None once the game is over
@@ -123,22 +143,11 @@ class TournamentEnv:
         self._thread, self._pending = None, None
 
     def action_mask(self, hero: HeroObservation) -> tuple[bool, ...]:
-        lg = hero.legal
-        return (bool(lg["fold"]), bool(lg["call"])) + (bool(lg["raise"]),) * (len(self.raise_pot_fractions) + 1)
+        return action_mask(hero, self.raise_pot_fractions)
 
     # ---- internals ----
     def _to_action(self, hero: HeroObservation, idx: int) -> Action:
-        lg = hero.legal
-        if idx == 0:
-            return Action("fold")
-        if idx == 1:
-            return Action("call")
-        lo, hi = lg["min_raise_to"], lg["max_raise_to"]
-        if idx == self.n_actions - 1:
-            return Action("raise", hi)
-        frac = self.raise_pot_fractions[idx - 2]
-        target = hero.seats[0].bet + lg["call_amount"] + frac * (hero.pot + lg["call_amount"])
-        return Action("raise", int(min(hi, max(lo, round(target)))))
+        return index_to_action(hero, idx, self.raise_pot_fractions)
 
     def _ask(self, pid: int, hero: HeroObservation) -> Action:
         self._to_env.put(("decision", pid, hero))

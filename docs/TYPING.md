@@ -20,8 +20,16 @@ python -m stalker.pipeline.generate --preset sng9 --n 200 --seed 1 --out runs/sn
 
 키를 못 만드는 결정(포지션 불명 등)은 `None`이며 리포트의 `unclassified` 비율로 드러난다. 한계: BB가 림프를 받았을 때는 `unopened`로 센다. 세분화 규칙(최소 잎 크기로 자동 분할)은 후속 작업.
 
-## 리포트 (`stalker/typing/report.py`)
-셀마다 결정 수·게임 수, 액션 범주(`fold`/`call`/`raise`/`allin`)별 평균 확률(= AI 혼합전략 빈도), 게임 단위 클러스터 부트스트랩 95% CI(`referee.stats.bootstrap_ci`, 1000회, 시드 고정), `ESS = p(1-p)/Var(p̂)`(근사: 퍼센타일 반폭에서 분산을 역산. 분산 0이면 `null` + `ess_note`), **S1** 통과 여부(평균 ≥ 5%인 모든 주요 액션의 반폭 ≤ 5%p). 게임이 2개 미만인 셀은 `insufficient_games`(데이터 부족)로 표시한다. 분산 0 셀(결정론적 등)은 부트스트랩 반폭이 0이라 정밀도의 증거가 못 된다. 그래서 반폭을 rule-of-three 상한 `3/게임 수`로 대체하고(95%에서 반폭 ≤ 5%p이려면 게임 ≥ 60), 모든 셀은 게임 ≥ 30(`MIN_GAMES`)이어야 S1을 통과한다. 통과한 결정론적 셀도 S4·S5(재현성·포화)는 아직 평가하지 않으므로 "교훈 가능"이 아니다. 정식 계산기는 #52(`referee.sufficiency`)이며 머지되면 후속 이슈에서 교체한다.
+## 리포트 (`stalker/typing/report.py`, `schema_version` 2)
+셀마다 결정 수·게임 수, 액션 범주(`fold`/`call`/`raise`/`allin`)별 평균 확률(= AI 혼합전략 빈도), 그리고 **심판 계산기 `referee.sufficiency.judge_cell`의 판정**: `s1`(정밀도)·`s4`(재현성)·`s5`(포화)·`lessonable`(= S1∧S4∧S5, 헌장 5: 이것만 가르친다). 리포트는 자체 충분성 계산을 하지 않는다.
+
+**S4용 두 시드 집합 나누기**: 셀의 게임을 입력(결정 스트림)에서 처음 나온 순서로 번호 매겨 짝수 번째 → A, 홀수 번째 → B로 나눈다. `generate`는 게임 i를 시드 `[seed, i]`로 돌리고 게임 순서대로 기록하므로 A·B는 서로 겹치지 않는 시드 집합에서 나온다. 판정은 양쪽으로 한다: `judge_cell(A, B)`와 `judge_cell(B, A)`. `s1`·`s5`는 두 쪽 모두 통과해야 참, `s4`는 A↔B 일치. 셀에는 `n_games_ab`(A/B 게임 수)를 함께 적는다. 한쪽이라도 게임이 2개 미만이면 `status: insufficient_games`(S1 불가)다. 행동별 `half_width`·`ess`는 주요 액션(평균 ≥ 5%)에 대해 두 쪽 중 나쁜 값이다. 분산 0이면 `ess: null` + `ess_note`.
+
+요약: `cells`, `lessonable_cells`, `d1_preliminary.lessonable_decision_share`(교훈 가능 셀이 차지하는 결정 비율). 이 D1은 **예비값**이다. 이 데이터(참조 봇)의 결정 빈도로 가중했을 뿐 실전 출현 빈도가 아니므로 D1 판정이 아니다.
+
+**분산 0 가드(임시 강화)**: 심판의 S1은 분산 0인 행동의 부트스트랩 반폭 0을 정밀하다고 읽는다. 그래서 결정론적인 작은 셀(쪽마다 게임 2개)도 S1·S4·S5를 통과한다(로컬 sng6 30게임에서 교훈 가능 12셀이 전부 이런 셀이었다, 참고용). 기준 강화는 언제든 가능하므로(`referee/DATA_SUFFICIENCY.md`), 주요 행동의 분산이 0인 쪽은 rule-of-three로 게임 ≥ `ceil(3 / S1_HALF_WIDTH)` = 60이어야 `lessonable`이 된다. `s1`은 심판 판정 그대로 두고, 가드가 막았으면 `zero_variance_guard: true`다. 이 보호는 심판(`referee.sufficiency`)으로 옮겨야 한다(후속 `referee-change` 이슈 제안).
+
+학습 페이지 빌더(`stalker/service/build.py`)는 v1 리포트도 읽는다(`upgrade_report`). v1은 S4/S5를 판정하지 않았으므로 모든 셀이 `lessonable: false`가 된다. 퀴즈는 `lessonable` 셀에서만 뽑고, 페이지는 나머지 셀을 "표본 부족"으로 표시한다.
 
 ## 리포트를 `ops` 브랜치에 올리기
 ```bash

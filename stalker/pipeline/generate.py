@@ -137,7 +137,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                           source={"preset": cfg.name, "n_games": a.n, "seed": a.seed, "policy_version": REFERENCE_BOT_VERSION})
     j, m = write_report(report, a.out)
     s = report["summary"]
-    print(f"{len(decisions)} decisions, {s['cells']} cells, S1 pass {s['s1_pass_cells']}, "
+    print(f"{len(decisions)} decisions, {s['cells']} cells, lessonable {s['lessonable_cells']}, "
           f"unclassified {report['unclassified']['ratio']:.1%} -> {j}, {m}")
     return 0
 
