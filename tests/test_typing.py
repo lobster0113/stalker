@@ -182,6 +182,11 @@ def test_generate_writes_valid_records_and_report(tmp_path):
     assert [r for r in loaded if isinstance(r, DecisionRecord)] == dec
     assert read_manifest(tmp_path / "run").seed == 3
     assert all(math.isclose(sum(r.probs_ai0), 1.0, abs_tol=1e-6) for r in dec)
+    valued = [r for r in dec if r.action_values is not None]
+    assert valued  # short-stack call/fold spots carry ICM EVs (pool fractions)
+    for r in valued:
+        assert r.table_observation.street == "preflop" and len(r.action_values) == len(r.probs_ai0)
+        assert all(0.0 <= v <= 1.0 for v in r.action_values)
     again = generate(cfg, 2, seed=3, out=tmp_path / "run_again", run_id="run")
     assert again == dec  # same seed, same run id: identical records
     rep = build_report(dec, players=cfg.players, seed=3)
