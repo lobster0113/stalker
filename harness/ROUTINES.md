@@ -10,7 +10,7 @@
 | builder | 매시 :00 | 1시간 | opus-5.5 | `routines/builder.md` |
 | builder-b | 매시 :20 | 1시간 | sonnet-5.5 | `routines/builder.md` (병렬 2번째 빌더) |
 | reviewer | PR opened/synchronize/reopened + 매시 :40 스윕 | 이벤트 즉시, 스윕 1시간 | opus-5.5 | `routines/reviewer.md` |
-| planner | 매일 09:00·21:00 (06:00·18:00 KST) | 10시간 | opus-5.5 | `routines/planner.md` |
+| planner | 매일 21:00 UTC (06:00 KST), 하루 1회 | 24시간 | opus-5.5 | `routines/planner.md` |
 | researcher | 화·금 00:00 (09:00 KST) | 68시간 | sonnet-5.5 | `routines/researcher.md` |
 | gardener | 목 00:00 | 7일 | sonnet-5.5 | `routines/gardener.md` |
 | auditor | 일 00:00 | 7일 | opus-5.5 | `routines/auditor.md` |
