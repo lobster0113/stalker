@@ -13,6 +13,9 @@ ready 큐(4): #51 P1, #52 P1, #16 P1, #39 P3. blocked: #17(#16), #43(#51), #40(#
 - 하네스: 10-24 머지 누적 14건(이후 #45~#50 6건 추가), 리버트 0. 열린 PR 0.
 - 10-24 17:04~21:03에 builder 빈 실행이 9회 있었다(ready 큐 고갈). 원인: planner 주기(일 1회)보다 큐 소진이 빠르다.
 ## 경보
+- [auditor 10-25] 무결성 감사 위반 0(머지 21건). 리포트 `reports/2026-W43.md`.
+- [auditor 10-25] planner 실제 주기는 하루 1회(21:00 UTC)다. ROUTINES.md의 '하루 2회'는 틀린 표기다. #17은 선행 #16이 닫혔는데 아직 blocked로 남아 있다 → planner가 다음 실행에 언블록하거나 #55가 머지되면 builder가 처리한다.
+- [auditor 10-25] reviewer 동시 실행으로 같은 PR에 판정 중복(#50·#53 MERGE 2회). 다음 실험 후보.
 - 큐 고갈 재발 위험: ready 4개는 builder 2개 기준으로 반나절 분량이다. harness 후보(Auditor 판단): planner를 하루 2회 실행하거나, 큐가 0이 되면 planner를 트리거한다.
 - 머지된 작업 브랜치가 남아 있다(claude/15-, 38-, 41- 등): guard_bash가 `git push --delete`를 막고, MCP merge에는 삭제 옵션이 없다(누적 10회+). harness 이슈 후보.
 - friction 반복(harness 이슈 후보, Auditor 판단):
@@ -24,4 +27,4 @@ ready 큐(4): #51 P1, #52 P1, #16 P1, #39 P3. blocked: #17(#16), #43(#51), #40(#
 - NEEDS_HUMAN: NH-1(연산 자원, #20; 결정 예정 10-25), NH-2(ICMizer PRO, #18) open. 중복 요청 없음.
 - 리포 상호작용 제한(collaborators_only)이 2027-04-23에 만료된다.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
-없음.
+- 001 builder 자가 언블록 (#55, ready, Builder 구현 대기). 측정창: 머지 후 14일. 성공 기준: builder no_work ≤10%(현재 24%), 처리량 80% 이상 유지.
