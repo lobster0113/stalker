@@ -1,4 +1,6 @@
 import importlib.util
+import re
+import subprocess
 from pathlib import Path
 
 from referee.guard import load_rules, violations
@@ -103,3 +105,31 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "cache: pip" in rl
     gates = "\n".join(jobs["gates"])
     assert "python -m referee.gates full" in gates and "rl]" not in gates
+
+
+def test_texassolver_job_is_manual_capped_and_secretless():
+    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
+    on = wf.split("\non:\n", 1)[1].split("\n\n", 1)[0]
+    assert "workflow_dispatch:" in on
+    assert not any(t in on for t in ("pull_request", "push:", "schedule:", "workflow_run"))
+    minutes = [int(line.split(":")[1]) for line in wf.splitlines() if line.strip().startswith("timeout-minutes:")]
+    assert minutes and all(m <= 60 for m in minutes)
+    assert "secrets." not in wf
+    assert "actions/cache@" in wf and "key: texassolver-${{ runner.os }}-${{ steps.commit.outputs.sha }}" in wf
+    order = ["install_texassolver.sh", "pytest -m slow", "tests/test_texassolver.py",
+             "stalker.tools.bench_texassolver", "actions/upload-artifact@"]
+    pos = [wf.index(s) for s in order]
+    assert pos == sorted(pos)
+    assert '"runner":' in wf and "if: always()" in wf
+    # inputs reach the shell only via env; `${{ inputs.* }}` inside `run:` would allow injection
+    assert all("${{ inputs." not in line for line in wf.splitlines() if "run:" in line or "python -m" in line)
+
+
+def test_texassolver_job_cache_key_tracks_install_commit():
+    script = (ROOT / "scripts" / "install_texassolver.sh").read_text()
+    (commit,) = re.findall(r'^COMMIT="([0-9a-f]{40})"', script, re.M)
+    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
+    sed = re.search(r"sha=\$\(sed -n '([^']+)' scripts/install_texassolver.sh\)", wf).group(1)
+    out = subprocess.run(["sed", "-n", sed, str(ROOT / "scripts" / "install_texassolver.sh")],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    assert out == commit

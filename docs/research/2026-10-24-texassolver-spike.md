@@ -20,7 +20,19 @@
 - 덤프 깊이 `set_dump_rounds 1` = 현재 스트리트만. 다음 스트리트(찬스 노드 이후)가 필요하면 깊이를 올리거나 해당 보드로 다시 솔브.
 
 ## 측정 결과
-**비어 있음 — #8-C에서 CI로 채움** (빌드·측정 잡은 #8-B). 로컬 수치는 넣지 않는다. 재현 명령:
+**비어 있음 — #8-C에서 CI로 채움.** 로컬 수치는 넣지 않는다.
+
+### CI로 측정하기 (`.github/workflows/texassolver.yml`, #39)
+수동 실행 전용(`workflow_dispatch`), PR·push로는 돌지 않고 secret을 쓰지 않는다. 타임아웃 60분.
+```bash
+gh workflow run texassolver.yml --ref main                                   # 기본: river turn flop × 1 0.5 0.3
+gh workflow run texassolver.yml --ref main -f streets="river turn" -f accuracy="0.5"
+```
+MCP: `actions_run_trigger`(method `run_workflow`, `workflow_id: texassolver.yml`, `ref: main`, 필요하면 `inputs: {streets, accuracy}`).
+잡 순서: 설치(`actions/cache`, 키 = 설치 스크립트 `COMMIT`) → 바이너리 존재 확인(slow 테스트가 조용히 skip되지 않게) → `pytest -m slow tests/test_texassolver.py` → 러너 사양 → `bench_texassolver`.
+결과는 아티팩트 `texassolver-bench-<run_id>`의 `texassolver-bench.jsonl`: 첫 줄 `{"runner": {os, cpu_model, cpus, mem_mb, python, solver_version, git_sha}}`, 이후 솔브마다 한 줄(`OUTPUT_FIELDS`). 플랍 0.3%가 60분을 넘기면 `streets`/`accuracy` 입력으로 나눠 돌린다.
+
+로컬 재현 명령(수치는 참고용):
 ```bash
 scripts/install_texassolver.sh
 python -m stalker.tools.bench_texassolver           # JSON 줄 출력(필드: 모듈 문서 `OUTPUT_FIELDS`)
@@ -46,5 +58,5 @@ TexasSolver README의 플랍 벤치(`benchmark/benchmark_texassolver.txt`: Qs Jh
 이 수치로 본 처리량 추정(6스레드 1대, 플랍 풀트리): 0.5%면 하루 약 650 스팟, 0.3%면 약 490 스팟. 턴·리버는 트리가 훨씬 작아 수십~수백 배 빠를 것으로 예상하지만 측정 전까지는 가정이다.
 
 ## 다음 단계
-1. 외부 코드 빌드가 허용된 곳(CI의 별도 `workflow_dispatch`/slow 잡, 또는 허용된 실행 환경)에서 설치 + `bench_texassolver` + `pytest -m slow` 실행, 위 표를 CI 수치로 채운다. 이 잡은 `.github/` 수정이라 `harness-change` 이슈가 필요하다.
+1. `texassolver` 워크플로(위)를 실행해 위 표를 CI 수치로 채운다(#8-C).
 2. 결과로 ADR 0003의 참조 봇 v2·RL 교사용 스팟 라이브러리 예산(스팟 수 × 시간)을 잡는다.
