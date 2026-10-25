@@ -1,7 +1,7 @@
 """Build `service/web/data/` for the learning page (see service/web/README.md).
 
-`report.json` is the typing report after a schema check (a v1 report is upgraded first: v1 never judged S4/S5,
-so none of its cells is lessonable); `quiz.json` holds quiz spots cut from decision records of lessonable cells
+`report.json` is the typing report after a schema check (older reports are upgraded first: v1 never judged S4/S5,
+so none of its cells is lessonable; v2 lacked S1's rule-of-three floor); `quiz.json` holds quiz spots cut from decision records of lessonable cells
 only (charter 5: insufficient types are not taught). A spot carries only what the player may see (public table
 state, own hole cards, legal actions) plus the AI's mixed strategy; the stable id and the cell label let the page
 link a spot to its cell.
@@ -11,10 +11,13 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import math
 from pathlib import Path
+from statistics import NormalDist
 
 import numpy as np
 
+from referee.sufficiency import S1_HALF_WIDTH
 from stalker.records.schema import DecisionRecord
 from stalker.records.store import iter_records
 from stalker.typing.report import REPORT_SCHEMA_VERSION
@@ -22,20 +25,52 @@ from stalker.typing.spots import ACTION_CATEGORIES, spot_key
 
 QUIZ_SCHEMA_VERSION = 1
 DEFAULT_MAX_SPOTS = 60
+_Z95 = NormalDist().inv_cdf(0.975)
 
 
 def upgrade_report(report: dict) -> dict:
-    """Return `report` in the current schema. v1 cells carried only S1 (`s1_pass`), so they become not lessonable."""
-    if report.get("schema_version") != 1:
+    """Return `report` in the current schema.
+
+    v1 cells carried only S1 (`s1_pass`), so they become not lessonable. v2 S1 had no rule-of-three floor
+    (a separate `zero_variance_guard` covered only zero-variance actions); the v3 floor 3/n per half is
+    within S1_HALF_WIDTH iff each half has >= ceil(3 / S1_HALF_WIDTH) games, so a v2 S1 pass survives only then.
+    """
+    if report.get("schema_version") not in (1, 2):
         return report
     r = copy.deepcopy(report)
-    for c in r.get("cells", []):
-        c.update(s1=bool(c.pop("s1_pass", False)), s4=False, s5=False, lessonable=False)
-    summary = r.setdefault("summary", {})
-    summary.update(lessonable_cells=0, d1_preliminary={"lessonable_decision_share": 0.0,
-                                                        "note": "v1 report: S4/S5 were not judged"})
+    if r["schema_version"] == 1:
+        for c in r.get("cells", []):
+            c.update(s1=bool(c.pop("s1_pass", False)), s4=False, s5=False, lessonable=False)
+        r.setdefault("summary", {}).update(lessonable_cells=0, d1_preliminary={
+            "lessonable_decision_share": 0.0, "note": "v1 report: S4/S5 were not judged"})
+    else:
+        _upgrade_v2_cells(r)
     r["schema_version"] = REPORT_SCHEMA_VERSION
     return r
+
+
+def _upgrade_v2_cells(r: dict) -> None:
+    r.get("criteria", {}).pop("zero_variance_min_games", None)
+    for c in r.get("cells", []):
+        c.pop("zero_variance_guard", None)
+        n = min(c.get("n_games_ab") or [0])
+        c["s1"] = bool(c.get("s1")) and n >= math.ceil(3 / S1_HALF_WIDTH)
+        c["lessonable"] = c["s1"] and bool(c.get("s4")) and bool(c.get("s5"))
+        for x in c.get("actions", {}).values():
+            x.pop("ess_note", None)
+            if "half_width" not in x or n == 0:
+                continue
+            if x.get("ess") is None:  # v2 wrote null for zero variance; v3 uses the rule-of-three n
+                x["ess"] = float(n)
+            elif 3 / n > x["half_width"]:
+                x["ess"] = x["mean"] * (1 - x["mean"]) / (3 / n / _Z95) ** 2
+            x["half_width"] = max(x["half_width"], 3 / n)
+    lessonable = [c for c in r.get("cells", []) if c["lessonable"]]
+    total = sum(c.get("n_decisions", 0) for c in r.get("cells", []))
+    summary = r.setdefault("summary", {})
+    summary["lessonable_cells"] = len(lessonable)
+    summary.setdefault("d1_preliminary", {})["lessonable_decision_share"] = (
+        sum(c["n_decisions"] for c in lessonable) / total if total else 0.0)
 
 
 def validate_report(report: dict) -> list[str]:
