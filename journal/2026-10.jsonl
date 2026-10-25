@@ -142,3 +142,4 @@
 {"ts":"2026-10-25T20:25:08Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"no ready issues; #18,#20 blocked on NH-2/NH-1 (human decisions), no open PRs; main gates quick PASS","friction":"gates quick takes >2min on first run (pip install + tests), exceeding default tool timeout"}
 {"ts":"2026-10-25T20:41:10Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-10-25T21:08:57Z","role":"planner","outcome":"planned","issue":null,"pr":null,"notes":"큐 보충: 신규 #72·#73(Gate A 참조기 기준, P1)·#74(S1 rule-of-three)·#75(Gate L L2/L6)·#76(RL Gate B 후보)·#77(충분성 지표)·#78(RL 상대 풀 실험); ready 7; main green","friction":"ready 큐가 ~5시간 0이어서 builder no_work 6건; planner 일 1회 주기가 처리량을 못 따라감"}
+{"ts":"2026-10-25T21:33:50Z","role":"builder-b","outcome":"pr_opened","issue":72,"pr":79,"notes":"Gate A 스팟 세트 v1 16개 + 로더/해시","friction":"gates full이 120s 포그라운드 타임아웃 초과, 백그라운드 실행 필요"}
