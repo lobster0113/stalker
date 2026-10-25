@@ -25,6 +25,7 @@
   - `gate_l.py` — Gate L(`python -m referee.gate_l`, `gates full`에 등록). L1(A 로그만 다른 B 첫 결정 확률 동일; 에이전트는 `action_probs(obs)`를 노출하거나 deepcopy로 `act`를 조회), L2(`uses_memory=True` 에이전트만, 아니면 skip), L3(HeroObservation 재귀 스캔 + 타 테이블 이벤트 부재), L4(생존자·상금 즉시 반영), L5(중도 합류 메모리·에이전트 상태), L6(학습기 생기면 활성화, 현재 skip). 검사 대상 에이전트는 `REGISTRY`에 등록.
   - `gate_r/` — Gate R 규칙 정확성 스위트(`python -m referee.gate_r [--full]`, `gates full`에 등록, 지표 `gate_r_pass_rate`). `evaluator.py`(독립 7장 평가기)·`settlement.py`(독립 사이드팟 정산: 앤티 데드 머니, 레이어 분할, 못 이기는 핸드 머크 후 같은 좌석 팟 병합, 홀수 칩은 버튼 왼쪽 첫 승자)·`checks.py`(공개 이벤트 스트림을 독립 규칙 모델로 재생해 항목별 `Tally`)·`suite.py`(프리셋 × fast 구조 변형 × 봇 × 시드). PokerKit·`stalker.tournament.hand`를 import하지 않는다(테스트로 강제).
 - `harness/` — 하네스(L1/L2). 프로토콜, 루틴 지침, 스케줄, 훅, 실험 기록.
+- CI(`.github/workflows/ci.yml`) — `gates`(`[dev]`만 설치, `gates full`; torch 테스트는 여기서 skip), `guard`(보호·하네스 경로 라벨 검사), `rl`(CPU torch + `[dev,rl]`, `tests/test_rl_*.py`를 `STALKER_REQUIRE_TORCH=1`로 실행: `tests/conftest.py`가 torch 관련 skip을 실패로 바꾼다), `record-metrics`(main 푸시 시 `ops:metrics` append).
 - `ops` 브랜치 — 운영 데이터(STATE, journal, metrics, reports).
 
 ## 핵심 설계 결정 (상세는 `docs/decisions/`)

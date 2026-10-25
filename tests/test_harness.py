@@ -43,3 +43,63 @@ def test_schedule_covers_all_routines():
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
     roles = {p.stem for p in (ROOT / "harness" / "routines").glob("*.md")}
     assert roles == {cfg["instructions"] for cfg in sched.values()}
+
+
+def _run_pytest(tmp_path, body, require_torch):
+    import os
+    import shutil
+    import subprocess
+    import sys
+
+    shutil.copy(ROOT / "tests" / "conftest.py", tmp_path / "conftest.py")
+    (tmp_path / "test_case.py").write_text(body)
+    env = {k: v for k, v in os.environ.items() if k != "STALKER_REQUIRE_TORCH"}
+    if require_torch:
+        env["STALKER_REQUIRE_TORCH"] = "1"
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(tmp_path)],
+        cwd=tmp_path, env=env, capture_output=True, text=True,
+    )
+
+
+NO_TESTS_COLLECTED = 5  # a module-level skip leaves nothing to run
+FAILED = (1, 2)  # test failure, or collection error
+MISSING_TORCH = 'import pytest\npytest.importorskip("torch_missing_for_test")\n\ndef test_x():\n    pass\n'
+
+
+def test_require_torch_turns_torch_skip_into_failure(tmp_path):
+    r = _run_pytest(tmp_path, MISSING_TORCH, require_torch=False)
+    assert r.returncode == NO_TESTS_COLLECTED and "1 skipped" in r.stdout
+    r = _run_pytest(tmp_path, MISSING_TORCH, require_torch=True)
+    assert r.returncode in FAILED
+    assert "STALKER_REQUIRE_TORCH" in r.stdout
+
+
+def test_require_torch_catches_in_test_skip_and_keeps_other_skips(tmp_path):
+    in_test = 'import pytest\n\ndef test_x():\n    pytest.skip("torch not available")\n'
+    assert _run_pytest(tmp_path, in_test, require_torch=True).returncode in FAILED
+    other = 'import pytest\n\ndef test_x():\n    pytest.skip("solver binary missing")\n'
+    r = _run_pytest(tmp_path, other, require_torch=True)
+    assert r.returncode == 0 and "1 skipped" in r.stdout
+
+
+def test_ci_rl_job_runs_torch_tests_without_skips():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    jobs = {}
+    name = None
+    for line in ci.splitlines():
+        if line.startswith("  ") and not line.startswith("   ") and line.strip().endswith(":"):
+            name = line.strip()[:-1]
+            jobs[name] = []
+        elif name:
+            jobs[name].append(line)
+    assert {"gates", "guard", "rl", "record-metrics"} <= set(jobs)
+    rl = "\n".join(jobs["rl"])
+    assert "download.pytorch.org/whl/cpu" in rl
+    assert '".[dev,rl]"' in rl
+    assert 'STALKER_REQUIRE_TORCH: "1"' in rl
+    assert "tests/test_rl_" in rl
+    assert "timeout-minutes: 20" in rl
+    assert "cache: pip" in rl
+    gates = "\n".join(jobs["gates"])
+    assert "python -m referee.gates full" in gates and "rl]" not in gates

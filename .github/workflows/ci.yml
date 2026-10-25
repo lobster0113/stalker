@@ -40,6 +40,23 @@ jobs:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: python -m referee.guard --base "${{ github.event.pull_request.base.sha }}" --labels "$LABELS"
 
+  rl:
+    # gates installs [dev] only, so torch tests skip there; this job runs them for real (#51).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu -q
+      - run: python -m pip install -e ".[dev,rl]" -q
+      - name: rl tests (torch skips fail)
+        env:
+          STALKER_REQUIRE_TORCH: "1"
+        run: python -m pytest -rs --no-header -p no:cacheprovider tests/test_rl_*.py
+
   record-metrics:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: gates
