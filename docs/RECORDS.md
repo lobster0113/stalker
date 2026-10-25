@@ -26,6 +26,7 @@
 - `session_memory_snapshot`: 기억 켠 정책의 **요약**(`hands_observed`, 스칼라 `features`). 원시 로그는 넣지 않는다. 기억이 없으면 null.
 - `probs_ai0`(기억 끔), `probs_ai1`(기억 켬; 해당 모델이 아직 없으면 null): action_space와 정렬된 확률.
 - `acting_policy`(`ai0`/`ai1`), `chosen_action`(action_space 인덱스), `action_logprob`, `action_values`(선택, 액션별 가치), `policy_source`(`agent`, `checkpoint`, `meta`).
+- `action_values`(참조 봇 기록, `stalker.pipeline.generate`): **상금풀 비율**의 액션별 EV(칩 EV로 푸는 스팟에서는 총칩 대비 비율). `ReferenceBot.action_values`가 숏스택 참조기 경로(층 1: 첫 진입 올인/폴드, 단일 올인에 콜/폴드)에서 0.5bb로 양자화한 스팟의 ICM 참조기 균형(`icm_reference.solve`)에 대한 EV를 준다. `action_space`의 모든 액션에 값이 있을 때만 채우고, 하나라도 없으면 null이다. 그래서 지금은 올인에 콜/폴드 스팟(그리고 올인이 콜인 스팟)만 채워진다. 첫 진입 스팟은 action_space에 참조기가 값을 매기지 않는 림프(`call`)가 있어 null이다. 차트·포스트플랍 결정도 null.
 
 ## `HandRecord` / `GameRecord`
 - `HandRecord`: 핸드별 플레이어 `start_stack`·`final_stack`·`delta`, `busted`(이번 핸드 탈락 player_id), `terminal_flag`(게임을 끝낸 핸드면 true). 칩 증감은 보조 신호이며 보상이 아니다.

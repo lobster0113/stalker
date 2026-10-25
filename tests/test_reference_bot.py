@@ -6,7 +6,7 @@ import pytest
 from referee.agents import reference_bot as rb
 from referee.agents.reference_bot import (REFERENCE_BOT_VERSION, ReferenceBot, factory, hand_start_stacks,
                                           load_chart, preflop_order, solve_ranges)
-from referee.anchors.icm_reference import Spot, evaluate_spot, solve
+from referee.anchors.icm_reference import Spot, _Tree, _value_fn, evaluate_spot, solve
 from referee.evaluate import evaluate
 from stalker.agents.base import Action, Agent, Observation
 from stalker.agents.random_agent import RandomLegalAgent
@@ -90,6 +90,48 @@ def test_short_stack_call_uses_icm_reference_call_range():
         o = _obs(stacks, {0: 1000, 1: 50, 2: 100}, 2, button=0, hole=hole, history=hist, in_hand=(0, 2))
         probs = bot.action_probs(o)
         assert probs.get(Action("call"), 0.0) == pytest.approx(sol.call[2, 0, HAND_CLASSES.index(cls)])
+
+
+def _direct_evaluation(spot):
+    """Equilibrium EVs computed straight from icm_reference.solve, independent of the bot's cache."""
+    sol = solve(spot, "icm", tol=rb.SOLVE_TOL, max_iter=rb.SOLVE_MAX_ITER)
+    return _Tree(spot, _value_fn(spot, "icm", 0, rb.SOLVE_TOL, rb.SOLVE_MAX_ITER)).evaluate(sol.strategy)
+
+
+def test_action_values_match_icm_reference_push_and_call_evs():
+    payouts = (0.5, 0.3, 0.2)
+    spot = Spot((200, 200, 200), 10, 20, payouts)
+    ev = _direct_evaluation(spot)
+    bot = ReferenceBot(np.random.default_rng(0), payouts)
+    for hole, cls in ((("Ah", "Ad"), "AA"), (("7c", "2d"), "72o"), (("Ts", "9s"), "T9s")):
+        push, fold = ev.push_ev[0]
+        got = bot.action_values(_short_first_in(hole))
+        assert set(got) == {Action("raise", 1000), Action("fold")}
+        assert abs(got[Action("raise", 1000)] - push[HAND_CLASSES.index(cls)] / spot.prize_pool) < 1e-9
+        assert abs(got[Action("fold")] - fold / spot.prize_pool) < 1e-9
+    stacks, hist = {0: 0, 1: 950, 2: 900}, ((0, "cbr", 1000), (1, "f", 0))
+    call, fold, _ = ev.call_ev[2, 0]
+    for hole, cls in ((("Kh", "Kd"), "KK"), (("8c", "3d"), "83o")):
+        o = _obs(stacks, {0: 1000, 1: 50, 2: 100}, 2, button=0, hole=hole, history=hist, in_hand=(0, 2))
+        got = bot.action_values(o)
+        assert set(got) == {Action("call"), Action("fold")}
+        assert abs(got[Action("call")] - call[HAND_CLASSES.index(cls)] / spot.prize_pool) < 1e-9
+        assert abs(got[Action("fold")] - fold / spot.prize_pool) < 1e-9
+
+
+def test_action_values_agree_with_action_probs_and_are_none_off_the_reference():
+    payouts = (0.5, 0.3, 0.2)
+    bot = ReferenceBot(np.random.default_rng(0), payouts)
+    for cls in HAND_CLASSES[::7]:
+        o = _short_first_in(_cards_of(cls))
+        vals, probs = bot.action_values(o), bot.action_probs(o)
+        jam, fold = Action("raise", 1000), Action("fold")
+        if vals[jam] != vals[fold]:  # pure best response: the higher-EV action is always taken
+            assert probs == {max((jam, fold), key=vals.get): 1.0}
+    deep = _obs({s: 5000 for s in range(3)}, {0: 0, 1: 50, 2: 100}, 0, button=0, hole=("As", "Kd"))
+    assert bot.action_values(deep) is None
+    post = _obs({0: 900, 1: 900}, {0: 0, 1: 0}, 0, button=0, hole=("As", "Kd"), board=("2c", "7d", "Jh"))
+    assert bot.action_values(post) is None
 
 
 def test_pure_ranges_lose_almost_nothing_against_the_equilibrium():

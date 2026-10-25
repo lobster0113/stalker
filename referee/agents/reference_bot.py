@@ -17,7 +17,8 @@ Decision layers (first that applies; see referee/GATES.md Gate B):
 
 `action_probs(obs)` is a pure function of the observation (MC seeds come from a hash of the
 cards), so the same input always gives the same probabilities; `act` samples it with the
-injected rng.
+injected rng. `action_values(obs)` gives the layer-1 EVs (fraction of the prize pool) behind
+those probabilities and `None` on the other layers.
 """
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
-from referee.anchors.icm_reference import Spot, SpotError, Strategy, _Tree, _value_fn, solve
+from referee.anchors.icm_reference import Evaluation, Spot, SpotError, Strategy, _scale, _Tree, _value_fn, solve
 from stalker.agents.base import Action, Agent, Observation
 from stalker.core.cards import HAND_CLASSES, card, hand_class
 from stalker.core.equity import equity_vs_ranges
@@ -72,9 +73,15 @@ def solve_ranges(spot: Spot, value_model: str) -> Strategy:
 
 @lru_cache(maxsize=8192)
 def _solve_spot(stacks: tuple[int, ...], sb: int, ante: int, bb_ante: int,
-                payouts: tuple[float, ...] | None) -> Strategy:
+                payouts: tuple[float, ...] | None) -> tuple[Strategy, Evaluation, float]:
+    """The ranges the bot plays, the EVs (per seat and hand) they best-respond to and the value
+    scale (prize pool, or total chips for chip EV) that turns EVs into pool fractions."""
     spot = Spot(stacks, sb, SPOT_BB, payouts or (1.0,), ante=ante, bb_ante=bb_ante)
-    return solve_ranges(spot, "chipev" if payouts is None else "icm")
+    model = "chipev" if payouts is None else "icm"
+    sol = solve(spot, model, tol=SOLVE_TOL, max_iter=SOLVE_MAX_ITER)
+    tree = _Tree(spot, _value_fn(spot, model, 0, SOLVE_TOL, SOLVE_MAX_ITER))
+    ev = tree.evaluate(sol.strategy)
+    return ev.best_response(sol.strategy), ev, _scale(spot, model)
 
 
 @lru_cache(maxsize=65536)
@@ -135,6 +142,20 @@ class ReferenceBot(Agent):
             out = self._postflop(obs)
         return {a: p for a, p in out.items() if p > 0} or {self._check_fold(obs): 1.0}
 
+    def action_values(self, obs: Observation) -> dict[Action, float] | None:
+        """EV of each layer-1 action as a fraction of the prize pool (chip share under chip EV),
+        against the solved equilibrium of the quantised spot (the EVs `action_probs` best-responds
+        to); `None` outside the short-stack layer."""
+        ref = None if obs.board else self._reference(obs)
+        if ref is None:
+            return None
+        hero_i, pusher_i, (_, ev, scale), h = ref
+        if pusher_i is None:
+            push, fold = ev.push_ev[hero_i]
+            return {self._jam(obs): float(push[h]) / scale, self._check_fold(obs): float(fold) / scale}
+        call, fold, _ = ev.call_ev[hero_i, pusher_i]
+        return {Action("call"): float(call[h]) / scale, Action("fold"): float(fold) / scale}
+
     # ---- helpers ----
     @staticmethod
     def _check_fold(obs: Observation) -> Action:
@@ -156,6 +177,18 @@ class ReferenceBot(Agent):
 
     # ---- 1. short-stack zone ----
     def _short_stack(self, obs: Observation) -> dict[Action, float] | None:
+        ref = self._reference(obs)
+        if ref is None:
+            return None
+        hero_i, pusher_i, (strat, _, _), h = ref
+        if pusher_i is None:
+            p = float(strat.push[hero_i, h])
+            return {self._jam(obs): p, self._check_fold(obs): 1.0 - p}
+        p = float(strat.call[hero_i, pusher_i, h])
+        return {Action("call"): p, Action("fold"): 1.0 - p}
+
+    def _reference(self, obs: Observation):
+        """(hero index, pusher index or None, solved spot, hand class index) when layer 1 applies."""
         order = preflop_order(obs)
         if obs.seat not in order:
             return None
@@ -182,12 +215,7 @@ class ReferenceBot(Agent):
         sol = self._solution(obs, order, start, ante, bb_ante)
         if sol is None:
             return None
-        h = _CLASS_INDEX[hand_class(card(obs.hole_cards[0]), card(obs.hole_cards[1]))]
-        if pusher_i is None:
-            p = float(sol.push[hero_i, h])
-            return {self._jam(obs): p, self._check_fold(obs): 1.0 - p}
-        p = float(sol.call[hero_i, pusher_i, h])
-        return {Action("call"): p, Action("fold"): 1.0 - p}
+        return hero_i, pusher_i, sol, _CLASS_INDEX[hand_class(card(obs.hole_cards[0]), card(obs.hole_cards[1]))]
 
     def _solution(self, obs: Observation, order: list[int], start: dict[int, int], ante: int, bb_ante: int):
         unit = obs.bb * QUANT_BB

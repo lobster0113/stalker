@@ -68,10 +68,13 @@ class RecordingBot(Agent):
         p = tuple(probs.get(a, 0.0) / total for a in space)
         choice = int(self.bot.rng.choice(len(space), p=np.array(p)))
         self.counter[0] += 1
-        self.sink.append(self._record(o, space, p, choice))
+        ev = self.bot.action_values(o)
+        values = tuple(ev[a] for a in space) if ev is not None and all(a in ev for a in space) else None
+        self.sink.append(self._record(o, space, p, choice, values))
         return space[choice]
 
-    def _record(self, o: Observation, space: Sequence[Action], probs: tuple[float, ...], choice: int) -> DecisionRecord:
+    def _record(self, o: Observation, space: Sequence[Action], probs: tuple[float, ...], choice: int,
+                values: tuple[float, ...] | None) -> DecisionRecord:
         cfg = self.cfg
         mem = self.memory.get(o.game_id)
         vpips = [s.vpip_hands / s.hands for p, s in mem.opponents.items()
@@ -96,7 +99,7 @@ class RecordingBot(Agent):
                 action_space=tuple(ActionOption(a.kind, a.amount) for a in space),
                 legal_action_mask=(True,) * len(space)),
             session_memory_snapshot=snapshot, probs_ai0=probs, probs_ai1=None, acting_policy="ai0",
-            chosen_action=choice, action_logprob=math.log(probs[choice]), action_values=None,
+            chosen_action=choice, action_logprob=math.log(probs[choice]), action_values=values,
             policy_source=PolicySource("reference-bot", meta={"version": REFERENCE_BOT_VERSION}))
 
 
