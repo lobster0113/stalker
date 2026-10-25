@@ -245,3 +245,48 @@ def test_folded_seats_leave_the_hand_and_are_never_shown():
             assert not set(item.data["hands"]) & folded[item.hand_id]
             shows += 1
     assert folds and shows
+
+
+class _OrderProbe(Passive):
+    seen: list = []
+
+    def act(self, obs: Observation) -> Action:
+        _OrderProbe.seen.append(obs)
+        return super().act(obs)
+
+
+def _spec_order(obs: Observation) -> tuple[int, ...]:
+    """Gate R action order before anyone acts on this street: preflop UTG..BTN,SB,BB (heads-up BTN/SB, BB);
+    postflop SB..BTN (heads-up BB, BTN). Folded and all-in seats are excluded."""
+    seats = sorted(obs.stacks)
+    after = [s for s in seats if s > obs.button] + [s for s in seats if s <= obs.button]
+    if obs.board:
+        order = after
+    else:
+        order = [obs.button, after[0]] if len(after) == 2 else after[2:] + after[:2]
+    return tuple(s for s in order if s in obs.in_hand and obs.stacks[s] > 0)
+
+
+@pytest.mark.parametrize("preset,mode", [("mtt54", "classic"), ("mtt180_bbante", "bb_ante"),
+                                         ("6max_sng_wta", "none"), ("9max_sng_flat", "none")])
+def test_observation_ante_mode_and_action_order(preset, mode):
+    _OrderProbe.seen = []
+    cfg, _, _ = _play(preset, _OrderProbe)
+    seen = _OrderProbe.seen
+    assert seen
+    heads_up = street_starts = 0
+    prev = None
+    for obs in seen:
+        assert obs.ante_mode == (mode if obs.ante else "none")
+        order = obs.action_order
+        assert order[0] == obs.seat
+        # complete: exactly the seats still able to act, clockwise from the actor
+        assert set(order) == {s for s in obs.in_hand if obs.stacks[s] > 0}
+        assert list(order) == sorted(order, key=lambda s: (s - obs.seat) % cfg.table_size)
+        new_street = prev is None or prev.hand_id != obs.hand_id or len(prev.board) != len(obs.board)
+        if new_street:  # nobody has acted on this street yet: the full order is fixed by the spec
+            street_starts += 1
+            assert order == _spec_order(obs)
+        heads_up += len(obs.stacks) == 2
+        prev = obs
+    assert street_starts and heads_up, "probe game never reached a street start / heads-up"

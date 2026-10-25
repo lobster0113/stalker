@@ -144,8 +144,9 @@ class _Game:
         table.button = table.next_button()
         seat_players = {s: p for s, p in enumerate(table.seats) if p is not None}
         start = {s: self.stacks[p] for s, p in seat_players.items()}
+        ante_mode = cfg.ante_mode if level.ante else "none"
         hand = Hand([start.get(s, 0) for s in range(len(table.seats))], table.button, level.sb, level.bb,
-                    self.rng, ante=level.ante, ante_mode=cfg.ante_mode if level.ante else "none")
+                    self.rng, ante=level.ante, ante_mode=ante_mode)
         holes = {s: tuple(hand.hole_cards(s)) for s in seat_players}
         self._emit(Event("NEW_HAND", self.game_id, hand_id, table.id, {
             "hand_no": hand_no, "button": table.button, "seat_players": dict(seat_players), "stacks": dict(start),
@@ -168,7 +169,8 @@ class _Game:
                 next_blinds=None if nxt is None else (nxt.sb, nxt.bb, nxt.ante),
                 players_remaining=len(self.stacks), paid_places=len(cfg.payouts), legal=la,
                 action_history=tuple(hand.actions()), all_stacks=self.round_stacks,
-                hand_start_stack=start[seat])
+                hand_start_stack=start[seat],
+                ante_mode=ante_mode, action_order=self._action_order(hand, folded, seat))
             action = agent.act(obs)
             street = len(hand.board())  # 0/3/4/5 board cards = preflop/flop/turn/river
             kind = self._apply(hand, la, action)
@@ -194,6 +196,14 @@ class _Game:
                 busted.append((p, start[s]))
                 table.seats[s] = None
         return busted
+
+    @staticmethod
+    def _action_order(hand: Hand, folded: set[int], actor: int) -> tuple[int, ...]:
+        """Seats that can still act this street (not folded, not all-in), from `actor` around the table."""
+        seats = hand.seats  # clockwise from the seat after the button
+        live = [s for i, s in enumerate(seats) if s not in folded and hand.state.stacks[i] > 0]
+        k = live.index(actor)
+        return tuple(live[k:] + live[:k])
 
     def _apply(self, hand: Hand, la, action: Action) -> tuple[str, int]:
         """Apply `action`, falling back to check/fold when it is illegal. Returns (kind, chips)."""
