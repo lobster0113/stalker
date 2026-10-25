@@ -133,3 +133,4 @@
 {"ts":"2026-10-25T17:06:26Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"열린 PR 0, ready 이슈 0. blocked #18(NH-2)·#20(NH-1)은 사람 결정 대기라 자가 언블록 대상 아님","friction":"ready 큐가 다시 0(실험 001 측정창 중 no_work 1건)"}
 {"ts":"2026-10-25T17:23:03Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"no open PRs, no ready issues; #18/#20 blocked on NH-2/NH-1","friction":"gates quick + pip install exceeded 2min foreground timeout"}
 {"ts":"2026-10-25T17:40:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"gh CLI unauthenticated; used GitHub MCP"}
+{"ts":"2026-10-25T18:15:15Z","role":"builder","outcome":"no_work","issue":null,"pr":null,"notes":"gates quick PASS(b598ced). open PR 0, ready 0. blocked #18(NH-2)·#20(NH-1)은 NH 대기라 언블록 불가.","friction":"ready 큐 고갈 재발(#61~#65 모두 머지). pip install+gates quick이 120s 타임아웃을 넘겨 백그라운드 대기 필요."}
