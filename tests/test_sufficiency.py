@@ -1,8 +1,10 @@
+import math
+
 import numpy as np
 import pytest
 
-from referee.sufficiency import (judge_cell, make_cell, s1_precision, s4_reproducible,
-                                 s5_saturated)
+from referee.sufficiency import (S1_HALF_WIDTH, judge_cell, make_cell, rule_of_three, s1_precision,
+                                 s4_reproducible, s5_saturated)
 
 
 def _indep(n, p, seed, per_t=1):
@@ -27,6 +29,33 @@ def test_clustered_decisions_have_small_ess_and_fail_s1():
     cell = make_cell(p, np.repeat(range(4), 500))
     r = s1_precision(cell, rng=np.random.default_rng(0))
     assert not r.passed and all(a.ess < 50 for a in r.actions)
+
+
+def _deterministic(n_t, per_t=3):
+    return make_cell([[0.0, 1.0]] * (n_t * per_t), [i // per_t for i in range(n_t * per_t)])
+
+
+@pytest.mark.parametrize("n_t", [2, 5])
+def test_small_deterministic_cell_fails_s1(n_t):
+    """Zero bootstrap variance is not precision: the rule of three bounds the half-width by 3/n_tournaments."""
+    r = s1_precision(_deterministic(n_t), rng=np.random.default_rng(0))
+    (a,) = r.actions
+    assert not r.passed and a.half_width == pytest.approx(3 / n_t) and a.ess == n_t
+
+
+@pytest.mark.parametrize("n_t,ok", [(math.ceil(3 / S1_HALF_WIDTH) - 1, False), (math.ceil(3 / S1_HALF_WIDTH), True)])
+def test_deterministic_cell_boundary_is_rule_of_three(n_t, ok):
+    assert math.ceil(3 / S1_HALF_WIDTH) == 60
+    assert s1_precision(_deterministic(n_t), rng=np.random.default_rng(0)).passed is ok
+
+
+def test_near_deterministic_cell_is_also_floored():
+    """One stray decision gives a tiny nonzero bootstrap width; the floor still applies (not only at zero variance)."""
+    probs = [[0.0, 1.0]] * 29 + [[0.01, 0.99]]
+    r = s1_precision(make_cell(probs, range(30)), rng=np.random.default_rng(0))
+    (a,) = r.actions
+    assert not r.passed and a.half_width == pytest.approx(rule_of_three(30))
+    assert a.ess == pytest.approx(a.mean * (1 - a.mean) / (a.half_width / 1.959963984540054) ** 2)
 
 
 def test_single_tournament_fails_s1():

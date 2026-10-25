@@ -127,17 +127,18 @@ def test_large_deterministic_cell_is_lessonable():
     rep = build_report([decision(game=f"g{g}") for g in range(120)], seed=1)
     cell = rep["cells"][0]
     call = cell["actions"]["call"]
-    assert cell["lessonable"] and call["ess"] is None and "zero variance" in call["ess_note"]
+    assert cell["lessonable"] and call["ess"] == 60 and call["half_width"] == pytest.approx(3 / 60)
     md = to_markdown(rep)
-    assert "zero variance" in md and "∞" not in md and "가능" in md
+    assert "∞" not in md and "가능" in md
+    json.dumps(rep, allow_nan=False)
 
 
 @pytest.mark.parametrize("n_games", [4, 10, 118])
-def test_small_deterministic_cell_is_held_back_by_rule_of_three(n_games):
-    """The referee's S1 passes these (half-width 0); the guard needs 60 games on each half."""
+def test_small_deterministic_cell_fails_referee_s1(n_games):
+    """The referee's S1 floors the half-width at 3/n per half (rule of three), so 60 games on each half are needed."""
     cell = build_report([decision(game=f"g{g}") for g in range(n_games)], seed=1)["cells"][0]
-    assert cell["s1"] and cell["s4"] and cell["s5"]
-    assert cell["zero_variance_guard"] and not cell["lessonable"]
+    assert cell["s4"] and cell["s5"] and not cell["s1"] and not cell["lessonable"]
+    assert "zero_variance_guard" not in cell
 
 
 def test_two_game_cell_is_not_lessonable():
@@ -164,7 +165,7 @@ def test_single_game_cell_is_flagged_not_crashing():
 def test_report_is_reproducible_and_json_safe():
     dec = _many(30, 3, 0.4, np.random.default_rng(2))
     a, b = build_report(dec, seed=5), build_report(dec, seed=5)
-    assert a == b and a["schema_version"] == 2
+    assert a == b and a["schema_version"] == 3
     json.dumps(a, allow_nan=False)
 
 

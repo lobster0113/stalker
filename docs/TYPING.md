@@ -20,16 +20,16 @@ python -m stalker.pipeline.generate --preset sng9 --n 200 --seed 1 --out runs/sn
 
 키를 못 만드는 결정(포지션 불명 등)은 `None`이며 리포트의 `unclassified` 비율로 드러난다. 한계: BB가 림프를 받았을 때는 `unopened`로 센다. 세분화 규칙(최소 잎 크기로 자동 분할)은 후속 작업.
 
-## 리포트 (`stalker/typing/report.py`, `schema_version` 2)
+## 리포트 (`stalker/typing/report.py`, `schema_version` 3)
 셀마다 결정 수·게임 수, 액션 범주(`fold`/`call`/`raise`/`allin`)별 평균 확률(= AI 혼합전략 빈도), 그리고 **심판 계산기 `referee.sufficiency.judge_cell`의 판정**: `s1`(정밀도)·`s4`(재현성)·`s5`(포화)·`lessonable`(= S1∧S4∧S5, 헌장 5: 이것만 가르친다). 리포트는 자체 충분성 계산을 하지 않는다.
 
-**S4용 두 시드 집합 나누기**: 셀의 게임을 입력(결정 스트림)에서 처음 나온 순서로 번호 매겨 짝수 번째 → A, 홀수 번째 → B로 나눈다. `generate`는 게임 i를 시드 `[seed, i]`로 돌리고 게임 순서대로 기록하므로 A·B는 서로 겹치지 않는 시드 집합에서 나온다. 판정은 양쪽으로 한다: `judge_cell(A, B)`와 `judge_cell(B, A)`. `s1`·`s5`는 두 쪽 모두 통과해야 참, `s4`는 A↔B 일치. 셀에는 `n_games_ab`(A/B 게임 수)를 함께 적는다. 한쪽이라도 게임이 2개 미만이면 `status: insufficient_games`(S1 불가)다. 행동별 `half_width`·`ess`는 주요 액션(평균 ≥ 5%)에 대해 두 쪽 중 나쁜 값이다. 분산 0이면 `ess: null` + `ess_note`.
+**S4용 두 시드 집합 나누기**: 셀의 게임을 입력(결정 스트림)에서 처음 나온 순서로 번호 매겨 짝수 번째 → A, 홀수 번째 → B로 나눈다. `generate`는 게임 i를 시드 `[seed, i]`로 돌리고 게임 순서대로 기록하므로 A·B는 서로 겹치지 않는 시드 집합에서 나온다. 판정은 양쪽으로 한다: `judge_cell(A, B)`와 `judge_cell(B, A)`. `s1`·`s5`는 두 쪽 모두 통과해야 참, `s4`는 A↔B 일치. 셀에는 `n_games_ab`(A/B 게임 수)를 함께 적는다. 한쪽이라도 게임이 2개 미만이면 `status: insufficient_games`(S1 불가)다. 행동별 `half_width`·`ess`는 주요 액션(평균 ≥ 5%)에 대해 두 쪽 중 나쁜 값이다. 분산 0이면 `ess`는 그 쪽 게임 수(rule-of-three의 n)다.
 
 요약: `cells`, `lessonable_cells`, `d1_preliminary.lessonable_decision_share`(교훈 가능 셀이 차지하는 결정 비율). 이 D1은 **예비값**이다. 이 데이터(참조 봇)의 결정 빈도로 가중했을 뿐 실전 출현 빈도가 아니므로 D1 판정이 아니다.
 
-**분산 0 가드(임시 강화)**: 심판의 S1은 분산 0인 행동의 부트스트랩 반폭 0을 정밀하다고 읽는다. 그래서 결정론적인 작은 셀(쪽마다 게임 2개)도 S1·S4·S5를 통과한다(로컬 sng6 30게임에서 교훈 가능 12셀이 전부 이런 셀이었다, 참고용). 기준 강화는 언제든 가능하므로(`referee/DATA_SUFFICIENCY.md`), 주요 행동의 분산이 0인 쪽은 rule-of-three로 게임 ≥ `ceil(3 / S1_HALF_WIDTH)` = 60이어야 `lessonable`이 된다. `s1`은 심판 판정 그대로 두고, 가드가 막았으면 `zero_variance_guard: true`다. 이 보호는 심판(`referee.sufficiency`)으로 옮겨야 한다(후속 `referee-change` 이슈 제안).
+**분산 0 행동**: 심판의 S1은 반폭을 max(부트스트랩 반폭, 3/쪽 게임 수)로 잡는다(rule-of-three, `referee/DATA_SUFFICIENCY.md` S1). 그래서 결정론적인 작은 셀(쪽마다 게임 2개)은 S1에서 떨어지고, 쪽마다 게임 ≥ `ceil(3 / S1_HALF_WIDTH)` = 60이어야 통과한다. 리포트 v2의 임시 가드(`zero_variance_guard`)는 v3에서 없어졌다.
 
-학습 페이지 빌더(`stalker/service/build.py`)는 v1 리포트도 읽는다(`upgrade_report`). v1은 S4/S5를 판정하지 않았으므로 모든 셀이 `lessonable: false`가 된다. 퀴즈는 `lessonable` 셀에서만 뽑고, 페이지는 나머지 셀을 "표본 부족"으로 표시한다.
+학습 페이지 빌더(`stalker/service/build.py`)는 v1 리포트도 읽는다(`upgrade_report`). v1은 S4/S5를 판정하지 않았으므로 모든 셀이 `lessonable: false`가 된다. v2는 S1에 rule-of-three 상한이 없었으므로, 쪽마다 게임이 60 미만인 셀의 `s1`·`lessonable`을 false로 내리고 반폭·ESS를 상한에 맞춘다. 퀴즈는 `lessonable` 셀에서만 뽑고, 페이지는 나머지 셀을 "표본 부족"으로 표시한다.
 
 ## 리포트를 `ops` 브랜치에 올리기
 ```bash
