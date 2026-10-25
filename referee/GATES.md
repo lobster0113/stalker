@@ -13,6 +13,8 @@
 | L5 | 게임 중 합류한 플레이어 | 합류 시점 이후 관측만 메모리에 존재 |
 | L6 | 학습 배치 | game_id 경계에서 hidden state 초기화, 서로 다른 game_id 간 상태 전달 없음 |
 
+스위트: `referee/gate_l.py` — `python -m referee.gate_l`. `gates full`이 실행하고, `metrics.py`가 `gate_l_pass_rate`(통과/전체 검사, 검사 0건이면 0)·`gate_l_checks`·`gate_l_items`(항목별 [통과, 총계], skip 항목은 없음)를 기록한다.
+
 ## Gate R — 규칙 정확성 (상시 CI)
 칩 총량 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 일반/BB 앤티와 숏스택 징수, 탈락·순위·상금 배분. 규칙 테스트 통과율 100%.
 
