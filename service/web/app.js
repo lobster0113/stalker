@@ -12,16 +12,21 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 
 function fail(msg) { const e = $("error"); e.textContent = msg; e.hidden = false; }
 
+// Only lessonable cells (S1, S4 and S5 all pass) are taught; every other cell reads as "표본 부족".
+function cellBadge(c) {
+  if (c.lessonable === true) return '<span class="badge ok">교훈 가능</span>';
+  const why = ["s1", "s4", "s5"].map((k) => `${k.toUpperCase()} ${c[k] ? "✓" : "✗"}`).join(" ");
+  return `<span class="badge low" title="${why}">표본 부족</span>`;
+}
+
 function renderTypes() {
-  const c = report.criteria;
-  $("types-summary").textContent = `결정 ${report.decisions}건, 셀 ${report.summary.cells}개, 표본 충분(S1) ${report.summary.s1_pass_cells}개. ` +
-    `충분 기준: 주요 행동의 95% 신뢰구간 반폭 ≤ ${pct(c.s1_half_width)}p, 게임 ≥ ${c.min_games}.`;
+  $("types-summary").textContent = `결정 ${report.decisions}건, 셀 ${report.summary.cells}개, 교훈 가능 ${report.summary.lessonable_cells}개. ` +
+    "교훈 가능 = 정밀도(S1)·재현성(S4)·포화(S5)를 모두 통과한 셀. 나머지는 표본 부족이라 가르치지 않습니다.";
   $("types-table").querySelector("thead").innerHTML = "<tr><th>셀 (단계|스택BB|포지션|스트리트|팟|상대)</th><th>결정</th><th>게임</th>" +
     ACTIONS.map((a) => `<th>${a}</th>`).join("") + "<th>표본</th></tr>";
   const rows = [...report.cells].sort((a, b) => b.n_decisions - a.n_decisions);
   $("types-table").querySelector("tbody").innerHTML = rows.map((c) => {
-    const lacking = c.status !== "ok";
-    const badge = c.s1_pass ? '<span class="badge ok">충분</span>' : lacking ? '<span class="badge low">데이터 부족</span>' : '<span class="badge fail">미달</span>';
+    const badge = cellBadge(c);
     return `<tr><td>${esc(c.label)}</td><td>${c.n_decisions}</td><td>${c.n_games}</td>` +
       ACTIONS.map((a) => `<td>${pct(c.actions[a].mean)}</td>`).join("") + `<td>${badge}</td></tr>`;
   }).join("");
@@ -42,7 +47,7 @@ function nextSpot() {
   const seats = s.seats.map((x) => `좌석${x.seat}${x.seat === s.hero ? "(나)" : ""}: ${x.stack}${x.bet ? ` +베팅 ${x.bet}` : ""}${x.in_hand ? "" : " 폴드"}`).join(" · ");
   $("quiz-spot").innerHTML = `<div class="card"><div>${esc(s.street)} · ${esc(s.position)} · 팟 ${s.pot} · BB ${s.bb}</div>` +
     `<div>내 카드: <b>${esc(s.hole_cards.join(" "))}</b> 보드: ${esc(s.board.join(" ") || "-")}</div><div class="muted">${esc(seats)}</div>` +
-    `<div class="muted">셀 ${esc(s.cell)}${cell && cell.status !== "ok" ? ' <span class="badge low">데이터 부족</span>' : ""}</div></div>`;
+    `<div class="muted">셀 ${esc(s.cell)} ${cell ? cellBadge(cell) : ""}</div></div>`;
   $("quiz-options").innerHTML = s.options.map((o, i) => `<button data-i="${i}">${esc(optionLabel(o, s.bb))}</button>`).join("");
   $("quiz-result").innerHTML = ""; $("quiz-next").hidden = true;
 }
@@ -71,6 +76,7 @@ async function main() {
   try {
     [report, quiz] = await Promise.all(["data/report.json", "data/quiz.json"].map((u) => fetch(u).then((r) => { if (!r.ok) throw new Error(u + " " + r.status); return r.json(); })));
   } catch (e) { return fail("데이터를 불러오지 못했습니다: " + e.message + " (python -m stalker.service.build 로 data/를 만들고 http.server로 여세요)"); }
-  renderTypes(); renderScore(); if (quiz.spots.length) nextSpot();
+  renderTypes(); renderScore();
+  if (quiz.spots.length) nextSpot(); else $("quiz-score").textContent = "교훈 가능한 셀이 아직 없어 낼 문제가 없습니다. 데이터를 더 모아야 합니다.";
 }
 main();

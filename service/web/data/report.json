@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": {
     "preset": "6max SNG top-heavy (65/35)",
     "n_games": 3,
@@ -7,13 +7,12 @@
     "policy_version": "refbot-v1+icm-ref-v1+chart-v1+post-v1+short15bb"
   },
   "criteria": {
-    "s1_half_width": 0.05,
-    "main_action_min": 0.05,
-    "min_games": 30,
-    "ci_level": 0.95,
+    "judge": "referee.sufficiency.judge_cell",
+    "lessonable": "S1 and S4 and S5",
+    "split": "games by first-appearance order: even -> A, odd -> B",
     "cluster": "game_id",
-    "n_boot": 1000,
-    "seed": 1
+    "seed": 1,
+    "zero_variance_min_games": 60
   },
   "decisions": 616,
   "unclassified": {
@@ -22,8 +21,11 @@
   },
   "summary": {
     "cells": 215,
-    "s1_pass_cells": 0,
-    "s1_pass_decision_share": 0.0
+    "lessonable_cells": 0,
+    "d1_preliminary": {
+      "lessonable_decision_share": 0.0,
+      "note": "예비: 이 데이터의 결정 빈도로 가중. 실전 출현 빈도가 아니므로 D1 판정이 아니다."
+    }
   },
   "cells": [
     {
@@ -38,6 +40,10 @@
       },
       "n_decisions": 5,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -52,7 +58,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -67,6 +77,10 @@
       },
       "n_decisions": 4,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -81,7 +95,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -96,6 +114,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -110,7 +132,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -125,6 +151,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -139,7 +169,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -154,6 +188,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -168,7 +206,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -183,6 +225,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -197,7 +243,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -212,6 +262,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -226,7 +280,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -241,6 +299,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -255,7 +317,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -270,6 +336,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -284,7 +354,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -299,6 +373,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -313,7 +391,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -328,42 +410,30 @@
       },
       "n_decisions": 5,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.4,
-          "lo": 0.0,
-          "hi": 0.5,
-          "half_width": 0.25,
-          "ess": 14.75120210417664,
-          "main": true
+          "mean": 0.4
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.6,
-          "lo": 0.5,
-          "hi": 1.0,
-          "half_width": 0.25,
-          "ess": 14.75120210417664,
-          "main": true
+          "mean": 0.6
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "bubble|5-10|SB|preflop|facing_allin|normal",
@@ -377,6 +447,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -391,7 +465,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -406,56 +484,10 @@
       },
       "n_decisions": 2,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "bubble|5-10|SB|preflop|unopened|normal",
-      "key": {
-        "stage": "bubble",
-        "stack_bb": "5-10",
-        "position": "SB",
-        "street": "preflop",
-        "pot_type": "unopened",
-        "profile": "normal"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -470,7 +502,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "bubble|5-10|SB|preflop|unopened|normal",
+      "key": {
+        "stage": "bubble",
+        "stack_bb": "5-10",
+        "position": "SB",
+        "street": "preflop",
+        "pot_type": "unopened",
+        "profile": "normal"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -485,6 +558,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -499,7 +576,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -514,6 +595,10 @@
       },
       "n_decisions": 8,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.875
@@ -528,7 +613,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -543,6 +632,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666
@@ -557,7 +650,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -572,42 +669,36 @@
       },
       "n_decisions": 3,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666,
-          "lo": 0.0,
-          "hi": 1.0,
+          "main": true,
           "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "ess": 3.841458820694124
         },
         "call": {
           "mean": 0.3333333333333333,
-          "lo": 0.0,
-          "hi": 1.0,
+          "main": true,
           "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "ess": 3.841458820694124
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "bubble|<5|BTN|preflop|facing_allin|normal",
@@ -621,6 +712,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -635,7 +730,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -650,42 +749,30 @@
       },
       "n_decisions": 9,
       "n_games": 2,
+      "n_games_ab": [
+        2,
+        0
+      ],
       "actions": {
         "fold": {
-          "mean": 0.8888888888888888,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 1.5176133852033586,
-          "main": true
+          "mean": 0.8888888888888888
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.1111111111111111,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 1.517613385203358,
-          "main": true
+          "mean": 0.1111111111111111
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "bubble|<5|BTN|preflop|unopened|tight",
@@ -699,42 +786,30 @@
       },
       "n_decisions": 10,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.3,
-          "lo": 0.0,
-          "hi": 0.5,
-          "half_width": 0.25,
-          "ess": 12.90730184115456,
-          "main": true
+          "mean": 0.3
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.2,
-          "lo": 0.16666666666666666,
-          "hi": 0.25,
-          "half_width": 0.04166666666666667,
-          "ess": 354.02885050023934,
-          "main": true
+          "mean": 0.2
         },
         "allin": {
-          "mean": 0.5,
-          "lo": 0.3333333333333333,
-          "hi": 0.75,
-          "half_width": 0.20833333333333334,
-          "ess": 22.126803156264963,
-          "main": true
+          "mean": 0.5
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "bubble|<5|SB|preflop|facing_allin|normal",
@@ -748,6 +823,10 @@
       },
       "n_decisions": 5,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -762,7 +841,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -777,6 +860,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -791,7 +878,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -806,6 +897,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -820,7 +915,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -835,6 +934,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666
@@ -849,7 +952,11 @@
           "mean": 0.3333333333333333
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -864,42 +971,30 @@
       },
       "n_decisions": 9,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.3333333333333333,
-          "lo": 0.0,
-          "hi": 0.6,
-          "half_width": 0.3,
-          "ess": 9.48508365752099,
-          "main": true
+          "mean": 0.3333333333333333
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.6666666666666666,
-          "lo": 0.4,
-          "hi": 1.0,
-          "half_width": 0.3,
-          "ess": 9.48508365752099,
-          "main": true
+          "mean": 0.6666666666666666
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|10-15|BB|preflop|facing_allin|normal",
@@ -913,6 +1008,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -927,7 +1026,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -942,42 +1045,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "call": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|10-15|BB|preflop|facing_open|tight",
@@ -991,6 +1082,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1005,7 +1100,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1020,6 +1119,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1034,7 +1137,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1049,6 +1156,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1063,7 +1174,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1078,6 +1193,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1092,7 +1211,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1107,6 +1230,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1121,7 +1248,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1136,6 +1267,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1150,7 +1285,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1165,56 +1304,10 @@
       },
       "n_decisions": 7,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "early|10-15|CO|preflop|facing_allin|normal",
-      "key": {
-        "stage": "early",
-        "stack_bb": "10-15",
-        "position": "CO",
-        "street": "preflop",
-        "pot_type": "facing_allin",
-        "profile": "normal"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1229,7 +1322,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "early|10-15|CO|preflop|facing_allin|normal",
+      "key": {
+        "stage": "early",
+        "stack_bb": "10-15",
+        "position": "CO",
+        "street": "preflop",
+        "pot_type": "facing_allin",
+        "profile": "normal"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1244,42 +1378,30 @@
       },
       "n_decisions": 3,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.6666666666666666,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "mean": 0.6666666666666666
         },
         "call": {
-          "mean": 0.3333333333333333,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "mean": 0.3333333333333333
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|10-15|CO|preflop|unopened|tight",
@@ -1293,6 +1415,10 @@
       },
       "n_decisions": 8,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.75
@@ -1307,7 +1433,11 @@
           "mean": 0.25
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1322,6 +1452,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1336,7 +1470,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1351,42 +1489,30 @@
       },
       "n_decisions": 10,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.9,
-          "lo": 0.5,
-          "hi": 1.0,
-          "half_width": 0.25,
-          "ess": 5.531700789066239,
-          "main": true
+          "mean": 0.9
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.1,
-          "lo": 0.0,
-          "hi": 0.5,
-          "half_width": 0.25,
-          "ess": 5.531700789066241,
-          "main": true
+          "mean": 0.1
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|10-15|SB|preflop|facing_allin|tight",
@@ -1400,6 +1526,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1414,7 +1544,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1429,6 +1563,10 @@
       },
       "n_decisions": 4,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.75
@@ -1443,7 +1581,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1458,42 +1600,30 @@
       },
       "n_decisions": 8,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.625,
-          "lo": 0.3333333333333333,
-          "hi": 0.8,
-          "half_width": 0.23333333333333336,
-          "ess": 16.536892505579075,
-          "main": true
+          "mean": 0.625
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.375,
-          "lo": 0.2,
-          "hi": 0.6666666666666666,
-          "half_width": 0.2333333333333333,
-          "ess": 16.536892505579083,
-          "main": true
+          "mean": 0.375
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|10-15|SB|turn|facing_bet|tight",
@@ -1507,6 +1637,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1521,7 +1655,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1536,6 +1674,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1550,7 +1692,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1565,6 +1711,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1579,7 +1729,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1594,6 +1748,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1608,7 +1766,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1623,6 +1785,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1637,7 +1803,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1652,56 +1822,10 @@
       },
       "n_decisions": 4,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "early|15-25|BB|preflop|facing_open|unknown",
-      "key": {
-        "stage": "early",
-        "stack_bb": "15-25",
-        "position": "BB",
-        "street": "preflop",
-        "pot_type": "facing_open",
-        "profile": "unknown"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1716,7 +1840,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "early|15-25|BB|preflop|facing_open|unknown",
+      "key": {
+        "stage": "early",
+        "stack_bb": "15-25",
+        "position": "BB",
+        "street": "preflop",
+        "pot_type": "facing_open",
+        "profile": "unknown"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1731,6 +1896,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1745,7 +1914,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1760,6 +1933,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1774,7 +1951,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1789,6 +1970,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1803,7 +1988,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1818,6 +2007,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1832,7 +2025,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1847,6 +2044,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -1861,7 +2062,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1876,6 +2081,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1890,7 +2099,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1905,6 +2118,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1919,7 +2136,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1934,6 +2155,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -1948,7 +2173,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -1963,42 +2192,30 @@
       },
       "n_decisions": 8,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.75,
-          "lo": 0.6,
-          "hi": 1.0,
-          "half_width": 0.2,
-          "ess": 18.006838506075,
-          "main": true
+          "mean": 0.75
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.25,
-          "lo": 0.0,
-          "hi": 0.4,
-          "half_width": 0.2,
-          "ess": 18.006838506075,
-          "main": true
+          "mean": 0.25
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|15-25|BTN|preflop|unopened|unknown",
@@ -2012,6 +2229,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2026,7 +2247,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2041,6 +2266,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2055,7 +2284,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2070,42 +2303,30 @@
       },
       "n_decisions": 9,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.8888888888888888,
-          "lo": 0.8,
-          "hi": 1.0,
-          "half_width": 0.09999999999999998,
-          "ess": 37.94033463008398,
-          "main": true
+          "mean": 0.8888888888888888
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.1111111111111111,
-          "lo": 0.0,
-          "hi": 0.2,
-          "half_width": 0.1,
-          "ess": 37.940334630083946,
-          "main": true
+          "mean": 0.1111111111111111
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|15-25|CO|preflop|unopened|unknown",
@@ -2119,6 +2340,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2133,7 +2358,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2148,6 +2377,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2162,7 +2395,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2177,6 +2414,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2191,7 +2432,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2206,6 +2451,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2220,7 +2469,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2235,6 +2488,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2249,7 +2506,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2264,6 +2525,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2278,7 +2543,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2293,42 +2562,30 @@
       },
       "n_decisions": 10,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.9,
-          "lo": 0.75,
-          "hi": 1.0,
-          "half_width": 0.125,
-          "ess": 22.126803156264955,
-          "main": true
+          "mean": 0.9
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.1,
-          "lo": 0.0,
-          "hi": 0.25,
-          "half_width": 0.125,
-          "ess": 22.126803156264963,
-          "main": true
+          "mean": 0.1
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|15-25|HJ|preflop|unopened|unknown",
@@ -2342,6 +2599,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2356,7 +2617,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2371,6 +2636,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2385,7 +2654,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2400,43 +2673,30 @@
       },
       "n_decisions": 4,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.5,
-          "lo": 0.5,
-          "hi": 0.5,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 0.5
         },
         "call": {
-          "mean": 0.25,
-          "lo": 0.0,
-          "hi": 0.5,
-          "half_width": 0.25,
-          "ess": 11.524376643887999,
-          "main": true
+          "mean": 0.25
         },
         "raise": {
-          "mean": 0.25,
-          "lo": 0.0,
-          "hi": 0.5,
-          "half_width": 0.25,
-          "ess": 11.524376643887999,
-          "main": true
+          "mean": 0.25
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|15-25|SB|preflop|facing_open|unknown",
@@ -2450,6 +2710,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2464,7 +2728,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2479,6 +2747,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2493,7 +2765,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2508,6 +2784,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2522,7 +2802,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2537,6 +2821,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2551,7 +2839,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2566,6 +2858,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2580,7 +2876,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2595,6 +2895,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2609,7 +2913,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2624,6 +2932,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2638,7 +2950,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2653,6 +2969,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -2667,7 +2987,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2682,6 +3006,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2696,7 +3024,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2711,43 +3043,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "call": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 1.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|BB|preflop|facing_open|unknown",
@@ -2761,42 +3080,36 @@
       },
       "n_decisions": 12,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.8333333333333334,
-          "lo": 0.5,
-          "hi": 1.0,
+          "main": true,
           "half_width": 0.25,
-          "ess": 8.536575291768887,
-          "main": true
+          "ess": 6.722552936214717
         },
         "call": {
           "mean": 0.08333333333333333,
-          "lo": 0.0,
-          "hi": 0.5,
+          "main": true,
           "half_width": 0.25,
-          "ess": 4.695116410472888,
-          "main": true
+          "ess": 6.722552936214717
         },
         "raise": {
-          "mean": 0.08333333333333333,
-          "lo": 0.0,
-          "hi": 0.25,
-          "half_width": 0.125,
-          "ess": 18.780465641891553,
-          "main": true
+          "mean": 0.08333333333333333
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|BTN|preflop|facing_3bet+|unknown",
@@ -2810,6 +3123,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2824,7 +3141,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2839,6 +3160,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2853,7 +3178,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2868,42 +3197,34 @@
       },
       "n_decisions": 12,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.8333333333333334,
-          "lo": 0.6,
-          "hi": 1.0,
-          "half_width": 0.2,
-          "ess": 13.338398893388886,
-          "main": true
+          "main": true,
+          "half_width": 0.0,
+          "ess": null,
+          "ess_note": "zero variance on a half; the referee's S1 reads half-width 0 as precise"
         },
         "call": {
-          "mean": 0.08333333333333333,
-          "lo": 0.0,
-          "hi": 0.2,
-          "half_width": 0.1,
-          "ess": 29.34447756545555,
-          "main": true
+          "mean": 0.08333333333333333
         },
         "raise": {
-          "mean": 0.08333333333333333,
-          "lo": 0.0,
-          "hi": 0.2,
-          "half_width": 0.1,
-          "ess": 29.34447756545555,
-          "main": true
+          "mean": 0.08333333333333333
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": true,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|BTN|preflop|unopened|tight",
@@ -2917,6 +3238,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -2931,7 +3256,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -2946,42 +3275,30 @@
       },
       "n_decisions": 5,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.6,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.68780052604416,
-          "main": true
+          "mean": 0.6
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.4,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.68780052604416,
-          "main": true
+          "mean": 0.4
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|CO|flop|facing_bet|unknown",
@@ -2995,6 +3312,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3009,7 +3330,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3024,6 +3349,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -3038,7 +3367,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3053,42 +3386,34 @@
       },
       "n_decisions": 8,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.875,
-          "lo": 0.75,
-          "hi": 1.0,
-          "half_width": 0.125,
-          "ess": 26.890212169072,
-          "main": true
+          "main": true,
+          "half_width": 0.0,
+          "ess": null,
+          "ess_note": "zero variance on a half; the referee's S1 reads half-width 0 as precise"
         },
         "call": {
-          "mean": 0.125,
-          "lo": 0.0,
-          "hi": 0.25,
-          "half_width": 0.125,
-          "ess": 26.890212169072,
-          "main": true
+          "mean": 0.125
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": true,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|CO|preflop|unopened|tight",
@@ -3102,42 +3427,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|CO|preflop|unopened|unknown",
@@ -3151,42 +3464,36 @@
       },
       "n_decisions": 10,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.7,
-          "lo": 0.0,
-          "hi": 0.8,
+          "main": true,
           "half_width": 0.4,
-          "ess": 5.041914781701,
-          "main": true
+          "ess": 5.335359473186283
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
           "mean": 0.3,
-          "lo": 0.2,
-          "hi": 1.0,
+          "main": true,
           "half_width": 0.4,
-          "ess": 5.041914781700999,
-          "main": true
+          "ess": 5.335359473186283
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|HJ|flop|facing_bet|unknown",
@@ -3200,6 +3507,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3214,7 +3525,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3229,43 +3544,30 @@
       },
       "n_decisions": 6,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 1.0
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|HJ|preflop|unopened|tight",
@@ -3279,43 +3581,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 1.0
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|HJ|preflop|unopened|unknown",
@@ -3329,42 +3618,36 @@
       },
       "n_decisions": 12,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.75,
-          "lo": 0.5,
-          "hi": 1.0,
-          "half_width": 0.25,
-          "ess": 11.524376643887999,
-          "main": true
+          "main": true,
+          "half_width": 0.08333333333333331,
+          "ess": 129.64923519842674
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
           "mean": 0.25,
-          "lo": 0.0,
-          "hi": 0.5,
-          "half_width": 0.25,
-          "ess": 11.524376643887999,
-          "main": true
+          "main": true,
+          "half_width": 0.08333333333333334,
+          "ess": 129.64923519842665
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|SB|flop|facing_bet|tight",
@@ -3378,6 +3661,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3392,7 +3679,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3407,6 +3698,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3421,7 +3716,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3436,6 +3735,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3450,7 +3753,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3465,42 +3772,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        2,
+        0
+      ],
       "actions": {
         "fold": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "call": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "raise": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|SB|preflop|facing_3bet+|unknown",
@@ -3514,6 +3809,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -3528,7 +3827,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3543,6 +3846,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -3557,7 +3864,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3572,42 +3883,36 @@
       },
       "n_decisions": 12,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666,
-          "lo": 0.3333333333333333,
-          "hi": 0.8571428571428571,
-          "half_width": 0.26190476190476186,
-          "ess": 12.445056871636634,
-          "main": true
+          "main": true,
+          "half_width": 0.17857142857142855,
+          "ess": 20.821655316512945
         },
         "call": {
           "mean": 0.16666666666666666,
-          "lo": 0.0,
-          "hi": 0.5,
-          "half_width": 0.25,
-          "ess": 8.536575291768889,
-          "main": true
+          "main": true,
+          "half_width": 0.17857142857142858,
+          "ess": 20.821655316512935
         },
         "raise": {
-          "mean": 0.16666666666666666,
-          "lo": 0.0,
-          "hi": 0.6666666666666666,
-          "half_width": 0.3333333333333333,
-          "ess": 4.801823601620001,
-          "main": true
+          "mean": 0.16666666666666666
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|SB|preflop|unopened|tight",
@@ -3621,6 +3926,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3635,7 +3944,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3650,42 +3963,30 @@
       },
       "n_decisions": 5,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.4,
-          "lo": 0.25,
-          "hi": 1.0,
-          "half_width": 0.375,
-          "ess": 6.556089824078506,
-          "main": true
+          "mean": 0.4
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.6,
-          "lo": 0.0,
-          "hi": 0.75,
-          "half_width": 0.375,
-          "ess": 6.556089824078506,
-          "main": true
+          "mean": 0.6
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|SB|river|facing_bet|unknown",
@@ -3699,6 +4000,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3713,7 +4018,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3728,6 +4037,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3742,7 +4055,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3757,6 +4074,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3771,7 +4092,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3786,6 +4111,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3800,7 +4129,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3815,6 +4148,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -3829,7 +4166,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3844,6 +4185,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -3858,7 +4203,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3873,42 +4222,36 @@
       },
       "n_decisions": 17,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.7058823529411765,
-          "lo": 0.625,
-          "hi": 1.0,
-          "half_width": 0.1875,
-          "ess": 22.685431917226666,
-          "main": true
+          "main": true,
+          "half_width": 0.125,
+          "ess": 42.49317411533253
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
           "mean": 0.29411764705882354,
-          "lo": 0.0,
-          "hi": 0.375,
-          "half_width": 0.1875,
-          "ess": 22.685431917226666,
-          "main": true
+          "main": true,
+          "half_width": 0.125,
+          "ess": 42.49317411533253
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|25-40|UTG|river|facing_bet|unknown",
@@ -3922,6 +4265,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3936,7 +4283,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3951,6 +4302,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -3965,7 +4320,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -3980,42 +4339,30 @@
       },
       "n_decisions": 3,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.6666666666666666,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "mean": 0.6666666666666666
         },
         "call": {
-          "mean": 0.3333333333333333,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "mean": 0.3333333333333333
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|5-10|BB|preflop|facing_open|tight",
@@ -4029,6 +4376,10 @@
       },
       "n_decisions": 4,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.75
@@ -4043,7 +4394,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4058,6 +4413,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.5
@@ -4072,7 +4431,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4087,56 +4450,10 @@
       },
       "n_decisions": 3,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "early|5-10|BTN|preflop|facing_open|tight",
-      "key": {
-        "stage": "early",
-        "stack_bb": "5-10",
-        "position": "BTN",
-        "street": "preflop",
-        "pot_type": "facing_open",
-        "profile": "tight"
-      },
-      "n_decisions": 2,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -4151,7 +4468,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "early|5-10|BTN|preflop|facing_open|tight",
+      "key": {
+        "stage": "early",
+        "stack_bb": "5-10",
+        "position": "BTN",
+        "street": "preflop",
+        "pot_type": "facing_open",
+        "profile": "tight"
+      },
+      "n_decisions": 2,
+      "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4166,6 +4524,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.5
@@ -4180,7 +4542,11 @@
           "mean": 0.5
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4195,6 +4561,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.5
@@ -4209,7 +4579,11 @@
           "mean": 0.5
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4224,6 +4598,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -4238,7 +4616,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4253,42 +4635,30 @@
       },
       "n_decisions": 7,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.7142857142857143,
-          "lo": 0.6666666666666666,
-          "hi": 0.75,
-          "half_width": 0.041666666666666685,
-          "ess": 451.56741135234574,
-          "main": true
+          "mean": 0.7142857142857143
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.2857142857142857,
-          "lo": 0.25,
-          "hi": 0.3333333333333333,
-          "half_width": 0.04166666666666666,
-          "ess": 451.5674113523463,
-          "main": true
+          "mean": 0.2857142857142857
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|5-10|HJ|preflop|unopened|tight",
@@ -4302,42 +4672,30 @@
       },
       "n_decisions": 5,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.8,
-          "lo": 0.6666666666666666,
-          "hi": 1.0,
-          "half_width": 0.16666666666666669,
-          "ess": 22.126803156264952,
-          "main": true
+          "mean": 0.8
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.2,
-          "lo": 0.0,
-          "hi": 0.3333333333333333,
-          "half_width": 0.16666666666666666,
-          "ess": 22.126803156264966,
-          "main": true
+          "mean": 0.2
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|5-10|HJ|preflop|unopened|unknown",
@@ -4351,6 +4709,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -4365,7 +4727,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4380,6 +4746,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4394,7 +4764,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4409,56 +4783,10 @@
       },
       "n_decisions": 3,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "early|5-10|SB|preflop|facing_open|tight",
-      "key": {
-        "stage": "early",
-        "stack_bb": "5-10",
-        "position": "SB",
-        "street": "preflop",
-        "pot_type": "facing_open",
-        "profile": "tight"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -4473,7 +4801,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "early|5-10|SB|preflop|facing_open|tight",
+      "key": {
+        "stage": "early",
+        "stack_bb": "5-10",
+        "position": "SB",
+        "street": "preflop",
+        "pot_type": "facing_open",
+        "profile": "tight"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4488,6 +4857,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -4502,7 +4875,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4517,6 +4894,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -4531,7 +4912,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4546,42 +4931,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "early|5-10|SB|turn|unopened|unknown",
@@ -4595,6 +4968,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4609,7 +4986,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4624,6 +5005,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -4638,7 +5023,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4653,6 +5042,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4667,7 +5060,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4682,6 +5079,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4696,7 +5097,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4711,6 +5116,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4725,7 +5134,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4740,6 +5153,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4754,7 +5171,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4769,6 +5190,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4783,7 +5208,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4798,6 +5227,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4812,7 +5245,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4827,6 +5264,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.5
@@ -4841,7 +5282,11 @@
           "mean": 0.5
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4856,6 +5301,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.5
@@ -4870,7 +5319,11 @@
           "mean": 0.5
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4885,6 +5338,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4899,7 +5356,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4914,6 +5375,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -4928,7 +5393,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -4943,43 +5412,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "call": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 1.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "itm|<5|BTN|preflop|unopened|normal",
@@ -4993,6 +5449,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5007,7 +5467,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5022,42 +5486,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|10-15|BB|preflop|facing_allin|tight",
@@ -5071,6 +5523,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5085,7 +5541,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5100,6 +5560,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -5114,7 +5578,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5129,56 +5597,10 @@
       },
       "n_decisions": 4,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "mid|10-15|BTN|preflop|facing_open|tight",
-      "key": {
-        "stage": "mid",
-        "stack_bb": "10-15",
-        "position": "BTN",
-        "street": "preflop",
-        "pot_type": "facing_open",
-        "profile": "tight"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -5193,7 +5615,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "mid|10-15|BTN|preflop|facing_open|tight",
+      "key": {
+        "stage": "mid",
+        "stack_bb": "10-15",
+        "position": "BTN",
+        "street": "preflop",
+        "pot_type": "facing_open",
+        "profile": "tight"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5208,6 +5671,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -5222,7 +5689,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5237,42 +5708,30 @@
       },
       "n_decisions": 12,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.75,
-          "lo": 0.6666666666666666,
-          "hi": 0.8333333333333334,
-          "half_width": 0.08333333333333337,
-          "ess": 103.71938979499191,
-          "main": true
+          "mean": 0.75
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.25,
-          "lo": 0.16666666666666666,
-          "hi": 0.3333333333333333,
-          "half_width": 0.08333333333333333,
-          "ess": 103.71938979499201,
-          "main": true
+          "mean": 0.25
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|10-15|CO|preflop|unopened|tight",
@@ -5286,43 +5745,30 @@
       },
       "n_decisions": 12,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 1.0
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|10-15|SB|preflop|facing_open|normal",
@@ -5336,6 +5782,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5350,7 +5800,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5365,105 +5819,10 @@
       },
       "n_decisions": 6,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "mid|10-15|SB|preflop|unopened|tight",
-      "key": {
-        "stage": "mid",
-        "stack_bb": "10-15",
-        "position": "SB",
-        "street": "preflop",
-        "pot_type": "unopened",
-        "profile": "tight"
-      },
-      "n_decisions": 7,
-      "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 0.5714285714285714,
-          "lo": 0.5,
-          "hi": 0.6,
-          "half_width": 0.04999999999999999,
-          "ess": 376.3061761269552,
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.42857142857142855,
-          "lo": 0.4,
-          "hi": 0.5,
-          "half_width": 0.04999999999999999,
-          "ess": 376.3061761269552,
-          "main": true
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "mid|15-25|BB|preflop|facing_3bet+|tight",
-      "key": {
-        "stage": "mid",
-        "stack_bb": "15-25",
-        "position": "BB",
-        "street": "preflop",
-        "pot_type": "facing_3bet+",
-        "profile": "tight"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -5478,7 +5837,85 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "mid|10-15|SB|preflop|unopened|tight",
+      "key": {
+        "stage": "mid",
+        "stack_bb": "10-15",
+        "position": "SB",
+        "street": "preflop",
+        "pot_type": "unopened",
+        "profile": "tight"
+      },
+      "n_decisions": 7,
+      "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
+      "actions": {
+        "fold": {
+          "mean": 0.5714285714285714
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.42857142857142855
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "mid|15-25|BB|preflop|facing_3bet+|tight",
+      "key": {
+        "stage": "mid",
+        "stack_bb": "15-25",
+        "position": "BB",
+        "street": "preflop",
+        "pot_type": "facing_3bet+",
+        "profile": "tight"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5493,56 +5930,10 @@
       },
       "n_decisions": 3,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "mid|15-25|BB|preflop|facing_open|unknown",
-      "key": {
-        "stage": "mid",
-        "stack_bb": "15-25",
-        "position": "BB",
-        "street": "preflop",
-        "pot_type": "facing_open",
-        "profile": "unknown"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -5557,7 +5948,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "mid|15-25|BB|preflop|facing_open|unknown",
+      "key": {
+        "stage": "mid",
+        "stack_bb": "15-25",
+        "position": "BB",
+        "street": "preflop",
+        "pot_type": "facing_open",
+        "profile": "unknown"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5572,6 +6004,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5586,7 +6022,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5601,6 +6041,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5615,7 +6059,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5630,6 +6078,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5644,7 +6096,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5659,6 +6115,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5673,7 +6133,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5688,42 +6152,36 @@
       },
       "n_decisions": 3,
       "n_games": 3,
+      "n_games_ab": [
+        2,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666,
-          "lo": 0.0,
-          "hi": 1.0,
+          "main": true,
           "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "ess": 3.841458820694124
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.0,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
           "mean": 0.3333333333333333,
-          "lo": 0.0,
-          "hi": 1.0,
+          "main": true,
           "half_width": 0.5,
-          "ess": 3.414630116707556,
-          "main": true
+          "ess": 3.841458820694124
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|15-25|BTN|preflop|unopened|tight",
@@ -5737,6 +6195,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666
@@ -5751,7 +6213,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5766,6 +6232,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5780,7 +6250,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5795,6 +6269,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -5809,7 +6287,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5824,42 +6306,30 @@
       },
       "n_decisions": 8,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.625,
-          "lo": 0.0,
-          "hi": 0.8333333333333334,
-          "half_width": 0.4166666666666667,
-          "ess": 5.1859694897496,
-          "main": true
+          "mean": 0.625
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.375,
-          "lo": 0.16666666666666666,
-          "hi": 1.0,
-          "half_width": 0.4166666666666667,
-          "ess": 5.1859694897496,
-          "main": true
+          "mean": 0.375
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|15-25|CO|preflop|unopened|unknown",
@@ -5873,6 +6343,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -5887,7 +6361,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5902,6 +6380,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5916,7 +6398,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5931,6 +6417,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5945,7 +6435,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5960,6 +6454,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -5974,7 +6472,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -5989,6 +6491,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6003,7 +6509,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6018,56 +6528,10 @@
       },
       "n_decisions": 2,
       "n_games": 2,
-      "actions": {
-        "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
-        },
-        "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        },
-        "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
-        }
-      },
-      "s1_pass": false,
-      "status": "ok"
-    },
-    {
-      "label": "mid|15-25|SB|preflop|facing_open|unknown",
-      "key": {
-        "stage": "mid",
-        "stack_bb": "15-25",
-        "position": "SB",
-        "street": "preflop",
-        "pot_type": "facing_open",
-        "profile": "unknown"
-      },
-      "n_decisions": 1,
-      "n_games": 1,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6082,7 +6546,48 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
+    },
+    {
+      "label": "mid|15-25|SB|preflop|facing_open|unknown",
+      "key": {
+        "stage": "mid",
+        "stack_bb": "15-25",
+        "position": "SB",
+        "street": "preflop",
+        "pot_type": "facing_open",
+        "profile": "unknown"
+      },
+      "n_decisions": 1,
+      "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
+      "actions": {
+        "fold": {
+          "mean": 1.0
+        },
+        "call": {
+          "mean": 0.0
+        },
+        "raise": {
+          "mean": 0.0
+        },
+        "allin": {
+          "mean": 0.0
+        }
+      },
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6097,6 +6602,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6111,7 +6620,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6126,6 +6639,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6140,7 +6657,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6155,6 +6676,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6169,7 +6694,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6184,6 +6713,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6198,7 +6731,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6213,6 +6750,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6227,7 +6768,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6242,6 +6787,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.3333333333333333
@@ -6256,7 +6805,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6271,6 +6824,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6285,7 +6842,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6300,6 +6861,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6314,7 +6879,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6329,6 +6898,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6343,7 +6916,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6358,6 +6935,10 @@
       },
       "n_decisions": 4,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6372,7 +6953,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6387,6 +6972,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6401,7 +6990,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6416,6 +7009,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6430,7 +7027,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6445,6 +7046,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6459,7 +7064,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6474,6 +7083,10 @@
       },
       "n_decisions": 6,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666
@@ -6488,7 +7101,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6503,6 +7120,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6517,7 +7138,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6532,6 +7157,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6546,7 +7175,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6561,6 +7194,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6575,7 +7212,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6590,6 +7231,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6604,7 +7249,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6619,6 +7268,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6633,7 +7286,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6648,6 +7305,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6662,7 +7323,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6677,42 +7342,30 @@
       },
       "n_decisions": 6,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.8333333333333334,
-          "lo": 0.8,
-          "hi": 1.0,
-          "half_width": 0.09999999999999998,
-          "ess": 53.353595573555566,
-          "main": true
+          "mean": 0.8333333333333334
         },
         "call": {
-          "mean": 0.16666666666666666,
-          "lo": 0.0,
-          "hi": 0.2,
-          "half_width": 0.1,
-          "ess": 53.35359557355555,
-          "main": true
+          "mean": 0.16666666666666666
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|5-10|BB|preflop|facing_open|normal",
@@ -6726,6 +7379,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6740,7 +7397,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6755,42 +7416,30 @@
       },
       "n_decisions": 13,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.7692307692307693,
-          "lo": 0.6,
-          "hi": 0.875,
-          "half_width": 0.1375,
-          "ess": 36.06827254187647,
-          "main": true
+          "mean": 0.7692307692307693
         },
         "call": {
-          "mean": 0.15384615384615385,
-          "lo": 0.0,
-          "hi": 0.4,
-          "half_width": 0.2,
-          "ess": 12.50178925865562,
-          "main": true
+          "mean": 0.15384615384615385
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.07692307692307693,
-          "lo": 0.0,
-          "hi": 0.125,
-          "half_width": 0.0625,
-          "ess": 69.82817564107285,
-          "main": true
+          "mean": 0.07692307692307693
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|5-10|BTN|preflop|facing_open|tight",
@@ -6804,43 +7453,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 1.0
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|5-10|BTN|preflop|unopened|normal",
@@ -6854,6 +7490,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6868,7 +7508,11 @@
           "mean": 1.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6883,42 +7527,30 @@
       },
       "n_decisions": 17,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.8235294117647058,
-          "lo": 0.7692307692307693,
-          "hi": 1.0,
-          "half_width": 0.11538461538461536,
-          "ess": 41.932603059498696,
-          "main": true
+          "mean": 0.8235294117647058
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.17647058823529413,
-          "lo": 0.0,
-          "hi": 0.23076923076923078,
-          "half_width": 0.11538461538461539,
-          "ess": 41.93260305949867,
-          "main": true
+          "mean": 0.17647058823529413
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|5-10|CO|preflop|facing_3bet+|tight",
@@ -6932,6 +7564,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -6946,7 +7582,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6961,6 +7601,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -6975,7 +7619,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -6990,42 +7638,30 @@
       },
       "n_decisions": 19,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.8421052631578947,
-          "lo": 0.6,
-          "hi": 0.9285714285714286,
-          "half_width": 0.1642857142857143,
-          "ess": 18.92477059377845,
-          "main": true
+          "mean": 0.8421052631578947
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.15789473684210525,
-          "lo": 0.07142857142857142,
-          "hi": 0.4,
-          "half_width": 0.1642857142857143,
-          "ess": 18.924770593778444,
-          "main": true
+          "mean": 0.15789473684210525
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|5-10|SB|preflop|facing_allin|tight",
@@ -7039,6 +7675,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -7053,7 +7693,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -7068,6 +7712,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -7082,7 +7730,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -7097,6 +7749,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.0
@@ -7111,7 +7767,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -7126,42 +7786,30 @@
       },
       "n_decisions": 17,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.35294117647058826,
-          "lo": 0.16666666666666666,
-          "hi": 0.45454545454545453,
-          "half_width": 0.14393939393939392,
-          "ess": 42.34312847001601,
-          "main": true
+          "mean": 0.35294117647058826
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.6470588235294118,
-          "lo": 0.5454545454545454,
-          "hi": 0.8333333333333334,
-          "half_width": 0.14393939393939398,
-          "ess": 42.343128470015984,
-          "main": true
+          "mean": 0.6470588235294118
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|<5|BB|preflop|facing_allin|tight",
@@ -7175,6 +7823,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -7189,7 +7841,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -7204,6 +7860,10 @@
       },
       "n_decisions": 1,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 1.0
@@ -7218,7 +7878,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -7233,6 +7897,10 @@
       },
       "n_decisions": 2,
       "n_games": 1,
+      "n_games_ab": [
+        0,
+        1
+      ],
       "actions": {
         "fold": {
           "mean": 0.5
@@ -7247,7 +7915,11 @@
           "mean": 0.5
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -7262,43 +7934,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 1.0,
-          "lo": 1.0,
-          "hi": 1.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound",
-          "main": true
+          "mean": 1.0
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": true,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     },
     {
       "label": "mid|<5|SB|preflop|facing_allin|tight",
@@ -7312,6 +7971,10 @@
       },
       "n_decisions": 3,
       "n_games": 1,
+      "n_games_ab": [
+        1,
+        0
+      ],
       "actions": {
         "fold": {
           "mean": 0.6666666666666666
@@ -7326,7 +7989,11 @@
           "mean": 0.0
         }
       },
-      "s1_pass": false,
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
       "status": "insufficient_games"
     },
     {
@@ -7341,42 +8008,30 @@
       },
       "n_decisions": 2,
       "n_games": 2,
+      "n_games_ab": [
+        1,
+        1
+      ],
       "actions": {
         "fold": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         },
         "call": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "raise": {
-          "mean": 0.0,
-          "lo": 0.0,
-          "hi": 0.0,
-          "half_width": 1.5,
-          "ess": null,
-          "ess_note": "zero variance; half-width is the 3/n_games bound"
+          "mean": 0.0
         },
         "allin": {
-          "mean": 0.5,
-          "lo": 0.0,
-          "hi": 1.0,
-          "half_width": 0.5,
-          "ess": 3.841458881296,
-          "main": true
+          "mean": 0.5
         }
       },
-      "s1_pass": false,
-      "status": "ok"
+      "s1": false,
+      "s4": false,
+      "s5": false,
+      "lessonable": false,
+      "zero_variance_guard": false,
+      "status": "insufficient_games"
     }
   ]
 }
