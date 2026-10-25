@@ -35,3 +35,4 @@
 {"ts": "2026-10-25T07:54:17Z", "sha": "001174683deed6a5d94459cc503acd0258819ab0", "source": "ci", "tests_passed": 329, "tests_failed": 0, "stalker_loc": 4088, "gate_r_pass_rate": 1.0, "gate_r_checks": 136973}
 {"ts": "2026-10-25T10:09:44Z", "sha": "0a569a1f71839b701a08003e0da1b9bad900af9a", "source": "ci", "tests_passed": 329, "tests_failed": 0, "stalker_loc": 4386, "gate_r_pass_rate": 1.0, "gate_r_checks": 136973}
 {"ts": "2026-10-25T11:50:54Z", "sha": "314992a214c590d24fc1fa6219a6608f9b1c0e4a", "source": "ci", "tests_passed": 332, "tests_failed": 0, "stalker_loc": 4424, "gate_r_pass_rate": 1.0, "gate_r_checks": 136973}
+{"ts": "2026-10-25T13:37:12Z", "sha": "0995b8778afcdde4e22cb77cb6eb637b77d1f8a0", "source": "ci", "tests_passed": 336, "tests_failed": 0, "stalker_loc": 4424, "gate_r_pass_rate": 1.0, "gate_r_checks": 136973, "gate_l_pass_rate": 1.0, "gate_l_checks": 14, "gate_l_items": {"L1": [4, 4], "L3": [3, 3], "L4": [3, 3], "L5": [4, 4]}}
