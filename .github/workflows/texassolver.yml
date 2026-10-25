@@ -1,0 +1,79 @@
+name: texassolver
+
+# Manual only (#39): builds external AGPL code and runs long solves, so it never gates PRs or pushes.
+# Trigger: `gh workflow run texassolver.yml` or MCP `actions_run_trigger` (workflow_id texassolver.yml, ref main).
+on:
+  workflow_dispatch:
+    inputs:
+      streets:
+        description: "bench streets (space-separated: river turn flop)"
+        default: "river turn flop"
+      accuracy:
+        description: "target exploitability %pot (space-separated)"
+        default: "1 0.5 0.3"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # explicit shell turns on pipefail, so `bench | tee` still fails the step
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      STALKER_TEXASSOLVER_HOME: ${{ github.workspace }}/.texassolver
+      OUT: texassolver-bench.jsonl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev]" -q
+      - name: solver commit
+        id: commit
+        run: |
+          sha=$(sed -n 's/^COMMIT="\([0-9a-f]\{40\}\)".*/\1/p' scripts/install_texassolver.sh)
+          [[ -n "$sha" ]] || { echo "no COMMIT=\"<40 hex>\" line in scripts/install_texassolver.sh — cache key needs it"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: .texassolver
+          key: texassolver-${{ runner.os }}-${{ steps.commit.outputs.sha }}
+      - name: install
+        run: bash scripts/install_texassolver.sh "$STALKER_TEXASSOLVER_HOME"
+      - name: binary present (slow tests must not skip)
+        run: |
+          python -c "from stalker.oracle.texassolver import find_binary; assert find_binary(), 'console_solver not installed — see install step log'"
+      - name: slow tests
+        run: python -m pytest -m slow -rs --no-header -p no:cacheprovider tests/test_texassolver.py
+      - name: runner spec
+        run: |
+          python - <<'EOF' > "$OUT"
+          import json, os, platform
+          mem = next((int(l.split()[1]) // 1024 for l in open("/proc/meminfo") if l.startswith("MemTotal")), None)
+          cpu = next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), None)
+          print(json.dumps({"runner": {"os": platform.platform(), "cpu_model": cpu, "cpus": os.cpu_count(),
+                                       "mem_mb": mem, "python": platform.python_version(),
+                                       "solver_version": open(os.environ["STALKER_TEXASSOLVER_HOME"] + "/VERSION").read().strip(),
+                                       "git_sha": os.environ["GITHUB_SHA"]}}))
+          EOF
+      - name: bench
+        # per-solve cap below the 60-min job limit: a runaway flop solve fails fast and earlier lines survive
+        env:
+          # inputs go through env, not ${{ }} in the script, so they cannot inject shell
+          STREETS: ${{ inputs.streets }}
+          ACCURACY: ${{ inputs.accuracy }}
+        run: |
+          read -ra streets <<< "$STREETS"
+          read -ra accuracy <<< "$ACCURACY"
+          python -m stalker.tools.bench_texassolver --streets "${streets[@]}" --accuracy "${accuracy[@]}" --timeout 1200 | tee -a "$OUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: texassolver-bench-${{ github.run_id }}
+          path: texassolver-bench.jsonl
+          if-no-files-found: warn
