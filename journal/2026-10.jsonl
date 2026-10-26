@@ -170,3 +170,4 @@
 {"ts":"2026-10-26T08:30:00Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"열린 이슈 #18,#20 모두 NH-1/NH-2 사용자 결정 대기(blocked), 자가 언블록 불가; 열린 PR 없음","friction":"gates quick/pip install이 120초 넘겨 백그라운드로 밀림"}
 {"ts":"2026-10-26T08:41:25Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"gh CLI unauthenticated; used GitHub MCP"}
 {"ts":"2026-10-26T09:09:29Z","role":"planner","outcome":"planned","issue":null,"pr":null,"notes":"ready 0→6 보충(#86 Gate A CI 기록, #87 Gate B 파일럿 CI 기록, #88 RL 체크/폴드 기준선, #89 충분성 정체 연구, #90 생성 우선순위, #91 붕괴 탈출 실험). P3 전환은 #86·#87 후","friction":"ready 큐가 2.5시간 0이어서 no_work 6건이 났다. planner 일 1회 주기가 처리량(일 6~7건)보다 느리다(2일 연속)"}
+{"ts":"2026-10-26T09:41:31Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
