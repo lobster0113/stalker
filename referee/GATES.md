@@ -46,6 +46,9 @@ L2·L6과 RL 에이전트는 선택 의존성 `[rl]`(torch)이 있을 때 실행
 - 평가: 동일 토너먼트 환경(6인·9인 × 승자독식/플랫/톱헤비/MTT형 지급)에서 반복 대전, 좌석·난수 교환 duplicate 평가, 토너먼트 단위 재표본화.
 - 통과: AI−참조봇 ROI 차이의 95% CI 하한 > 0.
 - 실행: `python -m referee.gate_b --spec referee/gate_b/spec_v1.json --candidate module:factory --out DIR` (`factory(config)`가 `rng -> Agent`를 돌려준다. 내장 후보: `referee.gate_b.candidates:reference|random_legal`). 명세(프리셋·blocks·rotations·seed·참조 봇 버전·δ_min·pilot σ)의 sha256과 프리셋별 CI·판정(`pass`/`fail`/`판정 불가(표본 부족)`)을 `gate_b.json`·`gate_b.md`로 쓴다. blocks가 `required_tournaments(pilot σ, δ_min, 0.05, 0.9)`보다 작으면 CI와 무관하게 판정 불가이고, 프리셋 통과는 CI 하한 > 0이며(δ_min은 표본 크기 산정용) 전체 판정은 모두 pass일 때만 pass(종료 코드 0). v1 명세의 δ_min=0.1(ROI)·pilot σ=0.6은 무작위 봇 대 참조 봇 블록 차이 SD 실측(0.31~0.59)에서 잡은 예비값이며 변경은 referee-change다.
+- 파일럿(CI 지표): `metrics.gate_b_pilot()`이 고정 명세 `referee/gate_b/pilot_v1.json`(6max_sng_wta·9max_sng_503020, blocks 20, rotations 3, 고정 seed)으로 후보 `random_legal`을 판정해 main 머지마다 기록한다. 키: `gate_b_pilot_spec_sha256`, 프리셋별 `gate_b_pilot_<preset>_roi_diff`·`_ci_lower`·`_ci_upper`·`_verdict`(본 판정과 같은 규칙이라 blocks 20은 항상 판정 불가)·`_sd_dup`·`_sd_indep`, `gate_b_pilot_required_tournaments`.
+  - σ 실측: `sd_dup` = duplicate 블록 차이(블록의 모든 좌석 교환 게임 평균)의 표본 SD. `sd_indep` = 같은 게임들로 좌석 교환 짝을 끊고 만든 클러스터의 SD: 블록 b의 이동 마스크 게임들과 블록 b+1의 보완 마스크 게임들을 묶는다(게임 수는 같고, 교환된 두 게임이 덱을 공유하지 않는다). `sd_dup < sd_indep`이면 duplicate가 분산을 줄인 것이다. `required_tournaments` = `required_tournaments(max(sd_dup), spec δ_min, α, power)`로, 기록일 뿐 v1 명세의 pilot σ는 바꾸지 않는다(바꾸려면 ADR + referee-change).
+  - 참조 봇은 rng를 쓰지 않아 참조 봇 대 참조 봇은 좌석 교환 게임이 정확히 거울상이 되고 블록 차이가 0이다(CI [0, 0], `sd_dup` 0). 이 A/A 검사는 영가설 쪽 판별력이 없으니 해석할 때 `sd_indep`을 함께 본다.
 
 ## 표본 정책 (모든 게이트 공통 — AI 성능 판정의 신뢰성이 최우선)
 - **표본 수는 사전 등록한다.** 평가 전에 검정력 분석으로 필요 토너먼트 수를 정하고(검정력 ≥ 0.9, α = 0.05, 목표 최소 효과 δ_min), 그 수를 채우기 전에는 **성공을 선언하지 않는다.** 성공 판정을 위한 조기 중단은 금지.

@@ -33,7 +33,9 @@ def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "sufficiency", lambda: {})
+    monkeypatch.setattr(metrics, "gate_b_pilot", lambda: {"gate_b_pilot_spec_sha256": "x"})
     snap = metrics.snapshot()
+    assert "gate_b_pilot_spec_sha256" in snap
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
 
