@@ -142,4 +142,4 @@ def test_pipeline_checks_pass_and_gate_runner_reports():
     assert r.ok, r.failures
     full = gate_l.run_gate_l()
     assert full.ok, full.failures
-    assert any("L6" in s for s in full.skipped)
+    assert any("L6" in s for s in full.skipped) or full.counts["L6"][1] > 0

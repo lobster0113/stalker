@@ -13,6 +13,8 @@
 | L5 | 게임 중 합류한 플레이어 | 합류 시점 이후 관측만 메모리에 존재 |
 | L6 | 학습 배치 | game_id 경계에서 hidden state 초기화, 서로 다른 game_id 간 상태 전달 없음 |
 
+L2·L6과 RL 에이전트는 선택 의존성 `[rl]`(torch)이 있을 때 실행된다. `REGISTRY`의 에이전트에 더해 `run_gate_l`이 고정 시드(0) `PolicyAgent`(`rl_policy_v0`, ai2, `uses_memory=True`)를 L1·L2·L5로 검사하고(L2는 "변화 관측"), L6은 작은 6인 SNG에서 2게임 학습 배치를 만들어 `check_segments`(게임 혼합·비영(0) 초기 상태·중복 세그먼트 거부)와 "세그먼트 단독 재생 = 배치 재생(logp·value)"을 검사한다. torch가 없는 `gates` 잡에서는 L2·L6이 skip으로 보고되고, CI `rl` 잡(`STALKER_REQUIRE_TORCH=1`, `tests/test_rl_gate_l.py`)이 skip 없이 실행해 `gate_l_items`에 L2·L6이 나타남을 확인한다.
+
 스위트: `referee/gate_l.py` — `python -m referee.gate_l`. `gates full`이 실행하고, `metrics.py`가 `gate_l_pass_rate`(통과/전체 검사, 검사 0건이면 0)·`gate_l_checks`·`gate_l_items`(항목별 [통과, 총계], skip 항목은 없음)를 기록한다.
 
 ## Gate R — 규칙 정확성 (상시 CI)
