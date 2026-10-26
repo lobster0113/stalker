@@ -1,6 +1,10 @@
+import hashlib
+import json
+
 import pytest
 
 from referee.gate_a.runner import SPEC_V1, load_spec
+from referee.gate_a.spots import SPOTS_V1
 
 from referee import metrics
 from referee.gate_l import Report
@@ -38,7 +42,9 @@ def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "sufficiency", lambda: {})
     monkeypatch.setattr(metrics, "gate_a", lambda: {})
+    monkeypatch.setattr(metrics, "gate_b_pilot", lambda: {"gate_b_pilot_spec_sha256": "x"})
     snap = metrics.snapshot()
+    assert "gate_b_pilot_spec_sha256" in snap
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
 
@@ -78,14 +84,27 @@ def _fake_result(verdict, los):
 def test_gate_a_keys_from_injected_results():
     snap = metrics.gate_a({"reference": _fake_result("pass", [0.0, -0.0012344]),
                            "always_fold": _fake_result("fail", [-0.2, -0.1])})
-    assert snap == {"gate_a_spot_set": snap["gate_a_spot_set"], "gate_a_baseline": "reference",
+    assert snap == {"gate_a_spot_set": load_spec(SPEC_V1)[0]["spot_set_version"], "gate_a_baseline": "reference",
                     "gate_a_reference_verdict": "pass", "gate_a_reference_worst_ni_lower": -0.001234,
                     "gate_a_always_fold_verdict": "fail", "gate_a_always_fold_worst_ni_lower": -0.2}
 
 
-@pytest.mark.slow
-def test_gate_a_real_run_discriminates_and_is_deterministic():
-    first = metrics.gate_a()
+@pytest.fixture
+def gate_a_subset(tmp_path):
+    # Two cheap spots keep this test to seconds; the full v1 run happens once, in snapshot(), not in the suite.
+    spots = [s for s in json.loads(SPOTS_V1.read_text())["spots"]
+             if s["id"] in ("6n-push-btn-10bb", "6n-call-bb-vs-sb-15bb")]
+    sp = tmp_path / "spots.json"
+    sp.write_text(json.dumps({"spots": spots}))
+    spec = {**json.loads(SPEC_V1.read_text()), "spot_set_sha256": hashlib.sha256(sp.read_bytes()).hexdigest(),
+            "baseline_tol": 1e-3, "n_boot": 500}
+    pp = tmp_path / "spec.json"
+    pp.write_text(json.dumps(spec))
+    return pp, sp
+
+
+def test_gate_a_subset_discriminates_and_is_deterministic(gate_a_subset):
+    first = metrics.gate_a(spec_file=gate_a_subset[0], spots_file=gate_a_subset[1])
     # The reference is its own baseline (diff 0 everywhere), so it is non-inferior but can never be superior to
     # itself: its verdict is "fail" by design (tests/test_gate_a.py). Discrimination is therefore read from the
     # non-inferiority bound: reference clears -delta_ni, always_fold does not.
@@ -93,4 +112,4 @@ def test_gate_a_real_run_discriminates_and_is_deterministic():
     assert first["gate_a_reference_worst_ni_lower"] > -delta_ni
     assert first["gate_a_always_fold_verdict"] != "pass"
     assert first["gate_a_always_fold_worst_ni_lower"] < -delta_ni
-    assert metrics.gate_a() == first
+    assert metrics.gate_a(spec_file=gate_a_subset[0], spots_file=gate_a_subset[1]) == first

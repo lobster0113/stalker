@@ -156,7 +156,7 @@ def test_evaluate_is_deterministic_and_records_settings():
     d = json.loads(a.to_json())
     assert d["config"]["name"] == cfg.name and d["seed"] == 3 and d["rotations"] == 2
     assert d["reference_version"] == "icm_reference v1" and "default_rng" in d["seed_policy"]
-    assert d["games"] == 16 and d["schema_version"] == 1
+    assert d["games"] == 16 and d["schema_version"] == 2
 
 
 def test_evaluate_detects_a_clearly_better_agent():

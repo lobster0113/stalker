@@ -86,24 +86,38 @@ def sufficiency(report: dict | None = None) -> dict:
 GATE_A_CANDIDATES = ("reference", "always_fold")
 
 
-def gate_a(results: dict | None = None) -> dict:
+def gate_a(results: dict | None = None, spec_file=None, spots_file=None) -> dict:
     """Gate A verdicts of built-in candidates against the ICM reference on spot set v1.
 
-    `results` ({candidate: run_gate_a result}) lets tests inject; CI leaves it None. The baseline solve is
-    lru-cached in `runner.nash`, so it is paid once across candidates.
+    `results` ({candidate: run_gate_a result}) lets tests inject; `spec_file`/`spots_file` let slow tests
+    shrink the run to a spot subset (the full v1 run costs minutes inside the record-metrics 30-minute limit).
+    CI leaves all three None. The baseline solve is lru-cached in `runner.nash`, so it is paid once across candidates.
     """
     from referee.gate_a.runner import BASELINE, SPEC_V1, load_spec, run_gate_a
     from referee.gate_a.spots import SPOTS_V1
 
-    spec, sha = load_spec(SPEC_V1)
+    spec, sha = load_spec(spec_file or SPEC_V1)
     out = {"gate_a_spot_set": spec["spot_set_version"], "gate_a_baseline": BASELINE}
     for name in GATE_A_CANDIDATES:
         res = (results[name] if results is not None
-               else run_gate_a(spec, sha, f"referee.gate_a.candidates:{name}", SPOTS_V1))
+               else run_gate_a(spec, sha, f"referee.gate_a.candidates:{name}", spots_file or SPOTS_V1))
         out[f"gate_a_{name}_verdict"] = res["verdict"]
         out[f"gate_a_{name}_worst_ni_lower"] = round(
             min(f["nash_noninferiority"]["lo"] for f in res["formats"].values()), 6)
     return out
+
+
+# Fixed Gate B pilot; editing the spec file changes gate_b_pilot_spec_sha256, which marks the trend break.
+GATE_B_PILOT_SPEC = ROOT / "referee" / "gate_b" / "pilot_v1.json"
+GATE_B_PILOT_CANDIDATE = "referee.gate_b.candidates:random_legal"
+
+
+def gate_b_pilot(spec: dict | None = None) -> dict:
+    """Gate B pilot keys (referee/GATES.md Gate B). `spec` lets tests shrink the run; CI uses the file."""
+    from referee.gate_b.runner import load_spec, run_pilot
+
+    file_spec, sha = load_spec(GATE_B_PILOT_SPEC)
+    return run_pilot(spec if spec is not None else file_spec, sha, GATE_B_PILOT_CANDIDATE)
 
 
 def snapshot() -> dict:
@@ -116,6 +130,7 @@ def snapshot() -> dict:
     snap.update(gate_l())
     snap.update(sufficiency())
     snap.update(gate_a())
+    snap.update(gate_b_pilot())
     return snap
 
 
