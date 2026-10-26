@@ -1,7 +1,7 @@
 # 사람이 결정해야 하는 항목 (harness/PROTOCOL.md §9 예외)
 
 ## NH-1 AI 개발 연산 자원·예산
-- 상태: deferred (2026-10-27, ADR 0008) — D2에서 TP-GTO 기준으로 비용을 다시 산정한 뒤 갱신해서 다시 묻는다. 그 전에는 사용자 조치 불필요 — 결정 패키지 `docs/decisions/0004-ai-compute-plan-proposal.md`
+- 상태: resolved (2026-10-27) — 사용자 결정: **월 예산 상한 $100**(린 시나리오). RunPod 선불 크레딧 $100 충전(자동 충전 꺼짐), Secret `RUNPOD_API_KEY` 등록(2026-10-26T16:10:59Z). 표준 승격은 D2 비용 재산정 후 다시 묻는다 — 결정 패키지 `docs/decisions/0004-ai-compute-plan-proposal.md`
 - 추천: 린(월 약 12만~17만원)으로 시작 → 파이프라인 안정 후 표준(월 약 93만~123만원) 승격
 - 사용자 조치: 예산 상한 결정, RunPod 가입·크레딧·API 키 Secret 등록, (표준 시) CPU 서버
 - 막히는 이슈: RL 학습(M2), 대규모 Gate 판정
