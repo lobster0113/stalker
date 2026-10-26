@@ -42,11 +42,12 @@ async function inspect(tag, focus) {
     must(sw <= iw, `${tag} ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw}). 넘치는 요소를 줄이세요`);
   }
   await page.setViewportSize({ width: 1440, height: 900 });
+  // axe-core도 setTimeout을 쓰므로 hold를 먼저 풀어야 교착하지 않는다.
+  await page.evaluate(() => { window.__hold = false; });
   await page.evaluate(src => { if (!window.axe) (0, eval)(src); }, axeSource);
   const res = await page.evaluate(() => axe.run(document, { resultTypes: ["violations"] }));
   const critical = res.violations.filter(v => v.impact === "critical");
   must(critical.length === 0, `${tag}: axe critical ${critical.map(v => v.id + "×" + v.nodes.length).join(", ")}`);
-  await page.evaluate(() => { window.__hold = false; });
 }
 
 // 1. 시작 → 테이블 → 내 차례 → TP 입력 → 제출 → 채점
