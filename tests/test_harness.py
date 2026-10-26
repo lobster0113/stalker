@@ -175,6 +175,51 @@ def test_should_run_without_lock_falls_back_to_throttle():
     assert not ok and "<" in why
 
 
+def _decide_planner(ready, prev_hours_ago):
+    from datetime import timedelta
+    sr = _should_run()
+    calls = []
+
+    def count():
+        calls.append(1)
+        return ready
+
+    ok, why = sr.decide("planner", False, now=NOW, read_lock=lambda r: None,
+                        last_run=lambda r: NOW - timedelta(hours=prev_hours_ago), ready_count=count)
+    return ok, why, calls
+
+
+def test_planner_runs_early_when_ready_queue_is_low():
+    ok, why, _ = _decide_planner(ready=1, prev_hours_ago=3)
+    assert ok and why.startswith("queue low"), why
+    ok, why, _ = _decide_planner(ready=0, prev_hours_ago=3)
+    assert ok and why.startswith("queue low"), why
+    # Still respects the 2h spacing so an empty queue cannot make the planner run hourly.
+    ok, why, _ = _decide_planner(ready=0, prev_hours_ago=1)
+    assert not ok and "<" in why
+
+
+def test_planner_keeps_interval_when_ready_queue_is_full():
+    ok, why, _ = _decide_planner(ready=5, prev_hours_ago=3)
+    assert not ok and "<" in why
+    # Past the regular interval it runs without asking GitHub.
+    ok, why, calls = _decide_planner(ready=5, prev_hours_ago=11)
+    assert ok and not why.startswith("queue low") and not calls
+
+
+def test_planner_falls_back_to_interval_when_ready_lookup_fails():
+    ok, why, calls = _decide_planner(ready=None, prev_hours_ago=3)
+    assert not ok and "<" in why and calls
+
+
+def test_queue_floor_applies_to_planner_only():
+    from datetime import timedelta
+    sr = _should_run()
+    ok, _ = sr.decide("researcher", False, now=NOW, read_lock=lambda r: None,
+                      last_run=lambda r: NOW - timedelta(hours=3), ready_count=lambda: 0)
+    assert not ok
+
+
 def test_should_run_lock_race_lets_only_one_run():
     sr = _should_run()
     locks = {}
