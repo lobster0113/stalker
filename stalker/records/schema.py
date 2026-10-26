@@ -1,4 +1,4 @@
-"""Decision record schema v1 (see docs/RECORDS.md).
+"""Decision record schema v2 (see docs/RECORDS.md). v2 adds `env_id` (stalker.env.spec) to every record.
 
 Records are the output of game generation and the input of typing and RL training, so every field is
 plain JSON-able and every record carries `schema_version`. Classes are frozen dataclasses; `to_dict`
@@ -14,7 +14,7 @@ import typing
 from dataclasses import dataclass, field
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MAX_SEATS = 9
 PROB_TOL = 1e-6
 STREETS = ("preflop", "flop", "turn", "river")
@@ -42,6 +42,7 @@ class RecordIds:
     decision_id: int
     player_id: int
     policy_version: str
+    env_id: str  # stalker.env.spec.EnvSpec.env_id of the environment that produced the record
 
 
 @dataclass(frozen=True)
@@ -174,6 +175,7 @@ class HandRecord:
     players: tuple[PlayerHandOutcome, ...]
     busted: tuple[int, ...]  # player_ids eliminated in this hand
     terminal_flag: bool  # True when this hand ended the game
+    env_id: str
     schema_version: int = SCHEMA_VERSION
 
 
@@ -187,19 +189,40 @@ class GameRecord:
     prizes: tuple[float, ...]  # by player_id
     rewards: tuple[float, ...]  # by player_id: prize - buy_in
     hands: int
+    env_id: str
     terminal_flag: bool = True
     schema_version: int = SCHEMA_VERSION
 
     @classmethod
-    def from_result(cls, result: Any, buy_in: float, episode_id: str) -> "GameRecord":
+    def from_result(cls, result: Any, buy_in: float, episode_id: str, env_id: str) -> "GameRecord":
         """Build from a `stalker.tournament.director.GameResult`."""
         return cls(episode_id=episode_id, game_id=result.game_id, tournament_id=result.tournament_id,
                    buy_in=float(buy_in), ranks=tuple(result.ranks), prizes=tuple(float(p) for p in result.prizes),
-                   rewards=tuple(float(p) - float(buy_in) for p in result.prizes), hands=result.hands)
+                   rewards=tuple(float(p) - float(buy_in) for p in result.prizes), hands=result.hands, env_id=env_id)
 
 
 Record = DecisionRecord | HandRecord | GameRecord
 RECORD_TYPES: dict[str, type] = {"decision": DecisionRecord, "hand": HandRecord, "game": GameRecord}
+_ENV_ID = re.compile(r"[0-9a-f]{16}")
+
+
+def migrate(record_type: str, data: dict, env_id: str) -> dict:
+    """Upgrade a record dict to SCHEMA_VERSION. v1 -> v2 adds `env_id` (from the run's config)."""
+    version = data.get("schema_version")
+    if version == SCHEMA_VERSION:
+        return data
+    if version != 1:
+        raise RecordError(f"schema_version={version}: no migration to {SCHEMA_VERSION}; only 1 and 2 are known.")
+    out = dict(data, schema_version=SCHEMA_VERSION)
+    if record_type == "decision":
+        out["ids"] = dict(out["ids"], env_id=env_id)
+    else:
+        out["env_id"] = env_id
+    return out
+
+
+def _env_id_errors(env_id: str) -> list[str]:
+    return [] if _ENV_ID.fullmatch(env_id) else [f"env_id={env_id!r}: must be 16 lowercase hex chars (EnvSpec.env_id)"]
 
 
 # ---------------------------------------------------------------- (de)serialisation
@@ -306,6 +329,7 @@ def _validate_decision(r: DecisionRecord, hole_cards: dict[int, typing.Sequence[
     e: list[str] = []
     if r.schema_version != SCHEMA_VERSION:
         e.append(f"schema_version={r.schema_version}: expected {SCHEMA_VERSION}")
+    e += _env_id_errors(r.ids.env_id)
     tc, ob = r.tournament_context, r.table_observation
     if tc.ante_type not in ANTE_TYPES:
         e.append(f"tournament_context.ante_type={tc.ante_type!r}: must be one of {ANTE_TYPES}")
@@ -417,6 +441,7 @@ def _validate_hand(r: HandRecord) -> list[str]:
     e: list[str] = []
     if r.schema_version != SCHEMA_VERSION:
         e.append(f"schema_version={r.schema_version}: expected {SCHEMA_VERSION}")
+    e += _env_id_errors(r.env_id)
     if not r.players:
         e.append("players is empty")
     for p in r.players:
@@ -436,6 +461,7 @@ def _validate_game(r: GameRecord) -> list[str]:
     e: list[str] = []
     if r.schema_version != SCHEMA_VERSION:
         e.append(f"schema_version={r.schema_version}: expected {SCHEMA_VERSION}")
+    e += _env_id_errors(r.env_id)
     n = len(r.ranks)
     if not (len(r.prizes) == len(r.rewards) == n):
         e.append("ranks, prizes and rewards must have one entry per player")

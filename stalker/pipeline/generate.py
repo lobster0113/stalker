@@ -18,6 +18,7 @@ import numpy as np
 
 from referee.agents.reference_bot import REFERENCE_BOT_VERSION, ReferenceBot
 from stalker.agents.base import Action, Agent, Event, Observation
+from stalker.env.spec import from_tournament
 from stalker.observe.memory import GameMemoryStore
 from stalker.records.schema import (
     ActionOption, DecisionRecord, GameRecord, MemorySnapshot, PolicySource, PublicAction, RecordIds, SeatInfo,
@@ -47,6 +48,7 @@ class RecordingBot(Agent):
     def __init__(self, bot: ReferenceBot, config: TournamentConfig, episode_id: str, sink: list[DecisionRecord],
                  counter: list[int]) -> None:
         self.bot, self.cfg, self.episode_id, self.sink, self.counter = bot, config, episode_id, sink, counter
+        self.env_id = from_tournament(config).env_id
         self.memory = GameMemoryStore()
 
     def on_game_start(self, game_id: str) -> None:
@@ -84,7 +86,7 @@ class RecordingBot(Agent):
         seats = sorted(o.stacks)
         return DecisionRecord(
             ids=RecordIds(self.episode_id, o.game_id, o.tournament_id, o.hand_id, self.counter[0], o.player_id,
-                          REFERENCE_BOT_VERSION),
+                          REFERENCE_BOT_VERSION, self.env_id),
             tournament_context=TournamentContext(
                 table_size=cfg.table_size, sb=o.sb, bb=o.bb, ante_type=cfg.ante_mode if o.ante else "none",
                 ante=o.ante, level=cfg.level_index_for_hand(o.hand_no), remaining=o.players_remaining,
@@ -109,6 +111,7 @@ def generate(config: TournamentConfig, n: int, seed: int, out: str | Path, run_i
     run_id = run_id or out.name
     write_manifest(out, RunManifest.create(run_id, config, seed, REFERENCE_BOT_VERSION, meta={"n_games": str(n)}))
     payouts = config.payout_ratios()
+    env_id = from_tournament(config).env_id
     all_decisions: list[DecisionRecord] = []
     with RecordWriter(out) as writer:
         for i in range(n):
@@ -120,7 +123,7 @@ def generate(config: TournamentConfig, n: int, seed: int, out: str | Path, run_i
             res = run_game(config, agents, np.random.default_rng([seed, i]), game_id=f"{run_id}-g{i}")
             for r in sink:
                 writer.write(r)
-            writer.write(GameRecord.from_result(res, config.prize_pool / config.players, ep))
+            writer.write(GameRecord.from_result(res, config.prize_pool / config.players, ep, env_id))
             all_decisions += sink
     return all_decisions
 

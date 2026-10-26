@@ -38,12 +38,13 @@ from stalker.tournament.config import load_preset
 from stalker.tournament.director import run_game
 
 STREET_BY_BOARD = {0: "preflop", 3: "flop", 4: "turn", 5: "river"}
+ENV = "0123456789abcdef"
 
 
 def _decision(**over) -> DecisionRecord:
     probs = (0.2, 0.5, 0.3, 0.0)
     base = DecisionRecord(
-        ids=RecordIds("ep-1", "g-1", "t-1", hand_id=3, decision_id=17, player_id=2, policy_version="v0"),
+        ids=RecordIds("ep-1", "g-1", "t-1", hand_id=3, decision_id=17, player_id=2, policy_version="v0", env_id=ENV),
         tournament_context=TournamentContext(
             table_size=6, sb=50, bb=100, ante_type="bb_ante", ante=100, level=2, remaining=5, paid_places=2,
             payout_vector=(65.0, 35.0), next_level=(75, 150, 150), stacks=StackSummary.of([1500, 2000, 900, 3000, 1600])),
@@ -67,13 +68,14 @@ def _obs(r: DecisionRecord, **over) -> DecisionRecord:
 def _hand(**over) -> HandRecord:
     base = HandRecord("ep-1", "g-1", "t-1", hand_id=3, table_id=0, players=(
         PlayerHandOutcome(4, 0, 1500, 1750, 250), PlayerHandOutcome(2, 2, 2000, 1750, -250),
-        PlayerHandOutcome(1, 3, 900, 900, 0)), busted=(), terminal_flag=False)
+        PlayerHandOutcome(1, 3, 900, 900, 0)), busted=(), terminal_flag=False, env_id=ENV)
     return dataclasses.replace(base, **over)
 
 
 def test_ids_are_separate_fields():
     names = {f.name for f in dataclasses.fields(RecordIds)}
-    assert names == {"episode_id", "game_id", "tournament_id", "hand_id", "decision_id", "player_id", "policy_version"}
+    assert names == {"episode_id", "game_id", "tournament_id", "hand_id", "decision_id", "player_id", "policy_version",
+                     "env_id"}
 
 
 def test_valid_decision_round_trips_through_json():
@@ -161,7 +163,7 @@ def test_game_record_reward_is_prize_minus_buy_in():
     cfg = load_preset("6max_sng_wta")
     rng = np.random.default_rng(3)
     res = run_game(cfg, [_Recorder(np.random.default_rng(i)) for i in range(cfg.players)], rng)
-    g = GameRecord.from_result(res, buy_in=10.0, episode_id="ep-9")
+    g = GameRecord.from_result(res, buy_in=10.0, episode_id="ep-9", env_id=ENV)
     assert validate(g) == []
     assert g.terminal_flag
     assert g.rewards == tuple(p - 10.0 for p in res.prizes)
@@ -188,7 +190,7 @@ class _Recorder(Agent):
         choice = int(self.rng.choice(4, p=probs))
         self.n += 1
         self.records.append(DecisionRecord(
-            ids=RecordIds("ep-0", o.game_id, o.tournament_id, o.hand_id, self.n, o.player_id, "random-v0"),
+            ids=RecordIds("ep-0", o.game_id, o.tournament_id, o.hand_id, self.n, o.player_id, "random-v0", ENV),
             tournament_context=TournamentContext(
                 table_size=6, sb=o.sb, bb=o.bb, ante_type="none" if not o.ante else "classic", ante=o.ante,
                 level=o.hand_no - 1, remaining=o.players_remaining, paid_places=o.paid_places,
@@ -219,7 +221,7 @@ def test_store_round_trip_with_manifest(tmp_path):
         for r in decisions:
             w.write(r)
         w.write(_hand())
-        w.write(GameRecord.from_result(res, buy_in=0.0, episode_id="ep-0"))
+        w.write(GameRecord.from_result(res, buy_in=0.0, episode_id="ep-0", env_id=ENV))
     loaded = load_records(tmp_path)
     assert loaded[:len(decisions)] == decisions
     assert isinstance(loaded[-1], GameRecord)
@@ -237,7 +239,7 @@ def test_writer_refuses_invalid_records(tmp_path):
 def test_loader_rejects_bad_lines(tmp_path):
     good = {"type": "hand", "record": to_dict(_hand())}
     cases = [
-        ({"type": "hand", "record": {**to_dict(_hand()), "schema_version": 2}}, "migrate"),
+        ({"type": "hand", "record": {**to_dict(_hand()), "schema_version": 3}}, "migrate"),
         ({"type": "hint", "record": to_dict(_hand())}, "expected"),
         ({"type": "decision", "record": to_dict(_decision(probs_ai0=(1.0, 1.0, 0.0, 0.0)))}, "sums to"),
         ({"type": "decision", "record": to_dict(_decision(action_logprob=math.nan))}, "non-finite"),
