@@ -40,8 +40,26 @@ def hyper_sng() -> TournamentConfig:  # same table as the slow smoke test (tests
         payouts=(0.5, 0.3, 0.2), buy_in=100)
 
 
+class _Probe(PolicyAgent):
+    """Counts the chosen action kind and how often the policy is (almost) deterministic."""
+
+    def __init__(self, *args, tally: dict, **kw):
+        super().__init__(*args, **kw)
+        self.tally = tally
+
+    def act(self, observation):
+        hero, out = self._forward(observation)
+        probs = out.probs[0].double().numpy()
+        action = super().act(observation)  # recomputes the same forward pass and advances the GRU
+        kind = "allin" if action.kind == "raise" and action.amount == hero.legal["max_raise_to"] else action.kind
+        self.tally[kind] = self.tally.get(kind, 0) + 1
+        self.tally["decisions"] = self.tally.get("decisions", 0) + 1
+        self.tally["p_max>0.99"] = self.tally.get("p_max>0.99", 0) + int(probs.max() > 0.99)
+        return action
+
+
 def roi(policy, cfg: TournamentConfig, opponent: str, games: int, seed: int,
-        fractions: tuple[float, ...]) -> tuple[float, float]:
+        fractions: tuple[float, ...], tally: dict) -> tuple[float, float]:
     """Mean ROI of the policy in one rotating seat and its standard error (per-game)."""
     out = []
     for g in range(games):
@@ -50,7 +68,7 @@ def roi(policy, cfg: TournamentConfig, opponent: str, games: int, seed: int,
             agents = [ReferenceBot(np.random.default_rng([seed, g, i]), cfg.payout_ratios()) for i in range(cfg.players)]
         else:
             agents = [RandomLegalAgent(np.random.default_rng([seed, g, i])) for i in range(cfg.players)]
-        agents[seat] = PolicyAgent(policy, cfg, np.random.default_rng([seed, g]), fractions)
+        agents[seat] = _Probe(policy, cfg, np.random.default_rng([seed, g]), fractions, tally=tally)
         res = run_game(cfg, agents, np.random.default_rng([seed, g, 99]), game_id=f"eval-{g}")
         out.append((res.prizes[seat] - cfg.buy_in) / cfg.buy_in)
     a = np.array(out)
@@ -77,10 +95,14 @@ def main() -> None:
            "train_s": round(train_s, 1), "iterations": tr.iteration, "games": tr.games_played,
            "policy_version": tr.policy_version, "eval_games": args.eval_games}
     for opp in ("reference", "random"):
-        m, se = roi(tr.policy, cfg, opp, args.eval_games, seed=7, fractions=cfg_t.raise_pot_fractions)
+        tally: dict = {}
+        m, se = roi(tr.policy, cfg, opp, args.eval_games, seed=7, fractions=cfg_t.raise_pot_fractions, tally=tally)
         row[f"roi_vs_{opp}"], row[f"se_vs_{opp}"] = round(m, 4), round(se, 4)
+        n = tally.pop("decisions", 0)
+        row[f"actions_vs_{opp}"] = {k: round(v / max(n, 1), 3) for k, v in sorted(tally.items())}
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / f"{args.setting}-s{args.seed}.json").write_text(json.dumps(row, indent=1))
+    tr.save(args.out / f"{args.setting}-s{args.seed}.pt")
     print(json.dumps(row))
 
 
