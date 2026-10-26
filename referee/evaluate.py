@@ -11,7 +11,10 @@ Scheme (one *block* = one bootstrap cluster):
 - Each game's diff = mean ROI of A players - mean ROI of B players; the block diff is the mean
   over its 2 * rotations games. ROI = (prize - entry) / entry with entry = prize_pool / players.
 - Agent rngs are keyed by (seed, block, game, player_id), so two instances of the same agent
-  type are different players and an A/A run is not trivially zero.
+  type are different players and an A/A run is not trivially zero (unless the agent ignores its rng,
+  like the reference bot: then seat-swapped games mirror each other and every block diff is exactly 0).
+- `block_game_diffs[b]` lists block b's game diffs in mask order (shift 0, its complement, shift 1, ...), so
+  callers can rebuild clusters without the seat swap pairing (Gate B pilot `sd_indep`).
 """
 from __future__ import annotations
 
@@ -26,7 +29,7 @@ from stalker.agents.base import Agent
 from stalker.tournament.config import TournamentConfig
 from stalker.tournament.director import run_game
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: block_game_diffs (Gate B pilot measures the unpaired SD from them)
 SEED_POLICY = ("block b: game rng = default_rng([seed, b]) shared by all games of the block; "
                "agent rng = default_rng([seed, b, game, player_id, 1]); bootstrap rng = default_rng([seed, 2])")
 
@@ -49,6 +52,7 @@ class EvalResult:
     roi_baseline: float
     ci: CI
     illegal_actions: int
+    block_game_diffs: list[list[float]] = field(default_factory=list)
     schema_version: int = field(default=SCHEMA_VERSION)
 
     def to_dict(self) -> dict:
@@ -86,6 +90,7 @@ def evaluate(config: TournamentConfig, candidate: AgentFactory, baseline: AgentF
         raise ValueError("prize pool is 0, ROI is undefined; set buy_in or use payout_mode='amount'.")
     masks = _masks(config.players, rotations)
     block_diffs, roi_a, roi_b, illegal = [], [], [], 0
+    per_game = []
     for b in range(blocks):
         game_diffs = []
         for g, mask in enumerate(masks):
@@ -100,7 +105,8 @@ def evaluate(config: TournamentConfig, candidate: AgentFactory, baseline: AgentF
             roi_b.append(o)
             game_diffs.append(a - o)
         block_diffs.append(float(np.mean(game_diffs)))
+        per_game.append(game_diffs)
     ci = bootstrap_ci(block_diffs, level=level, rng=np.random.default_rng([seed, 2]))
     return EvalResult(config.to_dict(), candidate_name, baseline_name, seed, SEED_POLICY, reference_version,
                       blocks, rotations, blocks * len(masks), block_diffs, float(np.mean(roi_a)),
-                      float(np.mean(roi_b)), ci, illegal)
+                      float(np.mean(roi_b)), ci, illegal, per_game)

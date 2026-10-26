@@ -12,6 +12,8 @@ import importlib
 import json
 from pathlib import Path
 
+import numpy as np
+
 from referee.agents.reference_bot import REFERENCE_BOT_VERSION, factory
 from referee.evaluate import evaluate
 from referee.stats import required_tournaments
@@ -42,6 +44,12 @@ def resolve_candidate(ref: str):
     return getattr(importlib.import_module(mod), attr)
 
 
+def _verdict(blocks: int, required: int, lo: float) -> str:
+    if blocks < required:
+        return INSUFFICIENT
+    return PASS if lo > 0 else FAIL
+
+
 def run_gate_b(spec: dict, spec_sha256: str, candidate_ref: str) -> dict:
     make = resolve_candidate(candidate_ref)
     required = required_tournaments(spec["pilot_sigma"], spec["delta_min"], alpha=spec["alpha"], power=spec["power"])
@@ -51,10 +59,7 @@ def run_gate_b(spec: dict, spec_sha256: str, candidate_ref: str) -> dict:
         res = evaluate(cfg, make(cfg), factory(cfg.payout_ratios()), blocks=spec["blocks"], seed=spec["seed"],
                        rotations=spec["rotations"], candidate_name=candidate_ref,
                        baseline_name="reference_bot", reference_version=REFERENCE_BOT_VERSION)
-        if spec["blocks"] < required:
-            verdict = INSUFFICIENT
-        else:
-            verdict = PASS if res.ci.lo > 0 else FAIL
+        verdict = _verdict(spec["blocks"], required, res.ci.lo)
         presets[name] = {"verdict": verdict, "ci": {"mean": res.ci.mean, "lo": res.ci.lo, "hi": res.ci.hi,
                                                     "level": res.ci.level, "n_clusters": res.ci.n_clusters},
                          "games": res.games, "illegal_actions": res.illegal_actions}
@@ -62,6 +67,39 @@ def run_gate_b(spec: dict, spec_sha256: str, candidate_ref: str) -> dict:
     overall = PASS if all(v == PASS for v in verdicts) else FAIL if FAIL in verdicts else INSUFFICIENT
     return {"schema_version": SCHEMA_VERSION, "spec_sha256": spec_sha256, "spec": spec, "candidate": candidate_ref,
             "required_blocks": required, "verdict": overall, "presets": presets}
+
+
+def run_pilot(spec: dict, spec_sha256: str, candidate_ref: str) -> dict:
+    """Small fixed Gate B run that measures the duplicate variance reduction (GATES.md 표본 정책).
+
+    Flat metric keys (CI appends them to metrics history). Per preset: the run_gate_b verdict and CI, `sd_dup`
+    = SD of the duplicate block diffs, `sd_indep` = SD of clusters built from the same games without the seat swap
+    pairing (block b's shifted-mask games with block b+1's complement games, so the swapped games share no deck). `required_tournaments` sizes
+    the sample from the largest measured `sd_dup`; it is a record, not a change to the spec's pilot_sigma.
+    """
+    make = resolve_candidate(candidate_ref)
+    required = required_tournaments(spec["pilot_sigma"], spec["delta_min"], alpha=spec["alpha"], power=spec["power"])
+    out: dict = {"gate_b_pilot_spec_sha256": spec_sha256}
+    sds = []
+    for name in spec["presets"]:
+        cfg = load_preset(name)
+        res = evaluate(cfg, make(cfg), factory(cfg.payout_ratios()), blocks=spec["blocks"], seed=spec["seed"],
+                       rotations=spec["rotations"], candidate_name=candidate_ref,
+                       baseline_name="reference_bot", reference_version=REFERENCE_BOT_VERSION)
+        g = np.asarray(res.block_game_diffs)
+        unpaired = np.concatenate([g[:, 0::2], np.roll(g[:, 1::2], -1, axis=0)], axis=1).mean(axis=1)
+        sd_dup = float(np.std(res.block_diffs, ddof=1))
+        sds.append(sd_dup)
+        key = f"gate_b_pilot_{name}"
+        out.update({f"{key}_roi_diff": round(res.ci.mean, 6), f"{key}_ci_lower": round(res.ci.lo, 6),
+                    f"{key}_ci_upper": round(res.ci.hi, 6),
+                    f"{key}_verdict": _verdict(spec["blocks"], required, res.ci.lo),
+                    f"{key}_sd_dup": round(sd_dup, 6), f"{key}_sd_indep": round(float(np.std(unpaired, ddof=1)), 6)})
+    sigma = max(sds)
+    # A zero SD (e.g. a deterministic candidate mirrored by duplicate) needs no more than the minimum sample.
+    out["gate_b_pilot_required_tournaments"] = (
+        required_tournaments(sigma, spec["delta_min"], alpha=spec["alpha"], power=spec["power"]) if sigma > 0 else 2)
+    return out
 
 
 def to_json(result: dict) -> str:

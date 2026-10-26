@@ -83,6 +83,19 @@ def sufficiency(report: dict | None = None) -> dict:
             "d1_preliminary": round(report["summary"]["d1_preliminary"]["lessonable_decision_share"], 6) if n else 0.0}
 
 
+# Fixed Gate B pilot; editing the spec file changes gate_b_pilot_spec_sha256, which marks the trend break.
+GATE_B_PILOT_SPEC = ROOT / "referee" / "gate_b" / "pilot_v1.json"
+GATE_B_PILOT_CANDIDATE = "referee.gate_b.candidates:random_legal"
+
+
+def gate_b_pilot(spec: dict | None = None) -> dict:
+    """Gate B pilot keys (referee/GATES.md Gate B). `spec` lets tests shrink the run; CI uses the file."""
+    from referee.gate_b.runner import load_spec, run_pilot
+
+    file_spec, sha = load_spec(GATE_B_PILOT_SPEC)
+    return run_pilot(spec if spec is not None else file_spec, sha, GATE_B_PILOT_CANDIDATE)
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
@@ -92,6 +105,7 @@ def snapshot() -> dict:
     snap.update(gate_r())
     snap.update(gate_l())
     snap.update(sufficiency())
+    snap.update(gate_b_pilot())
     return snap
 
 
