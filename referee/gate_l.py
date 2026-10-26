@@ -23,6 +23,9 @@ import numpy as np
 from referee.agents.reference_bot import ReferenceBot
 from stalker.agents.base import Agent, Event, Observation
 from stalker.agents.random_agent import RandomLegalAgent
+from stalker.core.cards import RANKS, SUITS
+from stalker.env.contract import PrivateWorldState, TeacherContext, decision_context
+from stalker.env.teacher import opp_range_label
 from stalker.observe.builder import HeroObservation, ObservationBuilder
 from stalker.observe.memory import GameMemoryStore
 from stalker.tournament.config import TournamentConfig, load_preset
@@ -38,6 +41,8 @@ SKIP_TORCH = ("L2/L6 skipped: torch is not installed, so the RL PolicyAgent and 
               'Install it (python -m pip install -e ".[dev,rl]") to check them.')
 RL_AGENT = "rl_policy_v0"
 L6_GAMES = 2
+L7_WORLDS = 50
+L7_DECISIONS = 6
 
 
 @dataclass
@@ -296,6 +301,59 @@ def check_l5(make_agent: Callable[[], Agent], report: Report, preset: str = "6ma
     report.check("L5", ps[0] == ps[1], "late joiner's policy depends on events it never saw. Reset all state in on_game_start.")
 
 
+def _l7_teacher() -> TeacherContext:
+    # A fixed, assumption-only opponent model: raises pairs and broadways more, folds weak hands.
+    def policy(cls: str, act: str) -> float:
+        strong = cls[0] == cls[1] or (cls[0] in "AKQJT" and cls[1] in "AKQJT")
+        return {"cbr": 0.8 if strong else 0.2, "cc": 0.5, "f": 0.05 if strong else 0.5}.get(act, 0.5)
+    return TeacherContext("l7_fixture", "1", policy)
+
+
+def contract_pipeline(obs: Observation, private: PrivateWorldState, teacher: TeacherContext,
+                      builder: ObservationBuilder) -> tuple:
+    """The production path: engine observation -> PublicObservation -> DecisionContext and teacher labels.
+
+    `private` is handed in only because an engine has it; a correct pipeline never reads it.
+    """
+    po = builder.build(obs)
+    dc = decision_context(po)
+    opps = [k for k, s in enumerate(po.seats) if s.used and k != 0 and s.in_hand]
+    labels = tuple(opp_range_label(po, teacher, k).tobytes() for k in opps)
+    return repr(dc), labels
+
+
+def hidden_worlds(obs: Observation, n: int, rng: np.random.Generator) -> list[PrivateWorldState]:
+    """n worlds that agree with `obs` on everything public and differ in other players' cards and the deck."""
+    seen = set(obs.hole_cards) | set(obs.board)
+    pool = [r + s for r in RANKS for s in SUITS if r + s not in seen]
+    others = [seat for seat in obs.in_hand if seat != obs.seat]
+    worlds = []
+    for _ in range(n):
+        deck = [pool[i] for i in rng.permutation(len(pool))]
+        holes = {seat: (deck[2 * i], deck[2 * i + 1]) for i, seat in enumerate(others)}
+        holes[obs.seat] = tuple(obs.hole_cards)
+        worlds.append(PrivateWorldState(holes, tuple(deck[2 * len(others):])))
+    return worlds
+
+
+def check_l7(report: Report, pipelines: dict[str, Callable] | None = None, preset: str = "6max_sng_wta") -> None:
+    """L7: same public observation + same assumed opponent policy, only hidden cards differ ->
+    identical DecisionContext, policy input and teacher labels."""
+    cfg = load_preset(preset)
+    builder = ObservationBuilder(cfg)
+    teacher = _l7_teacher()
+    tap = record_game(cfg, 71, "l7")
+    picks = [o for o, _ in tap.decisions if o.board][:L7_DECISIONS // 2] +             [o for o, _ in tap.decisions if not o.board and o.action_history][:L7_DECISIONS // 2]
+    rng = np.random.default_rng(7)
+    for name, pipe in (pipelines or {"contract_v0": contract_pipeline}).items():
+        for obs in picks:
+            outs = {pipe(obs, w, teacher, builder) for w in hidden_worlds(obs, L7_WORLDS, rng)}
+            report.check("L7", len(outs) == 1,
+                         f"[{name}] hand {obs.hand_id}: {len(outs)} different outputs across {L7_WORLDS} worlds "
+                         "that differ only in hidden cards. Labels and policy inputs must be built from "
+                         "PublicObservation + TeacherContext only (stalker/env/contract.py).")
+
+
 def _l6_config() -> TournamentConfig:
     """Small hyper-turbo 6-max SNG: games end in seconds, so a training batch is cheap to build."""
     from stalker.tournament.config import BlindLevel
@@ -370,6 +428,7 @@ def run_gate_l(agents: dict[str, Callable[[], Agent]] | None = None) -> Report:
         report.skipped += sub.skipped
     check_l3(report)
     check_l4(report)
+    check_l7(report)
     if torch_available():
         check_l6(report)
     else:

@@ -27,7 +27,7 @@
 | L4 | 생존자 수·상금 구조 변경 | 다음 관측에 즉시 반영 |
 | L5 | 게임 중 합류 | 합류 이후 관측만 메모리에 존재 |
 | L6 | 학습 배치 | game_id 경계에서 상태 초기화, 게임 간 상태 전달 없음 |
-| L7 | 숨은 카드 교체 (ADR 0010) | `PublicObservation`과 상대 정책 가정이 같고 타인 홀카드·덱만 다르면 정책 출력과 TP 정답 레이블(`opp.range` 등)이 완전 동일 |
+| L7 | 숨은 카드 교체 (ADR 0010). `check_l7`: 기록된 게임의 결정(보드 있음 3 + 프리플랍 3)마다 공개 정보는 같고 타인 홀카드·덱만 다른 세계 N=50개를 만들어 엔진 관측 → `PublicObservation` → DecisionContext·교사 레이블(`opp.range`) 경로를 실행 | `PublicObservation`과 상대 정책 가정이 같고 타인 홀카드·덱만 다르면 DecisionContext·정책 입력·TP 정답 레이블이 완전 동일. 숨은 카드를 쓰는 가짜 경로는 실패해야 한다(판별 테스트) |
 | L8 | 특성 출처 | 정책 입력 텐서의 모든 필드가 `PublicObservation` 또는 DecisionContext에서 왔음을 런타임 출처 표지로 확인(정적 import 검사만으로는 부족). `TeacherContext`·`PrivateWorldState` 값이 섞이면 실패 |
 
 스위트: `referee/gate_l.py` — `python -m referee.gate_l`. 지표 `gate_l_pass_rate`·`gate_l_checks`·`gate_l_items`.
