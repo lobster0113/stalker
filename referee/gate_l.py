@@ -21,9 +21,9 @@ from typing import Callable
 import numpy as np
 
 from referee.agents.reference_bot import ReferenceBot
-from stalker.agents.base import Agent, Event, Observation
+from stalker.agents.base import Action, Agent, Event, Observation
 from stalker.agents.random_agent import RandomLegalAgent
-from stalker.core.cards import RANKS, SUITS
+from stalker.core.cards import N_CARDS, card_str
 from stalker.env.contract import PrivateWorldState, TeacherContext, decision_context
 from stalker.env.teacher import opp_range_label
 from stalker.observe.builder import HeroObservation, ObservationBuilder
@@ -31,6 +31,7 @@ from stalker.observe.memory import GameMemoryStore
 from stalker.tournament.config import TournamentConfig, load_preset
 from stalker.tournament.director import run_game
 
+CARD_INDEX = {card_str(i): i for i in range(52)}
 CARD = re.compile(r"^[2-9TJQKA][cdhs]$")
 FORBIDDEN_KEYS = ("seed", "deck", "rng", "generator")
 L1_PRESETS = ("6max_sng_wta", "9max_sng_flat")
@@ -43,6 +44,7 @@ RL_AGENT = "rl_policy_v0"
 L6_GAMES = 2
 L7_WORLDS = 50
 L7_DECISIONS = 6
+L7_SEED = 71
 
 
 @dataclass
@@ -322,36 +324,130 @@ def contract_pipeline(obs: Observation, private: PrivateWorldState, teacher: Tea
     return repr(dc), labels
 
 
-def hidden_worlds(obs: Observation, n: int, rng: np.random.Generator) -> list[PrivateWorldState]:
-    """n worlds that agree with `obs` on everything public and differ in other players' cards and the deck."""
-    seen = set(obs.hole_cards) | set(obs.board)
-    pool = [r + s for r in RANKS for s in SUITS if r + s not in seen]
-    others = [seat for seat in obs.in_hand if seat != obs.seat]
+class _DeckRng:
+    """Director rng whose n-th 52-card permutation (one per hand) can be replaced by a chosen deck."""
+
+    def __init__(self, seed: int, decks: dict[int, list[int]] | None = None) -> None:
+        self._g = np.random.default_rng(seed)
+        self._decks = decks or {}
+        self.dealt: list[list[int]] = []
+
+    def permutation(self, n):
+        p = self._g.permutation(n)
+        if n == N_CARDS:
+            i = len(self.dealt)
+            p = np.array(self._decks.get(i, p))
+            self.dealt.append([int(c) for c in p])
+        return p
+
+    def __getattr__(self, name):
+        return getattr(self._g, name)
+
+
+class _Stop(Exception):
+    pass
+
+
+class _Caller(Agent):
+    """Always checks or calls, so the public action sequence does not depend on anyone's cards."""
+
+    def act(self, observation: Observation):
+        return Action("call")
+
+
+class _HeroTap(_Caller):
+    def __init__(self, rng: _DeckRng, hands: list, stop_at: int | None = None) -> None:
+        self.rng, self.hands, self.stop_at = rng, hands, stop_at
+        # (observation, index of its hand's deck, engine truth: hero hole cards + dealt board)
+        self.decisions: list[tuple[Observation, int, tuple[str, ...]]] = []
+
+    def act(self, observation: Observation):
+        st = self.hands[-1].state
+        truth = tuple(repr(c) for c in st.hole_cards[self.hands[-1]._index[observation.seat]]) +             tuple(repr(c) for c in st.get_board_cards(0))
+        self.decisions.append((observation, len(self.rng.dealt) - 1, truth))
+        if self.stop_at is not None and len(self.decisions) > self.stop_at:
+            raise _Stop
+        return super().act(observation)
+
+
+def _play_until(cfg: TournamentConfig, seed: int, decks: dict, stop_at: int | None):
+    # The truth about dealt cards is read from PokerKit state, not from Hand.board(), so the fixed
+    # positions do not depend on the observation path under test.
+    import stalker.tournament.director as director
+
+    hands: list = []
+
+    class _RecordingHand(director.Hand):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            hands.append(self)
+
+    rng = _DeckRng(seed, decks)
+    hero = _HeroTap(rng, hands, stop_at)
+    agents = [hero] + [_Caller() for _ in range(cfg.players - 1)]
+    real, director.Hand = director.Hand, _RecordingHand
+    try:
+        run_game(cfg, agents, rng, game_id="l7")
+    except _Stop:
+        pass
+    finally:
+        director.Hand = real
+    return hero, rng
+
+
+def hidden_worlds(cfg: TournamentConfig, seed: int, decision: int, n: int,
+                  rng: np.random.Generator) -> list[tuple[Observation, PrivateWorldState]]:
+    """Replay the engine n times up to the hero's `decision`-th decision, each time with a deck that keeps
+    the hero's hole cards and the dealt board in place and shuffles every other card. Every world's
+    observation is built by the director itself, so a leak anywhere on the engine -> observation path shows."""
+    hero, base_rng = _play_until(cfg, seed, {}, decision)
+    _, hand_idx, truth = hero.decisions[decision]
+    deck = base_rng.dealt[hand_idx]
+    fixed = {CARD_INDEX[c] for c in truth}
+    free_pos = [i for i, c in enumerate(deck) if c not in fixed]
     worlds = []
     for _ in range(n):
-        deck = [pool[i] for i in rng.permutation(len(pool))]
-        holes = {seat: (deck[2 * i], deck[2 * i + 1]) for i, seat in enumerate(others)}
-        holes[obs.seat] = tuple(obs.hole_cards)
-        worlds.append(PrivateWorldState(holes, tuple(deck[2 * len(others):])))
+        d = list(deck)
+        moved = [deck[i] for i in free_pos]
+        for i, c in zip(free_pos, rng.permutation(moved)):
+            d[i] = int(c)
+        h, _ = _play_until(cfg, seed, {hand_idx: d}, decision)
+        w_obs = h.decisions[decision][0]
+        worlds.append((w_obs, PrivateWorldState({w_obs.seat: tuple(w_obs.hole_cards)}, tuple(card_str(c) for c in d))))
     return worlds
 
 
-def check_l7(report: Report, pipelines: dict[str, Callable] | None = None, preset: str = "6max_sng_wta") -> None:
-    """L7: same public observation + same assumed opponent policy, only hidden cards differ ->
-    identical DecisionContext, policy input and teacher labels."""
+def l7_decisions(cfg: TournamentConfig, seed: int, k: int) -> list[int]:
+    """Hero decision indices: k//2 preflop ones facing an action, then postflop ones."""
+    hero, _ = _play_until(cfg, seed, {}, None)
+    pre = [i for i, (o, _, _) in enumerate(hero.decisions) if not o.board and o.action_history]
+    post = [i for i, (o, _, _) in enumerate(hero.decisions) if o.board]
+    return pre[: k // 2] + post[: k - k // 2]
+
+
+def check_l7(report: Report, pipelines: dict[str, Callable] | None = None,
+             agents: dict[str, Callable[[], Agent]] | None = None, preset: str = "6max_sng_wta") -> None:
+    """L7: same public observation + same assumed opponent policy, only hidden cards and deck differ ->
+    identical DecisionContext and teacher labels (each pipeline) and identical policy output (each agent)."""
     cfg = load_preset(preset)
     builder = ObservationBuilder(cfg)
     teacher = _l7_teacher()
-    tap = record_game(cfg, 71, "l7")
-    picks = [o for o, _ in tap.decisions if o.board][:L7_DECISIONS // 2] +             [o for o, _ in tap.decisions if not o.board and o.action_history][:L7_DECISIONS // 2]
+    pipelines = pipelines if pipelines is not None else {"contract_v0": contract_pipeline}
+    agents = agents if agents is not None else dict(REGISTRY)
     rng = np.random.default_rng(7)
-    for name, pipe in (pipelines or {"contract_v0": contract_pipeline}).items():
-        for obs in picks:
-            outs = {pipe(obs, w, teacher, builder) for w in hidden_worlds(obs, L7_WORLDS, rng)}
+    for d in l7_decisions(cfg, L7_SEED, L7_DECISIONS):
+        worlds = hidden_worlds(cfg, L7_SEED, d, L7_WORLDS, rng)
+        for name, pipe in pipelines.items():
+            outs = {pipe(o, w, teacher, builder) for o, w in worlds}
             report.check("L7", len(outs) == 1,
-                         f"[{name}] hand {obs.hand_id}: {len(outs)} different outputs across {L7_WORLDS} worlds "
-                         "that differ only in hidden cards. Labels and policy inputs must be built from "
+                         f"[{name}] decision {d}: {len(outs)} different outputs across {L7_WORLDS} worlds that "
+                         "differ only in hidden cards. Labels and policy inputs must be built from "
                          "PublicObservation + TeacherContext only (stalker/env/contract.py).")
+        for name, make in agents.items():
+            outs = {policy_of(make(), o) for o, _ in worlds}
+            report.check("L7", len(outs) == 1,
+                         f"[{name}] decision {d}: policy output differs across {L7_WORLDS} worlds that differ "
+                         "only in hidden cards; the engine->observation path or the policy reads hidden state.")
 
 
 def _l6_config() -> TournamentConfig:
