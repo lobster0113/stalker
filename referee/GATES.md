@@ -33,7 +33,7 @@
 스위트: `referee/gate_l.py` — `python -m referee.gate_l`. 지표 `gate_l_pass_rate`·`gate_l_checks`·`gate_l_items`.
 
 ## Gate T — TP 경유 (D3부터 상시 CI)
-- T1 병목: 같은 TP 판단 값 + 같은 DecisionContext(`docs/TP.md` §1.1)이면, 그 밖의 관측을 무작위로 바꿔도 `act.choice` 분포가 완전히 같다.
+- T1 병목: 같은 TP 판단 값 + 같은 DecisionContext(`docs/TP.md` §1.1)이면, 그 밖의 관측을 무작위로 바꿔도 `act.choice` 분포가 완전히 같다. 구현: `referee/gate_t` `check_t1` — 기록된 게임의 결정 8개(프리플랍 4·포스트플랍 4)마다 TP 벡터와 DecisionContext를 고정하고 상대 식별자·통계·메모리·게임 ID를 N=100회 무작위로 바꾼다. 등록 정책은 `referee/gate_t` `REGISTRY`.
 - T2 계산 항목 일관성: `docs/TP.md`의 "계산" 항목은 정의식으로 다시 계산한 값과 허용 오차(명세 상수) 안에서 일치한다.
 - T3 형식: 모든 TP 값이 명세의 척도·눈금·형식 안에 있고, N/A 항목은 값이 없으며, 해당 등급에서 묻지 않는 항목에 의존하지 않는다.
 - T4 충분성(판별): 반드시 구분돼야 할 스팟 쌍 20종 이상(예: BTN 대 BB 단독 팟 vs BTN 대 BB·SB 멀티웨이, 버블 직전 vs 머니인 확정, 같은 에퀴티·다른 포지션)에서 액션 헤드 입력(TP + DecisionContext)이 서로 다르다. 스팟 목록은 버전 관리한다. T1~T3은 병목 **준수**를, T4는 병목이 **충분한 정보**를 담는지를 본다.
