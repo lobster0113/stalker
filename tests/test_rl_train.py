@@ -8,6 +8,7 @@ import pytest
 torch = pytest.importorskip("torch")
 from referee.gate_l import Report, check_l1  # noqa: E402
 from stalker.agents.random_agent import RandomLegalAgent  # noqa: E402
+from stalker.rl.evaluate import ACTION_KINDS, evaluate  # noqa: E402
 from stalker.rl.train import (  # noqa: E402
     PolicyAgent, Segment, TrainConfig, Trainer, advantages, check_segments, load_policy)
 from stalker.tournament.config import load_preset  # noqa: E402
@@ -160,36 +161,43 @@ def test_policy_agent_plays_legal_tournament_and_resets_gru():
     assert agent._state is None and agent.memory.game_id is None
 
 
-def roi_vs_random(policy, games: int, seed: int) -> float:
-    cfg = hyper_sng()
-    total = 0.0
-    for g in range(games):
-        seat = g % cfg.players  # rotate the policy's seat so position luck averages out
-        agents = [RandomLegalAgent(np.random.default_rng([seed, g, i])) for i in range(cfg.players)]
-        agents[seat] = PolicyAgent(policy, cfg, np.random.default_rng([seed, g]))
-        res = run_game(cfg, agents, np.random.default_rng([seed, g, 99]), game_id=f"eval-{g}")
-        total += res.prizes[seat] - cfg.buy_in
-    return total / (games * cfg.buy_in)
-
-
-@pytest.mark.slow
-def test_smoke_cpu_training_beats_random_and_passes_gate_l1():
-    """Reference only (small sample, not a strength claim): <=10 min CPU training, then ROI vs random bots > 0."""
+@pytest.fixture(scope="module")
+def smoke():
+    """Reference only (small sample, not a strength claim): <=10 min CPU training, evaluated vs random bots with the
+    check/fold baseline. ROI is reported, not asserted: check/fold alone earns about +0.75 there (#78)."""
     tr = Trainer(hyper_sng(), TrainConfig(seed=0, games_per_iter=8, epochs=2, random_seats=4))
     start = time.monotonic()
     for _ in range(SMOKE_ITERS):
         tr.train_step()
     elapsed = time.monotonic() - start
-    roi = roi_vs_random(tr.policy, games=EVAL_GAMES, seed=7)
+    ev = evaluate(tr.policy, hyper_sng(), games=EVAL_GAMES, seed=7)
     print(f"smoke (reference only): {tr.iteration} iterations, {tr.games_played} games, {elapsed:.0f}s, "
-          f"version={tr.policy_version}, roi_vs_random={roi:+.3f} over {EVAL_GAMES} games")
+          f"version={tr.policy_version}, roi_vs_random={ev.roi:+.3f} (check/fold {ev.baseline_roi:+.3f}) "
+          f"over {EVAL_GAMES} games, fold_rate={ev.fold_rate:.3f} of {ev.facing_bet}, actions={ev.actions}")
+    return tr, elapsed, ev
+
+
+@pytest.mark.slow
+def test_smoke_cpu_training_records_actions_and_passes_gate_l1(smoke):
+    tr, elapsed, ev = smoke
     assert elapsed < 600, f"smoke training took {elapsed:.0f}s; the CPU budget is 600s. Lower SMOKE_ITERS."
-    assert roi > 0, f"trained policy ROI vs random bots is {roi:+.3f}; expected > 0 after {tr.iteration} iterations."
+    assert ev.decisions > 0 and ev.facing_bet > 0 and set(ev.actions) == set(ACTION_KINDS), ev.actions
     for preset in ("6max_sng_wta", "9max_sng_flat"):
         r = Report()
         cfg = load_preset(preset)
         check_l1(lambda: PolicyAgent(tr.policy, cfg, np.random.default_rng(0)), r, presets=(preset,))
         assert r.ok, r.failures
+
+
+# strict: once training stops collapsing this XPASSes and fails CI, so whoever fixes it (#91) must drop the mark.
+@pytest.mark.xfail(strict=True, reason="known check/fold collapse of the smoke training (#78, #88); #91 fixes it")
+@pytest.mark.slow
+def test_smoke_cpu_training_does_not_collapse_to_check_fold(smoke):
+    tr, _, ev = smoke
+    assert ev.fold_rate < 0.95, (
+        f"trained policy folds {ev.fold_rate:.3f} of {ev.facing_bet} decisions facing a bet after {tr.iteration} "
+        "iterations: it collapsed to check/fold. Fix the training (see docs/research/2026-10-rl-opponent-pool.md), "
+        "not this threshold.")
 
 
 SMOKE_ITERS = 60

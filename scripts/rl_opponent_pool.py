@@ -4,7 +4,8 @@
 
 Trains one `TrainConfig` setting for a fixed wall-clock CPU budget (one torch thread, so settings run side by side
 get the same budget), then plays the policy in one rotating seat against 5 reference bots v1 and against 5 random
-bots. Numbers are local and reference-only (CHARTER: only CI results count).
+bots (`stalker.rl.evaluate`, with the check/fold baseline on the same deals). Numbers are local and reference-only
+(CHARTER: only CI results count).
 """
 from __future__ import annotations
 
@@ -17,12 +18,10 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from referee.agents.reference_bot import ReferenceBot
-from stalker.agents.base import Action, Agent
-from stalker.agents.random_agent import RandomLegalAgent
-from stalker.rl.train import PolicyAgent, TrainConfig, Trainer
+from stalker.agents.check_fold import CheckFoldAgent
+from stalker.rl.evaluate import OPPONENTS, evaluate, seat_roi
+from stalker.rl.train import TrainConfig, Trainer
 from stalker.tournament.config import BlindLevel, TournamentConfig
-from stalker.tournament.director import run_game
 
 BASE = TrainConfig(seed=0, games_per_iter=8, epochs=2)
 SETTINGS = {
@@ -44,49 +43,6 @@ def hyper_sng() -> TournamentConfig:  # same table as the slow smoke test (tests
         payouts=(0.5, 0.3, 0.2), buy_in=100)
 
 
-class CheckFold(Agent):
-    """Baseline: check when free, fold to any bet. A trained policy that matches its ROI learned nothing more."""
-
-    def act(self, observation):
-        la = observation.legal
-        return Action("fold") if la.call_amount > 0 and la.can_fold else Action("call")
-
-
-class _Probe(PolicyAgent):
-    """Counts the chosen action kind and how often the policy is (almost) deterministic."""
-
-    def __init__(self, *args, tally: dict, **kw):
-        super().__init__(*args, **kw)
-        self.tally = tally
-
-    def act(self, observation):
-        hero, out = self._forward(observation)
-        probs = out.probs[0].double().numpy()
-        action = super().act(observation)  # recomputes the same forward pass and advances the GRU
-        kind = "allin" if action.kind == "raise" and action.amount == hero.legal["max_raise_to"] else action.kind
-        self.tally[kind] = self.tally.get(kind, 0) + 1
-        self.tally["decisions"] = self.tally.get("decisions", 0) + 1
-        self.tally["p_max>0.99"] = self.tally.get("p_max>0.99", 0) + int(probs.max() > 0.99)
-        return action
-
-
-def roi(make_hero, cfg: TournamentConfig, opponent: str, games: int, seed: int) -> tuple[float, float]:
-    """Mean ROI of `make_hero(rng)` in one rotating seat and its standard error (per-game). Every setting sees the
-    same deals and opponent seeds, so differences between settings are paired."""
-    out = []
-    for g in range(games):
-        seat = g % cfg.players
-        if opponent == "reference":
-            agents = [ReferenceBot(np.random.default_rng([seed, g, i]), cfg.payout_ratios()) for i in range(cfg.players)]
-        else:
-            agents = [RandomLegalAgent(np.random.default_rng([seed, g, i])) for i in range(cfg.players)]
-        agents[seat] = make_hero(np.random.default_rng([seed, g]))
-        res = run_game(cfg, agents, np.random.default_rng([seed, g, 99]), game_id=f"eval-{g}")
-        out.append((res.prizes[seat] - cfg.buy_in) / cfg.buy_in)
-    a = np.array(out)
-    return float(a.mean()), float(a.std(ddof=1) / np.sqrt(len(a)))
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("setting", choices=sorted(SETTINGS) + ["checkfold"], help="checkfold = baseline, no training")
@@ -99,8 +55,8 @@ def main() -> None:
     cfg = hyper_sng()
     if args.setting == "checkfold":
         row = {"setting": "checkfold", "eval_games": args.eval_games}
-        for opp in ("reference", "random"):
-            m, se = roi(lambda rng: CheckFold(), cfg, opp, args.eval_games, seed=7)
+        for opp in OPPONENTS:
+            m, se = seat_roi(lambda rng: CheckFoldAgent(), cfg, opp, args.eval_games, seed=7)
             row[f"roi_vs_{opp}"], row[f"se_vs_{opp}"] = round(m, 4), round(se, 4)
         args.out.mkdir(parents=True, exist_ok=True)
         (args.out / "checkfold.json").write_text(json.dumps(row, indent=1))
@@ -115,13 +71,12 @@ def main() -> None:
     row = {"setting": args.setting, "train_config": dataclasses.asdict(cfg_t), "budget_s": args.budget,
            "train_s": round(train_s, 1), "iterations": tr.iteration, "games": tr.games_played,
            "policy_version": tr.policy_version, "eval_games": args.eval_games}
-    for opp in ("reference", "random"):
-        tally: dict = {}
-        m, se = roi(lambda rng: _Probe(tr.policy, cfg, rng, cfg_t.raise_pot_fractions, tally=tally),
-                    cfg, opp, args.eval_games, seed=7)
-        row[f"roi_vs_{opp}"], row[f"se_vs_{opp}"] = round(m, 4), round(se, 4)
-        n = tally.pop("decisions", 0)
-        row[f"actions_vs_{opp}"] = {k: round(v / max(n, 1), 3) for k, v in sorted(tally.items())}
+    for opp in OPPONENTS:
+        ev = evaluate(tr.policy, cfg, args.eval_games, seed=7, opponent=opp,
+                      raise_pot_fractions=cfg_t.raise_pot_fractions)
+        row[f"roi_vs_{opp}"], row[f"se_vs_{opp}"] = round(ev.roi, 4), round(ev.roi_se, 4)
+        row[f"checkfold_roi_vs_{opp}"] = round(ev.baseline_roi, 4)
+        row[f"actions_vs_{opp}"] = {k: round(v, 3) for k, v in ev.actions.items()}
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / f"{args.setting}-s{args.seed}.json").write_text(json.dumps(row, indent=1))
     tr.save(args.out / f"{args.setting}-s{args.seed}.pt")
