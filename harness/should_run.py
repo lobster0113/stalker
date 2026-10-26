@@ -13,7 +13,7 @@ right after writing its journal line (PROTOCOL §6); a crashed run's lock expire
 The planner also runs early when the ready queue is low (`ready_floor`, experiment 008):
 builders idling on no_work cost more than an extra planner run.
 With `run_on_merge` the planner also runs as soon as main has a commit newer than its last
-run, so a merge refills the queue without waiting for the interval (triggers fire every 15 min).
+run, so a merge refills the queue without waiting for the interval (a PR-closed webhook plus an hourly cron wake it).
 """
 from __future__ import annotations
 

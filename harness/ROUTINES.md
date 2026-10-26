@@ -11,7 +11,7 @@ RUN이면 같은 role 잠금(`ops:locks/<role>.json`)도 함께 잡는다. 실�
 | builder | 매시 :00 | 1시간 | opus-5.5 | `routines/builder.md` |
 | builder-b | 매시 :20 | 1시간 | sonnet-5.5 | `routines/builder.md` (병렬 2번째 빌더) |
 | reviewer | PR opened/synchronize/reopened + 매시 :40 스윕 | 이벤트 즉시, 스윕 1시간 | opus-5.5 | `routines/reviewer.md` |
-| planner | 15분마다 (`*/15 * * * *`, 사용자 요청 2026-10-27) | 10시간. 단 main에 마지막 실행보다 새 커밋(머지)이 있으면 즉시 실행(`run_on_merge`), ready ≤ `ready_floor`(1)이면 마지막 실행 2시간(`queue_low_min_hours`) 뒤부터 조기 실행(실험 008). 잠금으로 동시 실행 방지 | opus-5.5 | `routines/planner.md` |
+| planner | PR 닫힘 webhook(`pull_request.closed`) + 매시 5분(`5 * * * *`, cron 최소 1시간), 사용자 요청 2026-10-27 | 10시간. 단 main에 마지막 실행보다 새 커밋(머지)이 있으면 즉시 실행(`run_on_merge`), ready ≤ `ready_floor`(1)이면 마지막 실행 2시간(`queue_low_min_hours`) 뒤부터 조기 실행(실험 008). 잠금으로 동시 실행 방지 | opus-5.5 | `routines/planner.md` |
 | researcher | 화·금 00:00 (09:00 KST) | 68시간 | sonnet-5.5 | `routines/researcher.md` |
 | gardener | 목 00:00 | 7일 | sonnet-5.5 | `routines/gardener.md` |
 | auditor | 일 00:00 | 7일 | opus-5.5 | `routines/auditor.md` |
