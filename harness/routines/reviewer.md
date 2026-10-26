@@ -22,6 +22,7 @@
 
 ## 2. 판정
 - 형식은 `harness/PROTOCOL.md` §5 그대로. sha는 `gh pr view <n> --json headRefOid`.
+- **판정 직전에** PR 코멘트를 다시 읽는다. 같은 sha의 `VERDICT:` 코멘트가 이미 있으면(다른 reviewer 실행이 먼저 판정) 판정·머지하지 않고 journal에 그 PR을 `skipped`로 남긴다.
 - `MERGE`: 위 항목 모두 통과 + 해당 sha의 필수 체크 전부 success → `gh pr merge <n> --squash --delete-branch`.
 - `CHANGES`: 고쳐야 할 것을 번호 목록으로, 각 항목은 검증 가능하게.
 - `CLOSE`: 권한 위반, 이슈와 무관, 또는 CHANGES 2회 후 미달.
