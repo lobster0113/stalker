@@ -20,7 +20,7 @@
 - 막히는 이슈: 없음
 
 ## NH-4 planner 루틴 트리거를 2시간마다로 변경
-- 상태: open (2026-10-26)
+- 상태: resolved (2026-10-27, 대화 세션) — 사용자 요청으로 더 강하게 적용: PR 닫힘 webhook(`pull_request.closed`)이 planner를 즉시 깨우고, cron은 `5 * * * *`(API 최소 1시간). 머지 직후 실행 규칙은 #130 / PR #131 `run_on_merge`
 - 필요 이유: 실험 008(이슈 #103, PR #129)은 ready 큐가 바닥나면 planner를 앞당겨 실행한다. 하지만 planner 고정 트리거가 하루 1회(`0 21 * * *`, trig_01PeXvjPCd8wAQByCuZEEECN)라 조기 실행할 기회가 없다. 루틴 설정은 에이전트가 바꿀 수 없다
 - 선택지와 비용: (a) cron `0 */2 * * *`로 변경 — 깨어나도 `should_run.py`가 대부분 SKIP하므로 추가 비용은 큐가 빌 때의 planner 실행(하루 최대 몇 회)뿐 (b) 매시 — 효과 차이 작음 (c) 그대로 — 실험 008이 효과 없음
 - 추천: (a). PR #129 머지 후 적용
