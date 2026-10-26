@@ -1,7 +1,9 @@
 """Recurrent PPO over `TournamentEnv` self-play (ADR 0003). Requires the optional `[rl]` extra (torch).
 
-Seats are played by the learning policy (self-play), except `TrainConfig.random_seats` seats per game that a scripted
-random player takes (`random_action`, the `RandomLegalAgent` rule) and that produce no training data. A trajectory
+Seats are played by the learning policy (self-play), except an opponent pool drawn anew each game, whose seats
+produce no training data: `TrainConfig.random_seats` scripted random players (`random_action`, the `RandomLegalAgent`
+rule), `reference_seats` Gate B reference bots v1 (`ReferenceBot`), and, once `past_checkpoints` > 0 has stored
+snapshots, each remaining seat but one with probability `past_checkpoint_p` a frozen past policy (`PolicyAgent`). A trajectory
 is one `Segment` = one player's decisions in one game (`game_id`, `player_id`); the GRU state starts from zeros at the first step of every segment, both while acting
 and when the update replays the segment, so no state crosses a game boundary (Gate L6, `check_segments`).
 Reward = (prize - buy_in) / buy_in at the last step of the segment (payout-normalised, ADR 0003 §4).
@@ -11,6 +13,7 @@ weights from `Policy(config, seed)`; torch's global RNG is never drawn, so the s
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import io
 from dataclasses import asdict, dataclass, field
@@ -19,6 +22,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from referee.agents.reference_bot import ReferenceBot
 from stalker.agents.base import Action, Agent, Event, Observation
 from stalker.observe.builder import HeroObservation, ObservationBuilder
 from stalker.observe.memory import GameMemoryStore
@@ -43,6 +47,10 @@ class TrainConfig:
     max_grad_norm: float = 0.5
     raise_pot_fractions: tuple[float, ...] = DEFAULT_RAISE_FRACTIONS
     random_seats: int = 0  # seats per game (drawn anew each game) played by `random_action` instead of the policy
+    reference_seats: int = 0  # seats per game played by the Gate B reference bot v1
+    past_checkpoints: int = 0  # snapshot the policy every N iterations into the opponent pool (0 = off)
+    past_checkpoint_p: float = 0.5  # chance that a non-pool seat (all but one learner seat) gets a past snapshot
+    past_pool_size: int = 5  # most recent snapshots kept
 
 
 @dataclass
@@ -112,6 +120,11 @@ def random_action(hero: HeroObservation, mask: tuple[bool, ...], rng: np.random.
 class Trainer:
     def __init__(self, env_config: TournamentConfig, config: TrainConfig | None = None) -> None:
         self.config = cfg = config or TrainConfig()
+        if min(cfg.random_seats, cfg.reference_seats, cfg.past_checkpoints) < 0:
+            raise ValueError("random_seats, reference_seats and past_checkpoints must be >= 0.")
+        if cfg.random_seats + cfg.reference_seats >= env_config.players:
+            raise ValueError(f"random_seats + reference_seats = {cfg.random_seats + cfg.reference_seats} leaves no "
+                             f"learning seat among {env_config.players} players; lower them.")
         self.env_config = env_config
         self.env = TournamentEnv(env_config, cfg.raise_pot_fractions)
         self.policy = Policy(PolicyConfig(variant=cfg.variant, n_actions=self.env.n_actions), cfg.seed)
@@ -119,6 +132,7 @@ class Trainer:
         self.rng = np.random.default_rng(cfg.seed)
         self.iteration = 0
         self.games_played = 0
+        self.past_pool: list[Policy] = []  # frozen snapshots, oldest first
 
     @property
     def policy_version(self) -> str:
@@ -130,7 +144,7 @@ class Trainer:
         segs: dict[int, Segment] = {}
         states: dict[int, torch.Tensor | None] = {}
         scripted = set(self.rng.choice(self.env_config.players, self.config.random_seats, replace=False).tolist())
-        res = self.env.reset(self.rng, game_id)
+        res = self.env.reset(self.rng, game_id, self._pool_agents(scripted))
         while not res.done:
             if GAME_START in res.events:
                 states = {}  # L6: no GRU state survives into a new game
@@ -156,6 +170,28 @@ class Trainer:
             seg.reward = res.rewards[pid] / self.env_config.buy_in
         self.games_played += 1
         return list(segs.values())
+
+    def _pool_agents(self, scripted: set[int]) -> dict[int, Agent]:
+        """Reference-bot and past-snapshot seats for one game. Draws nothing from `rng` when the pool is off, so
+        a config without the pool reproduces the earlier trajectories exactly."""
+        cfg = self.config
+        if not cfg.reference_seats and not self.past_pool:
+            return {}
+        rest = [p for p in range(self.env_config.players) if p not in scripted]
+        rest = [rest[i] for i in self.rng.permutation(len(rest))]
+        agents: dict[int, Agent] = {}
+        payouts = self.env_config.payout_ratios()
+        for p in rest[:cfg.reference_seats]:
+            agents[p] = ReferenceBot(self._child_rng(), payouts)
+        if self.past_pool:
+            for p in rest[cfg.reference_seats + 1:]:  # the first remaining seat always learns
+                if self.rng.random() < cfg.past_checkpoint_p:
+                    past = self.past_pool[int(self.rng.integers(len(self.past_pool)))]
+                    agents[p] = PolicyAgent(past, self.env_config, self._child_rng(), cfg.raise_pot_fractions)
+        return agents
+
+    def _child_rng(self) -> np.random.Generator:
+        return np.random.default_rng(int(self.rng.integers(2**63)))
 
     # ---- update ----
     def _replay(self, segs: list[Segment]):
@@ -220,11 +256,18 @@ class Trainer:
         return {k: v / max(n_mb, 1) for k, v in stats.items()}
 
     def train_step(self) -> dict[str, float]:
-        """One PPO iteration: `games_per_iter` self-play games, then `epochs` passes over their segments."""
+        """One PPO iteration: `games_per_iter` self-play games, then `epochs` passes over their segments; then the
+        policy joins the past-snapshot pool every `past_checkpoints` iterations."""
         segs = []
         for _ in range(self.config.games_per_iter):
             segs += self.play_game(f"train-{self.iteration}-{self.games_played}")
-        return self.update(segs)
+        stats = self.update(segs)
+        cfg = self.config
+        if cfg.past_checkpoints and self.iteration % cfg.past_checkpoints == 0:
+            snap = copy.deepcopy(self.policy).eval()
+            snap.requires_grad_(False)
+            self.past_pool = (self.past_pool + [snap])[-cfg.past_pool_size:]
+        return stats
 
     # ---- checkpoints ----
     def save(self, path: str | Path) -> str:

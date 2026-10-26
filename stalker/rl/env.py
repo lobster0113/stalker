@@ -99,12 +99,19 @@ class TournamentEnv:
         self._pending: tuple[int, HeroObservation] | None = None
 
     # ---- public API ----
-    def reset(self, rng: np.random.Generator, game_id: str = "game-0") -> StepResult:
-        """Start a new tournament; `rng` drives every random draw of the game."""
+    def reset(self, rng: np.random.Generator, game_id: str = "game-0",
+              seat_agents: dict[int, Agent] | None = None) -> StepResult:
+        """Start a new tournament; `rng` drives every random draw of the game.
+
+        `seat_agents` (player_id -> Agent) play those seats inside the game; their decisions never reach `step()`.
+        """
         self.close()
         self._to_env, self._to_game = queue.Queue(), queue.Queue()
         self._events, self._pending = [], None
-        agents = [_SeatAgent(self, p) for p in range(self.config.players)]
+        seat_agents = seat_agents or {}
+        if any(not 0 <= p < self.config.players for p in seat_agents):
+            raise ValueError(f"seat_agents keys must be player ids 0..{self.config.players - 1}.")
+        agents = [seat_agents.get(p) or _SeatAgent(self, p) for p in range(self.config.players)]
 
         def observer(e: Event) -> None:
             if e.type == "START_GAME":
