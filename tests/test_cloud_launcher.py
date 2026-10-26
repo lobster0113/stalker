@@ -1,0 +1,237 @@
+import importlib.util
+import json
+import re
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parent.parent
+_spec = importlib.util.spec_from_file_location("launcher", ROOT / "harness" / "cloud" / "launcher.py")
+L = importlib.util.module_from_spec(_spec)
+sys.modules["launcher"] = L  # dataclasses resolve annotations through sys.modules
+_spec.loader.exec_module(L)
+
+T0 = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+SPEC = """# comment
+name: train-a
+image: ghcr.io/x/y:1
+command: python -m stalker.rl.train --steps 10  # trailing comment
+gpu_type: NVIDIA GeForce RTX 4090
+max_minutes: 60
+hourly_usd: 0.40
+"""
+
+
+class Clock:
+    def __init__(self, t=T0):
+        self.t = t
+
+    def __call__(self):
+        return self.t
+
+    def sleep(self, s):
+        self.t += timedelta(seconds=s)
+
+
+class FakeRunPod:
+    """Mock of the RunPod REST/GraphQL surface the launcher uses."""
+
+    def __init__(self, cost=0.34, exit_after_polls=None, fail_get=False):
+        self.pods, self.calls = {}, []
+        self.cost, self.exit_after, self.fail_get, self.polls = cost, exit_after_polls, fail_get, 0
+
+    def __call__(self, method, url, body):
+        self.calls.append((method, url, body))
+        if url == L.GRAPHQL_URL:
+            return {"data": {"myself": {"clientBalance": 99.5}}}
+        path = url.removeprefix(L.REST_URL)
+        if method == "POST" and path == "/pods":
+            pid = f"p{len(self.pods) + 1}"
+            self.pods[pid] = {"id": pid, "name": body["name"], "costPerHr": self.cost, "desiredStatus": "RUNNING"}
+            return dict(self.pods[pid])
+        if method == "GET" and path == "/pods":
+            return list(self.pods.values())
+        pid = path.split("/")[-1]
+        if method == "GET":
+            if self.fail_get:
+                raise L.LauncherError("network down")
+            self.polls += 1
+            if self.exit_after is not None and self.polls > self.exit_after:
+                self.pods[pid]["desiredStatus"] = "EXITED"
+            return self.pods.get(pid)
+        if method == "DELETE":
+            self.pods.pop(pid, None)
+            return {}
+        raise AssertionError((method, url))
+
+    def terminated(self):
+        return [u.split("/")[-1] for m, u, _ in self.calls if m == "DELETE"]
+
+
+def _job(**kw):
+    return L.parse_spec(SPEC, "jobs/train-a.yaml") if not kw else L.Job(**{**L.parse_spec(SPEC).__dict__, **kw})
+
+
+def _run(api, ledger, clock, job=None, cap=100.0, **kw):
+    return L.run_job(job or _job(), L.RunPod(api), ledger, "42", cap=cap, now=clock, sleep=clock.sleep,
+                     poll_s=60, log=lambda *_: None, **kw)
+
+
+def test_parse_spec_flat_subset_and_worst_case():
+    j = _job()
+    assert (j.name, j.gpu_type, j.max_minutes, j.hourly_usd) == ("train-a", "NVIDIA GeForce RTX 4090", 60, 0.40)
+    assert j.command == "python -m stalker.rl.train --steps 10"
+    assert j.worst_case_usd == 0.40
+    # a declared estimate never lowers the worst case below max time at the declared rate
+    assert L.parse_spec(SPEC + "est_cost_usd: 0.05\n").worst_case_usd == 0.40
+    assert L.parse_spec(SPEC + "est_cost_usd: 1.5\n").worst_case_usd == 1.5
+
+
+@pytest.mark.parametrize("bad, msg", [
+    (SPEC.replace("max_minutes: 60\n", ""), "missing required"),
+    (SPEC + "cpu_flavor: cpu3c\n", "exactly one"),
+    (SPEC + "budget: 999\n", "unknown key"),
+    (SPEC + "  nested: 1\n", "flat"),
+    (SPEC.replace("max_minutes: 60", "max_minutes: 2000"), "1440"),
+    (SPEC.replace("hourly_usd: 0.40", "hourly_usd: -1.0"), "non-negative"),
+    (SPEC + "name: again\n", "duplicate"),
+])
+def test_parse_spec_rejects_bad_specs(bad, msg):
+    with pytest.raises(L.LauncherError, match=msg):
+        L.parse_spec(bad)
+
+
+def test_load_spec_only_from_jobs_dir(tmp_path):
+    p = tmp_path / "x.yaml"
+    p.write_text(SPEC)
+    with pytest.raises(L.LauncherError, match="jobs/"):
+        L.load_spec(p)
+    for f in (ROOT / "jobs").glob("*.yaml"):
+        assert L.load_spec(f).worst_case_usd <= 1.0, f  # checked-in examples stay cheap
+
+
+def test_budget_rejects_over_cap_before_creating_pod(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    L.append_ledger(ledger, {"event": "start", "ts": "2026-11-01T00:00:00Z", "month": "2026-11", "job": "a",
+                             "pod_id": "old", "max_minutes": 60, "reserved_usd": 50.0})
+    L.append_ledger(ledger, {"event": "end", "ts": "2026-11-01T01:00:00Z", "month": "2026-11", "job": "a",
+                             "pod_id": "old", "status": "completed", "actual_usd": 99.8})
+    # previous month and open reservations: other months never count, open ones count at worst case
+    L.append_ledger(ledger, {"event": "end", "ts": "2026-10-31T00:00:00Z", "month": "2026-10", "job": "a",
+                             "pod_id": "oct", "status": "completed", "actual_usd": 80.0})
+    api = FakeRunPod()
+    with pytest.raises(L.BudgetExceeded, match="cap"):
+        _run(api, ledger, Clock())
+    assert api.calls == []
+    assert len(L.read_ledger(ledger)) == 3
+    # exactly at the cap is allowed
+    res = _run(api, ledger, Clock(), job=_job(hourly_usd=0.2), dry_run=True, cap=100.0)
+    assert res["status"] == "dry_run" and api.calls == []
+
+
+def test_open_reservation_counts_until_closed(tmp_path):
+    ledger = tmp_path / "l.jsonl"
+    L.append_ledger(ledger, {"event": "start", "ts": "2026-11-02T00:00:00Z", "month": "2026-11", "job": "a",
+                             "pod_id": "crashed", "max_minutes": 600, "reserved_usd": 99.9})
+    assert L.month_total(L.read_ledger(ledger), "2026-11") == 99.9
+    with pytest.raises(L.BudgetExceeded):
+        _run(FakeRunPod(), ledger, Clock(), dry_run=True)
+
+
+def test_run_completes_terminates_and_records_actual_cost(tmp_path):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), FakeRunPod(cost=0.34, exit_after_polls=30)
+    res = _run(api, ledger, clock)
+    assert res["status"] == "completed" and api.terminated() == ["p1"]
+    create = next(b for m, u, b in api.calls if m == "POST")
+    assert create["name"] == "stalker-train-a-42" and create["gpuTypeIds"] == ["NVIDIA GeForce RTX 4090"]
+    start, end = L.read_ledger(ledger)
+    assert start["event"] == "start" and start["reserved_usd"] == 0.40
+    assert end["status"] == "completed" and end["minutes"] == 30.0
+    assert end["actual_usd"] == pytest.approx(0.34 * 0.5)
+    assert L.month_total(L.read_ledger(ledger), "2026-11") == pytest.approx(0.17)
+
+
+def test_run_terminates_at_max_minutes(tmp_path):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), FakeRunPod(exit_after_polls=None)
+    res = _run(api, ledger, clock)
+    assert res["status"] == "timeout" and api.terminated() == ["p1"]
+    assert clock.t - T0 == timedelta(minutes=60)
+    assert L.read_ledger(ledger)[-1]["actual_usd"] <= 0.40
+
+
+def test_run_terminates_on_error(tmp_path):
+    ledger, api = tmp_path / "l.jsonl", FakeRunPod(fail_get=True)
+    with pytest.raises(L.LauncherError, match="network"):
+        _run(api, ledger, Clock())
+    assert api.terminated() == ["p1"]
+    assert L.read_ledger(ledger)[-1]["status"] == "error"
+    assert L.open_entries(L.read_ledger(ledger)) == {}
+
+
+def test_run_kills_pod_priced_above_spec(tmp_path):
+    ledger, api = tmp_path / "l.jsonl", FakeRunPod(cost=0.89)
+    with pytest.raises(L.LauncherError, match="hourly_usd"):
+        _run(api, ledger, Clock())
+    assert api.terminated() == ["p1"] and not any(m == "GET" for m, _, _ in api.calls)
+    assert L.read_ledger(ledger)[-1]["status"] == "rate_exceeded"
+
+
+def test_reap_kills_overdue_and_unknown_pods_only(tmp_path):
+    ledger, api = tmp_path / "l.jsonl", FakeRunPod(cost=0.5)
+    for name in ("stalker-a-1", "stalker-b-2", "stalker-c-3", "users-own-pod"):
+        api("POST", f"{L.REST_URL}/pods", {"name": name})
+    L.append_ledger(ledger, {"event": "start", "ts": "2026-11-03T10:00:00Z", "month": "2026-11", "job": "a",
+                             "pod_id": "p1", "max_minutes": 60, "reserved_usd": 0.5})       # overdue
+    L.append_ledger(ledger, {"event": "start", "ts": "2026-11-03T11:30:00Z", "month": "2026-11", "job": "b",
+                             "pod_id": "p2", "max_minutes": 60, "reserved_usd": 0.5})       # still in window
+    L.append_ledger(ledger, {"event": "start", "ts": "2026-11-02T00:00:00Z", "month": "2026-11", "job": "gone",
+                             "pod_id": "p9", "max_minutes": 60, "reserved_usd": 0.7})       # pod vanished
+    killed = L.reap(L.RunPod(api), ledger, now=Clock(), log=lambda *_: None)
+    assert sorted(killed) == ["p1", "p3"]           # p3: stalker pod with no ledger entry
+    assert "p4" in api.pods and "p2" in api.pods    # never touch foreign pods or in-window ones
+    entries = L.read_ledger(ledger)
+    assert set(L.open_entries(entries)) == {"p2"}
+    orphan = [e for e in entries if e["pod_id"] == "p3" and e["event"] == "end"][0]
+    assert orphan["actual_usd"] == 12.0             # 24h at $0.5/h, conservative
+    # force (workflow cleanup step) ignores the deadline for the given prefix
+    assert L.reap(L.RunPod(api), ledger, name_prefix="stalker-b-2", force=True, now=Clock(), log=lambda *_: None) == ["p2"]
+    assert L.open_entries(L.read_ledger(ledger)) == {}
+
+
+def test_check_reads_balance():
+    assert L.RunPod(FakeRunPod()).balance() == 99.5
+
+
+def test_main_dry_run_and_budget_exit_codes(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("RUNPOD_API_KEY", raising=False)
+    ledger = tmp_path / "l.jsonl"
+    assert L.main(["run", str(ROOT / "jobs" / "smoke-cpu.yaml"), "--ledger", str(ledger), "--dry-run"]) == 0
+    assert "would create pod stalker-smoke-cpu-" in capsys.readouterr().out
+    assert not ledger.exists()
+    L.append_ledger(ledger, {"event": "end", "ts": "x", "month": datetime.now(timezone.utc).strftime("%Y-%m"),
+                             "job": "a", "pod_id": "z", "status": "completed", "actual_usd": 100.0})
+    assert L.main(["run", str(ROOT / "jobs" / "smoke-cpu.yaml"), "--ledger", str(ledger), "--dry-run"]) == 2
+    assert L.main(["check"]) == 1 and "RUNPOD_API_KEY" in capsys.readouterr().err
+
+
+def test_budget_cap_is_user_decision():
+    # NH-1: user set $100/month. Raising it needs a user decision (reviewer.md), never an agent PR.
+    assert json.loads((ROOT / "harness" / "budget.json").read_text()) == {"monthly_cap_usd": 100}
+    assert "budget.json" in (ROOT / "harness" / "routines" / "reviewer.md").read_text()
+
+
+def test_cloud_workflow_guards():
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text()
+    on = wf.split("\non:\n", 1)[1].split("\n\n", 1)[0]
+    assert "workflow_dispatch:" in on and "schedule:" in on
+    assert not any(t in on for t in ("pull_request", "push:", "workflow_run"))
+    assert re.findall(r"secrets\.(\w+)", wf) == ["RUNPOD_API_KEY"]
+    assert "group: cloud-budget" in wf and "cancel-in-progress: false" in wf
+    (minutes,) = re.findall(r"timeout-minutes: (\d+)", wf)
+    assert 1440 < int(minutes) <= 1500
+    cleanup = wf.split("terminate this run's pods", 1)[1]
+    assert "if: always()" in cleanup.split("\n")[1] and "--force" in cleanup
+    assert "if: always()" in wf.split("- name: push ledger", 1)[1].split("\n")[1]
+    assert all("${{ inputs." not in line for line in wf.splitlines() if "launcher.py" in line or "case" in line)

@@ -1,0 +1,10 @@
+# Smallest real job: proves create → run → exit → terminate → ledger on RunPod (#20).
+# Worst case = hourly_usd * max_minutes / 60 = $0.02.
+name: smoke-cpu
+image: python:3.12-slim
+command: python -c "print('stalker smoke ok')"
+cpu_flavor: cpu3c
+vcpu: 2
+disk_gb: 5
+max_minutes: 10
+hourly_usd: 0.12
