@@ -50,6 +50,39 @@ def gate_l(report=None) -> dict:
             "gate_l_items": items}
 
 
+# Fixed dataset for the sufficiency metric; changing any of these breaks the trend, so bump deliberately.
+SUFFICIENCY_PRESET = "sng6"
+SUFFICIENCY_GAMES = 100
+SUFFICIENCY_SEED = 1
+
+
+def sufficiency(report: dict | None = None) -> dict:
+    """Data-sufficiency metrics from a reference-bot dataset (fixed preset/games/seed above).
+
+    `report` lets tests inject a typing report; CI leaves it None and generates the dataset.
+    """
+    if report is None:
+        import tempfile
+
+        from stalker.pipeline.generate import generate, resolve_config
+        from stalker.typing.report import build_report
+
+        cfg = resolve_config(SUFFICIENCY_PRESET)
+        with tempfile.TemporaryDirectory() as tmp:
+            decisions = generate(cfg, SUFFICIENCY_GAMES, SUFFICIENCY_SEED, tmp)
+        report = build_report(decisions, players=cfg.players, seed=SUFFICIENCY_SEED)
+    cells = report["cells"]
+    n = len(cells)
+
+    def rate(key: str) -> float:
+        # An empty dataset must not read as sufficient.
+        return round(sum(bool(c[key]) for c in cells) / n, 6) if n else 0.0
+
+    return {"suff_cells": n, "suff_lessonable_cells": report["summary"]["lessonable_cells"],
+            "suff_s1_rate": rate("s1"), "suff_s4_rate": rate("s4"), "suff_s5_rate": rate("s5"),
+            "d1_preliminary": round(report["summary"]["d1_preliminary"]["lessonable_decision_share"], 6) if n else 0.0}
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
@@ -58,6 +91,7 @@ def snapshot() -> dict:
     snap.update(code_size())
     snap.update(gate_r())
     snap.update(gate_l())
+    snap.update(sufficiency())
     return snap
 
 
