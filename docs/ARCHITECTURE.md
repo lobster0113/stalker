@@ -30,6 +30,7 @@
 - `harness/` — 하네스(L1/L2). 프로토콜, 루틴 지침, 스케줄, 훅, 실험 기록.
 - CI(`.github/workflows/ci.yml`) — `gates`(`[dev]`만 설치, `gates full`; torch 테스트는 여기서 skip), `guard`(보호·하네스 경로 라벨 검사), `rl`(CPU torch + `[dev,rl]`, `tests/test_rl_*.py`를 `STALKER_REQUIRE_TORCH=1`로 실행: `tests/conftest.py`가 torch 관련 skip을 실패로 바꾼다), `record-metrics`(main 푸시 시 `ops:metrics` append). 별도 `texassolver.yml`(수동 `workflow_dispatch` 전용, 필수 체크 아님): TexasSolver 빌드(캐시) → `pytest -m slow tests/test_texassolver.py` → `bench_texassolver` 결과+러너 사양 JSON 줄을 아티팩트로 업로드.
 - 데이터 충분성 지표 — `metrics.sufficiency()`가 고정 데이터셋(참조 봇 sng6, 100게임, 시드 1)으로 `stalker.pipeline.generate`→유형화 리포트를 만들어 `suff_*`·`d1_preliminary`를 스냅샷에 넣는다(약 90초, 로컬 참고값).
+- Gate A 지표 — `metrics.gate_a()`가 `reference`·`always_fold`를 스팟 세트 v1로 판정해 `gate_a_*`를 스냅샷에 넣는다(키는 `referee/GATES.md` Gate A 절).
 - `ops` 브랜치 — 운영 데이터(STATE, journal, metrics, reports).
 
 ## 핵심 설계 결정 (상세는 `docs/decisions/`)

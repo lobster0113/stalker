@@ -1,3 +1,7 @@
+import pytest
+
+from referee.gate_a.runner import SPEC_V1, load_spec
+
 from referee import metrics
 from referee.gate_l import Report
 
@@ -33,6 +37,7 @@ def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "sufficiency", lambda: {})
+    monkeypatch.setattr(metrics, "gate_a", lambda: {})
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
@@ -64,3 +69,28 @@ def test_sufficiency_real_dataset_keys_and_ranges(monkeypatch):
     assert isinstance(snap["suff_lessonable_cells"], int) and snap["suff_lessonable_cells"] <= snap["suff_cells"]
     for k in ("suff_s1_rate", "suff_s4_rate", "suff_s5_rate", "d1_preliminary"):
         assert 0.0 <= snap[k] <= 1.0
+
+
+def _fake_result(verdict, los):
+    return {"verdict": verdict, "formats": {f"f{i}": {"nash_noninferiority": {"lo": lo}} for i, lo in enumerate(los)}}
+
+
+def test_gate_a_keys_from_injected_results():
+    snap = metrics.gate_a({"reference": _fake_result("pass", [0.0, -0.0012344]),
+                           "always_fold": _fake_result("fail", [-0.2, -0.1])})
+    assert snap == {"gate_a_spot_set": snap["gate_a_spot_set"], "gate_a_baseline": "reference",
+                    "gate_a_reference_verdict": "pass", "gate_a_reference_worst_ni_lower": -0.001234,
+                    "gate_a_always_fold_verdict": "fail", "gate_a_always_fold_worst_ni_lower": -0.2}
+
+
+@pytest.mark.slow
+def test_gate_a_real_run_discriminates_and_is_deterministic():
+    first = metrics.gate_a()
+    # The reference is its own baseline (diff 0 everywhere), so it is non-inferior but can never be superior to
+    # itself: its verdict is "fail" by design (tests/test_gate_a.py). Discrimination is therefore read from the
+    # non-inferiority bound: reference clears -delta_ni, always_fold does not.
+    delta_ni = load_spec(SPEC_V1)[0]["delta_ni"]
+    assert first["gate_a_reference_worst_ni_lower"] > -delta_ni
+    assert first["gate_a_always_fold_verdict"] != "pass"
+    assert first["gate_a_always_fold_worst_ni_lower"] < -delta_ni
+    assert metrics.gate_a() == first

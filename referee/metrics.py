@@ -83,6 +83,29 @@ def sufficiency(report: dict | None = None) -> dict:
             "d1_preliminary": round(report["summary"]["d1_preliminary"]["lessonable_decision_share"], 6) if n else 0.0}
 
 
+GATE_A_CANDIDATES = ("reference", "always_fold")
+
+
+def gate_a(results: dict | None = None) -> dict:
+    """Gate A verdicts of built-in candidates against the ICM reference on spot set v1.
+
+    `results` ({candidate: run_gate_a result}) lets tests inject; CI leaves it None. The baseline solve is
+    lru-cached in `runner.nash`, so it is paid once across candidates.
+    """
+    from referee.gate_a.runner import BASELINE, SPEC_V1, load_spec, run_gate_a
+    from referee.gate_a.spots import SPOTS_V1
+
+    spec, sha = load_spec(SPEC_V1)
+    out = {"gate_a_spot_set": spec["spot_set_version"], "gate_a_baseline": BASELINE}
+    for name in GATE_A_CANDIDATES:
+        res = (results[name] if results is not None
+               else run_gate_a(spec, sha, f"referee.gate_a.candidates:{name}", SPOTS_V1))
+        out[f"gate_a_{name}_verdict"] = res["verdict"]
+        out[f"gate_a_{name}_worst_ni_lower"] = round(
+            min(f["nash_noninferiority"]["lo"] for f in res["formats"].values()), 6)
+    return out
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
@@ -92,6 +115,7 @@ def snapshot() -> dict:
     snap.update(gate_r())
     snap.update(gate_l())
     snap.update(sufficiency())
+    snap.update(gate_a())
     return snap
 
 
