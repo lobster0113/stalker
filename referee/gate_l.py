@@ -5,12 +5,14 @@ Two kinds of checks:
   an agent may expose `action_probs(obs) -> {action: prob}`, otherwise a deep copy of it is asked to `act`
   (so equal state means equal action) and the answer is treated as a point mass.
 - pipeline checks (L3, L4, L5-memory) test `ObservationBuilder` / `GameMemoryStore`, the only door to an AI policy.
-L2 needs an agent that declares `uses_memory = True`; L6 needs a learner. Both report `skipped` until then.
+L2 needs an agent that declares `uses_memory = True`; L6 needs a learner. Both need the optional `[rl]` extra (torch):
+without it they report `skipped`, and the CI `rl` job (STALKER_REQUIRE_TORCH=1) runs them for real.
 """
 from __future__ import annotations
 
 import copy
 import dataclasses
+import importlib.util
 import re
 import sys
 from dataclasses import dataclass, field
@@ -32,7 +34,10 @@ L1_PRESETS = ("6max_sng_wta", "9max_sng_flat")
 L1_LOG_SEEDS = (11, 12, 13)  # distinct A-game logs shown before the B game
 L3_PRESETS = ("6max_sng_wta", "9max_sng_flat", "mtt54")  # mtt54 has several tables: other-table logs must not leak
 SKIP_L2 = "L2 skipped: agent does not declare uses_memory=True. Set it on an agent that reads earlier hands to enable L2."
-SKIP_L6 = "L6 skipped: no learner/training-batch pipeline yet. Enable when a trainer that builds game_id-keyed batches exists."
+SKIP_TORCH = ("L2/L6 skipped: torch is not installed, so the RL PolicyAgent and trainer cannot run. "
+              'Install it (python -m pip install -e ".[dev,rl]") to check them.')
+RL_AGENT = "rl_policy_v0"
+L6_GAMES = 2
 
 
 @dataclass
@@ -291,9 +296,68 @@ def check_l5(make_agent: Callable[[], Agent], report: Report, preset: str = "6ma
     report.check("L5", ps[0] == ps[1], "late joiner's policy depends on events it never saw. Reset all state in on_game_start.")
 
 
+def _l6_config() -> TournamentConfig:
+    """Small hyper-turbo 6-max SNG: games end in seconds, so a training batch is cheap to build."""
+    from stalker.tournament.config import BlindLevel
+
+    return TournamentConfig(
+        name="gate-l L6 hyper SNG", players=6, table_size=6, starting_stack=500,
+        levels=(BlindLevel(10, 20, 0, 3), BlindLevel(25, 50, 0, 3), BlindLevel(50, 100, 0, 3),
+                BlindLevel(100, 200, 0, 3), BlindLevel(200, 400, 0, 3), BlindLevel(500, 1000, 0, 3)),
+        payouts=(0.5, 0.3, 0.2), buy_in=100)
+
+
+def check_l6(report: Report, segments=None, trainer=None) -> None:
+    """A training batch is cut at game_id, starts from zero state, and a segment replays alone as in the batch.
+
+    `segments`/`trainer` let tests inject a corrupted batch; by default a fresh seeded trainer plays `L6_GAMES` games.
+    """
+    import torch
+    from stalker.rl.train import TrainConfig, Trainer, check_segments
+
+    if trainer is None:
+        trainer = Trainer(_l6_config(), TrainConfig(seed=6, games_per_iter=1, epochs=1, minibatch_segments=6))
+    if segments is None:
+        segments = [s for g in range(L6_GAMES) for s in trainer.play_game(f"gate-l-L6-{g}")]
+    try:
+        check_segments(segments)
+    except ValueError as e:
+        report.check("L6", False, f"{e}")
+        return
+    games = {s.game_id for s in segments}
+    report.check("L6", len(games) >= 2, f"batch has {len(games)} game(s); L6 needs at least 2 to show games stay apart.")
+    ok = True
+    mixed = trainer._replay(segments)
+    for i, seg in enumerate(segments):
+        alone = trainer._replay([seg])
+        n = len(seg.actions)
+        ok &= bool(torch.allclose(alone[0][0, :n], mixed[0][i, :n], atol=1e-6)
+                   and torch.allclose(alone[1][0, :n], mixed[1][i, :n], atol=1e-6))
+    report.check("L6", ok, "a segment's replayed logp/value changed with the other segments in its batch. "
+                 "Replay each segment from a zero state and share nothing across the batch dimension.")
+
+
+def _rl_policy_agent() -> Agent:
+    from stalker.rl.env import TournamentEnv
+    from stalker.rl.policy import Policy, PolicyConfig
+    from stalker.rl.train import PolicyAgent
+
+    cfg = load_preset("9max_sng_flat")  # table_size 9: the agent is probed on 6- and 9-max games (L1 uses both)
+    n_actions = TournamentEnv(cfg).n_actions
+    return PolicyAgent(Policy(PolicyConfig(variant="ai2", n_actions=n_actions), seed=0), cfg, np.random.default_rng(0))
+
+
+def torch_available() -> bool:
+    return importlib.util.find_spec("torch") is not None
+
+
 def run_gate_l(agents: dict[str, Callable[[], Agent]] | None = None) -> Report:
     report = Report()
-    for name, make in (agents or REGISTRY).items():
+    if agents is None:
+        agents = dict(REGISTRY)
+        if torch_available():
+            agents[RL_AGENT] = _rl_policy_agent
+    for name, make in agents.items():
         sub = Report()
         check_l1(make, sub)
         check_l2(make, sub)
@@ -306,7 +370,10 @@ def run_gate_l(agents: dict[str, Callable[[], Agent]] | None = None) -> Report:
         report.skipped += sub.skipped
     check_l3(report)
     check_l4(report)
-    report.skipped.append(SKIP_L6)
+    if torch_available():
+        check_l6(report)
+    else:
+        report.skipped.append(SKIP_TORCH)
     report.skipped = sorted(set(report.skipped))
     return report
 
@@ -320,6 +387,7 @@ def _reference_bot() -> Agent:
 
 
 # Agents under test. Register a new policy here (referee-change) so every CI run checks its isolation.
+# The RL PolicyAgent (RL_AGENT) is added by run_gate_l when torch is installed.
 REGISTRY: dict[str, Callable[[], Agent]] = {"random_legal": _random_agent, "reference_bot_v1": _reference_bot}
 
 
