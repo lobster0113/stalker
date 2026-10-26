@@ -72,4 +72,4 @@ jobs:
         run: python harness/cloud/launcher.py reap --ledger "$LEDGER" --force --job "$JOB" --run-id "$GITHUB_RUN_ID"
       - name: push ledger
         if: always() && env.MODE != 'check'
-        run: bash harness/cloud/push_ledger.sh ops "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"
+        run: 'bash harness/cloud/push_ledger.sh ops "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"'
