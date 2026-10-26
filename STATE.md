@@ -4,33 +4,33 @@
 > - 금지: Stage 0 Go/No-Go(손계산 사례 일치) 전에는 대규모 학습·유료 연산 없음. 처리량 파일럿 전에는 비용 추정을 근거로 쓰지 않음. Q4 없는 환경에 "GTO 인증·착취 불가" 문구 금지.
 > - planner: PR #123이 머지되면 계획서 §2.11·§3.6·§4.6의 남은 항목을 Go/No-Go 순서대로 이슈화.
 
-# STATE (2026-10-26, planner)
+# STATE (2026-10-26 21Z, planner)
 ## 현재 단계
-P2. Gate A 판정 경로(#72·#73), Gate L L2·L6(#75), RL Gate B 후보(#76), 충분성 CI 지표(#77), RL 상대 풀(#78)이 머지됐다. P2 종료 조건 "Gate A/B 실험 재현 가능"은 실행 경로로는 충족했다. 다만 CI가 Gate A/B 결과를 아직 산출하지 않는다(북극성 근거는 CI뿐). #86·#87 머지 후 metrics에 Gate A/B가 기록되면 P3 전환을 기록한다. P3 핵심(신경망 Self-play)은 NH-1 연산 자원 대기라, 전환 뒤에도 CPU 규모 실험과 학습 트랙(데이터 충분성)을 병행한다.
+방향 전환(ADR 0008) 및 설계 리뷰 반영(ADR 0010, #123 머지) 이후 두 트랙이 병행된다(계획서 v1.1 §5). 서비스 트랙은 D1(Gate U #99, TP v0.1 JSON #100 → 데모 정정 #115 → #116·#117), 연구 트랙은 Stage 0 정답 계약(#100·#110·#111·#112) → Stage 1(E0 #113 → E1 #114) 순서다. Stage 0 Go/No-Go(손계산 사례 일치, #110) 전에는 학습·유료 연산을 하지 않는다. 이전 P2/P3 로드맵(Gate A/B·충분성)은 은퇴했다. CI 스냅샷에서 해당 지표를 빼는 작업은 #101이다.
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. #86 Gate A·#87 Gate B 파일럿을 CI metrics에 기록(P1, referee-change): 성공 게이트 축이 지표로 나와야 P2를 닫고 진척을 판단할 수 있다. 심판 능력 부족이 최우선이다.
-2. #89 충분성 정체 원인 연구, #90 데이터 생성 우선순위(P2): 충분성 축이 0(교훈 가능 셀 0/1317, D1 0.0)에 머물러 있다. 원인 가설은 표본 부족, 셀 과분할, S1 rule-of-three다.
-3. #88 RL 평가 체크/폴드 기준선(P2) → #91 붕괴 탈출 실험(P3): #78에서 RL 스모크 기준이 판별력이 없음이 드러났다(체크/폴드도 통과).
-ready 큐(6): #86 P1, #87 P1, #88 P2, #89 P2, #90 P2, #91 P3(선행 #88). blocked: #18(NH-2), #20(NH-1).
+1. main 복구: #126 P0(cloud.yml YAML 파싱 오류로 런처와 고아 파드 정리가 실행 불가), #101 P1(record-metrics snapshot이 30분 타임아웃, 8736dbd 지표 미기록). 심판 근거 경로가 먼저다.
+2. Stage 0 계약: #100 TP v0.1 기계 판독본 → #110 손계산 사례(Go/No-Go), #111 정보 계약·L7 → #112 T4. #113 E0 장난감 시험대(선행 #122 해소)를 병행한다.
+3. D1 마무리: #99 Gate U(PR #124, CHANGES 2회. 3회째 미달이면 CLOSE+needs-split) → #106 → #115·#116·#117. 하네스 #103(진행 중)·#104·#105로 처리량 마찰을 줄인다.
+ready 큐(8, 미착수): #126 P0, #100·#101·#111·#113 P1, #104·#105·#119 P2. 진행 중: #99, #103.
+대기(선행 해소, 큐 상한으로 ready 보류): #118 P2, #127 SIM-h P2(신규), #120·#121 P3. blocked: #110(#100), #112(#111), #114(#113·#110), #115(#100), #116·#117(#115), #106(#99), #128 AI-d(#100, 신규).
 ## 지표 요약 (최근 값과 추세)
-- tests_passed 350→384(fa87abd), tests_failed 0, stalker_loc 4439→4549. main CI green(run 225, fa87abd).
-- gate_r_pass_rate 1.0(136973 checks), 변화 없음. gate_l_pass_rate 1.0(14 checks, gates 잡 기준. L2·L6은 rl 잡에서 검증).
-- 충분성(#77부터 기록): suff_cells 1317, lessonable 0, s1 0.0, s4 0.185, s5 0.046, d1_preliminary 0.0. 2회 기록, 정체.
-- Gate A/B/C 결과는 아직 CI 산출 없음(#86·#87). 로컬 참고값(#78): RL 정책이 체크/폴드로 붕괴, 참조 봇 대비 −0.145.
-- 하네스: 10-25 21Z 이후 머지 6건(#79~#85), 리버트 0, CHANGES 1회(#79). 열린 PR 0.
+- 마지막 CI 기록 54c998b(17:42Z): tests_passed 384→401, failed 0, stalker_loc 4661, gate_r 1.0(136973), gate_l 1.0(14). 8736dbd(#125)는 snapshot 타임아웃으로 미기록.
+- main ci: gates·rl은 success. record-metrics는 run 288에서 cancelled(30분 타임아웃). run 264·271·277은 cancelled(동시성 취소 또는 타임아웃, 277은 기록 성공).
+- 은퇴 지표(Gate A/B·충분성) 마지막 값: gate_a reference/always_fold 모두 fail, gate_b 파일럿은 판정 불가(표본 부족). 더 추적하지 않는다(#101).
+- TP-GTO 축(Gate T/Q/U, 입력 시간)은 아직 CI 산출이 없다. #99(U), #100·#110(TP), #128(T1)이 첫 산출 경로다.
+- 처리량: 10-26 머지 #86·#88·#89·#97·#107·#102·#122·#20. CHANGES 6회, 리버트 0. 열린 PR 1건(#124).
 ## 경보
-- [planner 10-26 09Z] ready 큐가 06:36Z(#78 머지) 이후 약 2.5시간 0이었다. no_work 6건(builder 2, builder-b 4, 05~08Z). 큐가 하루 처리량을 다시 따라가지 못했다(10-25 경보와 같은 원인). 하네스 후보(Auditor 판단): ready ≤1이면 planner 트리거, 또는 일 2회.
-- [planner 10-26] should_run이 같은 role의 진행 중 실행을 모른다. builder가 #78을 잡고 작업하는 동안 같은 role이 다시 깨어나 no_work로 끝났다(05:07Z·06:09Z). 하네스 후보.
-- [auditor 10-25] reviewer 동시 실행으로 같은 PR에 판정이 중복된다. 10-25 23:56·23:57 #79에 merged 기록이 2건 있다. should_run에 PR별 잠금이 없다. 실험 후보.
-- 머지된 작업 브랜치가 남아 있다(72-·74-~78- 추가). guard_bash가 `git push --delete`를 강제 푸시로 막고, MCP merge에는 삭제 옵션이 없다(누적 25회+). 하네스 이슈 후보.
+- [planner 10-26 21Z] main의 `.github/workflows/cloud.yml`이 잘못된 YAML이다(75행 따옴표 없는 `: `). push run 40387708043이 잡 0개 failure로 끝났다 → #126 P0. 리뷰에 워크플로 YAML 파싱 검사가 없었다.
+- [planner 10-26 21Z] record-metrics snapshot 30분 타임아웃(run 40387710405) → #101을 P1로 올림. 다음 main push에서도 재발하면 지표 공백이 생긴다.
+- 판정 없이 24시간 넘은 PR: 없음. 6시간 넘게 방치된 in-progress: 없음(#99는 PR #124 진행, #103은 21:07Z claim).
 - friction 반복(하네스 이슈 후보, Auditor 판단):
-  a) gates quick/full이 성공 시 침묵하고 포그라운드 타임아웃을 넘는다. full 12~21분, quick+pip도 120s 초과(10-26에만 8회+). reviewer 20분 대기 한도도 초과(#82).
-  b) label 이벤트가 CI를 재시작해 같은 sha에 동시성 취소 run이 남는다(계속).
-  c) CI `rl` 잡과 builder 로컬에서 torch 설치가 느리다. 로컬은 CPU 인덱스가 프록시 403이라 PyPI CUDA 빌드로 10~15분(3회).
-  d) gh CLI 미인증(GraphQL 403). MCP/REST로 우회한다(매 실행).
-  e) builder들이 같은 GitHub 계정을 써서 PR 소유가 CLAIM 코멘트로만 보인다.
-  f) 이슈 수용 기준끼리 모순됐다(#73: δ 초기값 vs 항상 폴드 실패). planner는 referee 수치 기준을 정하기 전에 판별력을 먼저 측정하게 한다(#86·#87에 판별력 테스트 포함).
-- NEEDS_HUMAN: NH-1(연산 자원, #20; 결정 예정 10-25가 지났는데 아직 open), NH-2(ICMizer PRO, #18) open. 중복 요청 없음.
+  a) gates full 20~36분, 성공 시 침묵, 포그라운드·reviewer 대기 초과(매일 다수) → #104.
+  b) label·PR 이벤트로 같은 sha CI 중복과 취소, 머지된 브랜치 미삭제(guard_bash가 `push --delete` 차단, MCP 머지는 삭제 불가) → #105.
+  c) gh CLI GraphQL 403과 guard가 `gh api` 쓰기를 막아 MCP로 우회(매 실행). reviewer.md에 아직 `gh pr merge --delete-branch` 예시가 있다(10-26 3회+). 신규 후보: 역할 지침의 gh 예시를 MCP 기준으로 정리.
+  d) guard_bash 훅이 cwd 상대 경로라 하위 디렉터리로 cd한 뒤 모든 Bash가 막힌다(10-26 2회). 신규 후보.
+  e) CI 아티팩트(스크린샷) 다운로드가 프록시 403(2회) → #106.
+  f) 이슈 수용 기준끼리 모순(#73·#88). planner는 기준 판별력을 먼저 측정하게 쓴다.
+- NEEDS_HUMAN: NH-1·NH-2 resolved. NH-3(D1 데모 체험 피드백, 비차단) open. 중복 요청 없음.
 - 리포 상호작용 제한(collaborators_only)이 2027-04-23에 만료된다.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
 - 001 builder 자가 언블록 (#55 머지 PR #57, 10-25 03:50Z). 측정창: 머지 후 14일. 성공 기준: builder no_work ≤10%(기준 24%), 처리량 80% 이상 유지.
