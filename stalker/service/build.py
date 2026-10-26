@@ -20,7 +20,7 @@ import numpy as np
 from referee.sufficiency import S1_HALF_WIDTH
 from stalker.records.schema import DecisionRecord
 from stalker.records.store import iter_records
-from stalker.typing.report import REPORT_SCHEMA_VERSION
+from stalker.typing.report import REPORT_SCHEMA_VERSION, generation_priority
 from stalker.typing.spots import ACTION_CATEGORIES, spot_key
 
 QUIZ_SCHEMA_VERSION = 1
@@ -34,8 +34,9 @@ def upgrade_report(report: dict) -> dict:
     v1 cells carried only S1 (`s1_pass`), so they become not lessonable. v2 S1 had no rule-of-three floor
     (a separate `zero_variance_guard` covered only zero-variance actions); the v3 floor 3/n per half is
     within S1_HALF_WIDTH iff each half has >= ceil(3 / S1_HALF_WIDTH) games, so a v2 S1 pass survives only then.
+    v3 lacked `generation_priority`, which is recomputed from the cells.
     """
-    if report.get("schema_version") not in (1, 2):
+    if report.get("schema_version") not in (1, 2, 3):
         return report
     r = copy.deepcopy(report)
     if r["schema_version"] == 1:
@@ -43,8 +44,9 @@ def upgrade_report(report: dict) -> dict:
             c.update(s1=bool(c.pop("s1_pass", False)), s4=False, s5=False, lessonable=False)
         r.setdefault("summary", {}).update(lessonable_cells=0, d1_preliminary={
             "lessonable_decision_share": 0.0, "note": "v1 report: S4/S5 were not judged"})
-    else:
+    elif r["schema_version"] == 2:
         _upgrade_v2_cells(r)
+    r["generation_priority"] = generation_priority(r.get("cells", []))  # v4 added it; derived from the cells
     r["schema_version"] = REPORT_SCHEMA_VERSION
     return r
 

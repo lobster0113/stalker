@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "source": {
     "preset": "6max SNG top-heavy (65/35)",
     "n_games": 3,
@@ -7814,6 +7814,2572 @@
       "s5": false,
       "lessonable": false,
       "status": "insufficient_games"
+    }
+  ],
+  "generation_priority": [
+    {
+      "label": "mid|5-10|CO|preflop|unopened|tight",
+      "decision_share": 0.030844155844155844,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.030844155844155844
+    },
+    {
+      "label": "early|25-40|UTG|preflop|unopened|unknown",
+      "decision_share": 0.027597402597402596,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.027597402597402596
+    },
+    {
+      "label": "mid|5-10|BTN|preflop|unopened|tight",
+      "decision_share": 0.027597402597402596,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.027597402597402596
+    },
+    {
+      "label": "mid|5-10|SB|preflop|unopened|tight",
+      "decision_share": 0.027597402597402596,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.027597402597402596
+    },
+    {
+      "label": "mid|5-10|BB|preflop|facing_open|tight",
+      "decision_share": 0.021103896103896104,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.021103896103896104
+    },
+    {
+      "label": "early|25-40|BB|preflop|facing_open|unknown",
+      "decision_share": 0.01948051948051948,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01948051948051948
+    },
+    {
+      "label": "early|25-40|BTN|preflop|facing_open|unknown",
+      "decision_share": 0.01948051948051948,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01948051948051948
+    },
+    {
+      "label": "early|25-40|HJ|preflop|unopened|unknown",
+      "decision_share": 0.01948051948051948,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01948051948051948
+    },
+    {
+      "label": "early|25-40|SB|preflop|facing_open|unknown",
+      "decision_share": 0.01948051948051948,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01948051948051948
+    },
+    {
+      "label": "mid|10-15|BTN|preflop|unopened|tight",
+      "decision_share": 0.01948051948051948,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01948051948051948
+    },
+    {
+      "label": "mid|10-15|CO|preflop|unopened|tight",
+      "decision_share": 0.01948051948051948,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01948051948051948
+    },
+    {
+      "label": "bubble|<5|BTN|preflop|unopened|tight",
+      "decision_share": 0.016233766233766232,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.016233766233766232
+    },
+    {
+      "label": "early|10-15|HJ|preflop|unopened|tight",
+      "decision_share": 0.016233766233766232,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.016233766233766232
+    },
+    {
+      "label": "early|15-25|HJ|preflop|unopened|tight",
+      "decision_share": 0.016233766233766232,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.016233766233766232
+    },
+    {
+      "label": "early|25-40|CO|preflop|unopened|unknown",
+      "decision_share": 0.016233766233766232,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.016233766233766232
+    },
+    {
+      "label": "bubble|<5|BTN|preflop|unopened|normal",
+      "decision_share": 0.01461038961038961,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01461038961038961
+    },
+    {
+      "label": "bubble|<5|SB|preflop|unopened|tight",
+      "decision_share": 0.01461038961038961,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01461038961038961
+    },
+    {
+      "label": "early|15-25|CO|preflop|unopened|tight",
+      "decision_share": 0.01461038961038961,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.01461038961038961
+    },
+    {
+      "label": "bubble|<5|BB|preflop|facing_allin|normal",
+      "decision_share": 0.012987012987012988,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.012987012987012988
+    },
+    {
+      "label": "early|10-15|CO|preflop|unopened|tight",
+      "decision_share": 0.012987012987012988,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.012987012987012988
+    },
+    {
+      "label": "early|10-15|SB|preflop|unopened|tight",
+      "decision_share": 0.012987012987012988,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.012987012987012988
+    },
+    {
+      "label": "early|15-25|BTN|preflop|unopened|tight",
+      "decision_share": 0.012987012987012988,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.012987012987012988
+    },
+    {
+      "label": "early|25-40|CO|preflop|facing_open|unknown",
+      "decision_share": 0.012987012987012988,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.012987012987012988
+    },
+    {
+      "label": "mid|15-25|CO|preflop|unopened|tight",
+      "decision_share": 0.012987012987012988,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.012987012987012988
+    },
+    {
+      "label": "early|10-15|BTN|preflop|unopened|tight",
+      "decision_share": 0.011363636363636364,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.011363636363636364
+    },
+    {
+      "label": "early|5-10|CO|preflop|unopened|tight",
+      "decision_share": 0.011363636363636364,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.011363636363636364
+    },
+    {
+      "label": "mid|10-15|SB|preflop|unopened|tight",
+      "decision_share": 0.011363636363636364,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.011363636363636364
+    },
+    {
+      "label": "early|25-40|HJ|preflop|facing_open|unknown",
+      "decision_share": 0.00974025974025974,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00974025974025974
+    },
+    {
+      "label": "mid|10-15|SB|preflop|facing_open|tight",
+      "decision_share": 0.00974025974025974,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00974025974025974
+    },
+    {
+      "label": "mid|25-40|CO|preflop|unopened|unknown",
+      "decision_share": 0.00974025974025974,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00974025974025974
+    },
+    {
+      "label": "mid|5-10|BB|preflop|facing_allin|tight",
+      "decision_share": 0.00974025974025974,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00974025974025974
+    },
+    {
+      "label": "bubble|10-15|BB|preflop|facing_allin|normal",
+      "decision_share": 0.008116883116883116,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.008116883116883116
+    },
+    {
+      "label": "bubble|5-10|BTN|preflop|unopened|tight",
+      "decision_share": 0.008116883116883116,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.008116883116883116
+    },
+    {
+      "label": "bubble|<5|SB|preflop|facing_allin|normal",
+      "decision_share": 0.008116883116883116,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.008116883116883116
+    },
+    {
+      "label": "early|25-40|BTN|preflop|unopened|unknown",
+      "decision_share": 0.008116883116883116,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.008116883116883116
+    },
+    {
+      "label": "early|25-40|SB|preflop|unopened|unknown",
+      "decision_share": 0.008116883116883116,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.008116883116883116
+    },
+    {
+      "label": "early|5-10|HJ|preflop|unopened|tight",
+      "decision_share": 0.008116883116883116,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.008116883116883116
+    },
+    {
+      "label": "bubble|10-15|BTN|preflop|unopened|normal",
+      "decision_share": 0.006493506493506494,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.006493506493506494
+    },
+    {
+      "label": "early|10-15|SB|preflop|facing_open|tight",
+      "decision_share": 0.006493506493506494,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.006493506493506494
+    },
+    {
+      "label": "early|15-25|BB|preflop|facing_open|tight",
+      "decision_share": 0.006493506493506494,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.006493506493506494
+    },
+    {
+      "label": "early|15-25|SB|preflop|facing_open|tight",
+      "decision_share": 0.006493506493506494,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.006493506493506494
+    },
+    {
+      "label": "early|5-10|BB|preflop|facing_open|tight",
+      "decision_share": 0.006493506493506494,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.006493506493506494
+    },
+    {
+      "label": "mid|10-15|BB|preflop|facing_open|tight",
+      "decision_share": 0.006493506493506494,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.006493506493506494
+    },
+    {
+      "label": "mid|25-40|BTN|preflop|unopened|unknown",
+      "decision_share": 0.006493506493506494,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.006493506493506494
+    },
+    {
+      "label": "bubble|10-15|BTN|preflop|unopened|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "bubble|10-15|SB|preflop|unopened|normal",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "bubble|5-10|BB|preflop|facing_allin|normal",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "bubble|5-10|BTN|preflop|unopened|normal",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "bubble|<5|BB|preflop|facing_allin|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "bubble|<5|BB|preflop|facing_open|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "bubble|<5|SB|preflop|unopened|normal",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "early|10-15|BB|preflop|facing_open|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "early|10-15|CO|preflop|facing_open|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "early|25-40|BB|preflop|facing_3bet+|unknown",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "early|25-40|UTG|preflop|facing_3bet+|unknown",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "early|5-10|BB|preflop|facing_allin|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "early|5-10|BTN|preflop|facing_allin|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "early|5-10|SB|preflop|facing_allin|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "mid|15-25|BB|preflop|facing_open|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "mid|15-25|BTN|preflop|facing_open|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 3,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "mid|15-25|BTN|preflop|unopened|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "mid|15-25|SB|preflop|unopened|unknown",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "mid|25-40|BB|preflop|facing_open|unknown",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "mid|<5|SB|preflop|facing_allin|tight",
+      "decision_share": 0.00487012987012987,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.00487012987012987
+    },
+    {
+      "label": "bubble|10-15|SB|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "bubble|5-10|SB|preflop|facing_allin|normal",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "bubble|5-10|SB|preflop|facing_open|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "bubble|5-10|SB|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "bubble|<5|SB|preflop|facing_allin|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "bubble|<5|SB|preflop|facing_open|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|10-15|BB|preflop|facing_allin|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|10-15|HJ|preflop|unopened|normal",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|15-25|SB|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|15-25|UTG|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|25-40|BB|preflop|facing_open|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|25-40|CO|preflop|facing_3bet+|unknown",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|25-40|CO|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|25-40|HJ|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|25-40|SB|flop|unopened|unknown",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|5-10|BB|preflop|facing_open|unknown",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|5-10|BTN|preflop|facing_open|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|5-10|BTN|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|5-10|BTN|preflop|unopened|unknown",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "early|5-10|SB|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "itm|10-15|BTN|preflop|unopened|normal",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "itm|10-15|BTN|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "itm|<5|BB|preflop|facing_open|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "itm|<5|BTN|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|15-25|SB|preflop|facing_open|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|25-40|BB|flop|unopened|unknown",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|25-40|BTN|preflop|facing_open|unknown",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|25-40|SB|preflop|facing_open|unknown",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|5-10|BTN|preflop|facing_open|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|<5|BTN|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|<5|CO|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "mid|<5|SB|preflop|unopened|tight",
+      "decision_share": 0.003246753246753247,
+      "n_games": 2,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.003246753246753247
+    },
+    {
+      "label": "bubble|10-15|SB|preflop|facing_allin|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "bubble|5-10|BB|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "bubble|5-10|BB|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "bubble|5-10|SB|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "bubble|<5|BTN|preflop|facing_allin|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|BB|preflop|facing_allin|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|BB|turn|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|BTN|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|BTN|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|BTN|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|BTN|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|CO|preflop|facing_allin|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|SB|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|SB|turn|facing_bet|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|10-15|SB|turn|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|flop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|preflop|facing_3bet+|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|preflop|facing_open|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|river|facing_bet|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|river|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|river|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|turn|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BB|turn|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BTN|preflop|facing_3bet+|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BTN|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BTN|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|BTN|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|CO|flop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|CO|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|CO|river|facing_allin|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|CO|river|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|CO|turn|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|CO|turn|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|HJ|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|HJ|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|SB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|SB|preflop|facing_open|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|SB|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|UTG|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|15-25|UTG|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|BB|flop|facing_bet|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|BB|flop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|BTN|preflop|facing_3bet+|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|BTN|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|BTN|preflop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|CO|flop|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|HJ|flop|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|flop|facing_bet|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|flop|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|flop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|preflop|facing_3bet+|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|preflop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|river|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|river|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|SB|turn|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|UTG|flop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|UTG|preflop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|UTG|river|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|25-40|UTG|turn|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|CO|preflop|facing_open|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|HJ|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|HJ|turn|facing_allin|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|SB|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|SB|preflop|facing_open|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|SB|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|SB|turn|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|5-10|UTG|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|<5|BTN|preflop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|<5|CO|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|<5|HJ|preflop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "early|<5|SB|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "itm|10-15|BB|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "itm|10-15|BB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "itm|5-10|BB|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "itm|5-10|BTN|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "itm|<5|BTN|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|10-15|BB|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|10-15|BB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|10-15|BTN|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|10-15|BTN|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|10-15|SB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|BB|preflop|facing_3bet+|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|BB|preflop|facing_open|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|BB|river|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|BB|river|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|BB|turn|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|BB|turn|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|BTN|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|CO|preflop|facing_3bet+|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|CO|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|CO|river|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|CO|river|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|CO|turn|facing_bet|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|CO|turn|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|SB|preflop|facing_open|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|15-25|SB|preflop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|BB|flop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|BB|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|BB|river|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|BB|turn|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|CO|flop|facing_bet|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|CO|flop|facing_bet|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|CO|preflop|unopened|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|SB|flop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|SB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|SB|preflop|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|SB|river|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|25-40|SB|turn|unopened|unknown",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|5-10|BB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|5-10|BTN|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|5-10|CO|preflop|facing_3bet+|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|5-10|CO|preflop|unopened|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|5-10|SB|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|5-10|SB|preflop|facing_open|normal",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|5-10|SB|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|<5|BB|preflop|facing_allin|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
+    },
+    {
+      "label": "mid|<5|BTN|preflop|facing_open|tight",
+      "decision_share": 0.0016233766233766235,
+      "n_games": 1,
+      "blocked_by": [
+        "s1",
+        "s4",
+        "s5"
+      ],
+      "shortfall": 1.0,
+      "score": 0.0016233766233766235
     }
   ]
 }

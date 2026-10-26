@@ -81,7 +81,7 @@ def test_v1_report_still_builds_with_nothing_lessonable(run_dir, tmp_path):
     (v1_run / "report.json").write_text(json.dumps(v1))
     rp, qp = build(v1_run, tmp_path / "out", max_spots=50)
     out = json.loads(rp.read_text())
-    assert validate_report(out) == [] and out["schema_version"] == 3
+    assert validate_report(out) == [] and out["schema_version"] == 4
     assert out["summary"]["lessonable_cells"] == 0 and not any(c["lessonable"] for c in out["cells"])
     assert json.loads(qp.read_text())["spots"] == []
     assert upgrade_report(out) == out  # current-schema reports pass through unchanged
@@ -104,7 +104,7 @@ def test_v2_report_gets_rule_of_three_floor(run_dir, n_games_ab, ok):
     """A v2 S1 pass survives only with >= ceil(3 / 0.05) = 60 games on each half."""
     report = json.loads((run_dir / "report.json").read_text())
     out = upgrade_report(_v2(report, n_games_ab))
-    assert validate_report(out) == [] and out["schema_version"] == 3
+    assert validate_report(out) == [] and out["schema_version"] == 4
     assert "zero_variance_min_games" not in out["criteria"]
     n = min(n_games_ab)
     for c in out["cells"]:
@@ -190,3 +190,13 @@ def test_css_supports_dark_mode_and_no_fixed_wide_layout():
     css = (WEB / "style.css").read_text(encoding="utf-8")
     assert "prefers-color-scheme: dark" in css
     assert not re.search(r"(?<!max-)(?<!min-)width:\s*(\d{4,})px", css)
+
+
+def test_v3_report_gets_generation_priority(run_dir):
+    report = json.loads((run_dir / "report.json").read_text())
+    v3 = copy.deepcopy(report)
+    v3["schema_version"] = 3
+    v3.pop("generation_priority")
+    out = upgrade_report(v3)
+    assert out["schema_version"] == 4 and out["generation_priority"] == report["generation_priority"]
+    assert validate_report(out) == []

@@ -11,6 +11,7 @@ The referee's S1 floors every half-width by the rule of three (3 / games on that
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,11 +19,12 @@ from typing import Iterable
 
 import numpy as np
 
-from referee.sufficiency import Verdict, judge_cell, make_cell
+from referee.sufficiency import S1_HALF_WIDTH, Verdict, judge_cell, make_cell
 from stalker.records.schema import DecisionRecord
 from stalker.typing.spots import ACTION_CATEGORIES, category_probs, spot_key
 
-REPORT_SCHEMA_VERSION = 3
+REPORT_SCHEMA_VERSION = 4
+S1_MIN_GAMES_PER_HALF = math.ceil(3 / S1_HALF_WIDTH)  # rule-of-three floor (referee/DATA_SUFFICIENCY.md S1)
 
 
 @dataclass(frozen=True)
@@ -64,8 +66,38 @@ def build_report(decisions: Iterable[DecisionRecord], *, players: int | None = N
                 "note": "예비: 이 데이터의 결정 빈도로 가중. 실전 출현 빈도가 아니므로 D1 판정이 아니다.",
             },
         },
+        "generation_priority": generation_priority(out_cells),
         "cells": out_cells,
     }
+
+
+def generation_priority(cells: list[dict]) -> list[dict]:
+    """Cells that are not lessonable, ranked by data-generation need (referee/DATA_SUFFICIENCY.md §3).
+
+    score = decision_share * shortfall. `decision_share` is the cell's share of classified decisions, a stand-in
+    for real-play frequency. `shortfall` in (0, 1] is the largest deficit among the failed criteria: S1 is
+    max(1 - min_half_games / 60, worst half-width excess (hw - 0.05) / hw), with 60 = ceil(3 / S1_HALF_WIDTH) games
+    per half; S4 and S5 are pass/fail, so a failure counts as 1. Ties break by label so the order is reproducible.
+    """
+    total = sum(c["n_decisions"] for c in cells)
+    out = []
+    for c in cells:
+        if c["lessonable"]:
+            continue
+        blocked = [k for k in ("s1", "s4", "s5") if not c[k]]
+        deficits = [1.0 if k != "s1" else _s1_shortfall(c) for k in blocked]
+        shortfall = max(deficits, default=0.0)
+        share = c["n_decisions"] / total if total else 0.0
+        out.append({"label": c["label"], "decision_share": share, "n_games": c["n_games"], "blocked_by": blocked,
+                    "shortfall": shortfall, "score": share * shortfall})
+    return sorted(out, key=lambda e: (-e["score"], e["label"]))
+
+
+def _s1_shortfall(cell: dict) -> float:
+    games = 1 - min(cell.get("n_games_ab") or [0]) / S1_MIN_GAMES_PER_HALF
+    excess = max((1 - S1_HALF_WIDTH / a["half_width"] for a in cell["actions"].values()
+                  if a.get("half_width", 0.0) > S1_HALF_WIDTH), default=0.0)
+    return min(1.0, max(games, excess, 0.0))
 
 
 def _side_seed(seed: int, cell_index: int, side: int) -> int:
@@ -106,7 +138,7 @@ def _precision(cell: dict, verdicts: tuple[Verdict, Verdict]) -> None:
         entry.update(main=True, half_width=hw, ess=ess)
 
 
-def to_markdown(report: dict, top: int = 40) -> str:
+def to_markdown(report: dict, top: int = 40, top_priority: int = 20) -> str:
     s, u = report["summary"], report["unclassified"]
     lines = [
         "# Typing report v0", "",
@@ -115,6 +147,10 @@ def to_markdown(report: dict, top: int = 40) -> str:
         f"- D1 예비값 (이 데이터의 결정 빈도 가중, 판정 아님): {s['d1_preliminary']['lessonable_decision_share']:.1%}",
         f"- S4 split: {report['criteria']['split']}; CI clusters = {report['criteria']['cluster']}",
         *([f"- source: {json.dumps(report['source'], ensure_ascii=False)}"] if report["source"] else []), "",
+        f"## Generation priority (top {min(top_priority, len(report['generation_priority']))}, score = 결정 비율 × 미달 정도)", "",
+        "| cell | decision share | games | blocked by | shortfall | score |", "|---|---|---|---|---|---|",
+        *(f"| {e['label']} | {e['decision_share']:.2%} | {e['n_games']} | {','.join(e['blocked_by'])} "
+          f"| {e['shortfall']:.2f} | {e['score']:.4f} |" for e in report["generation_priority"][:top_priority]), "",
         f"## Largest {top} cells", "",
         "| cell (stage/stack bb/pos/street/pot/opp) | decisions | games (A/B) | " + " | ".join(
             f"{a} (±hw, ESS)" for a in ACTION_CATEGORIES) + " | S1 | S4 | S5 | 교훈 |",

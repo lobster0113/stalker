@@ -165,7 +165,7 @@ def test_single_game_cell_is_flagged_not_crashing():
 def test_report_is_reproducible_and_json_safe():
     dec = _many(30, 3, 0.4, np.random.default_rng(2))
     a, b = build_report(dec, seed=5), build_report(dec, seed=5)
-    assert a == b and a["schema_version"] == 3
+    assert a == b and a["schema_version"] == 4
     json.dumps(a, allow_nan=False)
 
 
@@ -200,3 +200,20 @@ def test_cli_writes_report_files(tmp_path, capsys):
     assert "decisions" in capsys.readouterr().out
     with pytest.raises(SystemExit):
         main(["--n", "1", "--out", str(tmp_path / "x")])
+
+
+def test_generation_priority_ranks_frequent_unmet_cells_first():
+    rng = np.random.default_rng(4)
+    big = _many(2400, 1, 0.3, rng)                       # lessonable (see test above)
+    frequent = [decision(game=f"f{g}", remaining=5, probs=(0.0, 1.0, 0.0)) for g in range(40) for _ in range(3)]
+    rare = [decision(game=f"r{g}", remaining=3, probs=(0.0, 1.0, 0.0)) for g in range(40)]
+    rep = build_report(big + frequent + rare, seed=1)
+    prio = rep["generation_priority"]
+    done = {c["label"] for c in rep["cells"] if c["lessonable"]}
+    assert done and not done & {e["label"] for e in prio}
+    scores = [e["score"] for e in prio]
+    assert scores == sorted(scores, reverse=True) and all(0 < e["shortfall"] <= 1 for e in prio)
+    by = {c["label"]: c["n_decisions"] for c in rep["cells"]}
+    assert by[prio[0]["label"]] >= by[prio[-1]["label"]] and prio[0]["blocked_by"]
+    assert build_report(big + frequent + rare, seed=1)["generation_priority"] == prio
+    assert "Generation priority" in to_markdown(rep, top_priority=2)
