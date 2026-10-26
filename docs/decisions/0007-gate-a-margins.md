@@ -1,5 +1,6 @@
 # ADR 0007: Gate A 기준선 허용치와 δ를 스팟 가치 규모에 맞춘다
 
+- **2026-10-27 ADR 0008: 무효** — Gate A 은퇴.
 - 상태: **초안** (2026-10-26, 이슈 #73). Reviewer가 판정한다.
 - 근거: `referee/GATES.md` Gate A, `referee/anchors/icm_reference.py`, 아래 측정(로컬 실행, 참고용 — 판정 근거는 CI).
 

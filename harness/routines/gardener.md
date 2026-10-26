@@ -11,6 +11,7 @@
 - 느린 테스트(상위 5개), 불안정(flaky) 테스트
 - 지나치게 큰 모듈/함수 → 분리 이슈 제안만 (직접 대규모 리팩터 금지)
 - `CLAUDE.md`가 100줄을 넘거나 낡은 내용 → `harness-change` 이슈 제안
+- ADR 0008 "은퇴 예정" 자산(유형화·충분성·Gate A/B 등)이 아직 남아 있고 다른 코드가 쓰지 않으면 → 제거 이슈 제안(심판 경로면 `referee-change` 필요, Planner가 판단)
 
 ## 2. 처리
 - 작은 정리(100줄 이하 diff)는 직접 PR: 이슈를 만들고(`kind:chore`, `P3`, `ready`) 스스로 claim해서 Builder 절차대로 PR.

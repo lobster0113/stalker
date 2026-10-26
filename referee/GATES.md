@@ -1,78 +1,71 @@
 # 성공 게이트와 성공 레벨 (보호 문서 — `referee-change` 절차로만 수정)
 
-출처: 사용자 연구보고서(2026-10-24) §4·§8·§11, 검토 `docs/research/2026-10-24-rnd-report-review.md`.
-원칙: **ICMizer 상회는 필수·최소 기준**이다. 일부 형식에서만 우세하면 "해당 형식 한정 통과"로 명시한다. 게이트 판정은 CI/평가 배치가 산출하며, 평가 설정(상대군·시드 정책·FGS 깊이·참조기 버전)은 판정 전에 고정·기록한다.
+출처: `docs/CHARTER.md`(2026-10-27 방향 전환, ADR 0008), `docs/TP.md`.
+원칙: 게이트 판정은 CI/평가 배치가 산출한다. 평가 설정(환경·상대군·시드 정책·TP 버전·정책 버전)은 판정 전에 고정·기록한다. **수치 기준은 판별력(좋은 후보와 나쁜 후보를 가르는가)을 먼저 측정한 뒤 확정**한다(ADR 0007의 교훈).
 
-## Gate L — 정보 누출·기억 경계 (모든 게이트의 전제, 상시 CI)
-| ID | 테스트 | 통과 조건 |
-|---|---|---|
-| L1 | B 게임 첫 결정에 동일한 카드·보드·스택·블라인드·상금·현재 핸드 액션을 주고 **A 게임 로그만 바꿈** | B 첫 행동 확률 분포 완전 동일 |
-| L2 | A 게임 핸드 50에서 1~49 핸드 공개 로그 일부 변경 | 정책이 변할 수 있음(기억이 실제로 쓰임) — 기억 켠 모델에서 변화 관측 |
-| L3 | 관측 텐서/구조체 검사 | 타인 홀카드·덱 순서·난수 시드·타 테이블 개별 로그 부재 |
-| L4 | 생존자 수·상금 구조 변경 | 다음 관측에 즉시 반영 |
-| L5 | 게임 중 합류한 플레이어 | 합류 시점 이후 관측만 메모리에 존재 |
-| L6 | 학습 배치 | game_id 경계에서 hidden state 초기화, 서로 다른 game_id 간 상태 전달 없음 |
-
-L2·L6과 RL 에이전트는 선택 의존성 `[rl]`(torch)이 있을 때 실행된다. `REGISTRY`의 에이전트에 더해 `run_gate_l`이 고정 시드(0) `PolicyAgent`(`rl_policy_v0`, ai2, `uses_memory=True`)를 L1·L2·L5로 검사하고(L2는 "변화 관측"), L6은 작은 6인 SNG에서 2게임 학습 배치를 만들어 `check_segments`(게임 혼합·비영(0) 초기 상태·중복 세그먼트 거부)와 "세그먼트 단독 재생 = 배치 재생(logp·value)"을 검사한다. torch가 없는 `gates` 잡에서는 L2·L6이 skip으로 보고되고, CI `rl` 잡(`STALKER_REQUIRE_TORCH=1`, `tests/test_rl_gate_l.py`)이 skip 없이 실행해 `gate_l_items`에 L2·L6이 나타남을 확인한다.
-
-스위트: `referee/gate_l.py` — `python -m referee.gate_l`. `gates full`이 실행하고, `metrics.py`가 `gate_l_pass_rate`(통과/전체 검사, 검사 0건이면 0)·`gate_l_checks`·`gate_l_items`(항목별 [통과, 총계], skip 항목은 없음)를 기록한다.
-
-## Gate R — 규칙 정확성 (상시 CI)
-칩 총량 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 일반/BB 앤티와 숏스택 징수, 탈락·순위·상금 배분. 규칙 테스트 통과율 100%.
-
-- 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`(항목별 통과/총계 출력, 하나라도 실패하면 종료 코드 1). `gates full`이 `--full`(mtt180 포함)로 실행하고, `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`를 기록한다.
-- 방법: 모든 프리셋 × {원래 구조, 레벨 2핸드 `fast` 변형(앤티 레벨·숏스택 징수 도달)} × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 토너먼트를 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, 평가기 `evaluator.py`, 정산 `settlement.py`)로 재생해 엔진 보고값과 칩 단위로 대조한다.
-- 검사 항목: `antes_blinds`(레벨 스케줄, 일반/BB 앤티·숏스택 징수 — 첫 콜 금액으로 확인), `action_order`(포지션·행동 순서, 헤즈업 버튼=SB, 올인 좌석 제외), `bet_sizing`(콜 금액·최소 레이즈·숏 올인 후 레이즈 권리), `street_flow`(액션 스트리트, 쇼다운 참가자 = 폴드 안 한 좌석, 5장 보드), `settlement`(HAND_END 스택 = 독립 정산), `chip_conservation`(핸드별 증감 합 0, 라운드별 총 칩 불변), `button`(다음 점유 좌석으로 이동), `stack_continuity`, `elimination`(동시 탈락은 핸드 시작 스택 순, 순위 연속), `prizes`(순위별 지급액, 합 = 상금풀).
+## Gate R — 시뮬레이터 규칙 정확성 (상시 CI, 모든 게이트의 전제)
+- 칩 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 블라인드·앤티(일반/BB 앤티)와 숏스택 징수, 탈락·순위·상금 배분. 통과율 100%.
+- 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`를 기록한다.
+- 방법: 모든 프리셋 × 구조 변형 × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 게임을 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, `evaluator.py`, `settlement.py`)로 재생해 칩 단위로 대조한다.
+- 검사 항목: `antes_blinds`, `action_order`, `bet_sizing`, `street_flow`, `settlement`, `chip_conservation`, `button`, `stack_continuity`, `elimination`, `prizes`.
 - 규칙 명세(교과서에 없는 부분은 ADR 0005의 엔진 규칙과 같게 고정):
-  - 앤티 → 블라인드 순으로 징수, 각자 남은 칩까지만(숏스택은 그 자리에서 올인). 앤티는 최하위 팟의 데드 머니라 앤티로 올인한 좌석도 앤티 전액을 다툰다.
-  - 헤즈업은 버튼이 SB를 내고 프리플랍 먼저 행동. 프리플랍은 BB 왼쪽, 이후 스트리트는 버튼 왼쪽부터. 베팅이 열릴 때 어떤 상대도 자기 베팅을 넘어설 수 없는 좌석은 레이즈가 없으면 행동하지 않는다.
-  - 최소 레이즈 증분 = max(1BB, 이번 스트리트 최대 증분). 그 미만은 올인(자기 스택 또는 상대가 받을 수 있는 최대치)일 때만. 이번 스트리트 최대 증분 이상인 레이즈는 풀 레이즈(첫 벳/레이즈는 항상 풀). 숏 올인 뒤 이미 행동한 좌석은 연속 숏 올인 합이 풀 레이즈에 이를 때까지 콜/폴드만.
-  - 스트리트마다 두 번째로 큰 베팅을 넘는 미콜 칩 반환. 쇼다운에서는 어떤 팟도 이길 수 없는 핸드를 먼저 버리고, 같은 좌석들이 다투는 인접 팟은 하나로 합친다. 동점 분할의 **홀수 칩은 버튼 왼쪽 첫 승자에게 전부**(TDA 홀수 칩 규칙, 1칩 단위).
+  - 앤티 → 블라인드 순으로 징수, 각자 남은 칩까지만. 앤티는 최하위 팟의 데드 머니다.
+  - 헤즈업은 버튼이 SB를 내고 프리플랍 먼저 행동. 프리플랍은 BB 왼쪽, 이후 스트리트는 버튼 왼쪽부터.
+  - 최소 레이즈 증분 = max(1BB, 이번 스트리트 최대 증분). 그 미만은 올인일 때만. 숏 올인 뒤 이미 행동한 좌석은 연속 숏 올인 합이 풀 레이즈에 이를 때까지 콜/폴드만.
+  - 미콜 칩 반환. 쇼다운에서 어떤 팟도 이길 수 없는 핸드를 먼저 버리고 인접 팟을 합친다. 동점 분할의 홀수 칩은 버튼 왼쪽 첫 승자에게.
+- **캐시게임 확장(D2)**: 고정 블라인드·탈락 없음·리바이/탑업 규칙·좌석 이탈을 명세에 추가하고 같은 독립 모델로 대조한다. 레이크는 v1 범위 밖(명세에 명시).
 - 규칙 명세를 바꾸는 것은 referee-change다. 엔진이 명세와 다르면 엔진을 고친다(검사를 xfail로 돌리지 않는다).
 
-## Gate A — ICMizer 지원 스팟 직접 비교
-- 대상: 토너먼트 프리플랍 푸시/폴드·올인 콜 스팟. 6인/9인, 버블/비버블 분리. 스팟 세트는 고정·버전 관리.
-- 기준선: **실물 ICMizer 출력**(CI 전용 자동 클라이언트 `referee/icmizer/`, 캐시·버전·FGS 깊이 기록). 실물 조회가 불가한 스팟은 ICMizer-등가 참조기(`referee/anchors/icm_reference.py`: N인 푸시/폴드·단일 콜러 내시, FGS 깊이 옵션, `evaluate_spot`)로 대체하되 결과에 "참조기 기준"으로 구분 표기하고, 두 기준선의 일치율을 함께 보고.
-- 조건 동일: 핸드·스택·SB/BB/앤티·상금 구조·상대 범위 가정·FGS 사용 여부 기록.
-- 상대군 2종(사전 고정): ① 내시 상대 → **비열등성**(AI−기준선 기대상금 차이의 95% CI 하한 > −δ_ni), ② 현실적 비내시 상대 풀 → **우월성**(95% CI 하한 > 0 그리고 ≥ 최소 실용효과 δ_min).
-- 스팟 세트 v1(`referee/gate_a/spots_v1.json`, `SPOT_SET_VERSION=gate-a-spots-v1`, 로더 `referee.gate_a.load_spots`, 해시 `spot_set_hash`): 6인·9인 × 버블/비버블 × push/call 각 2스팟 = 16개. hero 유효 스택(push = hero와 뒤 좌석 최대 스택 중 작은 값, call = hero와 `pusher` 좌석 스택 중 작은 값)은 7~20bb(앤티·BB앤티 포함)이고 `test_v1_effective_stacks_in_range`가 확인한다. call 스팟은 `pusher`(hero 앞 좌석 번호)를 명시하며 id의 상대·스택 표기(`vs-btn-12bb`)와 데이터 일치를 `test_v1_ids_match_data`가 확인한다. 버블 = 지급 인원이 좌석 수−1(6인 5곳 30/22/18/15/15, 9인 8곳 20/16/14/12/11/10/9/8), 비버블 = 3곳 50/30/20. 스팟을 바꾸면 버전과 해시가 바뀌며 이전 결과와 섞어 비교하지 않는다.
-- 초기값: δ_ni = 5e-05(상금풀의 0.005%), δ_min = 0.0001(상금풀의 0.01%) (스팟당 기대상금, 169 핸드 클래스 평균). 최초안 0.1%·0.2%는 항상 폴드도 비열등 통과시켜 판정 전에 낮췄다(ADR 0007). 변경은 referee-change.
-- 실행: `python -m referee.gate_a --spots referee/gate_a/spots_v1.json --candidate module:factory --out DIR` (`--spec` 기본 `referee/gate_a/spec_v1.json`). `factory(config)`는 `icm_reference.PolicyFn`(169 확률)을 돌려준다(config = value_model·fgs_depth·tol·max_iter). 내장 후보: `referee.gate_a.candidates:reference|top_percent|always_fold|always_push`. 명세는 스팟 세트 버전·sha256(다르면 거부), 기준선 `reference`와 그 수렴 허용치(`baseline_tol` 1e-5, δ_ni의 1/5 이하), δ, 부트스트랩 seed, ② 비내시 풀(`top_percent_strategy` push/call 비율 프로필 5종)을 고정한다.
-- 판정: 스팟마다 기준선 = 참조기 내시 해의 hero 전략. 차이 = (후보 EV − 기준선 EV)/상금풀을 ① 그 스팟의 내시 상대, ② 풀 프로필마다 계산하고, 형식(6/9인 × 버블/비버블)별로 스팟을 클러스터로 재표본화해 ① `noninferiority`·② `superiority`. 형식 통과 = ①∧②, 전체 = 모두 통과면 `pass`, 일부면 `해당 형식 한정 통과`, 없으면 `fail`(종료 코드 0은 `pass`만). `gate_a.json`(schema_version, 스팟 세트 해시, 명세 sha256, baseline `"reference"`, 형식별 CI·판정, 스팟별 차이)·`gate_a.md`("참조기 기준" 표기). 같은 입력이면 바이트 동일.
-- CI 기록(`referee.metrics.gate_a()`, 스냅샷에 포함): 내장 후보 `reference`·`always_fold`를 spec_v1·스팟 세트 v1로 판정해 `gate_a_spot_set`(스팟 세트 버전), `gate_a_baseline`(`"reference"` = 참조기 기준, 실물 ICMizer 아님), `gate_a_<후보>_verdict`(`pass`/`해당 형식 한정 통과`/`fail`), `gate_a_<후보>_worst_ni_lower`(형식별 ① 비열등성 CI 하한의 최솟값)를 남긴다. 기준선 solve는 `runner.nash` 캐시로 한 번만 한다. 판별력 확인: `reference`는 자기 자신이 기준선이라 ②를 통과할 수 없어 verdict는 `fail`이 정상이고, ① 하한이 −δ_ni보다 크며 `always_fold`는 −δ_ni 아래다(스팟 2개 부분집합 테스트 `tests/test_metrics.py::test_gate_a_subset_discriminates_and_is_deterministic`, slow 아님, 결정성도 확인). 전체 v1에서의 판별 값은 CI 스냅샷의 `gate_a_*`로 확인한다.
+## Gate L — 정보 경계 (상시 CI)
+| ID | 테스트 | 통과 조건 |
+|---|---|---|
+| L1 | B 게임 첫 결정에 동일한 카드·보드·스택·블라인드·현재 핸드 액션을 주고 **A 게임 로그만 바꿈** | B 첫 행동 확률(그리고 TP 값) 완전 동일 |
+| L2 | A 게임 핸드 50에서 1~49 핸드 공개 로그 일부 변경 | 기억을 쓰는 정책에서 변화 관측(기억이 실제로 쓰임) |
+| L3 | 관측 구조체 검사 | 타인 홀카드·덱 순서·난수 시드·타 테이블 개별 로그 부재 |
+| L4 | 생존자 수·상금 구조 변경 | 다음 관측에 즉시 반영 |
+| L5 | 게임 중 합류 | 합류 이후 관측만 메모리에 존재 |
+| L6 | 학습 배치 | game_id 경계에서 상태 초기화, 게임 간 상태 전달 없음 |
 
-## Gate B — ICMizer-informed 참조 봇과 전체 토너먼트
-- 참조 봇: ICMizer-등가 참조기(지원 구간) + 고정 비지원 구간 전략(버전 표기, v1: 표준 오픈/3벳 차트 + 에퀴티 기반 포스트플랍 규칙). 버전업 시 이전 결과 보존.
-- 구현: `referee/agents/reference_bot.py`(`REFERENCE_BOT_VERSION`). v1 기준선 확인: 무작위 합법 봇 대비 6max·9max 각 200 토너먼트 CI 하한 > 0(slow 테스트 `tests/test_reference_bot.py`).
-- 평가: 동일 토너먼트 환경(6인·9인 × 승자독식/플랫/톱헤비/MTT형 지급)에서 반복 대전, 좌석·난수 교환 duplicate 평가, 토너먼트 단위 재표본화.
-- 통과: AI−참조봇 ROI 차이의 95% CI 하한 > 0.
-- 실행: `python -m referee.gate_b --spec referee/gate_b/spec_v1.json --candidate module:factory --out DIR` (`factory(config)`가 `rng -> Agent`를 돌려준다. 내장 후보: `referee.gate_b.candidates:reference|random_legal`). 명세(프리셋·blocks·rotations·seed·참조 봇 버전·δ_min·pilot σ)의 sha256과 프리셋별 CI·판정(`pass`/`fail`/`판정 불가(표본 부족)`)을 `gate_b.json`·`gate_b.md`로 쓴다. blocks가 `required_tournaments(pilot σ, δ_min, 0.05, 0.9)`보다 작으면 CI와 무관하게 판정 불가이고, 프리셋 통과는 CI 하한 > 0이며(δ_min은 표본 크기 산정용) 전체 판정은 모두 pass일 때만 pass(종료 코드 0). v1 명세의 δ_min=0.1(ROI)·pilot σ=0.6은 무작위 봇 대 참조 봇 블록 차이 SD 실측(0.31~0.59)에서 잡은 예비값이며 변경은 referee-change다.
-- 파일럿(CI 지표): `metrics.gate_b_pilot()`이 고정 명세 `referee/gate_b/pilot_v1.json`(6max_sng_wta·9max_sng_503020, blocks 20, rotations 3, 고정 seed)으로 후보 `random_legal`을 판정해 main 머지마다 기록한다. 키: `gate_b_pilot_spec_sha256`, 프리셋별 `gate_b_pilot_<preset>_roi_diff`·`_ci_lower`·`_ci_upper`·`_verdict`(본 판정과 같은 규칙이라 blocks 20은 항상 판정 불가)·`_sd_dup`·`_sd_indep`, `gate_b_pilot_required_tournaments`.
-  - σ 실측: `sd_dup` = duplicate 블록 차이(블록의 모든 좌석 교환 게임 평균)의 표본 SD. `sd_indep` = 같은 게임들로 좌석 교환 짝을 끊고 만든 클러스터의 SD: 블록 b의 이동 마스크 게임들과 블록 b+1의 보완 마스크 게임들을 묶는다(게임 수는 같고, 교환된 두 게임이 덱을 공유하지 않는다). `sd_dup < sd_indep`이면 duplicate가 분산을 줄인 것이다. `required_tournaments` = `required_tournaments(max(sd_dup), spec δ_min, α, power)`로, 기록일 뿐 v1 명세의 pilot σ는 바꾸지 않는다(바꾸려면 ADR + referee-change).
-  - 참조 봇은 rng를 쓰지 않아 참조 봇 대 참조 봇은 좌석 교환 게임이 정확히 거울상이 되고 블록 차이가 0이다(CI [0, 0], `sd_dup` 0). 이 A/A 검사는 영가설 쪽 판별력이 없으니 해석할 때 `sd_indep`을 함께 본다.
+스위트: `referee/gate_l.py` — `python -m referee.gate_l`. 지표 `gate_l_pass_rate`·`gate_l_checks`·`gate_l_items`.
 
-## 표본 정책 (모든 게이트 공통 — AI 성능 판정의 신뢰성이 최우선)
-- **표본 수는 사전 등록한다.** 평가 전에 검정력 분석으로 필요 토너먼트 수를 정하고(검정력 ≥ 0.9, α = 0.05, 목표 최소 효과 δ_min), 그 수를 채우기 전에는 **성공을 선언하지 않는다.** 성공 판정을 위한 조기 중단은 금지.
-- **duplicate(좌석·카드 교환) 평가는 표본을 줄이는 수단이 아니라 같은 표본에서 잡음을 줄여 판정을 더 정확하게 만드는 수단**으로 쓴다. 표본 수 산정은 duplicate의 분산 감소를 실측한 뒤에만 반영하고, 산정 근거를 결과에 기록한다.
-- **조기 중단은 "가망 없음"에만** 허용한다(무익성 중단): 후보가 명백히 지고 있으면 연산을 아끼려고 멈출 수 있다. 이는 실패 판정에만 쓰이며 성공 판정에는 쓰이지 않는다.
-- 연산 예산이 부족해 사전 등록 표본을 못 채우면, 결과는 "판정 불가(표본 부족)"로 보고하고 성공으로 취급하지 않는다.
-- 해석 주의: Gate B 통과는 "참조 봇 대비 우위"이며 ICMizer 제품 전체 전략 대비 우위가 아니다. 항상 Gate A와 함께 보고.
+## Gate T — TP 경유 (D3부터 상시 CI)
+- T1 병목: 같은 TP 항목 값 + 같은 주어진 사실(합법 액션·스택·팟)이면, 그 밖의 관측을 무작위로 바꿔도 `act.choice` 분포가 완전히 같다.
+- T2 계산 항목 일관성: `docs/TP.md`의 "계산" 항목은 정의식으로 다시 계산한 값과 허용 오차(명세 상수) 안에서 일치한다.
+- T3 형식: 모든 TP 값이 명세의 척도·눈금·형식 안에 있고, 해당 등급에서 묻지 않는 항목에 의존하지 않는다.
+- 통과율 100%. 기계 판독 TP 명세(`stalker/tp/spec/`)의 버전과 해시를 결과에 기록한다.
 
-## Gate C — 누적 정보의 가치
-| 실험군 | 게임 내 기억 |
-|---|---|
-| AI-0 | 없음 |
-| AI-1 | 상대별 빈도·기회 수(베이지안 수축) |
-| AI-2 | 통계 + 순서 메모리(GRU 등) |
-통과: AI-1 또는 AI-2가 AI-0 대비 ROI 우위(95% CI 하한 > 0), 그리고 메모리 크기·지연 시간 보고. AI-2가 AI-1 대비 이득이 없으면 단순한 구조를 채택(제거 실험).
+## Gate S — 둔감성 (D3부터)
+- 방법: 고정 스팟 세트(환경·등급별, 버전 관리)에서 `docs/TP.md` §4 버킷 안의 섭동(스택·사이즈·인원 수치를 버킷 내에서 이동)을 가해 TP 값과 액션 분포 변화를 잰다.
+- 지표: 판단 항목 변화의 95백분위, 액션 분포 총변이거리(TV)의 95백분위, 경계 절벽 비율.
+- 통과(초기안): 변화 95백분위 ≤ 등급 눈금 한 칸, TV 95백분위 ≤ 0.15, 절벽 비율 ≤ 5%. 판별력 확인: 버킷 무시 정책(원시 수치에 민감한 정책)은 실패해야 한다.
+
+## Gate Q — 강도 (D3부터)
+- **페르소나 필드 대비**: 난이도 1~19 페르소나(`stalker/personas/`, 버전 관리)로 구성한 고정 필드에서 duplicate(좌석·카드 교환) 평가. 캐시 = bb/100, 토너먼트 = ROI. 통과: 같은 환경의 최상위 페르소나 대비 95% CI 하한 > 0.
+- **이론 앵커**: 헤즈업 푸시/폴드 내시(`referee/anchors/pushfold.py`) 대비 EV 손실, 토너먼트 숏스택 스팟의 ICM 참조기(`referee/anchors/icm_reference.py`) 대비 EV 손실. 통과 기준은 판별력 측정 후 확정.
+- **복잡성 비용**: 같은 환경에서 TP 병목 없는 기준 정책(또는 솔버) 대비 EV 차이. 게이트가 아니라 보고 지표다(작을수록 좋음, 등급별로 보고).
+- 통계: 표본 수는 사전 등록(검정력 ≥ 0.9, α = 0.05). 성공 판정용 조기 중단 금지, 무익성 중단만 허용. 표본이 모자라면 "판정 불가(표본 부족)". 도구: `referee/stats.py`, `referee/evaluate.py`.
+
+## Gate F — 따라 하기 견고성 (D3부터)
+- 방법: TP-GTO의 판단 항목 값에 사람 수준 오차(등급별 분포, v0: 초보 σ=20, 중수 σ=12, 고수 σ=6, 레인지는 상위 % 기준 ±σ%)를 넣고, 계산 항목은 그 오차 값으로 다시 계산해 둔 "따라 하는 봇"의 EV를 잰다.
+- 지표: 오차 없는 TP-GTO 대비 EV 손실(bb/100 또는 ROI). 통과: 같은 등급의 따라 하는 봇이 그 등급이 대상으로 하는 페르소나 레벨을 95% CI로 이긴다(초보→레벨 1~7, 중수→8~14, 고수→15~19).
+
+## Gate U — 서비스 품질 (D1부터 CI)
+- 웹 E2E(Playwright): 핵심 흐름(설정 → Training Game 한 핸드 → TP 입력 → 채점 → 학습 섹션 추천, 학습 섹션 1문제, 복기 입력 → 비교) 통과.
+- 화면 3종(폰 390×844, 태블릿 820×1180, 노트북 1440×900) 스크린샷을 아티팩트로 남기고, 가로 스크롤·잘린 요소 0.
+- 성능 예산: 첫 화면 로드 ≤ 2s(모바일 스로틀링), 애니메이션 중 프레임 드롭 경보. 접근성: axe 심각 위반 0.
+- 시각 품질은 Reviewer가 스크린샷으로 판단하는 추론적 센서다(`harness/routines/reviewer.md`).
+
+## Gate E — 학습 효과 (D4부터)
+- 시뮬레이션 학습자: TP 오차가 큰 봇이 Training Game 채점·약점 추천·학습 섹션 루프를 거치며 오차를 줄이도록 만든 모형. 지표: 루프 전후 TP 오차와 EV 손실의 감소, 무작위 추천 대비 우위.
 
 ## 성공 레벨
 | 레벨 | 조건 |
 |---|---|
-| 0 구현 성공 | 6·9인 게임을 규칙대로 자동 완주, Gate L·R 100% |
-| 1 최소 성공 | Gate A(지원 형식별) + Gate B + Gate C 통과 |
-| 2 강한 AI | 학습하지 않은 토너먼트·상금 구조, 강한 연구 에이전트 상대 견고성(OOD 평가) |
-| 3 인간 초월 | 명시한 6·9인 MTT 조건에서 최상위 인간 집단 대상 독립 장기 평가 우위 |
+| 0 기반 | Gate R(캐시·토너먼트)·L 100%, TP v1 확정 |
+| 1 따라 할 수 있는 GTO | 환경별 Gate T 100% + S + Q + F 통과 |
+| 2 학습 효과 | Gate E 통과 |
+| 3 실사용 효과 | 사용자 본인의 TP 오차·EV 손실이 기간별로 유의하게 감소 |
 
-## 최소 보고 지표 (매 평가)
-평균 순상금·ROI·조건별 기대상금 / Gate A·B 결과·95% CI·표본 수 / AI-0·1·2 비교·메모리 크기·지연 / 6·9인·스택·앤티·지급 구조별 성능 / OOD 견고성 / Gate L·R 통과율.
+## 은퇴한 게이트 (기록 보존)
+2026-10-27 방향 전환(ADR 0008)으로 **Gate A**(ICMizer 지원 스팟 직접 비교), **Gate B**(ICMizer-informed 참조 봇과 전체 토너먼트), **Gate C**(AI-0/1/2 기억 가치)는 성공 정의에서 빠졌다. 코드(`referee/gate_a/`, `referee/gate_b/`, `referee/agents/reference_bot.py`)와 CI 지표는 은퇴 이슈가 처리될 때까지 남아 있으며 판정 근거로 쓰지 않는다. ICM 참조기와 참조 봇은 Gate Q의 앵커·페르소나 후보로 재사용할 수 있다. 정의 원문은 git 이력(`64f586c` 이후 `referee/GATES.md`)에 있다.
+- 은퇴 시점 Gate A 명세 값(`referee/gate_a/spec_v1.json`과 일치, 테스트가 확인): δ_ni = 5e-05, δ_min = 0.0001.

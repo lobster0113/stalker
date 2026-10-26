@@ -1,5 +1,8 @@
 # 아키텍처 (현재 상태를 반영해 유지할 것)
 
+> **2026-10-27 방향 전환(ADR 0008)**: 아래 모듈 중 엔진·관측·기록·통계·ICM·Gate R/L은 유지·확장, `rl/`·`oracle/`은 동결, `typing/`·`pipeline/`·`service/`(구 퀴즈 프로토타입)·`referee/gate_a|gate_b|sufficiency`는 은퇴 예정이다(ADR 0008 표).
+> 예정 모듈: `stalker/tp/`(TP 명세 로더·채점, 명세 `stalker/tp/spec/`는 보호 경로), `stalker/personas/`(난이도 1~19 페르소나), 엔진 캐시게임 모드, `web/`(학습 서비스 웹앱 — D1 데모부터).
+
 ## 계층
 - `stalker/` — 제품(L0)
   - `core/` — 카드(`cards.py`), 7카드 평가기(`evaluator.py`), MC 에퀴티(`equity.py`), ICM(`icm.py`: Malmuth-Harville 정확해 `icm_equity`(생존자 ≤9) + Gumbel-max 몬테카를로 `icm_equity_mc`, 0 스택=탈락·하위 지급 제외), 프리플랍 레인지(`ranges.py`, `data/preflop_equity.json`: 169 클래스 × 랜덤 상대 1~5명 에퀴티, `python -m stalker.tools.build_tables`로 고정 시드 재생성)
