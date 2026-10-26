@@ -34,7 +34,9 @@ defaults:
 jobs:
   launch:
     runs-on: ubuntu-latest
-    timeout-minutes: 1500  # > max_minutes cap (1440) so the launcher's own deadline fires first
+    # GitHub-hosted runners cap a job at 360 min regardless; launcher MAX_JOB_MINUTES (330) leaves
+    # room for setup, terminate and the ledger push, so its own deadline fires first.
+    timeout-minutes: 355
     env:
       RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
       # inputs go through env, not ${{ }} in scripts, so they cannot inject shell
@@ -57,27 +59,17 @@ jobs:
             check) python harness/cloud/launcher.py check ;;
             reap)  python harness/cloud/launcher.py reap --ledger "$LEDGER" ;;
             run)
-              args=(run "$JOB" --ledger "$LEDGER" --run-id "$GITHUB_RUN_ID")
+              # the start entry is pushed right after pod creation; a failed push terminates the pod
+              args=(run "$JOB" --ledger "$LEDGER" --run-id "$GITHUB_RUN_ID"
+                    --sync-cmd "bash harness/cloud/push_ledger.sh ops 'cloud: reserve run $GITHUB_RUN_ID'")
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
               python harness/cloud/launcher.py "${args[@]}" ;;
             *) echo "mode must be check|run|reap, got '$MODE'"; exit 1 ;;
           esac
       - name: terminate this run's pods (finally)
         if: always() && env.MODE == 'run' && env.DRY_RUN != 'true'
-        run: |
-          name=$(sed -n 's/^name: *//p' "$JOB" | head -1)
-          python harness/cloud/launcher.py reap --ledger "$LEDGER" --force --name-prefix "stalker-$name-$GITHUB_RUN_ID"
+        # pod name comes from the launcher's own spec parser, never a separate shell parse
+        run: python harness/cloud/launcher.py reap --ledger "$LEDGER" --force --job "$JOB" --run-id "$GITHUB_RUN_ID"
       - name: push ledger
         if: always() && env.MODE != 'check'
-        run: |
-          cd ops
-          git add budget/ledger.jsonl 2>/dev/null || exit 0
-          git diff --cached --quiet && exit 0
-          git config user.name "stalker-ci"
-          git config user.email "stalker-ci@users.noreply.github.com"
-          git commit -qm "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"
-          for i in 1 2 3; do
-            git push -q origin ops && exit 0
-            git pull -q --rebase origin ops
-          done
-          echo "ledger push failed 3x — ledger lines are in this run's log"; cat budget/ledger.jsonl; exit 1
+        run: bash harness/cloud/push_ledger.sh ops "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"

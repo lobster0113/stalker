@@ -6,8 +6,8 @@ dispatch the workflow.
 
 Usage:
   python harness/cloud/launcher.py check                       # balance query, costs nothing
-  python harness/cloud/launcher.py run jobs/x.yaml --ledger L [--dry-run] [--run-id ID]
-  python harness/cloud/launcher.py reap --ledger L [--name-prefix P --force]
+  python harness/cloud/launcher.py run jobs/x.yaml --ledger L [--dry-run] [--run-id ID] [--sync-cmd CMD]
+  python harness/cloud/launcher.py reap --ledger L [--job jobs/x.yaml --run-id ID --force]
 
 Budget rule: a job runs only if month_total + worst_case(job) <= monthly cap
 (`harness/budget.json`). month_total counts finished jobs at their actual cost and open
@@ -21,6 +21,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -34,6 +35,9 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 BUDGET_FILE = ROOT / "harness" / "budget.json"
 POD_PREFIX = "stalker-"
 REAP_GRACE_MIN = 10
+# GitHub-hosted runners stop any job at 360 min; keep the launcher's own deadline, terminate
+# and ledger push well inside that, or the runner limit kills the job before its finally runs.
+MAX_JOB_MINUTES = 330
 REST_URL = "https://rest.runpod.io/v1"
 GRAPHQL_URL = "https://api.runpod.io/graphql"
 
@@ -114,8 +118,9 @@ def parse_spec(text: str, source: str = "job") -> Job:
     for k in ("hourly_usd", "est_cost_usd"):
         if k in data and (not isinstance(data[k], (int, float)) or data[k] < 0):
             raise LauncherError(f"{source}: {k} must be a non-negative number")
-    if data["max_minutes"] > 24 * 60:
-        raise LauncherError(f"{source}: max_minutes > 1440; split the job")
+    if data["max_minutes"] > MAX_JOB_MINUTES:
+        raise LauncherError(f"{source}: max_minutes > {MAX_JOB_MINUTES} (GitHub runner job limit 360); "
+                            "split the job into resumable chunks")
     if data.get("cloud", "COMMUNITY") not in ("COMMUNITY", "SECURE"):
         raise LauncherError(f"{source}: cloud must be COMMUNITY or SECURE")
     data["hourly_usd"] = float(data["hourly_usd"])
@@ -255,14 +260,18 @@ def _ts(s: str) -> datetime:
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
+def pod_name_for(job: Job, run_id: str) -> str:
+    return f"{POD_PREFIX}{job.name}-{run_id}"
+
+
 def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: float | None = None,
-            dry_run: bool = False, now: Callable[[], datetime] = _now,
+            dry_run: bool = False, sync: Callable[[], None] = lambda: None, now: Callable[[], datetime] = _now,
             sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, log=print) -> dict:
     cap = load_cap() if cap is None else cap
     start = now()
     month = start.strftime("%Y-%m")
     spent = check_budget(job, read_ledger(ledger), cap, month)
-    pod_name = f"{POD_PREFIX}{job.name}-{run_id}"
+    pod_name = pod_name_for(job, run_id)
     log(f"budget ok: {month} ${spent:.2f} + worst case ${job.worst_case_usd:.2f} <= cap ${cap:.2f}")
     if dry_run:
         log(f"dry run: would create pod {pod_name} ({job.gpu_type or job.cpu_flavor}, max {job.max_minutes} min)")
@@ -277,6 +286,12 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
                            "reserved_usd": job.worst_case_usd})
     status = "error"
     try:
+        # publish the reservation before the pod can run long: if the runner dies later, the next
+        # budget check still sees it. A failed publish terminates the pod (finally) and fails the run.
+        try:
+            sync()
+        except Exception as e:
+            raise LauncherError(f"ledger sync failed after creating {pod_id}: {e}; terminated") from e
         if rate > job.hourly_usd:
             status = "rate_exceeded"
             raise LauncherError(f"pod {pod_id} costs ${rate}/h > job hourly_usd ${job.hourly_usd}; terminated")
@@ -306,20 +321,28 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
     return {"status": status, "pod_id": pod_id, "actual_usd": actual}
 
 
-def reap(api: RunPod, ledger: Path, *, name_prefix: str = POD_PREFIX, force: bool = False,
-         now: Callable[[], datetime] = _now, log=print) -> list[str]:
+def reap(api: RunPod, ledger: Path, *, name_prefix: str = POD_PREFIX, pod_name: str | None = None,
+         force: bool = False, now: Callable[[], datetime] = _now, log=print) -> list[str]:
     """Terminate our pods past their deadline (or unknown to the ledger) and close stale ledger entries.
 
-    force: terminate every matching pod regardless of deadline (the workflow's cleanup step,
-    which passes this run's exact pod-name prefix)."""
+    pod_name + force: the workflow's cleanup step — terminate exactly this run's pod regardless
+    of deadline."""
     t = now()
     entries = read_ledger(ledger)
     opened = open_entries(entries)
+    ended = {e["pod_id"] for e in entries if e["event"] == "end"}
     killed = []
     live = {}
     for pod in api.list():
-        if not str(pod.get("name", "")).startswith(name_prefix):
+        name = str(pod.get("name", ""))
+        if not name.startswith(POD_PREFIX) or not name.startswith(name_prefix):
             continue  # never touch pods this launcher did not create
+        if pod_name is not None and name != pod_name:
+            continue
+        if pod["id"] in ended:
+            # already billed (the list can lag a DELETE): re-send terminate, never charge twice
+            api.terminate(pod["id"])
+            continue
         live[pod["id"]] = pod
         e = opened.get(pod["id"])
         if e and not force and t < _ts(e["ts"]) + timedelta(minutes=e["max_minutes"] + REAP_GRACE_MIN):
@@ -330,6 +353,8 @@ def reap(api: RunPod, ledger: Path, *, name_prefix: str = POD_PREFIX, force: boo
     for pod_id, e in opened.items():
         if pod_id in live and pod_id not in killed:
             continue
+        if pod_name is not None and e.get("pod_name") != pod_name:
+            continue  # scoped cleanup: other runs' entries are the daily reap's job
         # unknown runtime: charge the reservation, the conservative figure
         append_ledger(ledger, {"event": "end", "ts": _iso(t), "month": e["month"], "job": e["job"], "pod_id": pod_id,
                                "status": "reaped", "actual_usd": e["reserved_usd"]})
@@ -356,9 +381,11 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--ledger", type=Path, required=True)
     r.add_argument("--run-id", default=os.environ.get("GITHUB_RUN_ID", "local"))
     r.add_argument("--dry-run", action="store_true")
+    r.add_argument("--sync-cmd", help="command run after the start entry is written; nonzero → terminate, fail")
     g = sub.add_parser("reap")
     g.add_argument("--ledger", type=Path, required=True)
-    g.add_argument("--name-prefix", default=POD_PREFIX)
+    g.add_argument("--job", type=Path, help="with --run-id: reap only this run's pod (name from the parsed spec)")
+    g.add_argument("--run-id")
     g.add_argument("--force", action="store_true")
     a = p.parse_args(argv)
 
@@ -373,14 +400,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"RunPod key ok; balance ${api().balance():.2f}; cap ${load_cap():.2f}/month")
         elif a.cmd == "run":
             job = load_spec(a.spec)
-            res = run_job(job, None if a.dry_run else api(), a.ledger, a.run_id, dry_run=a.dry_run)
+            sync = (lambda: subprocess.run(a.sync_cmd, shell=True, check=True)) if a.sync_cmd else (lambda: None)
+            res = run_job(job, None if a.dry_run else api(), a.ledger, a.run_id, dry_run=a.dry_run, sync=sync)
             if res["status"] not in ("completed", "dry_run"):
                 print(f"job {job.name}: {res['status']}", file=sys.stderr)
                 return 1
         else:
-            if not a.name_prefix.startswith(POD_PREFIX):
-                raise LauncherError(f"--name-prefix must start with {POD_PREFIX!r}")
-            reap(api(), a.ledger, name_prefix=a.name_prefix, force=a.force)
+            if bool(a.job) != bool(a.run_id):
+                raise LauncherError("reap: pass --job and --run-id together (or neither for the daily reap)")
+            name = pod_name_for(load_spec(a.job), a.run_id) if a.job else None
+            reap(api(), a.ledger, pod_name=name, force=a.force)
     except BudgetExceeded as e:
         print(e, file=sys.stderr)
         return 2

@@ -94,7 +94,7 @@ def test_parse_spec_flat_subset_and_worst_case():
     (SPEC + "cpu_flavor: cpu3c\n", "exactly one"),
     (SPEC + "budget: 999\n", "unknown key"),
     (SPEC + "  nested: 1\n", "flat"),
-    (SPEC.replace("max_minutes: 60", "max_minutes: 2000"), "1440"),
+    (SPEC.replace("max_minutes: 60", "max_minutes: 331"), "360"),
     (SPEC.replace("hourly_usd: 0.40", "hourly_usd: -1.0"), "non-negative"),
     (SPEC + "name: again\n", "duplicate"),
 ])
@@ -195,9 +195,61 @@ def test_reap_kills_overdue_and_unknown_pods_only(tmp_path):
     assert set(L.open_entries(entries)) == {"p2"}
     orphan = [e for e in entries if e["pod_id"] == "p3" and e["event"] == "end"][0]
     assert orphan["actual_usd"] == 12.0             # 24h at $0.5/h, conservative
-    # force (workflow cleanup step) ignores the deadline for the given prefix
-    assert L.reap(L.RunPod(api), ledger, name_prefix="stalker-b-2", force=True, now=Clock(), log=lambda *_: None) == ["p2"]
-    assert L.open_entries(L.read_ledger(ledger)) == {}
+    # force (workflow cleanup step) ignores the deadline for the given pod
+    assert L.reap(L.RunPod(api), ledger, pod_name="stalker-b-2", force=True, now=Clock(), log=lambda *_: None) == ["p2"]
+
+
+@pytest.mark.parametrize("name_line", ["name: smoke-cpu  # tiny", 'name: "smoke-cpu"', "name: 'smoke-cpu' # q"])
+def test_cleanup_step_finds_pod_by_parsed_spec_name(tmp_path, name_line, monkeypatch):
+    jobs = ROOT / "jobs"
+    spec = (jobs / "smoke-cpu.yaml").read_text().replace("name: smoke-cpu", name_line)
+    p = jobs / "_test_cleanup.yaml"
+    p.write_text(spec)
+    try:
+        api = FakeRunPod(cost=0.1)
+        api("POST", f"{L.REST_URL}/pods", {"name": "stalker-smoke-cpu-77"})
+        api("POST", f"{L.REST_URL}/pods", {"name": "stalker-smoke-cpu-770"})   # other run, same prefix
+        monkeypatch.setenv("RUNPOD_API_KEY", "k")
+        monkeypatch.setattr(L, "http_transport", lambda key: api)
+        ledger = tmp_path / "l.jsonl"
+        assert L.main(["reap", "--ledger", str(ledger), "--force", "--job", str(p), "--run-id", "77"]) == 0
+        assert api.terminated() == ["p1"]
+    finally:
+        p.unlink()
+
+
+def test_reap_never_double_bills_ended_pod(tmp_path):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), FakeRunPod(exit_after_polls=2)
+    _run(api, ledger, clock)
+    before = L.month_total(L.read_ledger(ledger), "2026-11")
+    api.pods["p1"] = {"id": "p1", "name": "stalker-train-a-42", "costPerHr": 0.34}  # list lags the DELETE
+    L.reap(L.RunPod(api), ledger, pod_name="stalker-train-a-42", force=True, now=clock, log=lambda *_: None)
+    L.reap(L.RunPod(api), ledger, now=clock, log=lambda *_: None)
+    assert L.month_total(L.read_ledger(ledger), "2026-11") == before
+    assert api.terminated().count("p1") >= 2   # terminate re-sent, no new ledger lines
+    assert len(L.read_ledger(ledger)) == 2
+
+
+def test_reservation_is_synced_before_polling_and_sync_failure_terminates(tmp_path):
+    ledger, api = tmp_path / "l.jsonl", FakeRunPod(exit_after_polls=1)
+    seen = []
+
+    def sync():
+        seen.append([e["event"] for e in L.read_ledger(ledger)])
+        assert not any(m == "GET" for m, _, _ in api.calls)   # before the pod is polled
+
+    _run(api, ledger, Clock(), sync=sync)
+    assert seen == [["start"]]
+
+    ledger2, api2 = tmp_path / "l2.jsonl", FakeRunPod(exit_after_polls=1)
+
+    def broken():
+        raise RuntimeError("push rejected")
+
+    with pytest.raises(L.LauncherError, match="ledger sync failed"):
+        _run(api2, ledger2, Clock(), sync=broken)
+    assert api2.terminated() == ["p1"]
+    assert L.read_ledger(ledger2)[-1]["status"] == "error"
 
 
 def test_check_reads_balance():
@@ -230,8 +282,10 @@ def test_cloud_workflow_guards():
     assert re.findall(r"secrets\.(\w+)", wf) == ["RUNPOD_API_KEY"]
     assert "group: cloud-budget" in wf and "cancel-in-progress: false" in wf
     (minutes,) = re.findall(r"timeout-minutes: (\d+)", wf)
-    assert 1440 < int(minutes) <= 1500
-    cleanup = wf.split("terminate this run's pods", 1)[1]
-    assert "if: always()" in cleanup.split("\n")[1] and "--force" in cleanup
+    assert L.MAX_JOB_MINUTES + 15 <= int(minutes) <= 360   # GitHub-hosted runner job limit
+    cleanup = wf.split("terminate this run's pods", 1)[1].split("- name:", 1)[0]
+    assert "if: always()" in cleanup.split("\n")[1]
+    assert '--force --job "$JOB" --run-id "$GITHUB_RUN_ID"' in cleanup and "sed" not in cleanup
+    assert "--sync-cmd" in wf and "push_ledger.sh" in wf
     assert "if: always()" in wf.split("- name: push ledger", 1)[1].split("\n")[1]
     assert all("${{ inputs." not in line for line in wf.splitlines() if "launcher.py" in line or "case" in line)
