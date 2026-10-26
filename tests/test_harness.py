@@ -135,3 +135,63 @@ def test_texassolver_job_cache_key_tracks_install_commit():
     out = subprocess.run(["sed", "-n", sed, str(ROOT / "scripts" / "install_texassolver.sh")],
                          capture_output=True, text=True, check=True).stdout.strip()
     assert out == commit
+
+
+def _should_run():
+    return _load(ROOT / "harness" / "should_run.py")
+
+
+NOW = __import__("datetime").datetime(2026, 10, 26, 12, 0, tzinfo=__import__("datetime").timezone.utc)
+
+
+def _lock_at(hours_ago):
+    from datetime import timedelta
+    return {"role": "builder", "run_id": "other", "started": (NOW - timedelta(hours=hours_ago)).isoformat()}
+
+
+def _decide(lock, prev_hours_ago=2.0, role="builder"):
+    from datetime import timedelta
+    sr = _should_run()
+    return sr.decide(role, False, now=NOW, read_lock=lambda r: lock,
+                     last_run=lambda r: NOW - timedelta(hours=prev_hours_ago))
+
+
+def test_should_run_skips_while_same_role_lock_is_fresh():
+    ok, why = _decide(_lock_at(0.5))
+    assert not ok and why.startswith("running")
+    # Unthrottled roles (reviewer) are serialized by the lock too.
+    ok, why = _decide(_lock_at(0.5), role="reviewer")
+    assert not ok and why.startswith("running")
+
+
+def test_should_run_ignores_expired_lock():
+    ok, why = _decide(_lock_at(3.5))
+    assert ok, why
+
+
+def test_should_run_without_lock_falls_back_to_throttle():
+    assert _decide(None, prev_hours_ago=2.0)[0]
+    ok, why = _decide(None, prev_hours_ago=0.2)
+    assert not ok and "<" in why
+
+
+def test_should_run_lock_race_lets_only_one_run():
+    sr = _should_run()
+    locks = {}
+
+    def decide(role, sweep):
+        return sr.decide(role, sweep, now=NOW, read_lock=locks.get, last_run=lambda r: None)
+
+    def lost_race(path, content, msg):
+        locks["builder"] = _lock_at(0)  # another run pushed its lock first
+        return False
+
+    ok, why = sr.acquire("builder", False, decide_fn=decide, commit=lost_race, fetch=lambda: None)
+    assert not ok and why.startswith("running")
+
+    locks.clear()
+    written = []
+    ok, _ = sr.acquire("builder", False, decide_fn=decide, fetch=lambda: None,
+                       commit=lambda p, c, m: written.append((p, c)) or True)
+    assert ok and written[0][0] == "locks/builder.json"
+    assert {"run_id", "started"} <= set(__import__("json").loads(written[0][1]))

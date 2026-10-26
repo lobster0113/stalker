@@ -2,6 +2,7 @@
 
 클라우드 루틴(Claude Code routines)의 **실제 트리거**는 고정이고 자주 깨어난다. 각 실행은 시작하자마자
 `python harness/should_run.py <role>`로 `harness/schedule.json`을 확인해서 실제로 일할지 결정한다.
+RUN이면 같은 role 잠금(`ops:locks/<role>.json`)도 함께 잡는다. 실행은 journal 기록 직후 `--release`로 푼다(`PROTOCOL.md` §6).
 → 실제 운영 주기는 리포 안의 `schedule.json`으로 통제되며, Auditor가 `harness-change` 실험 PR로 조정할 수 있다
 (루틴 설정 자체를 바꾸지 않고도 L2가 주기를 진화시킬 수 있게 하기 위함).
 

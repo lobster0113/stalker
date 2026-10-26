@@ -69,6 +69,9 @@ CHANGES가 2회 누적된 PR이 또 미달이면 CLOSE하고, 이슈에 `needs-s
 ```
 `friction`은 L2(Auditor)가 하네스를 개선하는 핵심 입력이다. 솔직하게 쓴다.
 
+**실행 잠금.** `should_run.py`가 RUN을 내면 `ops:locks/<role>.json`(role·run_id·시작 시각)을 커밋해 같은 role을 잠근다. 잠금이 `lock_hours`(schedule.json, 기본 3시간) 안이면 같은 role의 다른 실행은 `SKIP (running ...)`으로 끝난다.
+journal 줄을 push한 **직후** 반드시 잠금을 푼다: `python harness/should_run.py <role> --release` (자기 run_id의 잠금만 지운다). 비정상 종료로 남은 잠금은 `lock_hours` 뒤 만료된다. 로컬에서 판정만 보려면 `--no-lock`.
+
 ## 7. 잡기(claim)와 동시성
 - 이슈를 잡을 때 `in-progress` 라벨 + 코멘트 `CLAIM <role> <UTC시각>`.
 - 6시간 넘게 PR 없이 `in-progress`인 이슈는 다른 실행이 회수 가능(코멘트 `RECLAIM`).
