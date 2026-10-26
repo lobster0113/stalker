@@ -1,0 +1,22 @@
+{
+  "name": "gate_a_spec_v1",
+  "spot_set_version": "gate-a-spots-v1",
+  "spot_set_sha256": "ac250c72c7c70b0e8c29fe85b51004e48184481f404007d88ddfa70ead5244d1",
+  "baseline": "reference",
+  "value_model": "icm",
+  "fgs_depth": 0,
+  "baseline_tol": 1e-05,
+  "baseline_max_iter": 20000,
+  "delta_ni": 5e-05,
+  "delta_min": 0.0001,
+  "level": 0.95,
+  "n_boot": 4000,
+  "seed": 20261026,
+  "pool": [
+    {"name": "nit", "push": 0.08, "call": 0.04},
+    {"name": "tight", "push": 0.15, "call": 0.08},
+    {"name": "loose", "push": 0.35, "call": 0.20},
+    {"name": "station", "push": 0.25, "call": 0.40},
+    {"name": "maniac", "push": 0.60, "call": 0.30}
+  ]
+}
