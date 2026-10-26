@@ -34,7 +34,9 @@
 - 조건 동일: 핸드·스택·SB/BB/앤티·상금 구조·상대 범위 가정·FGS 사용 여부 기록.
 - 상대군 2종(사전 고정): ① 내시 상대 → **비열등성**(AI−기준선 기대상금 차이의 95% CI 하한 > −δ_ni), ② 현실적 비내시 상대 풀 → **우월성**(95% CI 하한 > 0 그리고 ≥ 최소 실용효과 δ_min).
 - 스팟 세트 v1(`referee/gate_a/spots_v1.json`, `SPOT_SET_VERSION=gate-a-spots-v1`, 로더 `referee.gate_a.load_spots`, 해시 `spot_set_hash`): 6인·9인 × 버블/비버블 × push/call 각 2스팟 = 16개. hero 유효 스택(push = hero와 뒤 좌석 최대 스택 중 작은 값, call = hero와 `pusher` 좌석 스택 중 작은 값)은 7~20bb(앤티·BB앤티 포함)이고 `test_v1_effective_stacks_in_range`가 확인한다. call 스팟은 `pusher`(hero 앞 좌석 번호)를 명시하며 id의 상대·스택 표기(`vs-btn-12bb`)와 데이터 일치를 `test_v1_ids_match_data`가 확인한다. 버블 = 지급 인원이 좌석 수−1(6인 5곳 30/22/18/15/15, 9인 8곳 20/16/14/12/11/10/9/8), 비버블 = 3곳 50/30/20. 스팟을 바꾸면 버전과 해시가 바뀌며 이전 결과와 섞어 비교하지 않는다.
-- 초기값: δ_ni = 상금풀의 0.1%, δ_min = 상금풀의 0.2% (스팟당 기대상금). 변경은 referee-change.
+- 초기값: δ_ni = 5e-05(상금풀의 0.005%), δ_min = 0.0001(상금풀의 0.01%) (스팟당 기대상금, 169 핸드 클래스 평균). 최초안 0.1%·0.2%는 항상 폴드도 비열등 통과시켜 판정 전에 낮췄다(ADR 0007). 변경은 referee-change.
+- 실행: `python -m referee.gate_a --spots referee/gate_a/spots_v1.json --candidate module:factory --out DIR` (`--spec` 기본 `referee/gate_a/spec_v1.json`). `factory(config)`는 `icm_reference.PolicyFn`(169 확률)을 돌려준다(config = value_model·fgs_depth·tol·max_iter). 내장 후보: `referee.gate_a.candidates:reference|top_percent|always_fold|always_push`. 명세는 스팟 세트 버전·sha256(다르면 거부), 기준선 `reference`와 그 수렴 허용치(`baseline_tol` 1e-5, δ_ni의 1/5 이하), δ, 부트스트랩 seed, ② 비내시 풀(`top_percent_strategy` push/call 비율 프로필 5종)을 고정한다.
+- 판정: 스팟마다 기준선 = 참조기 내시 해의 hero 전략. 차이 = (후보 EV − 기준선 EV)/상금풀을 ① 그 스팟의 내시 상대, ② 풀 프로필마다 계산하고, 형식(6/9인 × 버블/비버블)별로 스팟을 클러스터로 재표본화해 ① `noninferiority`·② `superiority`. 형식 통과 = ①∧②, 전체 = 모두 통과면 `pass`, 일부면 `해당 형식 한정 통과`, 없으면 `fail`(종료 코드 0은 `pass`만). `gate_a.json`(schema_version, 스팟 세트 해시, 명세 sha256, baseline `"reference"`, 형식별 CI·판정, 스팟별 차이)·`gate_a.md`("참조기 기준" 표기). 같은 입력이면 바이트 동일.
 
 ## Gate B — ICMizer-informed 참조 봇과 전체 토너먼트
 - 참조 봇: ICMizer-등가 참조기(지원 구간) + 고정 비지원 구간 전략(버전 표기, v1: 표준 오픈/3벳 차트 + 에퀴티 기반 포스트플랍 규칙). 버전업 시 이전 결과 보존.

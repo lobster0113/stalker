@@ -40,9 +40,9 @@ CLASS_COMBOS = np.array([6.0 if len(c) == 2 else (4.0 if c[2] == "s" else 12.0)
                          for c in HAND_CLASSES])
 PRIOR = CLASS_COMBOS / CLASS_COMBOS.sum()
 VALUE_MODELS = ("icm", "chipev")
-# Gate A baseline tolerance: per-seat best-response gain as a fraction of the prize pool. A
-# 0.1% bound keeps the averaged fictitious-play ranges' residual exploitability below what the
-# gate can resolve, so a policy's loss against the reference is not noise from the baseline.
+# Default per-seat best-response gain bound (fraction of the prize pool). Gate A does not use it:
+# a 0.1% residual is as large as a whole spot's decision value, so referee/gate_a/spec_v1.json
+# pins a 1e-5 baseline_tol instead (ADR 0007).
 BASELINE_TOL = 1e-3
 
 
