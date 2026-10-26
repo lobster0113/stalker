@@ -1,0 +1,75 @@
+name: cloud
+
+# Budget-guarded cloud launcher (#20, ADR 0004 §5): the only workflow that can spend money.
+# Trigger: MCP `actions_run_trigger` (workflow_id cloud.yml, ref main) with inputs below.
+# Daily schedule reaps orphan pods. Ledger lives on ops: budget/ledger.jsonl.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check | run | reap"
+        default: check
+      job:
+        description: "job spec path for mode=run (jobs/<name>.yaml)"
+        default: ""
+      dry_run:
+        description: "mode=run: budget check only, no pod"
+        type: boolean
+        default: true
+  schedule:
+    - cron: "17 3 * * *"
+
+# One group, never cancelled: ledger read-modify-write must not interleave.
+concurrency:
+  group: cloud-budget
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # push ledger lines to ops
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    # GitHub-hosted runners cap a job at 360 min regardless; launcher MAX_JOB_MINUTES (330) leaves
+    # room for setup, terminate and the ledger push, so its own deadline fires first.
+    timeout-minutes: 355
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+      # inputs go through env, not ${{ }} in scripts, so they cannot inject shell
+      MODE: ${{ github.event_name == 'schedule' && 'reap' || inputs.mode }}
+      JOB: ${{ inputs.job }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      LEDGER: ${{ github.workspace }}/ops/budget/ledger.jsonl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: ops worktree
+        run: |
+          git fetch -q origin ops
+          git worktree add ops origin/ops -B ops
+      - name: launcher
+        run: |
+          case "$MODE" in
+            check) python harness/cloud/launcher.py check ;;
+            reap)  python harness/cloud/launcher.py reap --ledger "$LEDGER" ;;
+            run)
+              # the start entry is pushed right after pod creation; a failed push terminates the pod
+              args=(run "$JOB" --ledger "$LEDGER" --run-id "$GITHUB_RUN_ID"
+                    --sync-cmd "bash harness/cloud/push_ledger.sh ops 'cloud: reserve run $GITHUB_RUN_ID'")
+              [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
+              python harness/cloud/launcher.py "${args[@]}" ;;
+            *) echo "mode must be check|run|reap, got '$MODE'"; exit 1 ;;
+          esac
+      - name: terminate this run's pods (finally)
+        if: always() && env.MODE == 'run' && env.DRY_RUN != 'true'
+        # pod name comes from the launcher's own spec parser, never a separate shell parse
+        run: python harness/cloud/launcher.py reap --ledger "$LEDGER" --force --job "$JOB" --run-id "$GITHUB_RUN_ID"
+      - name: push ledger
+        if: always() && env.MODE != 'check'
+        run: bash harness/cloud/push_ledger.sh ops "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"

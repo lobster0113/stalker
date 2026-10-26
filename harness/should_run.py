@@ -9,15 +9,20 @@ A RUN also takes the role lock `ops:locks/<role>.json` so a second wake-up of th
 role while this one works prints SKIP (running). The run releases it with --release
 right after writing its journal line (PROTOCOL §6); a crashed run's lock expires after
 `lock_hours` (schedule.json, default 3).
+
+The planner also runs early when the ready queue is low (`ready_floor`, experiment 008):
+builders idling on no_work cost more than an extra planner run.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
 import tempfile
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable
@@ -25,6 +30,8 @@ from typing import Callable
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LOCK_HOURS = 3
 LOCK_TRIES = 3
+DEFAULT_READY_FLOOR = 1
+DEFAULT_QUEUE_LOW_MIN_HOURS = 2
 
 
 def _git(*args: str, env: dict | None = None, stdin: str | None = None) -> str:
@@ -70,12 +77,34 @@ def read_lock(role: str) -> dict | None:
         return None  # a corrupt lock must not block the role forever
 
 
+def ready_count() -> int | None:
+    """Open `ready` issues nobody holds (not in-progress/blocked), or None if unknown."""
+    m = re.search(r"github\.com[/:]([^/]+/[^/]+?)(?:\.git)?/?$", _git("remote", "get-url", "origin").strip())
+    if not m:
+        return None
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{m.group(1)}/issues?labels=ready&state=open&per_page=100",
+        headers={"Accept": "application/vnd.github+json"})
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            issues = json.load(r)
+    except Exception:
+        return None
+    held = {"in-progress", "blocked"}
+    return sum(1 for i in issues if "pull_request" not in i
+               and not held & {lb["name"] for lb in i.get("labels", [])})
+
+
 def run_id() -> str:
     return os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID") or socket.gethostname()
 
 
 def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = read_lock,
            last_run: Callable[[str], datetime | None] = last_run,
+           ready_count: Callable[[], int | None] = ready_count,
            now: datetime | None = None) -> tuple[bool, str]:
     if role != "auditor" and (ROOT / "harness" / "PAUSE").exists():
         return False, "harness/PAUSE present"
@@ -99,6 +128,13 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
     elapsed = now - prev
     # 10-minute grace so hourly triggers that start a little early still run.
     if elapsed + timedelta(minutes=10) < timedelta(hours=hours):
+        if role == "planner":
+            floor = cfg.get("ready_floor", DEFAULT_READY_FLOOR)
+            min_hours = cfg.get("queue_low_min_hours", DEFAULT_QUEUE_LOW_MIN_HOURS)
+            if elapsed + timedelta(minutes=10) >= timedelta(hours=min_hours):
+                n = ready_count()
+                if n is not None and n <= floor:
+                    return True, f"queue low: {n} ready <= {floor}, last run {elapsed} ago"
         return False, f"last run {elapsed} ago < {hours}h"
     return True, f"last run {elapsed} ago"
 
