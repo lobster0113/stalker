@@ -44,10 +44,13 @@ def test_every_preset_has_a_registered_spec(name):
     assert S.lookup(spec.env_id) == spec, f"run: python -m stalker.env.spec  (registers {name})"
 
 
-def test_e1_pushfold_specs_are_registered_and_distinct():
-    ids = {S.pushfold(st, a).env_id for st in (1.0, 10.0, 15.0) for a in (0.0, 1.0)}
-    assert len(ids) == 6
-    assert all(S.lookup(i).kind == "hu_pushfold" for i in ids)
+def test_every_pushfold_anchor_point_is_registered_and_distinct():
+    from referee.anchors import pushfold as anchor
+
+    ids = {S.pushfold(st, a).env_id for st in anchor.STACKS for a in anchor.ANTES}
+    assert len(ids) == len(anchor.STACKS) * len(anchor.ANTES)
+    assert all(S.lookup(i).kind == "hu_pushfold" for i in ids), "run: python -m stalker.env.spec"
+    assert S.pushfold(10, 1).ante_mode == "dead"
 
 
 @pytest.mark.parametrize("over,msg", [
@@ -56,10 +59,19 @@ def test_e1_pushfold_specs_are_registered_and_distinct():
     ({"kind": "spin"}, "kind 'spin'"),
     ({"rake": -1}, "rake"),
     ({"table_size": 1}, "table_size"),
+    ({"initial_stacks": (True, 5)}, "positive integers"),
 ])
 def test_invalid_specs_say_how_to_fix(over, msg):
     with pytest.raises(S.EnvSpecError, match=msg):
         _spec(**over)
+
+
+def test_chip_fields_reject_floats_and_bools():
+    one_level = S.pushfold(10, 1)
+    with pytest.raises(S.EnvSpecError, match="integer ante"):
+        dataclasses.replace(one_level, ante_schedule=(1.5,))
+    with pytest.raises(S.EnvSpecError, match="integer ante"):
+        dataclasses.replace(one_level, ante_schedule=(True,))
 
 
 def test_v1_records_migrate_with_the_run_env_id(tmp_path):

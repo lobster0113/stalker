@@ -21,6 +21,10 @@ class EnvSpecError(ValueError):
     pass
 
 
+def _is_int(x) -> bool:
+    return isinstance(x, int) and not isinstance(x, bool)
+
+
 @dataclass(frozen=True)
 class EnvSpec:
     kind: str
@@ -36,7 +40,7 @@ class EnvSpec:
     rake: int                                 # chips; cash v1 = 0
     time_model: str                           # "hands" | "minutes"
     rng_schema_version: int
-    ante_mode: str = "none"
+    ante_mode: str = "none"  # TournamentConfig ante modes, or "dead" (posted from outside the stacks)
 
     def __post_init__(self) -> None:
         def fail(msg: str) -> None:
@@ -44,19 +48,20 @@ class EnvSpec:
         if self.kind not in KINDS:
             fail(f"kind {self.kind!r}; use one of {KINDS}")
         for name in ("table_size", "field_size", "rake", "rng_schema_version"):
-            if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
+            if not _is_int(getattr(self, name)):
                 fail(f"{name} must be an integer (chips and counts are integers)")
         if not 2 <= self.table_size <= 9 or self.field_size < 2:
             fail("table_size must be 2..9 and field_size >= 2")
-        if not self.initial_stacks or any((not isinstance(s, int)) or s <= 0 for s in self.initial_stacks):
+        if not self.initial_stacks or any(not _is_int(s) or s <= 0 for s in self.initial_stacks):
             fail("initial_stacks must be positive integers; give one stack per entrant")
         if not self.blind_schedule:
             fail("blind_schedule is empty; give at least one (sb, bb, length) level")
         for lv in self.blind_schedule:
-            if len(lv) != 3 or not all(isinstance(x, int) for x in lv) or not 0 < lv[0] <= lv[1] or lv[2] <= 0:
+            if len(lv) != 3 or not all(_is_int(x) for x in lv) or not 0 < lv[0] <= lv[1] or lv[2] <= 0:
                 fail(f"blind level {lv}: need integers 0 < sb <= bb and length > 0")
-        if len(self.ante_schedule) != len(self.blind_schedule) or any(a < 0 for a in self.ante_schedule):
-            fail("ante_schedule needs one non-negative ante per blind level")
+        if len(self.ante_schedule) != len(self.blind_schedule) or any(not _is_int(a) or a < 0
+                                                                       for a in self.ante_schedule):
+            fail("ante_schedule needs one non-negative integer ante (chips) per blind level")
         if self.rake < 0:
             fail("rake must be >= 0")
 
@@ -112,22 +117,27 @@ def from_tournament(cfg) -> EnvSpec:
 
 
 def pushfold(stack_bb: float, ante_bb: float, bb: int = 100) -> EnvSpec:
-    """E1 heads-up push/fold (`referee.anchors.pushfold`): chips in units of bb/100."""
+    """E1 heads-up push/fold (`referee.anchors.pushfold`): chips in units of bb/100.
+
+    The anchor's ante is dead money that comes from neither stack (the BB loses it with the pot),
+    unlike a `bb_ante` posted from the stack, so its ante mode is "dead".
+    """
     stack = int(round(stack_bb * bb))
     ante = int(round(ante_bb * bb))
     return EnvSpec(
         kind="hu_pushfold", rules_version=RULES_VERSION, table_size=2, field_size=2, initial_stacks=(stack, stack),
         blind_schedule=((bb // 2, bb, 1),), ante_schedule=(ante,), payout_vector=(), payout_mode="none",
         reentry_rule="none", rake=0, time_model="hands", rng_schema_version=RNG_SCHEMA_VERSION,
-        ante_mode="bb_ante" if ante else "none")
+        ante_mode="dead" if ante else "none")
 
 
 def register_known() -> list[str]:
-    """Register every tournament preset and the E1 push/fold grid (1-15bb, ante 0/1)."""
+    """Register every tournament preset and every point of the push/fold anchor grid."""
+    from referee.anchors import pushfold as anchor
     from stalker.tournament.config import load_preset, preset_names
 
     ids = [register(from_tournament(load_preset(n))) for n in preset_names()]
-    ids += [register(pushfold(0.5 * k, a)) for k in range(2, 31) for a in (0.0, 1.0)]
+    ids += [register(pushfold(s, a)) for s in anchor.STACKS for a in anchor.ANTES]
     return ids
 
 
