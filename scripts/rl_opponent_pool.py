@@ -1,6 +1,6 @@
 """Issue #78 experiment: does an RL opponent pool (reference-bot seats, past checkpoints) help against the reference bot?
 
-    python scripts/rl_opponent_pool.py SETTING --budget 600 --eval-games 300 --out DIR
+    python scripts/rl_opponent_pool.py SETTING --seed S --budget 600 --eval-games 400 --out DIR
 
 Trains one `TrainConfig` setting for a fixed wall-clock CPU budget (one torch thread, so settings run side by side
 get the same budget), then plays the policy in one rotating seat against 5 reference bots v1 and against 5 random
@@ -62,10 +62,11 @@ def main() -> None:
     ap.add_argument("setting", choices=sorted(SETTINGS))
     ap.add_argument("--budget", type=float, default=600.0, help="training wall-clock seconds")
     ap.add_argument("--eval-games", type=int, default=300)
+    ap.add_argument("--seed", type=int, default=0, help="TrainConfig.seed")
     ap.add_argument("--out", type=Path, default=Path("."))
     args = ap.parse_args()
     torch.set_num_threads(1)
-    cfg_t = SETTINGS[args.setting]
+    cfg_t = dataclasses.replace(SETTINGS[args.setting], seed=args.seed)
     cfg = hyper_sng()
     tr = Trainer(cfg, cfg_t)
     start = time.monotonic()
@@ -79,7 +80,7 @@ def main() -> None:
         m, se = roi(tr.policy, cfg, opp, args.eval_games, seed=7, fractions=cfg_t.raise_pot_fractions)
         row[f"roi_vs_{opp}"], row[f"se_vs_{opp}"] = round(m, 4), round(se, 4)
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / f"{args.setting}.json").write_text(json.dumps(row, indent=1))
+    (args.out / f"{args.setting}-s{args.seed}.json").write_text(json.dumps(row, indent=1))
     print(json.dumps(row))
 
 
