@@ -342,7 +342,7 @@ def _rl_policy_agent() -> Agent:
     from stalker.rl.policy import Policy, PolicyConfig
     from stalker.rl.train import PolicyAgent
 
-    cfg = load_preset("6max_sng_wta")
+    cfg = load_preset("9max_sng_flat")  # table_size 9: the agent is probed on 6- and 9-max games (L1 uses both)
     n_actions = TournamentEnv(cfg).n_actions
     return PolicyAgent(Policy(PolicyConfig(variant="ai2", n_actions=n_actions), seed=0), cfg, np.random.default_rng(0))
 

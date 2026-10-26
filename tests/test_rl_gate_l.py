@@ -41,4 +41,4 @@ def test_full_gate_l_covers_l2_and_l6_with_the_rl_agent():
     assert not any("torch" in s for s in report.skipped)
     items = gate_l_metrics(report)["gate_l_items"]
     assert items["L2"] == [1, 1] and items["L6"][1] >= 2 and items["L6"][0] == items["L6"][1]
-    assert items["L1"][1] > 6 and items["L5"][1] > 4  # rl_policy_v0 adds its own L1/L5 checks
+    assert items["L1"][1] == 6 and items["L5"][1] == 6  # 3 agents (random, reference, rl_policy_v0) x 2 presets / 2 checks
