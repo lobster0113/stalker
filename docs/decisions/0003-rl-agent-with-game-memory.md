@@ -1,5 +1,6 @@
 # ADR 0003: 핵심 AI는 게임-경계 인식 재귀 정책(RL)이며, ICMizer 상회가 최소 성공 기준이다
 
+- **2026-10-27 ADR 0008에 의해 대체됨.**
 - 상태: 채택 (2026-10-24). ADR 0002를 **부분 대체**한다(아래 "ADR 0002와의 관계").
 - 근거: 사용자 연구보고서 `docs/research/2026-10-24-user-rnd-report.pdf`, 검토 `docs/research/2026-10-24-rnd-report-review.md`.
 

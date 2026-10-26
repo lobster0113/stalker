@@ -1,9 +1,10 @@
 # STALKER — 에이전트 운영 지도
 
-토너먼트 포커 AI를 연구해 사람이 학습하는 시스템. **사람은 개입하지 않는다.** 개발·리뷰·머지·하네스 개선은 모두 에이전트(Claude 루틴)가 한다.
+사람이 따라 할 수 있는 GTO(TP-GTO: Thinking Process를 거쳐서만 행동하는 조건 둔감 최적 전략)와, 그것으로 초보가 고수까지 오르게 돕는 학습 서비스(Training Game·학습 섹션·복기)를 만드는 시스템. 캐시게임·토너먼트 모두 대상. **사람은 개입하지 않는다.** 개발·리뷰·머지·하네스 개선은 모두 에이전트(Claude 루틴)가 한다.
 
 ## 먼저 읽을 것 (이 순서)
-1. `docs/CHARTER.md` — 목적, 불변 요구사항, 북극성 지표. **보호 문서.**
+1. `docs/CHARTER.md` — 목적, 불변 요구사항, 북극성 지표. **보호 문서.** (방향 전환 근거: ADR 0008)
+   `docs/TP.md` — Thinking Process 명세. AI·채점·UI의 공통 계약. **보호 문서.**
 2. `harness/PROTOCOL.md` — 이슈·브랜치·PR·판정·라벨 규칙. 모든 역할 공통.
 3. 너의 역할 지침: `harness/routines/<role>.md`
 4. 운영 상태: `ops` 브랜치의 `STATE.md` (`git fetch origin ops && git show origin/ops:STATE.md`)
@@ -24,7 +25,7 @@ python -m pip install -e ".[dev]"     # Python 3.11+
 python -m referee.gates quick         # G0: 테스트·정적검사 (커밋 전 필수)
 python -m referee.gates full          # G0+G1(+G2 가능 시): PR 전 필수
 ```
-- 패키지: `stalker/` (제품 L0), `referee/` (심판, 보호), `tests/`.
+- 패키지: `stalker/` (제품 L0), `referee/` (심판, 보호), `tests/`, `web/` (학습 서비스 웹앱, 명령은 `web/README.md`).
 - 실패 메시지는 짧고, 고치는 방법을 포함하게 작성한다. 성공은 조용히.
 - 새 의존성은 `pyproject.toml`에 추가하고 PR 본문에 이유를 쓴다. 순수 Python + numpy 우선.
 

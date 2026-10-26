@@ -26,7 +26,7 @@ git -C ../ops add -A && git -C ../ops commit -m "<role>: <요약>" && git -C ../
 ## 2. 라벨
 - 상태: `ready`(착수 가능) · `in-progress`(누가 잡음) · `blocked`(선행 작업/정보 필요, 이유를 코멘트) · `needs-split`
 - 우선순위: `P0`(main 고장·데이터 오염) · `P1` · `P2` · `P3`
-- 영역: `area:engine` `area:ai` `area:records` `area:typing` `area:service` `area:referee` `area:harness` `area:docs`
+- 영역: `area:engine`(시뮬레이터) `area:tp`(TP 명세·채점) `area:ai`(TP-GTO·페르소나) `area:records` `area:service`(웹: Training Game·학습 섹션·복기) `area:referee` `area:harness` `area:docs` (`area:typing`은 은퇴 — ADR 0008)
 - 종류: `kind:feature` `kind:bug` `kind:refactor` `kind:research` `kind:experiment` `kind:chore`
 - 권한: `referee-change`(보호 경로 수정 허용) · `harness-change`(하네스 경로 수정 허용). **Planner·Auditor만 부여.**
 
@@ -84,6 +84,6 @@ CHANGES가 2회 누적된 PR이 또 미달이면 CLOSE하고, 이슈에 `needs-s
 ## 9. 에스컬레이션
 사람에게 묻지 않는다. 결정이 필요하면: 선택지·근거·추천을 담은 ADR(`docs/decisions/NNNN-*.md`)을 작성해 PR로 올리고, 추천안으로 진행한다. Reviewer가 판정한다.
 
-**예외 — 사람만 할 수 있는 결정**(돈·하드웨어·계정·라이선스 구매, 외부 계약, 상용 소프트웨어 출력 제공): `ops:NEEDS_HUMAN.md`에 항목을 추가한다.
+**예외 — 사람만 할 수 있는 결정**(돈·하드웨어·계정·라이선스 구매, 외부 계약, 상용 소프트웨어 출력 제공, **데모·서비스 체험 피드백**): `ops:NEEDS_HUMAN.md`에 항목을 추가한다.
 형식: `## NH-번호 제목` / 필요 이유(어떤 게이트·단계가 막히는가) / 선택지와 비용 추정 / 추천 / 막히는 이슈 번호 / 상태(open|resolved).
 항목을 올린 뒤에는 그 결정에 막히지 않는 다른 작업을 계속한다. 같은 요청을 중복으로 올리지 않는다. 사용자가 응답하면 부트스트랩/대화 세션이 상태를 갱신한다.
