@@ -31,6 +31,7 @@
 
 ## 3. 산출과 운영
 - 이 기준의 계산은 `referee/`의 코드가 하고 CI/배치가 `ops:metrics/`에 기록한다(구현은 Phase 2 `referee-change` 이슈).
+- 기록 키(`referee.metrics.sufficiency()`): `suff_cells`, `suff_lessonable_cells`, `suff_s1_rate`·`suff_s4_rate`·`suff_s5_rate`(셀 통과율), `d1_preliminary`(교훈 가능 셀의 결정 비율, 예비). 데이터셋: 참조 봇 `sng6` 프리셋 100게임, 시드 1(`SUFFICIENCY_*` 상수). 셀이 0개면 모든 비율은 0.
 - **데이터 생성 우선순위**는 "기준 미달 셀 × 실전 출현 빈도"가 큰 순으로 정한다 → 생성 파이프라인(1)이 유형화(2)의 부족분을 겨냥해 데이터를 만든다.
 - 데이터 규모 예상: 셀 수 수천 × ESS 수백 → **수백만 결정 단위**. AI 연동 방식 선택(ADR)에서 결정당 연산 비용은 이 규모를 감당할 수 있는지로 평가한다.
 - 각 기준의 현재 통과율은 북극성 지표(유형화 축)의 일부로 추적한다.
