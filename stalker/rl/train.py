@@ -237,11 +237,18 @@ class Trainer:
         return version
 
 
-def load_policy(path: str | Path | io.BytesIO) -> tuple[Policy, str]:
+def load_checkpoint(path: str | Path | io.BytesIO) -> tuple[Policy, str, tuple[float, ...]]:
+    """Policy, its `policy_version` and the raise fractions it was trained with (they fix the action indices)."""
     ckpt = torch.load(path, weights_only=False)
     policy = Policy(PolicyConfig(**ckpt["policy_config"]), seed=0)
     policy.load_state_dict(ckpt["state_dict"])
-    return policy, ckpt["policy_version"]
+    fractions = tuple(ckpt["train_config"].get("raise_pot_fractions", DEFAULT_RAISE_FRACTIONS))
+    return policy, ckpt["policy_version"], fractions
+
+
+def load_policy(path: str | Path | io.BytesIO) -> tuple[Policy, str]:
+    policy, version, _ = load_checkpoint(path)
+    return policy, version
 
 
 class PolicyAgent(Agent):
