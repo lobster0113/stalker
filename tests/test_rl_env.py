@@ -3,6 +3,7 @@ import dataclasses
 import numpy as np
 import pytest
 
+from stalker.agents.random_agent import RandomLegalAgent
 from stalker.rl.env import GAME_END, GAME_START, TournamentEnv
 from stalker.tournament.config import BlindLevel, TournamentConfig
 
@@ -102,3 +103,17 @@ def test_observation_only_hero_cards():
     res = env.reset(np.random.default_rng(5))
     assert len(res.observation.hole_cards) == 2
     env.close()
+
+
+def test_seat_agents_play_inside_the_game_and_never_reach_step():
+    env = TournamentEnv(hyper_sng())
+    pol = np.random.default_rng(0)
+    res = env.reset(np.random.default_rng(3), seat_agents={p: RandomLegalAgent(np.random.default_rng(p))
+                                                            for p in (1, 2, 4)})
+    seen = set()
+    while not res.done:
+        seen.add(res.player_id)
+        res = env.step(int(pol.choice([i for i, m in enumerate(res.action_mask) if m])))
+    assert seen <= {0, 3, 5} and res.result.illegal_actions == 0
+    with pytest.raises(ValueError, match="player ids"):
+        env.reset(np.random.default_rng(3), seat_agents={6: RandomLegalAgent(np.random.default_rng(0))})

@@ -25,6 +25,46 @@ def test_random_seats_are_scripted_and_not_trained():
     check_segments(segs)
 
 
+def test_reference_seats_play_inside_the_game_and_are_not_trained():
+    tr = Trainer(hyper_sng(), dataclasses.replace(SMALL, random_seats=2, reference_seats=2))
+    for g in ("g-a", "g-b"):
+        segs = tr.play_game(g)
+        assert len(segs) == 2  # 6 players - 2 random - 2 reference
+        check_segments(segs)
+
+
+def test_past_checkpoints_fill_the_pool_and_their_seats_are_not_trained():
+    cfg = dataclasses.replace(SMALL, past_checkpoints=1, past_checkpoint_p=1.0, past_pool_size=2)
+    tr = Trainer(hyper_sng(), cfg)
+    assert len(tr.play_game("g-0")) == 6  # empty pool: pure self-play
+    for _ in range(3):
+        tr.train_step()
+    assert len(tr.past_pool) == 2
+    assert all(not p.requires_grad for snap in tr.past_pool for p in snap.parameters())
+    snap = {k: v.clone() for k, v in tr.past_pool[-1].state_dict().items()}
+    assert all(torch.equal(snap[k], v) for k, v in tr.policy.state_dict().items())
+    segs = tr.play_game("g-1")
+    assert len(segs) == 1  # p=1: every seat but one learner seat is a past snapshot
+    tr.train_step()
+    assert all(torch.equal(snap[k], v) for k, v in tr.past_pool[-2].state_dict().items())  # frozen copy
+
+
+def test_opponent_pool_rejects_configs_without_a_learning_seat():
+    with pytest.raises(ValueError, match="no learning seat"):
+        Trainer(hyper_sng(), dataclasses.replace(SMALL, random_seats=3, reference_seats=3))
+
+
+def test_same_seed_two_steps_same_weights_with_opponent_pool():
+    cfg = dataclasses.replace(SMALL, random_seats=1, reference_seats=1, past_checkpoints=1, past_checkpoint_p=0.5)
+    runs = []
+    for _ in range(2):
+        tr = Trainer(hyper_sng(), cfg)
+        tr.train_step()
+        tr.train_step()
+        runs.append(weights(tr))
+    assert all(torch.equal(runs[0][k], runs[1][k]) for k in runs[0])
+
+
 def weights(trainer):
     return {k: v.clone() for k, v in trainer.policy.state_dict().items()}
 
