@@ -6,6 +6,9 @@ import pytest
 from referee.sufficiency import (S1_HALF_WIDTH, judge_cell, make_cell, rule_of_three, s1_precision,
                                  s4_reproducible, s5_saturated)
 
+# Retired metric (ADR 0008): kept for the record, run only in the full gate (#104).
+pytestmark = pytest.mark.slow
+
 
 def _indep(n, p, seed, per_t=1):
     rng = np.random.default_rng(seed)

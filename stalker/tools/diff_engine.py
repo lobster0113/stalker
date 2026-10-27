@@ -41,8 +41,8 @@ def compare_hand(spec: dict, deal_seed: int, rng: np.random.Generator) -> str | 
     ref = Hand(rng=np.random.default_rng(deal_seed), **spec)
     fast = FastHand(rng=np.random.default_rng(deal_seed), **spec)
     for seat in ref.seats:
-        shown = ref.hole_cards(seat)  # empty when PokerKit already mucked/killed the hand
-        if shown and shown != fast.hole_cards(seat):
+        shown = ref.hole_cards(seat)
+        if shown != fast.hole_cards(seat):
             return f"hole cards seat {seat}: {shown} vs {fast.hole_cards(seat)}"
     while True:
         if ref.is_over != fast.is_over or ref.actor != fast.actor:
