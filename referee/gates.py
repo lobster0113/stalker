@@ -3,12 +3,14 @@
 G0 (quick): byte-compile + fast tests.
 G1 (full):  all tests incl. slow/property tests + registered determinism checks.
 G2 (full):  registered strength evaluations, when available.
-Output policy: silent on success, short actionable text on failure.
+Output policy: one progress line per step on stderr (`[gate] tests ok 312s`) so a long run is
+visibly alive, a one-line summary on stdout, and short actionable text on failure.
 """
 from __future__ import annotations
 
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,12 +19,20 @@ PY = sys.executable
 # Extra full-gate checks: (name, argv). Added via referee-change PRs as the product grows.
 FULL_CHECKS: list[tuple[str, list[str]]] = [
     ("gate_r", [PY, "-m", "referee.gate_r", "--full"]),
+    ("gate_r_edge", [PY, "-m", "referee.gate_r.edge"]),
     ("gate_l", [PY, "-m", "referee.gate_l"]),
 ]
 
 
+TIMINGS: dict[str, float] = {}
+
+
 def _run(name: str, argv: list[str]) -> bool:
+    print(f"[gate] {name} ...", file=sys.stderr, flush=True)
+    t0 = time.monotonic()
     r = subprocess.run(argv, cwd=ROOT, capture_output=True, text=True)
+    TIMINGS[name] = time.monotonic() - t0
+    print(f"[gate] {name} {'ok' if r.returncode == 0 else 'FAIL'} {TIMINGS[name]:.0f}s", file=sys.stderr, flush=True)
     if r.returncode == 0:
         return True
     tail = (r.stdout + r.stderr).strip().splitlines()[-40:]
@@ -48,5 +58,6 @@ def full() -> bool:
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "quick"
     passed = {"quick": quick, "full": full}[mode]()
-    print(f"gates {mode}: {'PASS' if passed else 'FAIL'}")
+    steps = " ".join(f"{k}={v:.0f}s" for k, v in TIMINGS.items())
+    print(f"gates {mode}: {'PASS' if passed else 'FAIL'} ({steps})")
     sys.exit(0 if passed else 1)

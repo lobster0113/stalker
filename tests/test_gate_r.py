@@ -217,7 +217,9 @@ def test_tally_merge_and_rate():
 
 
 # ---- the suite over every preset ----
-_PRESETS = [pytest.param(p, marks=pytest.mark.slow) if p in SLOW_PRESETS else p for p in preset_names()]
+# mtt54 is multi-second too; the quick gate keeps the small presets (#104).
+_PRESETS = [pytest.param(p, marks=pytest.mark.slow) if p in SLOW_PRESETS or p == "mtt54" else p
+            for p in preset_names()]
 
 
 @pytest.mark.parametrize("preset", _PRESETS)
@@ -240,6 +242,7 @@ def test_fast_variant_reaches_antes_and_short_stack_postings():
 
 
 def test_cli_exit_codes(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "run_cash_suite", lambda sessions, hands: (Tally(counts={}), 0))
     good = Tally()
     good.check("button", True)
     monkeypatch.setattr(cli, "run_suite", lambda seeds, full: good)
