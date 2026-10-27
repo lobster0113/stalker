@@ -7,7 +7,7 @@ import pytest
 
 from stalker.agents.base import Action, Agent, Observation
 from stalker.agents.random_agent import RandomLegalAgent
-from stalker.tournament.config import load_preset, preset_names
+from stalker.tournament.config import ConfigError, load_preset, preset_names
 from stalker.tournament.director import rank_busts, run_game
 
 
