@@ -21,44 +21,80 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _leaky_labels(obs, private, teacher, builder):
-    """Card removal with the opponents' real cards: the classic hidden-card leak."""
+    """Reads the deck: the classic hidden-card leak into answer labels."""
     dc, labels = contract_pipeline(obs, private, teacher, builder)
-    dead = {c for seat, cs in private.hole_cards.items() if seat != obs.seat for c in cs}
-    return dc, labels + (tuple(sorted(dead)),)
+    return dc, labels + (private.deck[:4],)
 
 
 def _leaky_policy_input(obs, private, teacher, builder):
     dc, labels = contract_pipeline(obs, private, teacher, builder)
-    return dc + repr(private.deck[:1]), labels
+    return dc + repr(private.deck[-1:]), labels
 
 
-def _leak_free_but_different_teacher(obs, private, teacher, builder):
-    return contract_pipeline(obs, private, teacher, builder)
+def _leaky_opponent_cards(obs, private, teacher, builder):
+    """Reads the opponents' real hole cards from the world state."""
+    dc, labels = contract_pipeline(obs, private, teacher, builder)
+    return dc, labels + tuple(sorted(v for s, v in private.hole_cards.items() if s != obs.seat))
 
 
-def test_l7_passes_for_the_contract_pipeline():
+def test_l7_catches_a_pipeline_reading_opponent_hole_cards():
+    r = Report()
+    check_l7(r, {"fake": _leaky_opponent_cards}, agents={})
+    assert not r.ok and "differ only in hidden cards" in r.failures[0]
+
+
+def test_l7_policy_comparison_catches_a_leaking_engine(monkeypatch):
+    from stalker.core.cards import card_str
+    from stalker.tournament import hand as hand_mod
+
+    real = hand_mod.Hand.board
+    monkeypatch.setattr(hand_mod.Hand, "board",
+                        lambda self: (lambda b: b[:-1] + [card_str(self._deck[-1])] if b else b)(real(self)))
+    r = Report()
+    check_l7(r, pipelines={}, agents={"reference_bot_v1": gate_l.REGISTRY["reference_bot_v1"]})
+    assert not r.ok and all("policy output differs" in f for f in r.failures)
+
+
+def test_l7_checks_pipelines_and_registered_policies():
     r = Report()
     check_l7(r)
-    assert r.ok and r.counts["L7"][0] == r.counts["L7"][1] >= 6
+    n = len(gate_l.l7_decisions(load_preset("6max_sng_wta"), gate_l.L7_SEED, gate_l.L7_DECISIONS))
+    assert r.ok and n == gate_l.L7_DECISIONS
+    assert r.counts["L7"] == [n * (1 + len(gate_l.REGISTRY))] * 2
 
 
 @pytest.mark.parametrize("fake", [_leaky_labels, _leaky_policy_input])
 def test_l7_catches_hidden_card_use(fake):
     r = Report()
-    check_l7(r, {"fake": fake})
+    check_l7(r, {"fake": fake}, agents={})
     assert not r.ok and "differ only in hidden cards" in r.failures[0]
+
+
+def test_l7_catches_an_engine_that_leaks_the_deck_into_observations(monkeypatch):
+    from stalker.core.cards import card_str
+    from stalker.tournament import hand as hand_mod
+
+    real = hand_mod.Hand.board
+    # The bug: the last dealt board card is read from the undealt deck, so hidden cards reach the hero.
+    monkeypatch.setattr(hand_mod.Hand, "board",
+                        lambda self: (lambda b: b[:-1] + [card_str(self._deck[-1])] if b else b)(real(self)))
+    r = Report()
+    check_l7(r, agents={"random_legal": gate_l.REGISTRY["random_legal"]})
+    assert not r.ok
 
 
 def test_hidden_worlds_keep_public_cards_and_vary_hidden_ones():
     cfg = load_preset("6max_sng_wta")
-    obs = next(o for o, _ in record_game(cfg, 71, "l7").decisions if o.board)
-    worlds = gate_l.hidden_worlds(obs, 20, np.random.default_rng(0))
-    others = [s for s in obs.in_hand if s != obs.seat]
-    assert all(w.hole_cards[obs.seat] == tuple(obs.hole_cards) for w in worlds)
-    assert len({w.hole_cards[others[0]] for w in worlds}) > 1
-    for w in worlds:
-        shown = set(obs.hole_cards) | set(obs.board)
-        assert not shown & {c for s in others for c in w.hole_cards[s]}
+    d = gate_l.l7_decisions(cfg, gate_l.L7_SEED, 2)[-1]
+    worlds = gate_l.hidden_worlds(cfg, gate_l.L7_SEED, d, 20, np.random.default_rng(0))
+    first = worlds[0][0]
+    assert first.board and all(o.hole_cards == first.hole_cards and o.board == first.board for o, _ in worlds)
+    assert len({w.deck for _, w in worlds}) == 20
+    opp = next(s for s in first.in_hand if s != first.seat)
+    assert all(set(w.hole_cards) == set(first.stacks) for _, w in worlds)  # every seated player
+    assert all(w.hole_cards[first.seat] == tuple(first.hole_cards) for _, w in worlds)
+    assert len({w.hole_cards[opp] for _, w in worlds}) > 1  # opponents' cards really differ
+    assert all(o == first for o, _ in worlds)  # the engine built identical observations in every world
 
 
 def _annotation_names(fn) -> set[str]:
@@ -118,7 +154,8 @@ def test_decision_context_facts_are_computed_from_public_info():
     assert dc.hero_position in {"blinds", "early", "middle", "late"}
     obs2, po2 = _first_decision(preflop=False)
     dc2 = decision_context(po2)
-    assert dc2.street in {"flop", "turn", "river"} and dc2.street_aggressor is None
+    assert dc2.street in {"flop", "turn", "river"}
+    assert dc2.street_aggressor is None and dc2.preflop_aggressor is None  # documented limit (#127)
 
 
 def test_decision_context_fields_follow_tp_spec():
@@ -142,4 +179,4 @@ def test_opp_range_label_respects_card_removal_and_the_assumed_policy():
 def test_gates_md_l7_matches_implementation():
     gates = (ROOT / "referee" / "GATES.md").read_text(encoding="utf-8")
     row = next(line for line in gates.splitlines() if line.startswith("| L7 |"))
-    assert f"N={gate_l.L7_WORLDS}" in row and "check_l7" in row
+    assert f"N={gate_l.L7_WORLDS}" in row and "check_l7" in row and "정책 출력과 TP 정답 레이블" in row
