@@ -13,14 +13,20 @@ Stream (list of dicts, in order):
   REBUY     {seat, amount, stack}                  stack = chips before the re-buy
   TOPUP     {seat, amount, stack}                  stack = chips before the top-up
 REBUY/TOPUP between a HAND and its HAND_END are in-hand and therefore illegal.
+
+`check_cash_hands` replays the per-hand public events (NEW_HAND/ACTION/SHOWDOWN/HAND_END, as the engine emits
+them to its observer) with the tournament model in `checks.py`: same postings, action order, bet sizing and
+side-pot settlement, with fixed blinds and no ante.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
 
-from referee.gate_r.checks import Tally
+from referee.gate_r.checks import Tally, _check_settlement, _Desync, _HandModel
 
 CASH_ITEMS = ("cash_rebuy", "cash_topup", "button", "chip_conservation", "session_length")
+CASH_HAND_ITEMS = ("antes_blinds", "action_order", "bet_sizing", "street_flow", "settlement")
 
 
 @dataclass(frozen=True)
@@ -34,8 +40,45 @@ class CashRules:
     rake: int = 0  # v1: no rake
 
 
-def tally_for_cash() -> Tally:
-    return Tally(counts={k: [0, 0] for k in CASH_ITEMS})
+def tally_for_cash(items: tuple[str, ...] = CASH_ITEMS) -> Tally:
+    return Tally(counts={k: [0, 0] for k in items})
+
+
+@dataclass(frozen=True)
+class _Table:
+    """The slice of a tournament config `_HandModel` reads."""
+    table_size: int
+    ante_mode: str = "none"
+
+
+def check_cash_hands(rules: CashRules, events: Iterable, tally: Tally, where: str = "cash") -> None:
+    """Replay one session's per-hand events; `tally` needs CASH_HAND_ITEMS and `chip_conservation`."""
+    table = _Table(rules.seats)
+    hand = d = showdown = None
+    for e in events:
+        if e.type == "NEW_HAND":
+            d, showdown = e.data, None
+            at = f"{where} hand {e.hand_id}"
+            tally.check("antes_blinds", (d["sb"], d["bb"], d["ante"]) == (rules.sb, rules.bb, 0),
+                        f"{at}: blinds {d['sb']}/{d['bb']}/{d['ante']}, rules fix {rules.sb}/{rules.bb}/0")
+            hand = _HandModel(table, d, tally, at)
+        elif e.type == "ACTION" and hand is not None:
+            try:
+                hand.apply(e.data)
+            except _Desync:
+                hand = None
+        elif e.type == "SHOWDOWN":
+            showdown = e.data
+        elif e.type == "HAND_END" and d is not None:
+            fs = e.data["final_stacks"]
+            tally.check("chip_conservation", sum(e.data["deltas"].values()) == 0 and all(
+                fs[s] - d["stacks"][s] == e.data["deltas"][s] for s in fs), f"{at}: deltas {e.data['deltas']}")
+            if hand is not None:
+                if not hand.over:
+                    tally.check("action_order", False, f"{at}: hand ended but seat {hand.actor} was still to act")
+                else:
+                    _check_settlement(hand, showdown, fs, tally, at)
+            hand = d = None
 
 
 def check_cash_session(rules: CashRules, events: list[dict], tally: Tally, where: str = "cash") -> None:
