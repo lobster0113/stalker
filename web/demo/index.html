@@ -258,8 +258,9 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .ticks { display: flex; justify-content: space-between; padding-inline: 8px; margin-top: -4px; }
 .ticks i { width: 1px; height: 5px; background: var(--line); }
 
-.rgrid { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 1.5px; user-select: none; touch-action: none; }
+.rgrid { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 1.5px; user-select: none; touch-action: none; container-type: inline-size; }
 .rgrid div { aspect-ratio: 1; border-radius: 2px; background: var(--panel-3); font: 600 clamp(6.5px, .62vw, 8.5px)/1 var(--font-display); display: grid; place-items: center; color: var(--faint); transition: background .15s; overflow: hidden; }
+.rgrid div { font-size: clamp(6.5px, 2.9cqi, 13px); }
 .rgrid div.p { color: #8b979c; }
 .rgrid div.on { background: var(--brass); color: var(--brass-ink); }
 .rgrid div.gto { box-shadow: inset 0 0 0 1.5px var(--good); }
@@ -275,6 +276,39 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .sizes { display: flex; flex-wrap: wrap; gap: 5px; }
 .size { border: 1px solid var(--line); background: var(--ink); border-radius: 8px; padding: 5px 9px; font: 600 13px/1 var(--font-display); color: var(--muted); }
 .size[aria-pressed="true"] { border-color: var(--brass); color: var(--brass-hi); }
+
+/* TP card news: one stage per card */
+.tpc-opp { font-size: 12px; color: var(--muted); }
+.tpc-opp b { color: var(--text); }
+.tpc-view { display: grid; min-width: 0; }
+.tpc { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tpc[hidden] { display: none; }
+.tpc.in-r { animation: tpcInR .38s cubic-bezier(.2,.8,.2,1); }
+.tpc.in-l { animation: tpcInL .38s cubic-bezier(.2,.8,.2,1); }
+@keyframes tpcInR { from { opacity: 0; transform: translateX(42px); } to { opacity: 1; transform: none; } }
+@keyframes tpcInL { from { opacity: 0; transform: translateX(-42px); } to { opacity: 1; transform: none; } }
+.tpc-h { display: flex; align-items: center; gap: 10px; padding: 2px 2px 4px; }
+.tpc-letter { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font: 700 17px/1 var(--font-display); color: var(--brass-ink); background: linear-gradient(180deg, var(--brass-hi), var(--brass)); }
+.tpc-name { font: 700 19px/1 var(--font-display); letter-spacing: .04em; }
+.tpc-count { margin-left: auto; font-size: 13px; color: var(--faint); }
+.tpc-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.tpc-nav .cta[hidden] { display: none; }
+.tpc-nav .cta:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+.dots { display: flex; justify-content: center; gap: 6px; }
+.dot { width: 24px; height: 24px; border-radius: 50%; padding: 0; border: 1px solid var(--line); background: var(--ink-2); color: var(--faint); font: 600 11px/1 var(--font-display); display: grid; place-items: center; transition: all .2s; }
+.dot.done { border-color: rgba(99,196,147,.6); color: var(--good); }
+.dot.cur { border-color: var(--brass); background: var(--brass); color: var(--brass-ink); transform: scale(1.12); }
+.dot:disabled { opacity: .45; cursor: not-allowed; }
+.tpc-note { font-size: 11px; color: var(--faint); text-align: center; }
+.chiprow { display: grid; grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); gap: 5px; }
+.chip-v { border: 1px solid var(--line); background: var(--panel-2); border-radius: 9px; padding: 8px 0; font-size: 14px; font-weight: 600; color: var(--muted); transition: all .15s; min-width: 0; }
+.chip-v:hover { border-color: var(--faint); color: var(--text); }
+.chip-v[aria-pressed="true"] { border-color: var(--brass); background: rgba(214,171,85,.16); color: var(--brass-hi); }
+.presets { display: flex; flex-wrap: wrap; gap: 5px; }
+.presets .size .num { color: var(--faint); margin-left: 3px; }
+.stepper { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.step { border: 1px dashed var(--line); background: transparent; border-radius: 8px; padding: 5px 0; font-size: 13px; color: var(--muted); }
+.step:hover { color: var(--text); border-color: var(--faint); }
 
 /* results */
 .result-top { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
@@ -367,7 +401,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
   .tp { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 45; border-radius: 18px 18px 0 0; max-height: 72vh; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); transform: translateY(calc(100% - 78px - env(safe-area-inset-bottom, 0px))); transition: transform .45s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -20px 50px rgba(0,0,0,.55); }
   .tp.open { transform: none; }
   .handle { display: block; width: 44px; height: 5px; border-radius: 5px; background: var(--line); margin: 0 auto 2px; border: 0; padding: 0; }
-  .rgrid div { font-size: 7px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -1162,42 +1195,77 @@ function setTP(mode) {
     body.innerHTML = `<div class="waiting"><span><span class="spin"><i></i><i></i><i></i></span>&nbsp; 다른 플레이어가 행동하는 중이에요. 내 차례가 오면 여기서 판단을 입력합니다.</span></div>${G.lastGrade ? resultHTML(G.lastGrade, true) : ""}<details ${G.log.length ? "" : ""}><summary>이번 핸드 기록</summary><div class="log" id="hand-log"></div></details>`;
     renderLog(); bindResult(); return;
   }
-  // ask
+  // ask: card news — one card per TP stage (B → F), 이전/다음, last card submits.
   $("#tp-ctx").innerHTML = ctxChips();
   tp.classList.add("open");
-  const opp = CUR.g.opp, items = itemsNow();
-  let html = `<div style="font-size:12px;color:var(--muted)">판단 대상 상대 · <b style="color:var(--text)">${opp.name}</b> (${posName(opp)}) · 이번 게임 관측 <b class="num" style="color:var(--text)">${opp.stats.hands - 1}</b>핸드</div>`;
-  let lastStage = "", n = 0;
-  for (const k of items) {
-    const d = TP[k];
-    if (d.stage !== lastStage) { html += `<div class="stage-label">${d.stage}</div>`; lastStage = d.stage; }
-    n++;
-    const na = naNow(k);
-    html += `<div class="q${na ? " na" : ""}" data-k="${k}"><div class="n">${n}</div><div class="body">${qInput(k, na)}</div></div>`;
-  }
-  body.innerHTML = html; body.scrollTop = 0;
+  const opp = CUR.g.opp, items = itemsNow(), cards = [];
+  for (const k of items) { const st = TP[k].stage; if (!cards.length || cards.at(-1).stage !== st) cards.push({ stage: st, keys: [] }); cards.at(-1).keys.push(k); }
+  CUR.cards = cards; CUR.card = 0;
+  let n = 0;
+  body.innerHTML = `<div class="tpc-opp">판단 대상 상대 · <b>${opp.name}</b> (${posName(opp)}) · 이번 게임 관측 <b class="num">${opp.stats.hands - 1}</b>핸드</div>
+    <div class="tpc-view">${cards.map((c, ci) => `<section class="tpc" data-card="${ci}" ${ci ? "hidden" : ""} aria-label="${c.stage}">
+      <header class="tpc-h"><span class="tpc-letter">${c.stage[0]}</span><span class="tpc-name">${c.stage.slice(2)}</span><span class="tpc-count num">${ci + 1} / ${cards.length}</span></header>
+      ${c.keys.map(k => { n++; const na = naNow(k); return `<div class="q${na ? " na" : ""}" data-k="${k}"><div class="n">${n}</div><div class="body">${qInput(k, na)}</div></div>`; }).join("")}
+    </section>`).join("")}</div>`;
+  body.scrollTop = 0;
   foot.hidden = false;
-  foot.innerHTML = `<button class="cta" id="tp-submit" disabled>제출하고 진행</button><span style="font-size:11px;color:var(--faint);text-align:center">제출하면 판단을 바로 채점하고(정답 ${CONF}), 고른 액션으로 핸드가 진행됩니다. 액션은 점수에 넣지 않아요.</span>`;
-  bindInputs(); $("#tp-submit").onclick = submitTP;
+  foot.innerHTML = `<div class="tpc-nav"><button class="cta ghost small" id="tp-prev">이전</button>
+      <div class="dots" id="tp-dots">${cards.map((c, i) => `<button class="dot" data-go="${i}" aria-label="${c.stage}"><span>${c.stage[0]}</span></button>`).join("")}</div>
+      <button class="cta small" id="tp-next">다음</button><button class="cta small" id="tp-submit" disabled hidden>제출하고 진행</button></div>
+    <span class="tpc-note">제출하면 바로 채점해요(정답 ${CONF}). 액션은 점수에 넣지 않고, 내 차례에는 레벨 시계가 멈춰요.</span>`;
+  bindInputs();
+  $("#tp-prev").onclick = () => goCard(CUR.card - 1);
+  $("#tp-next").onclick = () => goCard(CUR.card + 1);
+  $$("#tp-dots [data-go]").forEach(d => d.onclick = () => goCard(+d.dataset.go));
+  $("#tp-submit").onclick = submitTP;
+  goCard(0, true);
   if (matchMedia("(max-width: 760px)").matches) tp.classList.add("open");
 }
+// A card is done when every graded, applicable item on it has an answer (action also needs a size for raises).
+function cardDone(ci) {
+  return CUR.cards[ci].keys.every(k => {
+    if (TP[k].type === "action") return CUR.action && (CUR.action !== "raise" || CUR.size != null);
+    if (TP[k].reflection || naNow(k)) return true;
+    return CUR.answers[k] != null;
+  });
+}
+const doneUpTo = i => CUR.cards.slice(0, i).every((_, j) => cardDone(j));
+function navState() {
+  const last = CUR.card === CUR.cards.length - 1, done = cardDone(CUR.card);
+  $("#tp-prev").disabled = CUR.card === 0;
+  $("#tp-next").hidden = last; $("#tp-next").disabled = !done;
+  $("#tp-submit").hidden = !last; $("#tp-submit").disabled = !doneUpTo(CUR.cards.length);
+  $$("#tp-dots .dot").forEach((d, i) => { d.classList.toggle("cur", i === CUR.card); d.classList.toggle("done", cardDone(i)); d.disabled = i > CUR.card && !doneUpTo(i); });
+}
+function goCard(i, first) {
+  if (!CUR || i < 0 || i >= CUR.cards.length) return;
+  if (i > CUR.card && !doneUpTo(i)) return;
+  const dir = i >= CUR.card ? "r" : "l";
+  $$("#tp-body .tpc").forEach(c => { const on = +c.dataset.card === i; c.hidden = !on; c.classList.remove("in-r", "in-l"); if (on && !first) { void c.offsetWidth; c.classList.add("in-" + dir); } });
+  CUR.card = i; $("#tp-body").scrollTop = 0; navState();
+}
+// Tap inputs on the tier scale (TP v0.1 §4.1): chips on the tier grid; the 0–100 tier adds a ±1/±5 stepper instead of a slider.
+function scaleChips(step) { const s = Math.max(step, 10), out = []; for (let v = 0; v <= 100; v += s) out.push(v); return out; }
+function chipRow(vals, fmt = v => v) { return `<div class="chiprow" style="--n:${vals.length > 6 ? Math.ceil(vals.length / 2) : vals.length}">${vals.map(v => `<button class="chip-v num" data-chip="${v}" aria-pressed="false">${fmt(v)}</button>`).join("")}</div>`; }
+function stepper(steps) { return `<div class="stepper">${steps.map(d => `<button class="step num" data-step="${d}" aria-label="${d > 0 ? "+" : "−"}${Math.abs(d)}">${d > 0 ? "+" + d : "−" + -d}</button>`).join("")}</div>`; }
+const RANGE_CHIPS = [5, 10, 15, 20, 25, 30, 40, 50, 70, 100];
 function qInput(k, na) {
   const d = TP[k], tier = TIERS[S.tier];
   if (d.type === "range") {
     const edit = S.tier === "pro";
-    return `<div class="t"><span>${d.q}</span><span class="val num" data-val>상위 30%</span></div>
-      <input type="range" min="${S.tier === "beginner" ? 5 : 2}" max="100" step="${S.tier === "beginner" ? 5 : 1}" value="30" data-range aria-label="상대 레인지 상위 퍼센트">
+    return `<div class="t"><span>${d.q}</span><span class="val num" data-val>—</span></div>
+      <div class="presets">${[["타이트", 15], ["보통", 30], ["루즈", 50]].map(([t, v]) => `<button class="size" data-chip="${v}" aria-pressed="false">${t} <span class="num">${v}%</span></button>`).join("")}</div>
+      ${chipRow(RANGE_CHIPS, v => v + "%")}${S.tier === "beginner" ? "" : stepper([-5, -1, 1, 5])}
       <div class="rgrid${edit ? " edit" : ""}" data-grid>${gridCells()}</div>
-      <div class="hint">${edit ? "슬라이더로 채운 뒤 칸을 누르거나 끌어서 고칠 수 있어요." : "대각선 위 = 수딧, 아래 = 오프수트, 대각선 = 페어"}</div>`;
+      <div class="hint">${edit ? "상위 %를 고른 뒤 칸을 눌러 넣고 뺄 수 있어요." : "대각선 위 = 수딧, 아래 = 오프수트, 대각선 = 페어"}</div>`;
   }
   if (d.type === "action") return actionInput();
   if (na) return `<div class="t"><span>${d.q}</span><span class="val num">N/A</span></div><div class="hint">이 상대의 ${d.na.what} 기회가 ${CUR.g.opp.stats[d.na.stat]}/${d.na.min}회라 아직 묻지도 채점하지도 않아요.</div>`;
-  const ticks = tier.step >= 10 ? `<div class="ticks">${"<i></i>".repeat(100 / tier.step + 1)}</div>` : "";
   const q = k === "plan.foldeq" && CUR.g.rep ? `대표 사이즈 ${CUR.g.rep.label}(${bbf(CUR.g.rep.to)}BB)로 ${G.street === 0 || CUR.g.L.toCall ? "레이즈" : "벳"}하면 상대가 ${live().length > 2 ? "모두 " : ""}접을 확률` : d.q;
   const hint = d.reflection ? `<div class="hint">성찰 질문 · 정의가 확정되지 않아 채점하지 않아요(선택 입력).</div>` : k === "plan.foldeq" ? `<div class="hint">결정 전에 묻는 계획 질문이에요. 실제로 고를 액션과 상관없이 답하세요.</div>` : "";
   return `${hint}<div class="t"><span>${q}</span><span class="val num" data-val>—</span></div>
-    <input type="range" min="0" max="100" step="${tier.step}" value="50" data-slider aria-label="${d.q}">${ticks}
-    <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>`;
+    <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>
+    ${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
 }
 function gridCells() {
   const cells = new Array(169);
@@ -1223,28 +1291,40 @@ function actionInput() {
 }
 function setFill(inp) { inp.style.setProperty("--fill", ((inp.value - inp.min) / (inp.max - inp.min) * 100) + "%"); }
 function bindInputs() {
-  const check = () => { const need = itemsNow().filter(k => TP[k].type !== "action" && !TP[k].reflection && !naNow(k)); const ok = need.every(k => CUR.answers[k] != null) && CUR.action && (CUR.action !== "raise" || CUR.size != null); $("#tp-submit").disabled = !ok; };
-  $$("[data-slider]").forEach(inp => { setFill(inp); inp.addEventListener("input", () => { const k = inp.closest(".q").dataset.k; CUR.answers[k] = +inp.value; inp.closest(".body").querySelector("[data-val]").textContent = inp.value; setFill(inp); check(); }); });
-  const rs = $("[data-range]");
-  if (rs) {
-    const grid = $("[data-grid]"); let keys = classesInTop(+rs.value); CUR.rangeKeys = keys; paintGrid(grid, keys);
-    const upd = () => { keys = classesInTop(+rs.value); CUR.rangeKeys = keys; CUR.answers["opp.range"] = +rs.value; CUR.rangeEdited = false; paintGrid(grid, keys); $("[data-val]", rs.closest(".body")).textContent = "상위 " + rs.value + "%"; setFill(rs); check(); };
-    setFill(rs); rs.addEventListener("input", upd);
+  const minOf = k => TP[k].type === "range" ? (S.tier === "beginner" ? 5 : 2) : 0;
+  const setVal = (q, v, fromGrid) => {
+    const k = q.dataset.k; v = clamp(Math.round(v), minOf(k), 100);
+    CUR.answers[k] = v;
+    $$("[data-chip]", q).forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.chip === v && !fromGrid)));
+    if (TP[k].type === "range") {
+      if (!fromGrid) { CUR.rangeKeys = classesInTop(v); CUR.rangeEdited = false; paintGrid($("[data-grid]", q), CUR.rangeKeys); }
+      $("[data-val]", q).textContent = fromGrid ? `약 ${v}% (편집)` : `상위 ${v}%`;
+    } else $("[data-val]", q).textContent = v;
+    navState();
+  };
+  $$("#tp-body .q[data-k]").forEach(q => {
+    const k = q.dataset.k;
+    $$("[data-chip]", q).forEach(c => c.onclick = () => setVal(q, +c.dataset.chip));
+    $$("[data-step]", q).forEach(c => c.onclick = () => setVal(q, (CUR.answers[k] ?? (TP[k].type === "range" ? 30 : 50)) + +c.dataset.step));
+  });
+  const grid = $("#tp-body [data-grid]");
+  if (grid) {
+    paintGrid(grid, new Set());
     if (grid.classList.contains("edit")) {
       let painting = null;
       const at = e => { const t = document.elementFromPoint(e.clientX, e.clientY); return t && t.dataset && t.dataset.key ? t : null; };
-      grid.addEventListener("pointerdown", e => { const c = at(e); if (!c) return; painting = !keys.has(c.dataset.key); grid.setPointerCapture(e.pointerId); toggle(c); });
+      const toggle = c => { const keys = new Set(CUR.rangeKeys || []); painting ? keys.add(c.dataset.key) : keys.delete(c.dataset.key); CUR.rangeKeys = keys; CUR.rangeEdited = true; paintGrid(grid, keys); const combos = [...keys].reduce((a, k) => a + CLASS_BY_KEY[k].combos, 0); setVal(grid.closest(".q"), Math.max(2, combos / 1326 * 100), true); };
+      grid.addEventListener("pointerdown", e => { const c = at(e); if (!c) return; painting = !(CUR.rangeKeys || new Set()).has(c.dataset.key); grid.setPointerCapture(e.pointerId); toggle(c); });
       grid.addEventListener("pointermove", e => { if (painting == null) return; const c = at(e); if (c) toggle(c); });
       grid.addEventListener("pointerup", () => painting = null);
-      const toggle = c => { keys = new Set(keys); painting ? keys.add(c.dataset.key) : keys.delete(c.dataset.key); CUR.rangeKeys = keys; CUR.rangeEdited = true; const combos = [...keys].reduce((a, k) => a + CLASS_BY_KEY[k].combos, 0); CUR.answers["opp.range"] = Math.round(combos / 1326 * 100); $("[data-val]", rs.closest(".body")).textContent = "약 " + CUR.answers["opp.range"] + "% (편집)"; paintGrid(grid, keys); check(); };
     }
   }
   $$("[data-act]").forEach(b => b.addEventListener("click", () => {
     $$("[data-act]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.action = b.dataset.act; CUR.size = null;
     const sz = $("[data-sizes]"); sz.hidden = CUR.action !== "raise"; $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", "false"));
-    $("[data-val]", b.closest(".body")).textContent = b.textContent; check();
+    $("[data-val]", b.closest(".body")).textContent = b.textContent; navState();
   }));
-  $$("[data-size]").forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; check(); }));
+  $$("[data-size]").forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; navState(); }));
 }
 function scoreScalar(u, g) { const tol = TIERS[S.tier].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * 2.4)) }; }
 function submitTP() {
