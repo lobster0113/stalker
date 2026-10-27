@@ -15,6 +15,10 @@ Design note #192 §3. A decision's key is
 - pot odds: to_call / (pot + to_call), steps 0 (nothing to call), <20%, <30%, <40%, >=40%.
 - SPR: effective stack / pot, steps <1, <3, <6, >=6 (preflop: one value).
 
+Call-or-fold-only spots (facing an all-in or a capped raise) use the short key
+`call | street | n_opp | pot-odds step | legal | hand.equity step`: the TP for a call is equity
+against the required equity.
+
 Every feature except hand.equity is public, so one key covers the same TP situation reached by
 different histories — that is the "condition-insensitive" requirement (CHARTER), checked by Gate S.
 Public ranges are each seat's reach probability over the 1326 combos, Bayes-updated from that
@@ -115,8 +119,14 @@ def equity_steps(s: G.State, seat: int, ranges: list[np.ndarray], k: int) -> np.
 
 def public_key(s: G.State, seat: int) -> str:
     n_opp = min(len(s.live()) - 1, 3)
+    legal = "".join(G.legal(s))
+    if legal in ("fc", "c"):
+        # Call or fold only (facing an all-in or a capped raise): the TP for a call asks just
+        # hand.equity against the required equity (ADR 0011 D1), so seat, raise count, initiative
+        # and SPR are not part of the key. Fewer keys -> these rare spots learn from more samples.
+        return f"call|{s.street}|{n_opp}|{pot_odds_step(s, seat)}|{legal}"
     return (f"{seat}|{s.street}|{n_opp}|{raise_level(s)}|{initiative(s, seat)}|"
-            f"{pot_odds_step(s, seat)}|{spr_step(s, seat)}|{''.join(G.legal(s))}")
+            f"{pot_odds_step(s, seat)}|{spr_step(s, seat)}|{legal}")
 
 
 def key(public: str, step: int) -> str:
