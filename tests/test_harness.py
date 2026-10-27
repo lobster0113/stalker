@@ -107,6 +107,18 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "python -m referee.gates full" in gates and "rl]" not in gates
 
 
+def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    web = ci.split("\n  web:\n", 1)[1].split("\n\n", 1)[0]
+    minutes = int(re.search(r"timeout-minutes: (\d+)", web).group(1))
+    assert minutes <= 15
+    assert "npm test" in web and "playwright install" in web
+    assert "name: web-screenshots" in web and "if: always()" in web
+    script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text()
+    assert "scrollWidth" in script and "critical" in script
+    assert all(f"{w}" in script for w in ("390", "820", "1440"))
+
+
 def test_texassolver_job_is_manual_capped_and_secretless():
     wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
     on = wf.split("\non:\n", 1)[1].split("\n\n", 1)[0]
@@ -260,3 +272,21 @@ def test_should_run_lock_race_lets_only_one_run():
                        commit=lambda p, c, m: written.append((p, c)) or True)
     assert ok and written[0][0] == "locks/builder.json"
     assert {"run_id", "started"} <= set(__import__("json").loads(written[0][1]))
+
+
+def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
+    import yaml
+
+    bad = []
+    for wf in sorted((ROOT / ".github" / "workflows").glob("*.y*ml")):
+        try:
+            doc = yaml.safe_load(wf.read_text(encoding="utf-8"))
+        except yaml.YAMLError as e:
+            bad.append(f"{wf.name}: YAML parse error ({e.problem}, line {e.problem_mark.line + 1}) - quote scalars containing ': '")
+            continue
+        # PyYAML reads the bare key `on` as boolean True (YAML 1.1)
+        if not isinstance(doc, dict) or not ({"on", True} & doc.keys()):
+            bad.append(f"{wf.name}: missing top-level `on:` trigger")
+        elif not isinstance(doc.get("jobs"), dict) or not doc["jobs"]:
+            bad.append(f"{wf.name}: missing or empty `jobs:`")
+    assert not bad, "\n".join(bad)
