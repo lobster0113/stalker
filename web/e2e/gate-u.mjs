@@ -56,6 +56,31 @@ await inspect("home");
 await page.click("#start-btn");
 await page.waitForSelector("#tp-body .tpc:not([hidden])");
 await inspect("train-input");
+// #163: the level clock is frozen while it is my turn (the TP panel is open).
+if (await page.locator("#lv-left").count()) {
+  const before = (await page.textContent("#lv-left")).trim();
+  await page.waitForTimeout(2500);
+  must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
+}
+// #164: answer card 1, go next, come back with "이전": same card and the answer is kept.
+{
+  const first = page.locator("#tp-body .tpc:not([hidden])");
+  const stage = await first.getAttribute("data-card");
+  const chip = first.locator(".q:not(.na) [data-chip]").first();
+  if (await chip.count()) {
+    await chip.click();
+    for (const q of await first.locator(".q:not(.na)").all()) if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+    if (await page.locator("#tp-next").isEnabled()) {
+      await page.click("#tp-next");
+      must((await page.locator("#tp-body .tpc:not([hidden])").getAttribute("data-card")) !== stage, "다음: 카드가 바뀌지 않음");
+      await page.click("#tp-prev");
+      const back = page.locator("#tp-body .tpc:not([hidden])");
+      must((await back.getAttribute("data-card")) === stage, "이전: 처음 카드로 돌아오지 않음");
+      must((await back.locator(".q:not(.na) [data-chip][aria-pressed='true']").count()) > 0, "이전: 입력했던 답이 사라짐");
+      must((await page.locator("#tp-dots .dot.cur").count()) === 1, "이전: 진행 점 표시 없음");
+    }
+  }
+}
 // TP input is a card deck (B board → C opponent → D hand → E plan → F action → G checks): answer every
 // question on the visible card with its first chip (or a non-fold action and a size), then go next.
 for (let guard = 0; guard < 12; guard++) {
@@ -82,6 +107,18 @@ await inspect("train-result", "#tp-body .result-top");
 await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
 await inspect("learn-gallery");
+// #165: opening a module turns the gallery into a side list; "← 전체" brings the gallery back.
+await page.locator("#mods .mod[data-k='hand.rank']").click();
+await page.waitForSelector("#learn.open #drill:not([hidden])");
+must(!(await page.locator("#learn").getAttribute("class")).includes("gallery"), "모듈을 열었는데 갤러리 레이아웃 그대로");
+// Rank quiz: pick a hand rank for both hands, grade, and see the result.
+for (const who of [0, 1]) await page.locator(`.rk-opts[data-who='${who}'] button`).first().click();
+must(await page.locator("#dr-go").isEnabled(), "족보 맞히기: 둘 다 골랐는데 정답 확인 비활성");
+await page.click("#dr-go");
+must((await page.locator("#dr-res").innerHTML()).trim() !== "", "족보 맞히기: 채점 결과가 비어 있음");
+await inspect("learn-rank", "#dr-res");
+await page.click("#dr-back");
+await page.waitForSelector("#learn.gallery");
 await page.locator("#mods .mod:not(.locked)").nth(1).click();
 await page.waitForSelector("#dr-go");
 if (await page.locator("#drill [data-chip]").count()) await page.locator("#drill [data-chip]").first().click();
