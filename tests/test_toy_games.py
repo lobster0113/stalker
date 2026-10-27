@@ -105,8 +105,19 @@ def test_train_cli_writes_log_and_strategy(tmp_path):
     lines = [json.loads(x) for x in out.read_text().splitlines()]
     assert [r["iteration"] for r in lines] == [100, 200] == [r["iteration"] for r in rows]
     assert lines[1]["exploitability"] < lines[0]["exploitability"]
-    strategy = json.loads(out.with_suffix(".strategy.json").read_text())
-    assert set(strategy) == set(infosets(kuhn.game()))
+    saved = json.loads(out.with_suffix(".strategy.json").read_text())
+    assert saved["seed"] == 0 and set(saved["strategy"]) == set(infosets(kuhn.game()))
+
+
+def test_train_cli_records_seed_and_cfr_plus_ignores_it(tmp_path):
+    from stalker.toy.train import main
+
+    assert main(["--game", "kuhn", "--iters", "10", "--seed", "1", "--out", str(tmp_path / "a.jsonl")]) == 0
+    assert main(["--game", "kuhn", "--iters", "10", "--seed", "7", "--out", str(tmp_path / "b.jsonl")]) == 0
+    a = [json.loads(x) for x in (tmp_path / "a.jsonl").read_text().splitlines()]
+    b = [json.loads(x) for x in (tmp_path / "b.jsonl").read_text().splitlines()]
+    assert {r["seed"] for r in a} == {1} and {r["seed"] for r in b} == {7}
+    assert [r["exploitability"] for r in a] == [r["exploitability"] for r in b]
 
 
 @pytest.mark.slow

@@ -66,9 +66,12 @@ class CFRPlus:
         return out
 
 
-def train(root: Node, iterations: int, every: int,
-          on_log: Callable[[int, dict], None]) -> dict[str, list[float]]:
-    """Run CFR+ and call `on_log(iteration, average_strategy)` every `every` iterations and at the end."""
+def train(root: Node, iterations: int, every: int, on_log: Callable[[int, dict], None],
+          rng: np.random.Generator | None = None) -> dict[str, list[float]]:
+    """Run CFR+ and call `on_log(iteration, average_strategy)` every `every` iterations and at the end.
+
+    `rng` is accepted for sampled CFR variants; full-traversal CFR+ does not draw from it.
+    """
     if iterations < 1 or every < 1:
         raise ValueError("iterations and every must be >= 1")
     solver = CFRPlus(root)
