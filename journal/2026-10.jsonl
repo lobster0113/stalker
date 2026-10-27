@@ -307,3 +307,4 @@
 {"ts": "2026-10-27T21:18:02Z", "role": "reviewer-b", "outcome": "merged", "issue": 160, "pr": 162, "notes": "TP 고수 검토 조사 문서 1개, guard 해소·범위 분리 확인, CI green", "friction": ""}
 {"ts": "2026-10-27T21:18:02Z", "role": "reviewer-b", "outcome": "changes", "issue": 156, "pr": 198, "notes": "L3 지적 해결, 그러나 gates가 브랜치의 옛 30분 한도로 cancelled → main merge 후 재실행 요구", "friction": "한도 변경(#200) 전에 시작된 PR CI는 재실행해도 옛 ci.yml이라 새 push가 필요"}
 {"ts": "2026-10-27T21:18:02Z", "role": "reviewer-b", "outcome": "changes", "issue": 152, "pr": 154, "notes": "main과 충돌(dirty), 이 sha에 CI 실행 0건 → merge·충돌 해결 요구, edge.py:470 주석은 referee-change 후속으로", "friction": "충돌 PR은 CI가 아예 안 돌아 builder가 모른 채 10시간 이상 방치"}
+{"ts":"2026-10-27T21:20:35Z","role":"reviewer","outcome":"skipped","issue":110,"pr":210,"notes":"not my parity","friction":""}
