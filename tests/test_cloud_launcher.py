@@ -289,3 +289,29 @@ def test_cloud_workflow_guards():
     assert "--sync-cmd" in wf and "push_ledger.sh" in wf
     assert "if: always()" in wf.split("- name: push ledger", 1)[1].split("\n")[1]
     assert all("${{ inputs." not in line for line in wf.splitlines() if "launcher.py" in line or "case" in line)
+
+
+def test_http_transport_sends_a_user_agent(monkeypatch):
+    import urllib.request
+
+    seen = {}
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"{}"
+
+    def fake(req, timeout=0):
+        seen.update({k.lower(): v for k, v in req.header_items()})
+        return Resp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    launcher = L
+    launcher.http_transport("k")("GET", launcher.REST_URL + "/pods", None)
+    assert seen["user-agent"].startswith("stalker-launcher/") and "python-urllib" not in seen["user-agent"].lower()
+    assert seen["accept"] == "application/json"
