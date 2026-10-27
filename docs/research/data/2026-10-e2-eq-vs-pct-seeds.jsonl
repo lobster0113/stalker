@@ -1,0 +1,6 @@
+{"run": "eq5", "seed": 11, "iters": 100000, "train_s": 6294, "lbr_bb": 0.7903, "stderr_bb": 0.2595, "seat0_bb": 0.6971, "seat1_bb": 0.8835, "hands": 1000}
+{"run": "eq5", "seed": 12, "iters": 100000, "train_s": 6141, "lbr_bb": 0.869, "stderr_bb": 0.2458, "seat0_bb": 0.8223, "seat1_bb": 0.9156, "hands": 1000}
+{"run": "eq5", "seed": 13, "iters": 100000, "train_s": 6157, "lbr_bb": 0.6667, "stderr_bb": 0.254, "seat0_bb": 0.3794, "seat1_bb": 0.954, "hands": 1000}
+{"run": "pct5", "seed": 11, "iters": 100000, "train_s": 1471, "lbr_bb": 0.7638, "stderr_bb": 0.2446, "seat0_bb": 1.3038, "seat1_bb": 0.2238, "hands": 1000}
+{"run": "pct5", "seed": 12, "iters": 100000, "train_s": 1484, "lbr_bb": 1.2833, "stderr_bb": 0.2486, "seat0_bb": 1.5953, "seat1_bb": 0.9713, "hands": 1000}
+{"run": "pct5", "seed": 13, "iters": 100000, "train_s": 1456, "lbr_bb": 0.4342, "stderr_bb": 0.2527, "seat0_bb": 0.559, "seat1_bb": 0.3093, "hands": 1000}
