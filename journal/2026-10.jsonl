@@ -348,3 +348,4 @@
 {"ts":"2026-10-27T23:19:59Z","role":"reviewer","outcome":"skipped","issue":159,"pr":214,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T23:20:53Z","role":"reviewer","outcome":"skipped","issue":161,"pr":212,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T23:21:24Z","role":"reviewer-b","outcome":"changes","issue":159,"pr":214,"notes":"CHANGES 2nd: width_default not linear for width>=0.3 per own shape_of; guard red (stale base.sha artifact)","friction":"guard diffs merge ref against stale pull_request.base.sha, so main commits merged after the PR base (#207,#215) show as protected-path changes; should diff against merge-base"}
+{"ts":"2026-10-27T23:22:06Z","role":"reviewer","outcome":"skipped","issue":219,"pr":220,"notes":"not my parity","friction":""}
