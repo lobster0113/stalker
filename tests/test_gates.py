@@ -20,3 +20,23 @@ def test_summary_names_the_slowest_step(monkeypatch):
     assert gates.summary("full", True) == "gates full: PASS (compile=0s tests=410s gate_r=520s) slowest=gate_r"
     monkeypatch.setattr(gates, "TIMINGS", {})
     assert gates.summary("quick", False) == "gates quick: FAIL ()"
+
+
+def test_parts_split_the_full_gate_without_dropping_anything(monkeypatch):
+    seen = {}
+    for part in ("all", "tests", "checks"):
+        calls = []
+        monkeypatch.setattr(gates, "_run", lambda name, argv, calls=calls: calls.append(name) or True)
+        assert gates.full(part)
+        seen[part] = calls
+    checks = [n for n, _ in gates.FULL_CHECKS]
+    assert seen["all"] == ["compile", "tests"] + checks
+    assert seen["tests"] == ["compile", "tests"] and seen["checks"] == ["compile"] + checks
+    assert set(seen["tests"]) | set(seen["checks"]) == set(seen["all"])
+
+
+def test_unknown_part_is_rejected():
+    import pytest
+
+    with pytest.raises(SystemExit, match="part"):
+        gates.full("bogus")
