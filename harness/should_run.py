@@ -14,6 +14,10 @@ The planner also runs early when the ready queue is low (`ready_floor`, experime
 builders idling on no_work cost more than an extra planner run.
 With `run_on_merge` the planner also runs as soon as main has a commit newer than its last
 run, so a merge refills the queue without waiting for the interval (a PR-closed webhook plus an hourly cron wake it).
+
+`--sweep` runs are throttled against the previous sweep only (`ops:locks/<role>.sweep.json`,
+written with the lock), not the journal: webhook runs log far more often than hourly, so
+comparing with any run starved the sweep and left PRs without new events unjudged (#205).
 """
 from __future__ import annotations
 
@@ -86,6 +90,15 @@ def read_lock(role: str) -> dict | None:
         return None  # a corrupt lock must not block the role forever
 
 
+def last_sweep(role: str) -> datetime | None:
+    """Start time of role's previous --sweep run on origin/ops (caller fetches first), or None."""
+    raw = _git("show", f"origin/ops:locks/{role}.sweep.json")
+    try:
+        return _ts(json.loads(raw)["started"]) if raw else None
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return None  # a corrupt stamp means one extra sweep, never a stalled one
+
+
 def ready_count() -> int | None:
     """Open `ready` issues nobody holds (not in-progress/blocked), or None if unknown."""
     m = re.search(r"github\.com[/:]([^/]+/[^/]+?)(?:\.git)?/?$", _git("remote", "get-url", "origin").strip())
@@ -113,6 +126,7 @@ def run_id() -> str:
 
 def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = read_lock,
            last_run: Callable[[str], datetime | None] = last_run,
+           last_sweep: Callable[[str], datetime | None] = last_sweep,
            ready_count: Callable[[], int | None] = ready_count,
            main_updated_at: Callable[[], datetime | None] = main_updated_at,
            now: datetime | None = None) -> tuple[bool, str]:
@@ -132,9 +146,9 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
     hours = cfg.get("sweep_min_interval_hours" if sweep else "min_interval_hours", 0)
     if hours <= 0:
         return True, "no throttle"
-    prev = last_run(role)
+    prev = last_sweep(role) if sweep else last_run(role)
     if prev is None:
-        return True, "no previous run"
+        return True, "no previous sweep" if sweep else "no previous run"
     elapsed = now - prev
     # 10-minute grace so hourly triggers that start a little early still run.
     if elapsed + timedelta(minutes=10) < timedelta(hours=hours):
@@ -149,12 +163,12 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
                 n = ready_count()
                 if n is not None and n <= floor:
                     return True, f"queue low: {n} ready <= {floor}, last run {elapsed} ago"
-        return False, f"last run {elapsed} ago < {hours}h"
-    return True, f"last run {elapsed} ago"
+        return False, f"last {'sweep' if sweep else 'run'} {elapsed} ago < {hours}h"
+    return True, f"last {'sweep' if sweep else 'run'} {elapsed} ago"
 
 
-def _commit_ops(path: str, content: str | None, message: str) -> bool:
-    """Commit one file change onto origin/ops and push without a worktree.
+def _commit_ops(files: dict[str, str | None], message: str) -> bool:
+    """Commit file changes (None deletes) onto origin/ops in one commit and push without a worktree.
 
     The push is fast-forward only, so if another run changed ops meanwhile it fails and
     the caller re-reads the lock: two runs that woke together cannot both take it.
@@ -165,18 +179,19 @@ def _commit_ops(path: str, content: str | None, message: str) -> bool:
     with tempfile.TemporaryDirectory() as d:
         env = {"GIT_INDEX_FILE": str(Path(d) / "index")}
         _git("read-tree", parent, env=env)
-        if content is None:
-            _git("update-index", "--force-remove", path, env=env)
-        else:
-            blob = _git("hash-object", "-w", "--stdin", stdin=content).strip()
-            _git("update-index", "--add", "--cacheinfo", f"100644,{blob},{path}", env=env)
+        for path, content in files.items():
+            if content is None:
+                _git("update-index", "--force-remove", path, env=env)
+            else:
+                blob = _git("hash-object", "-w", "--stdin", stdin=content).strip()
+                _git("update-index", "--add", "--cacheinfo", f"100644,{blob},{path}", env=env)
         tree = _git("write-tree", env=env).strip()
     commit = _git("commit-tree", tree, "-p", parent, "-m", message).strip()
     return bool(commit) and _git_ok("push", "-q", "origin", f"{commit}:refs/heads/ops")
 
 
 def acquire(role: str, sweep: bool, decide_fn: Callable[..., tuple[bool, str]] = decide,
-            commit: Callable[[str, str | None, str], bool] = _commit_ops,
+            commit: Callable[[dict[str, str | None], str], bool] = _commit_ops,
             fetch: Callable[[], object] = lambda: _git("fetch", "-q", "origin", "ops")) -> tuple[bool, str]:
     ok, why = True, ""
     for _ in range(LOCK_TRIES):
@@ -186,7 +201,10 @@ def acquire(role: str, sweep: bool, decide_fn: Callable[..., tuple[bool, str]] =
             return ok, why
         lock = {"role": role, "run_id": run_id(),
                 "started": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
-        if commit(f"locks/{role}.json", json.dumps(lock) + "\n", f"{role}: lock"):
+        files = {f"locks/{role}.json": json.dumps(lock) + "\n"}
+        if sweep:
+            files[f"locks/{role}.sweep.json"] = files[f"locks/{role}.json"]
+        if commit(files, f"{role}: lock"):
             return ok, why
     # Fail open: an unreachable ops branch must not stall every routine.
     return True, f"{why}; lock not taken (ops push failed)"
@@ -201,7 +219,7 @@ def release(role: str) -> str:
             return "no lock"
         if lock.get("run_id") != run_id():
             return f"lock belongs to {lock.get('run_id')}; left as is"
-        if _commit_ops(f"locks/{role}.json", None, f"{role}: unlock"):
+        if _commit_ops({f"locks/{role}.json": None}, f"{role}: unlock"):
             return "released"
     return "release failed; lock expires after lock_hours"
 
