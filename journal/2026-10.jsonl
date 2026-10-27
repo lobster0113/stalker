@@ -346,3 +346,4 @@
 {"ts":"2026-10-27T23:18:24Z","role":"reviewer","outcome":"skipped","issue":161,"pr":212,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T23:19:23Z","role":"reviewer-b","outcome":"changes","issue":161,"pr":212,"notes":"ADR 0011 content OK (prior 3 fixes verified); blocked only by guard failure at 0be0f95","friction":"guard false positive: --base uses stale pull_request.base.sha (2d0fd98) diffed against PR merge ref with newer main (36fecb4), so main harness changes (ci.yml, experiments/016) count as PR changes. Guard should diff merge-base(origin/<base.ref>, head) or check out head sha."}
 {"ts":"2026-10-27T23:19:59Z","role":"reviewer","outcome":"skipped","issue":159,"pr":214,"notes":"not my parity","friction":""}
+{"ts":"2026-10-27T23:20:53Z","role":"reviewer","outcome":"skipped","issue":161,"pr":212,"notes":"not my parity","friction":""}
