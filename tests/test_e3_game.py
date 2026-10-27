@@ -83,3 +83,28 @@ def test_heads_up_button_is_the_small_blind_and_acts_last_postflop():
     assert s.street == 1 and s.to_act == 1                 # BB first postflop
     s = _play(s, "k", "k")
     assert s.street == 2 and s.to_act == 1
+
+
+@pytest.mark.slow
+def test_ten_thousand_random_hands_finish_and_conserve_chips():
+    rng = np.random.default_rng(194)
+    for n, hands in ((2, 3000), (6, 4000), (9, 3000)):
+        for _ in range(hands):
+            s = G.random_playout(rng, n)
+            assert s.done and G.payoff(s).sum() == 0
+
+
+def test_tie_split_gives_odd_chips_to_the_first_winners_in_postflop_order():
+    from stalker.core.cards import cards
+
+    s = G.deal(np.random.default_rng(0), 4)               # UTG, BTN, SB, BB
+    hole = tuple(tuple(cards(h)) for h in ("2c3d", "4c5d", "6c7d", "8c9d"))
+    board = tuple(cards("AsKsQsJsTs"))                    # royal flush on board: every live hand ties
+    rest = tuple(c for c in range(52) if c not in board and all(c not in h for h in hole))
+    s = s._replace(hole=hole, deck=board + rest)
+    s = _play(s, "c", "c", "f", "c")                      # UTG, BTN call; SB folds; BB checks
+    while not s.done:
+        s = G.apply(s, "k")
+    assert s.pot == 350 and sorted(s.live()) == [0, 1, 3]
+    # 350 / 3 = 116 rest 2: postflop order is BB, UTG, BTN, so BB and UTG get the odd chips.
+    assert list(G.payoff(s)) == [17, 16, -50, 17]
