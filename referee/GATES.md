@@ -5,7 +5,7 @@
 
 ## Gate R — 시뮬레이터 규칙 정확성 (상시 CI, 모든 게이트의 전제)
 - 칩 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 블라인드·앤티(일반/BB 앤티)와 숏스택 징수, 탈락·순위·상금 배분. 통과율 100%.
-- 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`를 기록한다.
+- 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`(토너먼트)와 `gate_r_cash_pass_rate`·`gate_r_cash_checks`(캐시)를 기록한다.
 - 방법: 모든 프리셋 × 구조 변형 × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 게임을 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, `evaluator.py`, `settlement.py`)로 재생해 칩 단위로 대조한다.
 - 검사 항목: `antes_blinds`, `action_order`, `bet_sizing`, `street_flow`, `settlement`, `chip_conservation`, `button`, `stack_continuity`, `elimination`, `prizes`.
 - 규칙 명세(교과서에 없는 부분은 ADR 0005의 엔진 규칙과 같게 고정):
@@ -32,6 +32,10 @@
   | `button` | 핸드마다 버튼이 다음 좌석으로 한 칸 이동 |
   | `chip_conservation` | 핸드 전후 테이블 전체 칩 동일, 음수 스택 없음, 핸드 시작 스택 = 추적 스택, 좌석별 순손익(최종 스택 − 총 바이인) 합 = −레이크 |
   | `session_length` | 핸드 수 = 설정값, 핸드가 열린 채 끝나지 않음, 좌석 수 = 설정값이고 첫 핸드 뒤 좌석 추가 없음 |
+- **캐시 3자 일치(SIM-b2·SIM-c)**: `referee/gate_r/cash_suite.py`가 캐시 프리셋 9개 × 세션(무작위 합법 봇·콜링 스테이션 × 탑업 있음/없음, 고정 시드)을 `FastHand`와 PokerKit `Hand`로 같은 시드에 각각 돌린다.
+  - `engine_agreement`: 두 엔진의 세션 스트림(SEAT/HAND/HAND_END/REBUY/TOPUP)·핸드 이벤트·최종 스택·리바이·탑업이 같다. 핸드를 끝내는 액션의 `pot` 하나만 비교에서 뺀다(PokerKit은 지급 뒤 0, FastHand는 지급 전 값을 보고하는 표시값이며, 뒤따르는 스택·델타는 전부 비교한다).
+  - 두 엔진 스트림 각각을 독립 모델로 재생한다: 세션 검사 5종(위 표)과 핸드 검사(`antes_blinds`: SB/BB 고정·앤티 0, `action_order`·`bet_sizing`·`street_flow`·`settlement`는 토너먼트와 같은 모델). 그래서 두 엔진이 같은 오답에 합의해도 모델이 잡는다.
+  - 규모: `python -m referee.gate_r`(지표용 기본) 프리셋당 2세션×100핸드, `--full` 프리셋당 12세션×1000핸드 = 합계 108,000핸드(엔진당). quick 게이트(pytest)는 프리셋당 2세션×50핸드. 통과율 100%.
 - 규칙 명세를 바꾸는 것은 referee-change다. 엔진이 명세와 다르면 엔진을 고친다(검사를 xfail로 돌리지 않는다).
 - **통과가 보증하는 것과 아닌 것**: Gate R 100%는 "지정한 검사 집합에서 세 구현(PokerKit·FastHand·독립 모델)이 일치"를 뜻한다. 모든 가능한 상태의 무오류를 보증하지 않는다(세 구현이 같은 해석 결함을 공유할 수 있다). 그래서 경계 항목(`button`, 숏 올인 재오픈, 미콜 반환, 동점 분할·홀수 칩, 동시 탈락, 탑업)마다 손으로 검증한 골든 케이스를 두고, 공개 핸드 기록(PHH) 재생은 규칙 환경이 맞는 게임만 쓰며 배제 사유를 기록한다.
 - **토너먼트 시계(확장 시)**: 레벨 길이가 시간 단위면 대회 전역 가상 시계를 쓴다. 테이블별 핸드 완료 이벤트가 시계를 진행시키고, 블라인드 상승은 "상승 시각 이후 시작하는 핸드"부터 적용, 테이블 병합·이동은 핸드 사이에만. 가상 시간은 실제 대회의 근사임을 결과에 표시한다.

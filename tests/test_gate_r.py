@@ -242,6 +242,7 @@ def test_fast_variant_reaches_antes_and_short_stack_postings():
 
 
 def test_cli_exit_codes(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "run_cash_suite", lambda sessions, hands: (Tally(counts={}), 0))
     good = Tally()
     good.check("button", True)
     monkeypatch.setattr(cli, "run_suite", lambda seeds, full: good)
