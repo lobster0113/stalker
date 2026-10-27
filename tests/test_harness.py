@@ -299,3 +299,16 @@ def test_two_reviewers_split_prs_by_parity():
     assert {k: v for k, v in sched["reviewer-b"].items()} == {k: v for k, v in sched["reviewer"].items()}
     text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
     assert "홀수" in text and "짝수" in text and "reviewer-b" in text
+
+
+def test_reviewer_locks_are_separate_per_role():
+    sr = _should_run()
+    seen = []
+    sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_run=lambda r: None)
+    sr.decide("reviewer", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_run=lambda r: None)
+    assert seen == ["reviewer-b", "reviewer"]  # each role reads ops:locks/<role>.json
+    # A held reviewer lock does not block reviewer-b.
+    held = {"role": "reviewer", "run_id": "x", "started": NOW.isoformat()}
+    ok, _ = sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: held if r == "reviewer" else None,
+                      last_run=lambda r: None)
+    assert ok
