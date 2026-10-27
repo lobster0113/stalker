@@ -54,37 +54,93 @@ async function inspect(tag, focus) {
 await page.goto(url);
 await inspect("home");
 await page.click("#start-btn");
-await page.waitForSelector("#tp-submit");
+await page.waitForSelector("#tp-body .tpc:not([hidden])");
 await inspect("train-input");
-await page.evaluate(() => {
-  for (const el of document.querySelectorAll("[data-slider], [data-range]")) {
-    el.value = Math.round((+el.min + +el.max) / 2);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
+// #163: the level clock is frozen while it is my turn (the TP panel is open).
+must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
+{
+  const before = (await page.textContent("#lv-left")).trim();
+  await page.waitForTimeout(2500);
+  must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
+}
+// #164: answer card 1, go next, come back with "이전": same card and the answer is kept.
+{
+  const first = page.locator("#tp-body .tpc:not([hidden])");
+  const stage = await first.getAttribute("data-card");
+  const chip = first.locator(".q:not(.na) [data-chip]").first();
+  if (await chip.count()) {
+    await chip.click();
+    for (const q of await first.locator(".q:not(.na)").all()) if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+    if (await page.locator("#tp-next").isEnabled()) {
+      await page.click("#tp-next");
+      must((await page.locator("#tp-body .tpc:not([hidden])").getAttribute("data-card")) !== stage, "다음: 카드가 바뀌지 않음");
+      await page.click("#tp-prev");
+      const back = page.locator("#tp-body .tpc:not([hidden])");
+      must((await back.getAttribute("data-card")) === stage, "이전: 처음 카드로 돌아오지 않음");
+      must((await back.locator(".q:not(.na) [data-chip][aria-pressed='true']").count()) > 0, "이전: 입력했던 답이 사라짐");
+      must((await page.locator("#tp-dots .dot.cur").count()) === 1, "이전: 진행 점 표시 없음");
+    }
   }
-});
-await page.click("[data-act]:not([disabled]):not([data-act='fold'])");
-if (await page.locator("[data-sizes]:not([hidden])").count()) await page.click("[data-size]");
-must(!(await page.locator("#tp-submit").isDisabled()), "TP 입력을 채웠는데 제출 버튼이 비활성");
+}
+// TP input is a card deck (B board → C opponent → D hand → E plan → F action → G checks): answer every
+// question on the visible card with its first chip (or a non-fold action and a size), then go next.
+for (let guard = 0; guard < 12; guard++) {
+  const card = page.locator("#tp-body .tpc:not([hidden])");
+  for (const q of await card.locator(".q:not(.na)").all()) {
+    if (await q.locator("[data-act]").count()) {
+      await q.locator("[data-act]:not([disabled]):not([data-act='fold'])").first().click();
+      if (await page.locator("[data-sizes]:not([hidden]) [data-size]").count()) await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
+    } else if (await q.locator("[data-chip]").count()) {
+      await q.locator("[data-chip]").first().click();
+    }
+  }
+  const next = page.locator("#tp-next");
+  if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
+  break;
+}
+must(await page.locator("#tp-submit").isVisible() && await page.locator("#tp-submit").isEnabled(), "TP 카드를 다 채웠는데 제출 버튼이 비활성");
 await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
 must((await page.textContent("#tp-body .result-top .ring")).trim() !== "", "채점 점수가 비어 있음");
 await inspect("train-result", "#tp-body .result-top");
 
-// 2. 학습 섹션 1문제
+// 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
+await page.waitForSelector("#mods .mod:not(.locked)");
+await inspect("learn-gallery");
+// #165: opening a module turns the gallery into a side list; "← 전체" brings the gallery back.
+await page.locator("#mods .mod[data-k='hand.rank']").click();
+await page.waitForSelector("#learn.open #drill:not([hidden])");
+must(!(await page.locator("#learn").getAttribute("class")).includes("gallery"), "모듈을 열었는데 갤러리 레이아웃 그대로");
+// Rank quiz: pick a hand rank for both hands, grade, and see the result.
+for (const who of [0, 1]) await page.locator(`.rk-opts[data-who='${who}'] button`).first().click();
+must(await page.locator("#dr-go").isEnabled(), "족보 맞히기: 둘 다 골랐는데 정답 확인 비활성");
+await page.click("#dr-go");
+must((await page.locator("#dr-res").innerHTML()).trim() !== "", "족보 맞히기: 채점 결과가 비어 있음");
+await inspect("learn-rank", "#dr-res");
+await page.click("#dr-back");
+await page.waitForSelector("#learn.gallery");
+await page.locator("#mods .mod:not(.locked)").nth(1).click();
 await page.waitForSelector("#dr-go");
+if (await page.locator("#drill [data-chip]").count()) await page.locator("#drill [data-chip]").first().click();
 await page.click("#dr-go");
 must((await page.locator("#dr-res").innerHTML()).trim() !== "", "학습 섹션: 정답 확인 후 결과가 비어 있음");
 await inspect("learn", "#dr-res");
 
-// 3. 복기: 핸드 입력 → 비교
+// 3. 복기: 단계(포지션 → 핸드 → 프리플랍 …) → 비교
 await page.click(".tab[data-view='review']");
-await page.waitForSelector("#rv-deck");
+await page.waitForSelector("#rv-next");
+await page.click("#rv-next");                                       // 포지션: 기본 자리
 for (let i = 0; i < 2; i++) await page.click("#rv-deck button:not([disabled])");
-await page.click("#rv-go");
+await page.click("#rv-next");                                       // 핸드 → 프리플랍
+for (let guard = 0; guard < 12 && await page.locator("#rv-bar [data-rv]").count(); guard++) {
+  const fold = page.locator("#rv-bar [data-rv='fold']:not([disabled])");
+  if (await fold.count()) await fold.click(); else await page.locator("#rv-bar [data-rv='check'], #rv-bar [data-rv='call']").first().click();
+}
+for (let guard = 0; guard < 8 && await page.locator("#rv-next:not([disabled])").count(); guard++) await page.click("#rv-next");
 await page.waitForSelector("#rv-out .rrow");
-must((await page.textContent("#rv-out h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
-await inspect("review", "#rv-out h2");
+must((await page.textContent("#rv-body h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
+await inspect("review", "#rv-body h2");
 
 await browser.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
