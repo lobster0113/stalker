@@ -36,6 +36,16 @@ def test_heads_up_button_posts_small_blind_and_acts_first():
     assert la.seat == 1 and la.call_amount == 1 and la.min_raise_to == 4 and la.max_raise_to == 100
 
 
+def test_hole_cards_survive_a_hand_that_ends_while_dealing():
+    # BB all-in for 1 chip with the SB already matching it: no one acts, PokerKit runs out and mucks the
+    # loser inside the constructor. The session/director read hole cards after that (#147 cash agreement).
+    for seed in range(8):
+        ref, fast = _pair(seed, stacks=[100, 1], button=0, small_blind=1, big_blind=2)
+        assert ref.is_over and fast.is_over
+        for seat in (0, 1):
+            assert len(ref.hole_cards(seat)) == 2 and ref.hole_cards(seat) == fast.hole_cards(seat)
+
+
 def test_short_all_in_does_not_reopen_betting():
     kw = dict(stacks=[1000, 1000, 1000, 130], button=0, small_blind=5, big_blind=10)
     ref, fast = _pair(**kw)
@@ -106,3 +116,25 @@ def test_validation_matches_hand():
         kw = dict(small_blind=1, big_blind=2) | bad
         with pytest.raises(ValueError):
             FastHand(rng=np.random.default_rng(0), **kw)
+
+
+def test_public_state_accessors_match_pokerkit():
+    # stacks/bets/pot feed agent observations in CashSession, so both engines must report them identically.
+    rng = np.random.default_rng(99)
+    for seed in range(40):
+        n = int(rng.integers(2, 10))
+        kw = dict(stacks=[int(x) for x in rng.integers(1, 300, n)], button=int(rng.integers(n)),
+                  small_blind=1, big_blind=2)
+        ref, fast = _pair(seed, **kw)
+        while not fast.is_over:
+            assert (fast.stacks, fast.bets, fast.pot) == (ref.stacks, ref.bets, ref.pot)
+            la = fast.legal_actions()
+            r = rng.random()
+            for h in (ref, fast):
+                if la.can_fold and r < 0.2:
+                    h.fold()
+                elif la.min_raise_to is not None and r > 0.7:
+                    h.raise_to(la.min_raise_to if r < 0.9 else la.max_raise_to)
+                else:
+                    h.check_or_call()
+        assert ref.is_over

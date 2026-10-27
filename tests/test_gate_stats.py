@@ -138,6 +138,7 @@ class _Folder(Agent):
         return Action("call")
 
 
+@pytest.mark.slow  # multi-second; full gate only (#104)
 def test_aa_random_vs_random_ci_contains_zero():
     cfg = load_preset("6max_sng_wta")
     # A fixed-seed 95% CI misses 0 for ~5% of seeds by design (seed 0 does under the contiguous mask);
@@ -159,6 +160,7 @@ def test_evaluate_is_deterministic_and_records_settings():
     assert d["games"] == 16 and d["schema_version"] == 2
 
 
+@pytest.mark.slow  # multi-second; full gate only (#104)
 def test_evaluate_detects_a_clearly_better_agent():
     cfg = load_preset("6max_sng_wta")
     res = evaluate(cfg, _random, lambda rng: _Folder(), blocks=30, seed=1)

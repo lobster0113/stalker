@@ -1,0 +1,7 @@
+{
+  "name": "stalker-web-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node gate-u.mjs" },
+  "devDependencies": { "axe-core": "4.10.2", "playwright": "1.49.1" }
+}

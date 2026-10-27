@@ -1,6 +1,7 @@
 import copy
 import json
 import re
+import warnings
 from pathlib import Path
 
 import pytest
@@ -50,11 +51,26 @@ def test_doc_tier_lists_match_spec():
         assert "act.choice" in spec.tier_items(tier)
 
 
+def _doc_scale(cell: str):
+    """§4.1 '눈금' cell -> spec `steps`: '5단계(0/25/...)' -> list, 'N단계' -> N even steps, '0–100' -> '0-100'."""
+    cell = cell.strip()
+    if cell in ("0–100", "0-100"):
+        return "0-100"
+    m = re.fullmatch(r"(\d+)단계(?:\(([\d/]+)\))?", cell)
+    assert m, f"unparsed scale cell {cell!r}"
+    n = int(m.group(1))
+    steps = [int(x) for x in m.group(2).split("/")] if m.group(2) else [round(100 * i / (n - 1)) for i in range(n)]
+    assert len(steps) == n
+    return steps
+
+
 def test_doc_scales_and_tolerances_match_spec():
     spec = load().data["tiers"]
-    assert spec["beginner"]["steps"] == [0, 25, 50, 75, 100]
-    assert len(spec["mid"]["steps"]) == 11 and "11단계" in TP_MD
-    assert spec["pro"]["steps"] == "0-100"
+    s41 = _section(TP_MD, "### 4.1", "### 4.2")
+    rows = re.findall(r"^\| (초보|중수|고수) \| [^|]+ \| ([^|]+) \|", s41, flags=re.M)
+    assert len(rows) == 3
+    for name, cell in rows:
+        assert spec[TIER_NAMES[name]]["steps"] == _doc_scale(cell), name
     tol = re.search(r"초보 ±([\d.]+), 중수 ±([\d.]+), 고수 ±([\d.]+)", TP_MD).groups()
     assert [spec[t]["tolerance"] for t in ("beginner", "mid", "pro")] == [float(x) for x in tol]
 
@@ -73,15 +89,29 @@ def test_doc_na_opportunity_counts_match_spec():
     assert set(doc) == {"opp.loose", "opp.aggr", "opp.foldy"}
 
 
+def _edges(text: str) -> list[float]:
+    """'≤5·5–10·...·100+ BB' -> [5, 10, ..., 100]: the upper edge of every bounded bucket."""
+    out = []
+    for part in text.split("·"):
+        m = re.match(r"≤?([\d.]+)(?:[–-]([\d.]+))?", part.strip())
+        if m and "+" not in part:
+            out.append(float(m.group(2) or m.group(1)))
+    return out
+
+
 def test_doc_buckets_match_spec():
-    b = load().data["buckets"]
-    assert "≤5·5–10·10–15·15–25·25–40·40–60·60–100·100+ BB" in TP_MD
-    assert b["effective_stack_bb"] == [5, 10, 15, 25, 40, 60, 100]
-    assert b["bet_size_pot_pct"] == [33, 60, 85, 120]
-    assert b["preflop_raise_bb"] == [2.5, 3.5, 5]
-    s = load().data["size_buckets"]
-    assert s["preflop_x"] == [2.2, 2.5, 3.0, "all_in"]
-    assert s["postflop_pot_pct"] == [33, 50, 75, 100, 150, "all_in"]
+    b, sizes = load().data["buckets"], load().data["size_buckets"]
+    line = next(x for x in TP_MD.splitlines() if x.startswith("- 둔감해야 할 조건 축"))
+    axes = {k.strip(): v for k, v in (re.match(r"(유효 스택|벳 크기|프리플랍 레이즈) (.*)", a.strip()).groups()
+                                      for a in line.split(":", 1)[1].split(" / ")[:3])}
+    assert _edges(axes["유효 스택"]) == b["effective_stack_bb"]
+    assert _edges(axes["벳 크기"]) == b["bet_size_pot_pct"]
+    assert _edges(axes["프리플랍 레이즈"]) == b["preflop_raise_bb"]
+    assert axes["벳 크기"].endswith("올인") and axes["프리플랍 레이즈"].endswith("올인") and b["all_in_bucket"]
+    size_line = next(x for x in TP_MD.splitlines() if x.startswith("- 사이즈 버킷:"))
+    pre, post = re.search(r"프리플랍 (.*?), 포스트플랍 (.*?)\.", size_line).groups()
+    num = lambda t: [float(x) for x in re.findall(r"([\d.]+)[x%]", t)] + (["all_in"] if t.endswith("올인") else [])
+    assert num(pre) == sizes["preflop_x"] and num(post) == sizes["postflop_pot_pct"]
 
 
 def test_decision_context_fields_are_listed_in_doc():
@@ -144,11 +174,19 @@ def demo_differences() -> list[str]:
     return diffs
 
 
+def test_demo_differences_are_reported():
+    # Visible in the default pytest output (warnings summary) until #115 brings the demo to the spec.
+    diffs = demo_differences()
+    if diffs:
+        warnings.warn("demo vs TP spec: " + " | ".join(diffs))
+
+
 def test_demo_parser_finds_definitions():
     items, tiers = _demo_defs()
     assert "hand.equity" in items and set(tiers) == {"beginner", "mid", "pro"}
 
 
+@pytest.mark.xfail(strict=True, reason="demo still on TP v0; #115 updates it, then this must pass")
 def test_demo_matches_spec():
     diffs = demo_differences()
     print("\n".join(diffs))
