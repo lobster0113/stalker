@@ -62,3 +62,4 @@
 30. [x] reviewer 스윕 기아 발견(17:23Z): 웹훅 실행이 1시간 스로틀을 갱신해 #190·#200이 판정되지 않음 → 이슈 #205, 임시로 #200 라벨 재부착으로 웹훅 발생. 결과: E2 eq5 3만 회 0.33(pct5 1.03), 분위 50단계 기준선 10만 회 1.72(학습 안 됨), 착취자 6만 회 ~1.0(LBR 1.52), #195 리뷰 반영(gates만 남음, #204 flaky·#203 Gate R 후속).
 31. [x] 아침 보고 페이지(초안, 계속 갱신): https://claude.ai/artifact/6HTiYdM7opL4DFEwYo2aB5 . 전략 브라우저 v6(6인 100BB 프리플랍 근사 차트 추가).
 32. [x] 18:3xZ #200·#190 머지 → 열린 PR 12개에 main 병합(CI 재실행, 50분 상한·xdist). gates 병렬 분할 PR #207(#206) 열림. 다음: 바탕 PR 머지되는 대로 쌓인 브랜치 PR 열기.
+33. [x] #176 머지(reviewer-b 역할 등록) → reviewer-b 다시 켬(enabled:true). 짝수 PR은 reviewer-b, 홀수 PR은 reviewer.
