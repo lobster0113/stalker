@@ -78,6 +78,7 @@ def quantile_buckets(x: np.ndarray, w: np.ndarray, k: int) -> np.ndarray:
     return out
 
 
+@lru_cache(maxsize=1)
 def _class_weights() -> np.ndarray:
     w = np.zeros(len(HAND_CLASSES))
     for a, b in COMBOS:
