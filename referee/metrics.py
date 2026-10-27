@@ -32,9 +32,8 @@ def code_size() -> dict:
 
 
 def gate_r() -> dict:
-    from referee.gate_r.suite import run_suite
-
     from referee.gate_r.cash_suite import run_cash_suite
+    from referee.gate_r.suite import run_suite
 
     tally = run_suite()
     cash, _ = run_cash_suite()

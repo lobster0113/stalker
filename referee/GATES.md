@@ -6,6 +6,7 @@
 ## Gate R — 시뮬레이터 규칙 정확성 (상시 CI, 모든 게이트의 전제)
 - 칩 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 블라인드·앤티(일반/BB 앤티)와 숏스택 징수, 탈락·순위·상금 배분. 통과율 100%.
 - 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`(토너먼트)와 `gate_r_cash_pass_rate`·`gate_r_cash_checks`(캐시)를 기록한다.
+- 엣지 케이스(SIM-d): `python -m referee.gate_r.edge [--cases N]`(`gates full`의 `gate_r_edge`, 로컬 약 25초). 무작위 플레이로는 드문 상황 8종 — 숏 올인 연쇄, 3개 이상 사이드팟+동점 분할+홀수 칩, 앤티로만 올인, 블라인드 숏, 보드 플레이 분할, 휠·키커, 헤즈업 전환 직후, 동시 다중 탈락 — 을 고정 시드로 일부러 만들고, 분류기가 그 상황이 실제로 일어났다고 확인한 케이스만 센다(종마다 ≥ 50, 못 채우면 실패). 핸드 6종은 덱을 고정해 PokerKit `Hand`·`FastHand`를 같은 액션으로 진행(항목 `engines`: 매 단계 액터·합법 액션, 끝의 카드·`HandResult` 일치)하고 같은 이벤트를 독립 모델로 재생한다. 게임 2종은 `run_game` + 위 검사 전체. 경계 항목별 손계산 골든 케이스는 `tests/test_gate_r_edge.py`(기대값과 계산 근거 주석).
 - 방법: 모든 프리셋 × 구조 변형 × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 게임을 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, `evaluator.py`, `settlement.py`)로 재생해 칩 단위로 대조한다.
 - 검사 항목: `antes_blinds`, `action_order`, `bet_sizing`, `street_flow`, `settlement`, `chip_conservation`, `button`, `stack_continuity`, `elimination`, `prizes`.
 - 규칙 명세(교과서에 없는 부분은 ADR 0005의 엔진 규칙과 같게 고정):
