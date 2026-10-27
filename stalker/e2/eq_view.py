@@ -22,7 +22,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from referee.anchors.hu_equity import evaluate_batch
+from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.core.cards import COMBO_INDEX, COMBOS
 from stalker.e2 import game as G
 from stalker.e2.abstraction import _class_weights, _combo_classes, quantile_buckets
