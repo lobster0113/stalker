@@ -3,10 +3,12 @@ import dataclasses
 import numpy as np
 import pytest
 
-from referee.gate_l import Report, check_l3
+from referee.gate_l import _PipelineAgent, foreign_table_events, scan_leaks
 from stalker.agents.base import Action
 from stalker.agents.persona import PRESETS, PersonaAgent, PersonaParams, persona_params
 from stalker.agents.persona_stats import measure_session
+from stalker.tournament.config import load_preset
+from stalker.tournament.director import run_game
 
 NAMES = sorted(PRESETS)
 GROUPS = [NAMES[i:i + 3] for i in range(0, 9, 3)]  # three personas under test + three tag fillers per 6-max table
@@ -70,13 +72,34 @@ def test_same_seed_same_actions():
     assert run(2)[0] != la
 
 
+class _SeatedPersona(_PipelineAgent):
+    """_PipelineAgent whose actions come from a PersonaAgent, so the L3 scan covers the persona's own games."""
+
+    def __init__(self, persona, cfg):
+        super().__init__(np.random.default_rng(0), cfg)
+        self.persona, self.acted = persona, 0
+
+    def act(self, observation):
+        mem = self.store.get(observation.game_id)
+        self.built.append((self.builder.build(observation, mem), observation, set(self.public), len(self.events)))
+        self.decisions.append((observation, len(self.events)))
+        self.acted += 1
+        return self.persona.act(observation)
+
+
 def test_persona_passes_gate_l_l3_scan():
-    # L3 scans what ObservationBuilder hands a policy; the persona consumes `Observation` fields only.
-    report = Report()
-    check_l3(report, presets=("6max_sng_wta",))
-    assert report.ok, report.failures
-    import inspect
-    import stalker.agents.persona as mod
-    src = inspect.getsource(mod)
-    for banned in ("seed", "deck", "all_stacks", ".events", "hand_start_stack"):
-        assert banned not in src.replace("persona seed", "")
+    # Seat PersonaAgents in a real game; every observation they receive goes through ObservationBuilder + scan_leaks.
+    cfg = load_preset("6max_sng_wta")
+    ss = np.random.SeedSequence(3).spawn(cfg.players)
+    agents = [_SeatedPersona(PersonaAgent(persona_params(NAMES[i % len(NAMES)]), np.random.default_rng(s)), cfg)
+              for i, s in enumerate(ss)]
+    run_game(cfg, agents, np.random.default_rng(3), game_id="persona-l3")
+    bad, decisions = [], 0
+    for a in agents:
+        for ho, obs, public, _ in a.built:
+            decisions += 1
+            bad += scan_leaks(ho, set(obs.hole_cards) | set(obs.board) | public)
+        bad += foreign_table_events(a.events, a.decisions[0][0].player_id if a.decisions else -1)
+    assert decisions > 0 and sum(a.acted for a in agents) == decisions
+    assert not bad, bad[:3]
+
