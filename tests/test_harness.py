@@ -259,7 +259,7 @@ def test_should_run_lock_race_lets_only_one_run():
     def decide(role, sweep):
         return sr.decide(role, sweep, now=NOW, read_lock=locks.get, last_run=lambda r: None)
 
-    def lost_race(path, content, msg):
+    def lost_race(files, msg):
         locks["builder"] = _lock_at(0)  # another run pushed its lock first
         return False
 
@@ -269,9 +269,51 @@ def test_should_run_lock_race_lets_only_one_run():
     locks.clear()
     written = []
     ok, _ = sr.acquire("builder", False, decide_fn=decide, fetch=lambda: None,
-                       commit=lambda p, c, m: written.append((p, c)) or True)
-    assert ok and written[0][0] == "locks/builder.json"
-    assert {"run_id", "started"} <= set(__import__("json").loads(written[0][1]))
+                       commit=lambda f, m: written.append(f) or True)
+    assert ok and list(written[0]) == ["locks/builder.json"]  # non-sweep runs leave the sweep stamp alone
+    assert {"run_id", "started"} <= set(__import__("json").loads(written[0]["locks/builder.json"]))
+
+
+def _decide_sweep(last_sweep_hours_ago, lock=None, last_run_seconds_ago=45):
+    from datetime import timedelta
+    sr = _should_run()
+    return sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: lock,
+                     last_run=lambda r: NOW - timedelta(seconds=last_run_seconds_ago),
+                     last_sweep=lambda r: None if last_sweep_hours_ago is None
+                     else NOW - timedelta(hours=last_sweep_hours_ago))
+
+
+def test_sweep_throttle_ignores_webhook_runs():
+    # #205: a webhook run 45s ago used to make the hourly sweep SKIP forever.
+    ok, why = _decide_sweep(2.0)
+    assert ok and "sweep" in why, why
+    ok, why = _decide_sweep(None)
+    assert ok and why == "no previous sweep"
+    ok, why = _decide_sweep(0.5, last_run_seconds_ago=7200)
+    assert not ok and why.startswith("last sweep") and "<" in why
+    ok, why = _decide_sweep(2.0, lock=_lock_at(0.5))
+    assert not ok and why.startswith("running")
+
+
+def test_sweep_run_stamps_its_start_with_the_lock():
+    import json
+    sr = _should_run()
+    written = []
+    ok, _ = sr.acquire("reviewer-b", True, fetch=lambda: None,
+                       decide_fn=lambda role, sweep: (True, "x"),
+                       commit=lambda f, m: written.append(f) or True)
+    assert ok and len(written) == 1  # one commit: lock and stamp land (or fail) together
+    files = written[0]
+    assert set(files) == {"locks/reviewer-b.json", "locks/reviewer-b.sweep.json"}
+    assert json.loads(files["locks/reviewer-b.sweep.json"])["role"] == "reviewer-b"
+
+
+def test_last_sweep_tolerates_missing_or_corrupt_stamp(monkeypatch):
+    sr = _should_run()
+    for raw, want in [("", None), ("{bad", None), ('{"x": 1}', None),
+                      ('{"started": "2026-10-26T11:00:00Z"}', NOW.replace(hour=11))]:
+        monkeypatch.setattr(sr, "_git", lambda *a, raw=raw, **k: raw)
+        assert sr.last_sweep("reviewer") == want
 
 
 def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
@@ -304,11 +346,11 @@ def test_two_reviewers_split_prs_by_parity():
 def test_reviewer_locks_are_separate_per_role():
     sr = _should_run()
     seen = []
-    sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_run=lambda r: None)
-    sr.decide("reviewer", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_run=lambda r: None)
+    sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
+    sr.decide("reviewer", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
     assert seen == ["reviewer-b", "reviewer"]  # each role reads ops:locks/<role>.json
     # A held reviewer lock does not block reviewer-b.
     held = {"role": "reviewer", "run_id": "x", "started": NOW.isoformat()}
     ok, _ = sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: held if r == "reviewer" else None,
-                      last_run=lambda r: None)
+                      last_sweep=lambda r: None)
     assert ok
