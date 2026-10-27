@@ -15,6 +15,10 @@ Design note #192 §3. A decision's key is
 - pot odds: to_call / (pot + to_call), steps 0 (nothing to call), <20%, <30%, <40%, >=40%.
 - SPR: effective stack / pot, steps <1, <3, <6, >=6 (preflop: one value).
 
+Call-or-fold-only spots (facing an all-in or a capped raise) use the short key
+`call | street | n_opp | pot-odds step | legal | hand.equity step`: the TP for a call is equity
+against the required equity.
+
 Every feature except hand.equity is public, so one key covers the same TP situation reached by
 different histories — that is the "condition-insensitive" requirement (CHARTER), checked by Gate S.
 Public ranges are each seat's reach probability over the 1326 combos, Bayes-updated from that
@@ -81,12 +85,29 @@ def spr_step(s: G.State, seat: int) -> int:
     return int(np.searchsorted(SPR_EDGES, eff / max(s.pot, 1), side="right"))
 
 
+_EQ_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray]] = {}
+
+
+def _equity_cached(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
+    # Within a walk, seats that did not act keep the same range object, so siblings and descendants
+    # reuse it; the entry holds `w` itself so its id cannot be recycled while cached.
+    key = (board, id(w))
+    hit = _EQ_CACHE.get(key)
+    if hit is not None and hit[0] is w:
+        return hit[1]
+    if len(_EQ_CACHE) > 20_000:
+        _EQ_CACHE.clear()
+    eq = equity_vs(board, w)
+    _EQ_CACHE[key] = (w, eq)
+    return eq
+
+
 def multi_equity(s: G.State, seat: int, ranges: list[np.ndarray]) -> np.ndarray:
     """P(beat all remaining opponents) for every combo of `seat` (nan on board collisions)."""
     eq = np.ones(N)
     for q in s.live():
         if q != seat:
-            eq = eq * equity_vs(tuple(s.board), ranges[q])
+            eq = eq * _equity_cached(tuple(s.board), ranges[q])
     return eq
 
 
@@ -98,8 +119,14 @@ def equity_steps(s: G.State, seat: int, ranges: list[np.ndarray], k: int) -> np.
 
 def public_key(s: G.State, seat: int) -> str:
     n_opp = min(len(s.live()) - 1, 3)
+    legal = "".join(G.legal(s))
+    if legal in ("fc", "c"):
+        # Call or fold only (facing an all-in or a capped raise): the TP for a call asks just
+        # hand.equity against the required equity (ADR 0011 D1), so seat, raise count, initiative
+        # and SPR are not part of the key. Fewer keys -> these rare spots learn from more samples.
+        return f"call|{s.street}|{n_opp}|{pot_odds_step(s, seat)}|{legal}"
     return (f"{seat}|{s.street}|{n_opp}|{raise_level(s)}|{initiative(s, seat)}|"
-            f"{pot_odds_step(s, seat)}|{spr_step(s, seat)}|{''.join(G.legal(s))}")
+            f"{pot_odds_step(s, seat)}|{spr_step(s, seat)}|{legal}")
 
 
 def key(public: str, step: int) -> str:

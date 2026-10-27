@@ -33,6 +33,7 @@ class E3MCCFR:
         self.avg: dict[str, np.ndarray] = defaultdict(lambda: None)
         self.iterations = 0
         self.nodes = 0
+        self.visits: dict[str, int] = defaultdict(int)  # traverser updates per key (coverage diagnostics)
 
     def _sigma(self, key: str, m: int) -> np.ndarray:
         r = self.regret.get(key)
@@ -78,6 +79,7 @@ class E3MCCFR:
             v = float(sigma @ vals)
             reg = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(reg + (vals - v), 0, out=reg)
+            self.visits[key] += 1
             return v
         i = int(self.rng.choice(len(acts), p=sigma))
         avg = self.avg[key]
@@ -90,6 +92,18 @@ class E3MCCFR:
     def current_policy(self) -> dict[str, list[float]]:
         """The regret-matching strategy of the last iteration (no early-iteration residue in it)."""
         return {k: self._sigma(k, len(r)).tolist() for k, r in self.regret.items()}
+
+
+def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
+    """Per value of one key field (default: the legal-action set), how many keys and how many had
+    fewer than 10 traverser updates — where the table is still close to its uniform start."""
+    out: dict[str, dict[str, float]] = {}
+    for k, v in m.visits.items():
+        f = k.split("|")[by]
+        d = out.setdefault(f, {"keys": 0, "under10": 0})
+        d["keys"] += 1
+        d["under10"] += v < 10
+    return out
 
 
 def main(argv=None) -> int:

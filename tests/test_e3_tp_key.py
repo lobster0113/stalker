@@ -63,3 +63,10 @@ def test_mccfr_is_reproducible_and_policies_are_distributions():
     assert all(abs(sum(v) - 1) < 1e-9 for v in pa.values())
     assert all(k.split("|")[-1].startswith("e") for k in a.regret)
     assert len(a.regret) <= K.theoretical_keys(6, 5) * 8  # legal-set suffix aside, bounded by the TP grid
+
+
+def test_call_or_fold_spots_share_a_short_key_across_seats():
+    a = _play(G.deal(np.random.default_rng(8)), "a")                  # UTG shoves
+    b = _play(G.deal(np.random.default_rng(8)), "f", "a")             # HJ shoves
+    ka, kb = K.public_key(a, a.to_act), K.public_key(b, b.to_act)
+    assert ka.startswith("call|0|") and ka.endswith("|fc") and ka == kb
