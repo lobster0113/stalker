@@ -34,8 +34,8 @@ def test_child_reach_is_parent_reach_times_the_action_frequency(spots):
                 child = nodes[n["next"][a]]
                 if "terminal" in child:
                     continue
-                want = np.array(n["reach"][n["seat"]]) * gto[:, i]
-                assert np.allclose(child["reach"][n["seat"]], want, atol=2e-3), (sp["id"], nid, a)
+                want = np.array(n["reach"].get(n["seat"], np.ones(169))) * gto[:, i]
+                assert np.allclose(child["reach"].get(n["seat"], np.ones(169)), want, atol=2e-3), (sp["id"], nid, a)
 
 
 def test_push_fold_spot_is_the_cached_equilibrium(spots):

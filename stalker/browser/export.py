@@ -47,9 +47,11 @@ class _Tree:
 
     def decision(self, nid, seat, actions, gto, reach, ev=None, tiers=None, note=None, tp=None):
         n = {"seat": seat, "actions": [a for a, _ in actions], "next": {a: nxt for a, nxt in actions},
-             "strategy": {"gto": gto, **(tiers or {})}, "reach": {k: _r(v) for k, v in reach.items()}}
+             "strategy": {"gto": gto, **(tiers or {})},
+             # Seats that have not acted yet hold every hand: omitted (the page reads a missing range as 1).
+             "reach": {k: _r(v) for k, v in reach.items() if not np.all(np.asarray(v) == 1.0)}}
         if ev is not None:
-            n["ev"] = ev
+            n["ev"] = np.round(np.asarray(ev, dtype=float), 2).tolist()
         if note:
             n["note"] = note
         if tp:
