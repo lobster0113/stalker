@@ -153,12 +153,37 @@ def _equity_segments(w, idx, order, lo, hi, off, acc, cnt):
                 cnt[i] += 1
 
 
+def _quantile_steps(xl, wl, k, total, out):
+    """Quantile steps of the live values `xl` (weights `wl`, sum `total`): groups of equal values
+    in sorted order; per group mass = weights added in original order (stable sort), as numpy's
+    unique + bincount + cumsum in `stalker.e2.abstraction.quantile_buckets`."""
+    order = np.argsort(xl, kind="mergesort")
+    n = xl.shape[0]
+    cum = 0.0
+    g = 0
+    while g < n:
+        h = g
+        msum = 0.0
+        while h < n and xl[order[h]] == xl[order[g]]:
+            msum += wl[order[h]]
+            h += 1
+        mass = msum / total
+        cum = cum + mass
+        step = int((cum - mass / 2) * k)
+        if step > k - 1:
+            step = k - 1
+        for t in range(g, h):
+            out[order[t]] = step
+        g = h
+
+
 if HAVE_NUMBA:
     _clear = njit(cache=True)(_clear)
     _eval_one = njit(cache=True)(_eval_one)
     _eval_many = njit(cache=True)(_eval_many)
     _rank_runouts = njit(cache=True)(_rank_runouts)
     _equity_segments = njit(cache=True)(_equity_segments)
+    _quantile_steps = njit(cache=True)(_quantile_steps)
 
 
 def evaluate_batch(hands: np.ndarray) -> np.ndarray:
@@ -177,3 +202,10 @@ def rank_runouts(combos: np.ndarray, ok: np.ndarray, fulls: np.ndarray, acc: np.
 def equity_segments(w, idx, order, lo, hi, off, acc, cnt) -> None:
     """Compiled range-equity accumulation (#201); requires numba."""
     _equity_segments(w, idx, order, lo, hi, off, acc, cnt)
+
+
+def quantile_steps(xl: np.ndarray, wl: np.ndarray, k: int, total: float) -> np.ndarray:
+    """Compiled quantile steps for live values (#201); requires numba."""
+    out = np.empty(len(xl), dtype=np.int64)
+    _quantile_steps(np.ascontiguousarray(xl, dtype=np.float64), np.ascontiguousarray(wl, dtype=np.float64), k, total, out)
+    return out
