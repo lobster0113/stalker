@@ -8,7 +8,7 @@ At most RAISE_CAP raises per street (the big blind counts as one preflop). A siz
 player within one BB of all in is not offered.
 
 Seats are numbered in preflop order: 0 = UTG ... n-3 = BTN, n-2 = SB, n-1 = BB. Postflop the SB
-acts first. Every player starts with the same stack, so an all-in is the largest possible
+acts first; heads-up (n = 2) the SB is the button, acts first preflop and last postflop. Every player starts with the same stack, so an all-in is the largest possible
 contribution and no side pot can arise; showdowns split one pot (odd chips to the first winner
 in postflop order). Chips are integers with BB = 100. The state is immutable.
 """
@@ -30,6 +30,8 @@ POSITIONS = {6: ("UTG", "HJ", "CO", "BTN", "SB", "BB"),
 
 
 def position_names(n: int) -> tuple[str, ...]:
+    if n == 2:
+        return ("SB", "BB")  # heads-up: the small blind is the button
     if n in POSITIONS:
         return POSITIONS[n]
     early = tuple(f"EP{i}" for i in range(n - 3))
@@ -85,6 +87,8 @@ def deal(rng: np.random.Generator, n: int = 6) -> State:
 
 
 def postflop_order(n: int) -> list[int]:
+    if n == 2:
+        return [1, 0]  # heads-up: the big blind acts first after the flop, the button (SB) last
     return [n - 2, n - 1] + list(range(n - 2))
 
 
