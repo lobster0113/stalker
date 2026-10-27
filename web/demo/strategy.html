@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>STALKER 전략 브라우저</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Strategy browser (#189): same dark table palette as the demo (web/demo/index.html). */
+:root {
+  color-scheme: dark;
+  --ink: #0b1013; --ink-2: #10171b; --panel: #141c21; --panel-2: #1a242a; --panel-3: #222e35;
+  --line: #2a363e; --line-soft: #1f2a30; --text: #e9ece7; --muted: #8d999c; --faint: #5d6a6f;
+  --brass: #d6ab55; --brass-hi: #f0cd82; --brass-ink: #2a1f0a;
+  --good: #63c493; --bad: #e2705f; --blue: #5d8fd8; --fold: #3f5f86;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(1200px 600px at 70% -10%, #15232a 0%, var(--ink) 60%) fixed, var(--ink); color: var(--text); font: 14px/1.5 var(--font-body); min-height: 100vh; }
+button { font: inherit; color: inherit; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
+header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.brand { font: 700 22px/1 var(--font-display); letter-spacing: .14em; color: var(--brass); }
+h1 { margin: 0; font: 600 20px/1.2 var(--font-display); letter-spacing: .04em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 12.5px; }
+.panel { background: linear-gradient(180deg, var(--panel) 0%, var(--ink-2) 100%); border: 1px solid var(--line-soft); border-radius: 14px; padding: 14px; min-width: 0; }
+.lab { font: 600 11px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; }
+.spots { display: grid; gap: 10px; }
+.spot-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.spot-group b { font: 600 12px/1 var(--font-display); letter-spacing: .08em; color: var(--muted); min-width: 132px; }
+.chip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 999px; padding: 5px 11px; cursor: pointer; font-size: 12.5px; }
+.chip:hover { border-color: var(--faint); }
+.chip.sel { background: var(--brass); color: var(--brass-ink); border-color: var(--brass); font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex-wrap: wrap; }
+.seg button { border: 0; background: var(--panel-2); padding: 6px 12px; cursor: pointer; font-size: 12.5px; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button.sel { background: var(--panel-3); color: var(--brass-hi); box-shadow: inset 0 -2px 0 var(--brass); }
+.seg button:disabled { opacity: .35; cursor: default; }
+.path { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.crumb { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 5px 9px; cursor: pointer; font-size: 12.5px; }
+.crumb .s { font: 700 11px/1 var(--font-display); letter-spacing: .08em; color: var(--muted); margin-right: 5px; }
+.crumb.cur { border-color: var(--brass); cursor: default; }
+.arrow { color: var(--faint); }
+.acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.act { border: 1px solid var(--line); background: var(--panel-2); border-radius: 10px; padding: 8px 14px; cursor: pointer; display: grid; gap: 2px; min-width: 104px; text-align: left; }
+.act:hover { border-color: var(--brass); }
+.act .n { font: 700 16px/1 var(--font-display); letter-spacing: .04em; display: flex; align-items: center; gap: 7px; }
+.act .f { font-size: 12px; color: var(--muted); }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.main { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.grid { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 2px; container-type: inline-size; user-select: none; }
+.cell { position: relative; aspect-ratio: 1; border-radius: 3px; overflow: hidden; background: var(--panel-3); cursor: pointer; }
+.cell .bars { position: absolute; inset: 0; display: flex; flex-direction: column-reverse; }
+.cell .bars i { display: block; width: 100%; }
+.cell span { position: absolute; left: 3px; top: 2px; font: 700 clamp(7px, 2.6cqi, 13px)/1 var(--font-display); color: #0b1013d0; text-shadow: 0 0 2px #ffffff30; }
+.cell.dim { opacity: .16; }
+.cell.sel { outline: 2px solid var(--text); outline-offset: -1px; z-index: 1; }
+.cell.diff::after { content: ""; position: absolute; right: 2px; top: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 1.5px var(--ink); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.side { display: grid; gap: 14px; }
+.detail h2 { margin: 0 0 4px; font: 700 28px/1 var(--font-display); letter-spacing: .04em; }
+.detail .meta { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { padding: 5px 6px; text-align: right; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font: 600 11px/1.2 var(--font-display); letter-spacing: .1em; color: var(--faint); text-transform: uppercase; }
+td.best { color: var(--brass-hi); font-weight: 600; }
+.tw { overflow-x: auto; }
+.why { margin-top: 10px; font-size: 12.5px; color: var(--muted); background: var(--panel-2); border-radius: 10px; padding: 9px 11px; }
+.why b { color: var(--text); }
+.ranges { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.mini { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 1px; }
+.mini i { aspect-ratio: 1; border-radius: 1px; background: var(--brass); }
+.rcap { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: var(--muted); }
+.rcap b { color: var(--text); font: 700 13px/1 var(--font-display); letter-spacing: .08em; }
+.term { font-size: 15px; padding: 18px; text-align: center; color: var(--muted); }
+.note { font-size: 12px; color: var(--brass-hi); margin-top: 8px; }
+.facts { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.facts b { color: var(--text); font-weight: 600; }
+.badge { font: 700 10.5px/1 var(--font-display); letter-spacing: .12em; padding: 3px 6px; border-radius: 5px; background: #63c49322; color: var(--good); }
+@media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } .spot-group b { min-width: 100%; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">STALKER</div>
+    <h1>GTO 전략 브라우저</h1>
+    <div class="sub">액션을 차례로 지정하면, 다음 차례 플레이어가 핸드마다 어떻게 해야 하는지 보여줍니다.</div>
+  </header>
+
+  <section class="panel spots" id="spots" aria-label="상황 선택"></section>
+
+  <section class="panel">
+    <div style="display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+      <div class="path" id="path"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="lab" style="margin:0">전략</span>
+        <div class="seg" id="strat"></div>
+      </div>
+    </div>
+    <div class="acts" id="acts"></div>
+    <div class="note" id="note" hidden></div>
+  </section>
+
+  <div class="main">
+    <section class="panel">
+      <div class="lab" id="gridcap">핸드별 전략</div>
+      <div class="grid" id="grid"></div>
+      <div class="legend" id="legend"></div>
+      <div class="facts" id="facts" style="margin-top:10px"></div>
+    </section>
+    <div class="side">
+      <section class="panel detail" id="detail"></section>
+      <section class="panel">
+        <div class="lab">레인지 (이 지점까지 올 확률)</div>
+        <div class="ranges" id="ranges"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const RANKS = "AKQJT98765432";
+const COLORS = { Fold: "var(--fold)", Call: "var(--good)", "All-in": "var(--bad)" };
+const colorOf = a => COLORS[a] || "var(--brass)";
+const pct = x => (x * 100).toFixed(x >= 0.995 || x <= 0.005 ? 0 : 1) + "%";
+let D, spot, path, strat = "gto", selCell = "AKs";
+
+function cellName(r, c) {
+  if (r === c) return RANKS[r] + RANKS[c];
+  return r < c ? RANKS[r] + RANKS[c] + "s" : RANKS[c] + RANKS[r] + "o";
+}
+const combos = n => n.length === 2 ? 6 : n[2] === "s" ? 4 : 12;
+
+function nodeId() { return path.length ? path[path.length - 1].to : ""; }
+function node() { return spot.nodes[nodeId()]; }
+
+function renderSpots() {
+  const el = document.getElementById("spots");
+  const groups = {};
+  for (const s of D.spots) (groups[s.env] ||= []).push(s);
+  const names = { E1: "헤즈업 푸시/폴드", E1b: "헤즈업 오픈 / 3벳 셔브", E1m: "3인 ICM 푸시/폴드" };
+  el.innerHTML = "";
+  for (const [env, list] of Object.entries(groups)) {
+    const g = document.createElement("div");
+    g.className = "spot-group";
+    g.innerHTML = `<b>${names[env] || env}</b>`;
+    for (const s of list) {
+      const b = document.createElement("button");
+      b.className = "chip" + (s === spot ? " sel" : "");
+      b.textContent = s.stack_bb + "BB";
+      b.title = s.title;
+      b.onclick = () => { spot = s; path = []; render(); };
+      g.appendChild(b);
+    }
+    el.appendChild(g);
+  }
+}
+
+function nodeTotals(n, key) {
+  const rows = n.strategy[key], reach = n.reach[n.seat];
+  const tot = n.actions.map(() => 0);
+  let w = 0;
+  D.classes.forEach((c, i) => {
+    const m = combos(c) * reach[i];
+    w += m;
+    rows[i].forEach((p, k) => tot[k] += m * p);
+  });
+  return tot.map(t => w > 0 ? t / w : 0);
+}
+
+function renderPath() {
+  const el = document.getElementById("path");
+  el.innerHTML = "";
+  const root = document.createElement("button");
+  root.className = "crumb" + (path.length ? "" : " cur");
+  root.innerHTML = `<span class="s">시작</span>${spot.title}`;
+  root.onclick = () => { path = []; render(); };
+  el.appendChild(root);
+  path.forEach((st, k) => {
+    el.insertAdjacentHTML("beforeend", '<span class="arrow">›</span>');
+    const b = document.createElement("button");
+    b.className = "crumb" + (k === path.length - 1 ? " cur" : "");
+    b.innerHTML = `<span class="s">${st.seat}</span>${st.action}`;
+    b.onclick = () => { path = path.slice(0, k + 1); render(); };
+    el.appendChild(b);
+  });
+}
+
+function renderStrat(n) {
+  const el = document.getElementById("strat");
+  el.innerHTML = "";
+  const avail = n && !n.terminal ? Object.keys(n.strategy) : ["gto"];
+  if (!avail.includes(strat)) strat = "gto";
+  for (const [k, label] of Object.entries(D.strategy_labels)) {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.disabled = !avail.includes(k);
+    b.className = k === strat ? "sel" : "";
+    b.title = k === "gto" ? "제약 없는 균형 전략" : "TP 값(분위 눈금)만 보고 자기 대전으로 학습한 정책";
+    b.onclick = () => { strat = k; render(); };
+    el.appendChild(b);
+  }
+}
+
+function renderActs(n) {
+  const el = document.getElementById("acts"), note = document.getElementById("note");
+  el.innerHTML = "";
+  note.hidden = !(n && n.note);
+  if (n && n.note) note.textContent = n.note;
+  if (!n || n.terminal) {
+    el.innerHTML = `<div class="term">${n ? n.terminal : ""} — 위 경로를 눌러 되돌아가세요.</div>`;
+    return;
+  }
+  const tot = nodeTotals(n, strat);
+  n.actions.forEach((a, k) => {
+    const b = document.createElement("button");
+    b.className = "act";
+    b.innerHTML = `<span class="n"><i class="sw" style="background:${colorOf(a)}"></i>${n.seat} ${a}</span><span class="f">전체 ${pct(tot[k])}</span>`;
+    b.onclick = () => { path.push({ seat: n.seat, action: a, to: n.next[a] }); render(); };
+    el.appendChild(b);
+  });
+}
+
+function renderGrid(n) {
+  const el = document.getElementById("grid");
+  el.innerHTML = "";
+  const cap = document.getElementById("gridcap");
+  const legend = document.getElementById("legend");
+  if (!n || n.terminal) { cap.textContent = "핸드별 전략"; legend.innerHTML = ""; return; }
+  cap.textContent = `${n.seat}의 핸드별 전략 · ${D.strategy_labels[strat]}`;
+  const idx = Object.fromEntries(D.classes.map((c, i) => [c, i]));
+  const rows = n.strategy[strat], gto = n.strategy.gto, reach = n.reach[n.seat];
+  for (let r = 0; r < 13; r++) for (let c = 0; c < 13; c++) {
+    const name = cellName(r, c), i = idx[name];
+    const d = document.createElement("div");
+    d.className = "cell" + (reach[i] < 0.02 ? " dim" : "") + (name === selCell ? " sel" : "");
+    if (strat !== "gto") {
+      const gap = rows[i].reduce((s, p, k) => s + Math.abs(p - gto[i][k]), 0) / 2;
+      if (gap > 0.25 && reach[i] >= 0.02) d.classList.add("diff");
+    }
+    const bars = n.actions.map((a, k) => `<i style="height:${rows[i][k] * 100}%;background:${colorOf(a)}"></i>`).join("");
+    d.innerHTML = `<div class="bars">${bars}</div><span>${name}</span>`;
+    d.title = `${name}: ` + n.actions.map((a, k) => `${a} ${pct(rows[i][k])}`).join(" · ");
+    d.onclick = () => { selCell = name; render(); };
+    el.appendChild(d);
+  }
+  legend.innerHTML = n.actions.map(a => `<span><i class="sw" style="background:${colorOf(a)}"></i>${a}</span>`).join("")
+    + `<span style="opacity:.6">흐린 칸: 이 지점까지 거의 오지 않는 핸드</span>`
+    + (strat !== "gto" ? `<span>● GTO와 크게 다른 칸</span>` : "");
+}
+
+function renderDetail(n) {
+  const el = document.getElementById("detail");
+  if (!n || n.terminal) { el.innerHTML = `<div class="lab">선택한 핸드</div><div class="meta">액션 지점에서 핸드를 누르면 자세히 보입니다.</div>`; return; }
+  const i = D.classes.indexOf(selCell);
+  const reach = n.reach[n.seat][i];
+  const ev = n.ev ? n.ev[i] : null;
+  const keys = Object.keys(n.strategy);
+  let html = `<div class="lab">선택한 핸드 · ${n.seat}</div><h2>${selCell}</h2>
+    <div class="meta">${combos(selCell)}조합 · 이 지점 도달 ${pct(reach)}</div><div class="tw"><table><tr><th>액션</th>`;
+  html += keys.map(k => `<th>${D.strategy_labels[k]}</th>`).join("") + (ev ? `<th>EV (${spot.ev_unit})</th>` : "") + "</tr>";
+  const bestK = ev ? ev.indexOf(Math.max(...ev)) : -1;
+  n.actions.forEach((a, k) => {
+    html += `<tr><td><i class="sw" style="background:${colorOf(a)}"></i> ${a}</td>`
+      + keys.map(s => `<td>${pct(n.strategy[s][i][k])}</td>`).join("")
+      + (ev ? `<td class="${k === bestK ? "best" : ""}">${ev[k].toFixed(spot.ev_unit === "bb" ? 2 : 2)}</td>` : "") + "</tr>";
+  });
+  html += "</table></div>";
+  if (ev) {
+    const sorted = [...ev].sort((a, b) => b - a);
+    const margin = sorted[0] - sorted[1];
+    const close = margin < (spot.ev_unit === "bb" ? 0.05 : 0.05);
+    html += `<div class="why"><b>왜?</b> GTO 상대를 가정하면 <b>${n.actions[bestK]}</b>의 EV가 가장 높다(차이 ${margin.toFixed(2)} ${spot.ev_unit}). `
+      + (close ? "차이가 작아 섞어 쓰는 경계 핸드다 — 상대가 이 레인지를 알아도 이용하지 못하게 하는 빈도다." : "차이가 커서 한쪽으로 정해지는 핸드다.") + "</div>";
+  }
+  el.innerHTML = html;
+}
+
+function renderRanges(n) {
+  const el = document.getElementById("ranges");
+  el.innerHTML = "";
+  const ref = n && !n.terminal ? n : lastDecision();
+  if (!ref) return;
+  const idx = Object.fromEntries(D.classes.map((c, i) => [c, i]));
+  for (const seat of spot.seats) {
+    // A terminal shows the ranges after the last action: parent reach times that action's frequency.
+    let reach = ref.reach[seat];
+    if (ref !== n && n && path.length) {
+      const last = path[path.length - 1];
+      if (last.seat === seat) {
+        const k = ref.actions.indexOf(last.action);
+        reach = reach.map((r, i) => r * ref.strategy.gto[i][k]);
+      }
+    }
+    let w = 0, tot = 0;
+    D.classes.forEach((c, i) => { w += combos(c) * reach[i]; tot += combos(c); });
+    const box = document.createElement("div");
+    box.innerHTML = `<div class="rcap"><b>${seat}</b><span>${pct(w / tot)} 조합</span></div>`;
+    const g = document.createElement("div");
+    g.className = "mini";
+    for (let r = 0; r < 13; r++) for (let c = 0; c < 13; c++) {
+      const v = reach[idx[cellName(r, c)]];
+      const i = document.createElement("i");
+      i.style.opacity = (0.08 + 0.92 * v).toFixed(3);
+      i.title = `${cellName(r, c)} ${pct(v)}`;
+      g.appendChild(i);
+    }
+    box.appendChild(g);
+    el.appendChild(box);
+  }
+}
+
+function lastDecision() {
+  for (let k = path.length - 1; k >= 0; k--) {
+    const id = k ? path[k - 1].to : "";
+    if (!spot.nodes[id].terminal) return spot.nodes[id];
+  }
+  return spot.nodes[""];
+}
+
+function renderFacts() {
+  document.getElementById("facts").innerHTML =
+    `<span><span class="badge">EXACT</span> 이 모델 안에서 정확히 풀린 균형</span>`
+    + `<span>착취 가능성 <b>${spot.exploitability}</b> ${spot.value_model === "icm" ? "(상금풀 비율)" : "bb/핸드"}</span>`
+    + `<span>가치 <b>${spot.value_model === "icm" ? "ICM" : "칩 EV"}</b></span>`
+    + `<span>스택 <b>${spot.stack_bb}BB</b>${spot.ante_bb ? ` · 앤티 ${spot.ante_bb}BB` : ""}</span>`;
+}
+
+function render() {
+  const n = node();
+  renderSpots(); renderPath(); renderStrat(n); renderActs(n); renderGrid(n); renderDetail(n); renderRanges(n); renderFacts();
+}
+
+async function load() {
+  try {
+    D = window.STRATEGIES || await (await fetch("strategies.json")).json();
+  } catch (e) {
+    document.querySelector(".wrap").insertAdjacentHTML("beforeend", `<div class="panel">strategies.json을 읽지 못했습니다. <code>python -m stalker.browser.export --out web/demo/strategies.json</code> 후 <code>python -m http.server</code>로 여세요.</div>`);
+    return;
+  }
+  spot = D.spots.find(s => s.id === "hu-pf-10bb") || D.spots[0];
+  path = [];
+  render();
+}
+load();
+</script>
+</body>
+</html>

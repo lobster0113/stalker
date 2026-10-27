@@ -15,3 +15,10 @@ cd web/e2e && npm ci && npx playwright install chromium && npm test
 - 내 차례 대기는 테스트 전용 `?speed=30`(속도 배수)으로 줄인다. 데모 기본 진행(1.5초)은 그대로다.
 - 로컬에 Chromium이 이미 있으면 `CHROMIUM_PATH=/path/to/chrome npm test`.
 - 아직 없음: 신뢰도 라벨 검사·입력 시간 기록(#115), 성능 예산.
+
+## GTO 전략 브라우저 (#189)
+`web/demo/strategy.html` — 정확히 풀린 스팟(E1 헤즈업 푸시/폴드, E1b 오픈/3벳 셔브, E1m 3인 ICM)에서 액션을 차례로 지정하며 핸드별(13×13) 전략·EV·레인지를 보고, GTO와 TP 등급 정책을 비교한다.
+```bash
+python -m stalker.browser.export --out web/demo/strategies.json   # 데이터 생성(약 1분)
+cd web/demo && python -m http.server 8765                          # http://localhost:8765/strategy.html
+```

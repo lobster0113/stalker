@@ -50,6 +50,7 @@ class Result:
     gains: np.ndarray          # per-seat exact best-response gain (share of prize pool / chips)
     exploitability: float      # sum of gains, as a share of the scale
     nash_gains: np.ndarray
+    strategy: R.Strategy | None = None   # the delivered bottleneck policy (strategy browser, #189)
 
 
 def _buckets(tree, st: R.Strategy, n: int, view: str, k: int):
@@ -122,7 +123,7 @@ def train(spot: R.Spot, view: str = "rank", tier: str = "pro", value_model: str 
     scale = R._scale(spot, value_model)
     gains = tree.evaluate(st).gains(st, n) / scale
     nash = R._solve_tree(tree, scale, R.BASELINE_TOL, iters)
-    return Result(view, tier, value_model, gains, float(gains.sum()), nash.gains / scale)
+    return Result(view, tier, value_model, gains, float(gains.sum()), nash.gains / scale, st)
 
 
 def table(stacks_bb=(8, 10, 15), payouts=(0.5, 0.3, 0.2), iters: int = 1500) -> list[dict]:

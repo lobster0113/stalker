@@ -1,0 +1,209 @@
+"""Strategy browser data (#189): per-node, per-hand-class strategies of exactly solved spots.
+
+Like a solver viewer: pick a spot, choose each player's action in turn, and see how the player to act
+plays every one of the 169 hand classes, with both players' ranges (reach probabilities) at that
+node. Each node carries the GTO strategy and, where trained, the TP-GTO tier policies, so the page
+can compare "what GTO does" with "what a beginner / mid / pro TP can express".
+
+Spots (all exact in their model, Gate Q: only these may be called GTO):
+- E1  heads-up push/fold, chip EV (`referee.anchors.pushfold`, cached equilibrium)
+- E1b heads-up open / 3-bet-shove tree, chip EV (`stalker.e1.open_shove`)
+- E1m 3-handed push/fold, ICM (`referee.anchors.icm_reference`)
+
+EV is per class, conditional on holding it and reaching the node, against the GTO opponents:
+bb for chip EV, % of the prize pool for ICM.
+
+    python -m stalker.browser.export --out web/demo/strategies.json
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+from referee.anchors import icm_reference as R
+from referee.anchors import pushfold as P
+from stalker.core.cards import HAND_CLASSES
+
+SCHEMA_VERSION = 1
+TIERS = ("beginner", "mid", "pro")
+
+
+def _r(a, nd: int = 3) -> list:
+    return np.round(np.asarray(a, dtype=float), nd).tolist()
+
+
+def _cols(*cols) -> list:
+    """Per class rows [p_action0, p_action1, ...] from per-action columns."""
+    return _r(np.stack(cols, axis=1))
+
+
+class _Tree:
+    def __init__(self):
+        self.nodes: dict[str, dict] = {}
+
+    def decision(self, nid, seat, actions, gto, reach, ev=None, tiers=None, note=None):
+        n = {"seat": seat, "actions": [a for a, _ in actions], "next": {a: nxt for a, nxt in actions},
+             "strategy": {"gto": gto, **(tiers or {})}, "reach": {k: _r(v) for k, v in reach.items()}}
+        if ev is not None:
+            n["ev"] = ev
+        if note:
+            n["note"] = note
+        self.nodes[nid] = n
+
+    def terminal(self, nid, text):
+        self.nodes[nid] = {"terminal": text}
+
+
+def hu_pushfold(stack: float, ante: float = 0.0, tiers: bool = True) -> dict:
+    push, call = P.strategy(stack, ante)
+    p, sb_call, bb_gain = P._payoffs(stack, ante)
+    pu, _ = P._sb_values(call, p, sb_call, ante)
+    pa = p.sum(axis=1)
+    shove_ev = pu / pa
+    g = P._bb_gain(push, p, bb_gain)
+    mass_b = (p * push[:, None]).sum(axis=0)
+    bb_fold = -(1.0 + ante)
+    bb_call_ev = bb_fold + np.divide(g, mass_b, out=np.zeros(169), where=mass_b > 0)
+    tier_sb, tier_bb = {}, {}
+    if tiers:
+        from stalker.e1 import tp_pushfold as T
+
+        for t in TIERS:
+            r = T.train(stack, ante, t, iters=3000, sb_view="called", scale="quantile")
+            tier_sb[f"tp_{t}"] = _cols(1 - r.push, r.push)
+            tier_bb[f"tp_{t}"] = _cols(1 - r.call, r.call)
+    tr = _Tree()
+    one = np.ones(169)
+    tr.decision("", "SB", [("Fold", "f"), ("All-in", "a")], _cols(1 - push, push), {"SB": one, "BB": one},
+                ev=_cols(np.full(169, P.SB_FOLD), shove_ev), tiers=tier_sb)
+    tr.terminal("f", "SB 폴드 — BB가 블라인드를 가져간다")
+    tr.decision("a", "BB", [("Fold", "a-f"), ("Call", "a-c")], _cols(1 - call, call), {"SB": push, "BB": one},
+                ev=_cols(np.full(169, bb_fold), bb_call_ev), tiers=tier_bb)
+    tr.terminal("a-f", "BB 폴드 — SB가 팟을 가져간다")
+    tr.terminal("a-c", "올인 쇼다운")
+    return {"id": f"hu-pf-{stack:g}bb", "title": f"헤즈업 푸시/폴드 {stack:g}BB", "env": "E1",
+            "seats": ["SB", "BB"], "stack_bb": stack, "ante_bb": ante, "value_model": "chipev", "ev_unit": "bb",
+            "exact": True, "exploitability": round(P.exploitability(stack, ante, push, call), 5),
+            "nodes": tr.nodes}
+
+
+def hu_open_shove(stack: float, ante: float = 0.0, iters: int = 3000) -> dict:
+    from stalker.e1.open_shove import Game
+
+    g = Game(stack, ante)
+    st = g.solve(iters)
+    p, a, r = g.p, g.a, g.r
+    mass_a = p.sum(axis=1)
+    # SB root EVs under the equilibrium (not best-response continuations).
+    shove = (p * (st.bbcall[None, :] * g.sb_allin + (1 - st.bbcall[None, :]) * (1 + a))).sum(axis=1) / mass_a
+    vs3 = st.call3[:, None] * g.sb_allin + (1 - st.call3[:, None]) * (-r)
+    opn = (p * ((1 - st.bb3[None, :]) * (1 + a) + st.bb3[None, :] * vs3)).sum(axis=1) / mass_a
+    # BB versus the open.
+    w_open = p * st.open[:, None]
+    m_open = w_open.sum(axis=0)
+    safe = lambda x, m: np.divide(x, m, out=np.zeros(169), where=m > 0)  # noqa: E731
+    bb_3bet = safe((w_open * (st.call3[:, None] * g.bb_allin + (1 - st.call3[:, None]) * r)).sum(axis=0), m_open)
+    bb_fold_open = np.full(169, -(1.0 + a))
+    # SB versus the 3-bet shove.
+    reach3 = p * st.bb3[None, :]
+    sb_call3 = safe((reach3 * g.sb_allin).sum(axis=1), reach3.sum(axis=1))
+    # BB versus the shove.
+    w_sh = p * st.shove[:, None]
+    bb_call = safe((w_sh * g.bb_allin).sum(axis=0), w_sh.sum(axis=0))
+    one = np.ones(169)
+    tr = _Tree()
+    tr.decision("", "SB", [("Fold", "f"), (f"Open {r:g}", "o"), ("All-in", "a")], _cols(st.fold, st.open, st.shove),
+                {"SB": one, "BB": one}, ev=_cols(np.full(169, -0.5), opn, shove))
+    tr.terminal("f", "SB 폴드")
+    tr.decision("o", "BB", [("Fold", "o-f"), ("All-in", "o-a")], _cols(1 - st.bb3, st.bb3), {"SB": st.open, "BB": one},
+                ev=_cols(bb_fold_open, bb_3bet))
+    tr.terminal("o-f", "BB 폴드 — SB가 블라인드를 가져간다")
+    tr.decision("o-a", "SB", [("Fold", "o-a-f"), ("Call", "o-a-c")], _cols(1 - st.call3, st.call3),
+                {"SB": st.open, "BB": st.bb3}, ev=_cols(np.full(169, -r), sb_call3),
+                note="plan.vs_raise 정답: 오픈할 때 이미 정해 두는 3벳 대응")
+    tr.terminal("o-a-f", "SB 폴드 — 오픈 금액을 잃는다")
+    tr.terminal("o-a-c", "올인 쇼다운")
+    tr.decision("a", "BB", [("Fold", "a-f"), ("Call", "a-c")], _cols(1 - st.bbcall, st.bbcall),
+                {"SB": st.shove, "BB": one}, ev=_cols(bb_fold_open, bb_call))
+    tr.terminal("a-f", "BB 폴드")
+    tr.terminal("a-c", "올인 쇼다운")
+    return {"id": f"hu-os-{stack:g}bb", "title": f"헤즈업 오픈/3벳 셔브 {stack:g}BB", "env": "E1b",
+            "seats": ["SB", "BB"], "stack_bb": stack, "ante_bb": ante, "value_model": "chipev", "ev_unit": "bb",
+            "exact": True, "exploitability": round(g.exploitability(st), 5), "nodes": tr.nodes}
+
+
+def three_handed_icm(stack_bb: float, payouts=(0.5, 0.3, 0.2), tiers: bool = True) -> dict:
+    spot = R.Spot((int(stack_bb * 100),) * 3, 50, 100, payouts)
+    # Tight tolerance: fictitious-play averages keep early mixing (AA at 96%) at the default 1e-3.
+    sol = R.solve(spot, "icm", tol=1e-5, max_iter=200_000)
+    st = sol.strategy
+    tree = R._Tree(spot, R._value_fn(spot, "icm", 0, R.BASELINE_TOL, 5000))
+    ev = tree.evaluate(st)
+    pct = 100.0 / spot.prize_pool
+    tier_st = {}
+    if tiers:
+        from stalker.e1 import multiway_pushfold as M
+
+        for t in TIERS:
+            tier_st[f"tp_{t}"] = M.train(spot, "composite", t, "icm", 1500).strategy
+
+    def push_node(nid, p, reach, nxt):
+        e_push, e_fold = ev.push_ev[p]
+        tiers_ = {k: _cols(1 - s.push[p], s.push[p]) for k, s in tier_st.items()}
+        return (nid, ["BTN", "SB", "BB"][p], [("Fold", nxt[0]), ("All-in", nxt[1])],
+                _cols(1 - st.push[p], st.push[p]), reach, _cols(np.full(169, e_fold * pct), e_push[:] * pct), tiers_)
+
+    def call_node(nid, q, p, reach, nxt):
+        evc, fold, _ = ev.call_ev[q, p]
+        tiers_ = {k: _cols(1 - s.call[q, p], s.call[q, p]) for k, s in tier_st.items()}
+        return (nid, ["BTN", "SB", "BB"][q], [("Fold", nxt[0]), ("Call", nxt[1])],
+                _cols(1 - st.call[q, p], st.call[q, p]), reach, _cols(np.full(169, fold * pct), evc * pct), tiers_)
+
+    one = np.ones(169)
+    tr = _Tree()
+    specs = [
+        push_node("", 0, {"BTN": one, "SB": one, "BB": one}, ("f", "a")),
+        push_node("f", 1, {"BTN": 1 - st.push[0], "SB": one, "BB": one}, ("f-f", "f-a")),
+        call_node("f-a", 2, 1, {"BTN": 1 - st.push[0], "SB": st.push[1], "BB": one}, ("f-a-f", "f-a-c")),
+        call_node("a", 1, 0, {"BTN": st.push[0], "SB": one, "BB": one}, ("a-f", "a-c")),
+        call_node("a-f", 2, 0, {"BTN": st.push[0], "SB": 1 - st.call[1, 0], "BB": one}, ("a-f-f", "a-f-c")),
+    ]
+    for nid, seat, acts, gto, reach, evs, tiers_ in specs:
+        tr.decision(nid, seat, acts, gto, reach, ev=evs, tiers=tiers_)
+    for nid, text in (("f-f", "BTN·SB 폴드 — BB가 블라인드를 가져간다"), ("f-a-f", "BB 폴드 — SB가 블라인드를 가져간다"),
+                      ("f-a-c", "SB vs BB 올인 쇼다운"), ("a-c", "BTN vs SB 올인 쇼다운 (첫 콜러로 액션 종료)"),
+                      ("a-f-f", "모두 폴드 — BTN이 블라인드를 가져간다"), ("a-f-c", "BTN vs BB 올인 쇼다운")):
+        tr.terminal(nid, text)
+    return {"id": f"3h-icm-{stack_bb:g}bb", "title": f"3인 ICM 푸시/폴드 {stack_bb:g}BB (상금 {'/'.join(f'{x:.0%}' for x in payouts)})",
+            "env": "E1m", "seats": ["BTN", "SB", "BB"], "stack_bb": stack_bb, "ante_bb": 0, "value_model": "icm",
+            "ev_unit": "% 상금", "exact": True, "exploitability": round(float(sol.gains.sum() / spot.prize_pool), 5),
+            "nodes": tr.nodes}
+
+
+def export(tiers: bool = True) -> dict:
+    spots = [hu_pushfold(s, tiers=tiers) for s in (5.0, 8.0, 10.0, 12.0, 15.0)]
+    spots += [hu_open_shove(s) for s in (15.0, 20.0, 25.0)]
+    spots += [three_handed_icm(s, tiers=tiers) for s in (10.0, 15.0)]
+    return {"schema_version": SCHEMA_VERSION, "classes": HAND_CLASSES,
+            "strategy_labels": {"gto": "GTO", "tp_beginner": "TP 초보", "tp_mid": "TP 중수", "tp_pro": "TP 고수"},
+            "spots": spots}
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--no-tiers", action="store_true")
+    a = ap.parse_args(argv)
+    data = export(tiers=not a.no_tiers)
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    a.out.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(json.dumps({"spots": len(data["spots"]), "bytes": a.out.stat().st_size}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
