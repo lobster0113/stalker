@@ -73,3 +73,13 @@ def test_nine_handed_positions():
     assert G.position_names(9)[-3:] == ("BTN", "SB", "BB") and len(G.position_names(9)) == 9
     with pytest.raises(ValueError):
         G.deal(np.random.default_rng(0), 10)
+
+
+def test_heads_up_button_is_the_small_blind_and_acts_last_postflop():
+    assert G.position_names(2) == ("SB", "BB")
+    s = G.deal(np.random.default_rng(6), 2)
+    assert s.to_act == 0                                   # SB (button) first preflop
+    s = _play(s, "c", "c")                                 # SB completes, BB checks
+    assert s.street == 1 and s.to_act == 1                 # BB first postflop
+    s = _play(s, "k", "k")
+    assert s.street == 2 and s.to_act == 1
