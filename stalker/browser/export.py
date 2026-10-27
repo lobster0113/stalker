@@ -164,58 +164,78 @@ def hu_open_shove(stack: float, ante: float = 0.0, iters: int = 3000) -> dict:
             "exact": True, "exploitability": round(g.exploitability(st), 5), "nodes": tr.nodes}
 
 
-def three_handed_icm(stack_bb: float, payouts=(0.5, 0.3, 0.2), tiers: bool = True) -> dict:
-    spot = R.Spot((int(stack_bb * 100),) * 3, 50, 100, payouts)
+def seat_names(n: int) -> list[str]:
+    names = {2: ["SB", "BB"], 3: ["BTN", "SB", "BB"], 6: ["UTG", "HJ", "CO", "BTN", "SB", "BB"],
+             9: ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"]}
+    return names.get(n) or [f"EP{i}" for i in range(n - 3)] + ["BTN", "SB", "BB"]
+
+
+def icm_pushfold(stack_bb: float, payouts=(0.5, 0.3, 0.2), n: int = 3, tiers: bool = True) -> dict:
+    """N-handed ICM push/fold (first in moves all in or folds; callers in order; the first caller
+    ends the action — `icm_reference`'s model)."""
+    pay = tuple(payouts) + (0.0,) * (n - len(payouts))
+    spot = R.Spot((int(stack_bb * 100),) * n, 50, 100, pay)
     # Tight tolerance: fictitious-play averages keep early mixing (AA at 96%) at the default 1e-3.
     sol = R.solve(spot, "icm", tol=1e-5, max_iter=200_000)
     st = sol.strategy
     tree = R._Tree(spot, R._value_fn(spot, "icm", 0, R.BASELINE_TOL, 5000))
     ev = tree.evaluate(st)
     pct = 100.0 / spot.prize_pool
+    names = seat_names(n)
     tier_st = {}
     if tiers:
         from stalker.e1 import multiway_pushfold as M
 
         for t in TIERS:
-            tier_st[f"tp_{t}"] = M.train(spot, "composite", t, "icm", 1500).strategy
-
-    def push_node(nid, p, reach, nxt):
-        e_push, e_fold = ev.push_ev[p]
-        tiers_ = {k: _cols(1 - s.push[p], s.push[p]) for k, s in tier_st.items()}
-        return (nid, ["BTN", "SB", "BB"][p], [("Fold", nxt[0]), ("All-in", nxt[1])],
-                _cols(1 - st.push[p], st.push[p]), reach, _cols(np.full(169, e_fold * pct), e_push[:] * pct), tiers_)
-
-    def call_node(nid, q, p, reach, nxt):
-        evc, fold, _ = ev.call_ev[q, p]
-        tiers_ = {k: _cols(1 - s.call[q, p], s.call[q, p]) for k, s in tier_st.items()}
-        return (nid, ["BTN", "SB", "BB"][q], [("Fold", nxt[0]), ("Call", nxt[1])],
-                _cols(1 - st.call[q, p], st.call[q, p]), reach, _cols(np.full(169, fold * pct), evc * pct), tiers_)
-
+            tier_st[f"tp_{t}"] = M.train(spot, "composite", t, "icm", 1500 if n <= 3 else 600).strategy
     one = np.ones(169)
     tr = _Tree()
-    specs = [
-        push_node("", 0, {"BTN": one, "SB": one, "BB": one}, ("f", "a")),
-        push_node("f", 1, {"BTN": 1 - st.push[0], "SB": one, "BB": one}, ("f-f", "f-a")),
-        call_node("f-a", 2, 1, {"BTN": 1 - st.push[0], "SB": st.push[1], "BB": one}, ("f-a-f", "f-a-c")),
-        call_node("a", 1, 0, {"BTN": st.push[0], "SB": one, "BB": one}, ("a-f", "a-c")),
-        call_node("a-f", 2, 0, {"BTN": st.push[0], "SB": 1 - st.call[1, 0], "BB": one}, ("a-f-f", "a-f-c")),
-    ]
-    for nid, seat, acts, gto, reach, evs, tiers_ in specs:
-        tr.decision(nid, seat, acts, gto, reach, ev=evs, tiers=tiers_)
-    for nid, text in (("f-f", "BTN·SB 폴드 — BB가 블라인드를 가져간다"), ("f-a-f", "BB 폴드 — SB가 블라인드를 가져간다"),
-                      ("f-a-c", "SB vs BB 올인 쇼다운"), ("a-c", "BTN vs SB 올인 쇼다운 (첫 콜러로 액션 종료)"),
-                      ("a-f-f", "모두 폴드 — BTN이 블라인드를 가져간다"), ("a-f-c", "BTN vs BB 올인 쇼다운")):
-        tr.terminal(nid, text)
-    return {"id": f"3h-icm-{stack_bb:g}bb", "title": f"3인 ICM 푸시/폴드 {stack_bb:g}BB (상금 {'/'.join(f'{x:.0%}' for x in payouts)})",
-            "env": "E1m", "seats": ["BTN", "SB", "BB"], "stack_bb": stack_bb, "ante_bb": 0, "value_model": "icm",
+
+    def unopened(nid: str, p: int):
+        if p == n - 1:
+            tr.terminal(nid, f"모두 폴드 — {names[-1]}가 블라인드를 가져간다")
+            return
+        reach = {names[i]: (1 - st.push[i]) if i < p else one for i in range(n)}
+        e_push, e_fold = ev.push_ev[p]
+        f_id, a_id = f"{nid}-f".lstrip("-"), f"{nid}-a".lstrip("-")
+        tr.decision(nid, names[p], [("Fold", f_id), ("All-in", a_id)], _cols(1 - st.push[p], st.push[p]), reach,
+                    ev=_cols(np.full(169, e_fold * pct), e_push * pct),
+                    tiers={k: _cols(1 - s_.push[p], s_.push[p]) for k, s_ in tier_st.items()})
+        unopened(f_id, p + 1)
+        facing(a_id, p + 1, p)
+
+    def facing(nid: str, q: int, p: int):
+        if q == n:
+            tr.terminal(nid, f"모두 폴드 — {names[p]}가 블라인드를 가져간다")
+            return
+        reach = {}
+        for i in range(n):
+            reach[names[i]] = (1 - st.push[i]) if i < p else st.push[p] if i == p else                 (1 - st.call[i, p]) if i < q else one
+        evc, fold, _ = ev.call_ev[q, p]
+        tr.decision(nid, names[q], [("Fold", f"{nid}-f"), ("Call", f"{nid}-c")], _cols(1 - st.call[q, p], st.call[q, p]),
+                    reach, ev=_cols(np.full(169, fold * pct), evc * pct),
+                    tiers={k: _cols(1 - s_.call[q, p], s_.call[q, p]) for k, s_ in tier_st.items()})
+        tr.terminal(f"{nid}-c", f"{names[p]} vs {names[q]} 올인 쇼다운 (첫 콜러로 액션 종료)")
+        facing(f"{nid}-f", q + 1, p)
+
+    unopened("", 0)
+    pays = "/".join(f"{x:.0%}" for x in payouts)
+    return {"id": f"{n}h-icm-{stack_bb:g}bb", "title": f"{n}인 ICM 푸시/폴드 {stack_bb:g}BB (상금 {pays})",
+            "env": f"ICM{n}", "seats": names, "stack_bb": stack_bb, "ante_bb": 0, "value_model": "icm",
             "ev_unit": "% 상금", "exact": True, "exploitability": round(float(sol.gains.sum() / spot.prize_pool), 5),
             "nodes": tr.nodes}
+
+
+def three_handed_icm(stack_bb: float, payouts=(0.5, 0.3, 0.2), tiers: bool = True) -> dict:
+    return icm_pushfold(stack_bb, payouts, 3, tiers)
 
 
 def export(tiers: bool = True) -> dict:
     spots = [hu_pushfold(s, tiers=tiers) for s in (5.0, 8.0, 10.0, 12.0, 15.0)]
     spots += [hu_open_shove(s) for s in (15.0, 20.0, 25.0)]
     spots += [three_handed_icm(s, tiers=tiers) for s in (10.0, 15.0)]
+    spots += [icm_pushfold(s, (0.65, 0.35), 6, tiers) for s in (10.0, 15.0)]       # 6-max SNG
+    spots += [icm_pushfold(s, (0.5, 0.3, 0.2), 9, tiers) for s in (10.0, 15.0)]    # 9-max SNG
     return {"schema_version": SCHEMA_VERSION, "classes": HAND_CLASSES,
             "strategy_labels": {"gto": "GTO", "tp_beginner": "TP 초보", "tp_mid": "TP 중수", "tp_pro": "TP 고수"},
             "spots": spots}

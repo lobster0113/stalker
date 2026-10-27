@@ -145,7 +145,7 @@ function renderSpots() {
   const el = document.getElementById("spots");
   const groups = {};
   for (const s of D.spots) (groups[s.env] ||= []).push(s);
-  const names = { E1: "헤즈업 푸시/폴드", E1b: "헤즈업 오픈 / 3벳 셔브", E1m: "3인 ICM 푸시/폴드" };
+  const names = { E1: "헤즈업 푸시/폴드", E1b: "헤즈업 오픈 / 3벳 셔브", ICM3: "3인 ICM 푸시/폴드", ICM6: "6인 SNG ICM 푸시/폴드", ICM9: "9인 SNG ICM 푸시/폴드" };
   el.innerHTML = "";
   for (const [env, list] of Object.entries(groups)) {
     const g = document.createElement("div");

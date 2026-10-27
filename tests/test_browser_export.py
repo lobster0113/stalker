@@ -7,7 +7,8 @@ from stalker.browser import export as X
 
 @pytest.fixture(scope="module")
 def spots():
-    return [X.hu_pushfold(10.0, tiers=False), X.hu_open_shove(20.0, iters=800), X.three_handed_icm(10.0, tiers=False)]
+    return [X.hu_pushfold(10.0, tiers=False), X.hu_open_shove(20.0, iters=800), X.three_handed_icm(10.0, tiers=False),
+            X.icm_pushfold(10.0, (0.65, 0.35), 6, tiers=False)]
 
 
 def test_every_strategy_row_is_a_distribution_and_ev_matches_actions(spots):
@@ -49,3 +50,11 @@ def test_push_fold_spot_is_the_cached_equilibrium(spots):
 
 def test_icm_aces_always_move_in(spots):
     assert spots[2]["nodes"][""]["strategy"]["gto"][0][1] > 0.99
+
+
+def test_six_handed_tree_has_every_first_in_and_caller_node(spots):
+    nodes = spots[3]["nodes"]
+    # First-in decisions for UTG..SB (5) plus, for each pusher p, callers p+1..BB.
+    decisions = [n for n in nodes.values() if "terminal" not in n]
+    assert len(decisions) == 5 + sum(6 - (p + 1) for p in range(5))
+    assert nodes[""]["seat"] == "UTG" and nodes["f-f-f-f-f"]["terminal"].startswith("모두 폴드")
