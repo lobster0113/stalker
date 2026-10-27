@@ -136,6 +136,7 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .infobar .pill { padding: 3px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line-soft); }
 .infobar .pill.hot { color: var(--brass-hi); border-color: rgba(214,171,85,.4); }
 .infobar .spacer { flex: 1; }
+.lvclock .frz { margin-left: 6px; font-size: 10.5px; color: var(--blue); border: 1px solid rgba(93,143,216,.45); border-radius: 999px; padding: 1px 7px; }
 .iconbtn { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 10px; padding: 6px 10px; font-size: 12px; }
 
 /* ---------- the table ---------- */
@@ -873,13 +874,15 @@ function renderInfo() {
   const el = $("#infobar");
   if (G.tour) {
     const m = Math.floor(G.levelLeft / 60), s = String(G.levelLeft % 60).padStart(2, "0");
-    el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span>다음 레벨 <b class="num">${m}:${s}</b></span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
+    el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
   } else {
     el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인</span><span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>시작 스택 <b class="num">${$("#c-stack").value} BB</b></span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
   }
   $("#new-game").onclick = () => { G.dead = true; G = null; startGame(); };
 }
-setInterval(() => { if (G && G.tour && $("#view-train").classList.contains("active")) { G.levelLeft = Math.max(0, G.levelLeft - 1); const el = $("#infobar"); if (el && G.levelLeft % 1 === 0) renderInfo(); } }, 1000);
+// Level clock is game time, not wall time: it stops while the hero thinks (TP input), so careful study is never penalised.
+const clockFrozen = () => !!heroResolve;
+setInterval(() => { if (G && G.tour && !clockFrozen() && $("#view-train").classList.contains("active")) { G.levelLeft = Math.max(0, G.levelLeft - 1); renderInfo(); } }, 1000);
 
 function bubble(s, text, cls = "") {
   const el = $("#seat-" + s.i); $$(".bubble", el).forEach(b => b.remove());
@@ -1125,7 +1128,7 @@ function heroTurn(hero) {
     $("#seat-" + hero.i).classList.add("acting");
     const g = computeGTO(hero);
     CUR = { hero, g, answers: {}, action: null, size: null };
-    setTP("ask");
+    setTP("ask"); renderInfo();
     CUR.t0 = performance.now(); // input time = hero's turn shown -> submit
   });
 }
@@ -1272,7 +1275,7 @@ function submitTP() {
   else act = { type: CUR.action };
   $("#seat-" + CUR.hero.i).classList.remove("acting");
   const res = heroResolve; heroResolve = null; CUR = null;
-  setTP("waiting");
+  setTP("waiting"); renderInfo();
   $("#tp").classList.add("open");
   res(act);
 }
