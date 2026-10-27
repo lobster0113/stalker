@@ -279,7 +279,10 @@ function renderDetail(n) {
   if (n.tp) {
     // The same numbers the TP asks for (docs/TP.md §3): the answer follows from them.
     const t = n.tp, eq = t["hand.equity"] ? t["hand.equity"][i] : null;
-    if (t.need !== undefined && eq !== null) {
+    if (t.need_icm !== undefined && eq !== null) {
+      const ok = eq >= t.need_icm;
+      html += `<div class="why"><b>TP로 보면</b> 칩만 보면 필요 승률 <b>${t.need.toFixed(1)}%</b>. 상금 구조까지 생각하면(plan.icm) <b>${t.need_icm.toFixed(1)}%</b>가 필요하다 — 리스크 프리미엄 ${(t.need_icm - t.need).toFixed(1)}%p. 이 핸드의 승률(hand.equity) <b>${eq.toFixed(1)}%</b> → ${ok ? "넘으니 <b>콜</b>" : "못 미치니 <b>폴드</b>"}.</div>`;
+    } else if (t.need !== undefined && eq !== null) {
       const ok = eq >= t.need;
       html += `<div class="why"><b>TP로 보면</b> 상대 레인지 대비 승률(hand.equity) <b>${eq.toFixed(1)}%</b> · 콜에 필요한 승률 <b>${t.need.toFixed(1)}%</b> → ${ok ? "넘으니 <b>콜</b>" : "못 미치니 <b>폴드</b>"}.</div>`;
     } else if (t["plan.foldeq"]) {

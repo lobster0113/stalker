@@ -214,8 +214,17 @@ def icm_pushfold(stack_bb: float, payouts=(0.5, 0.3, 0.2), n: int = 3, tiers: bo
         for i in range(n):
             reach[names[i]] = (1 - st.push[i]) if i < p else st.push[p] if i == p else                 (1 - st.call[i, p]) if i < q else one
         evc, fold, _ = ev.call_ev[q, p]
+        # plan.icm: chip-EV required equity vs the prize-structure (ICM) one; first caller ends the action.
+        S, posts = float(spot.stacks[q]), spot.posts
+        pot = 2 * S + sum(posts[i] for i in range(n) if i not in (p, q))
+        win_q, lose_q = tree.lose[p, q][q], tree.win[p, q][q]
+        icm_need = (fold - lose_q) / (win_q - lose_q)
+        w = tree.N * st.push[p][None, :]
+        eq = np.divide((w * tree.E).sum(axis=1), w.sum(axis=1), out=np.full(169, 0.5), where=w.sum(axis=1) > 0)
         tr.decision(nid, names[q], [("Fold", f"{nid}-f"), ("Call", f"{nid}-c")], _cols(1 - st.call[q, p], st.call[q, p]),
                     reach, ev=_cols(np.full(169, fold * pct), evc * pct),
+                    tp={"hand.equity": _r(100 * eq, 1), "need": round(100 * (S - posts[q]) / pot, 1),
+                        "need_icm": round(100 * float(icm_need), 1)},
                     tiers={k: _cols(1 - s_.call[q, p], s_.call[q, p]) for k, s_ in tier_st.items()})
         tr.terminal(f"{nid}-c", f"{names[p]} vs {names[q]} 올인 쇼다운 (첫 콜러로 액션 종료)")
         facing(f"{nid}-f", q + 1, p)
