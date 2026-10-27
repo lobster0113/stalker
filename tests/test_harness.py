@@ -40,6 +40,17 @@ def test_bash_guard_blocks_policy_violations():
         assert g.check(cmd) is None, cmd
 
 
+def test_bash_guard_checks_each_command_separately():
+    g = _load(ROOT / "harness" / "hooks" / "guard_bash.py")
+    for cmd in ["git push -u origin x && gh pr view 1 --jq '\"a\" + .b'",
+                "git push origin x; gh issue comment 1 --body \"고수 + SB\"",
+                "git push -q origin x 2>&1 | grep -v remote\ngh pr view 2 --jq '.a + .b'"]:
+        assert g.check(cmd) is None, cmd
+    for cmd in ["git push origin +x", "git push origin x --force", "cd a && git push --force origin y",
+                "echo hi; git push origin main", "git commit -m ok && git push -f origin z"]:
+        assert g.check(cmd), cmd
+
+
 def test_schedule_covers_all_routines():
     import json
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
@@ -105,6 +116,18 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "cache: pip" in rl
     gates = "\n".join(jobs["gates"])
     assert "python -m referee.gates full" in gates and "rl]" not in gates
+
+
+def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    web = ci.split("\n  web:\n", 1)[1].split("\n\n", 1)[0]
+    minutes = int(re.search(r"timeout-minutes: (\d+)", web).group(1))
+    assert minutes <= 15
+    assert "npm test" in web and "playwright install" in web
+    assert "name: web-screenshots" in web and "if: always()" in web
+    script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text()
+    assert "scrollWidth" in script and "critical" in script
+    assert all(f"{w}" in script for w in ("390", "820", "1440"))
 
 
 def test_texassolver_job_is_manual_capped_and_secretless():
@@ -175,6 +198,71 @@ def test_should_run_without_lock_falls_back_to_throttle():
     assert not ok and "<" in why
 
 
+def _decide_planner(ready, prev_hours_ago, merged_hours_ago=None):
+    from datetime import timedelta
+    sr = _should_run()
+    calls = []
+
+    def count():
+        calls.append(1)
+        return ready
+
+    merged = None if merged_hours_ago is None else NOW - timedelta(hours=merged_hours_ago)
+    ok, why = sr.decide("planner", False, now=NOW, read_lock=lambda r: None,
+                        last_run=lambda r: NOW - timedelta(hours=prev_hours_ago), ready_count=count,
+                        main_updated_at=lambda: merged)
+    return ok, why, calls
+
+
+def test_planner_runs_right_after_a_merge():
+    ok, why, _ = _decide_planner(ready=5, prev_hours_ago=0.5, merged_hours_ago=0.2)
+    assert ok and why.startswith("main updated"), why
+    # A merge older than the last run does not trigger it again.
+    ok, why, _ = _decide_planner(ready=5, prev_hours_ago=0.5, merged_hours_ago=1)
+    assert not ok and "<" in why
+
+
+def test_merge_trigger_still_respects_the_lock():
+    from datetime import timedelta
+    sr = _should_run()
+    ok, why = sr.decide("planner", False, now=NOW, read_lock=lambda r: _lock_at(0.5),
+                        last_run=lambda r: NOW - timedelta(hours=1),
+                        main_updated_at=lambda: NOW - timedelta(minutes=5))
+    assert not ok and why.startswith("running")
+
+
+def test_planner_runs_early_when_ready_queue_is_low():
+    ok, why, _ = _decide_planner(ready=1, prev_hours_ago=3)
+    assert ok and why.startswith("queue low"), why
+    ok, why, _ = _decide_planner(ready=0, prev_hours_ago=3)
+    assert ok and why.startswith("queue low"), why
+    # Still respects the 2h spacing so an empty queue cannot make the planner run hourly.
+    ok, why, _ = _decide_planner(ready=0, prev_hours_ago=1)
+    assert not ok and "<" in why
+
+
+def test_planner_keeps_interval_when_ready_queue_is_full():
+    ok, why, _ = _decide_planner(ready=5, prev_hours_ago=3)
+    assert not ok and "<" in why
+    # Past the regular interval it runs without asking GitHub.
+    ok, why, calls = _decide_planner(ready=5, prev_hours_ago=11)
+    assert ok and not why.startswith("queue low") and not calls
+
+
+def test_planner_falls_back_to_interval_when_ready_lookup_fails():
+    ok, why, calls = _decide_planner(ready=None, prev_hours_ago=3)
+    assert not ok and "<" in why and calls
+
+
+def test_queue_floor_applies_to_planner_only():
+    from datetime import timedelta
+    sr = _should_run()
+    ok, _ = sr.decide("researcher", False, now=NOW, read_lock=lambda r: None,
+                      last_run=lambda r: NOW - timedelta(hours=3), ready_count=lambda: 0,
+                      main_updated_at=lambda: NOW)
+    assert not ok
+
+
 def test_should_run_lock_race_lets_only_one_run():
     sr = _should_run()
     locks = {}
@@ -182,7 +270,7 @@ def test_should_run_lock_race_lets_only_one_run():
     def decide(role, sweep):
         return sr.decide(role, sweep, now=NOW, read_lock=locks.get, last_run=lambda r: None)
 
-    def lost_race(path, content, msg):
+    def lost_race(files, msg):
         locks["builder"] = _lock_at(0)  # another run pushed its lock first
         return False
 
@@ -192,6 +280,88 @@ def test_should_run_lock_race_lets_only_one_run():
     locks.clear()
     written = []
     ok, _ = sr.acquire("builder", False, decide_fn=decide, fetch=lambda: None,
-                       commit=lambda p, c, m: written.append((p, c)) or True)
-    assert ok and written[0][0] == "locks/builder.json"
-    assert {"run_id", "started"} <= set(__import__("json").loads(written[0][1]))
+                       commit=lambda f, m: written.append(f) or True)
+    assert ok and list(written[0]) == ["locks/builder.json"]  # non-sweep runs leave the sweep stamp alone
+    assert {"run_id", "started"} <= set(__import__("json").loads(written[0]["locks/builder.json"]))
+
+
+def _decide_sweep(last_sweep_hours_ago, lock=None, last_run_seconds_ago=45):
+    from datetime import timedelta
+    sr = _should_run()
+    return sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: lock,
+                     last_run=lambda r: NOW - timedelta(seconds=last_run_seconds_ago),
+                     last_sweep=lambda r: None if last_sweep_hours_ago is None
+                     else NOW - timedelta(hours=last_sweep_hours_ago))
+
+
+def test_sweep_throttle_ignores_webhook_runs():
+    # #205: a webhook run 45s ago used to make the hourly sweep SKIP forever.
+    ok, why = _decide_sweep(2.0)
+    assert ok and "sweep" in why, why
+    ok, why = _decide_sweep(None)
+    assert ok and why == "no previous sweep"
+    ok, why = _decide_sweep(0.5, last_run_seconds_ago=7200)
+    assert not ok and why.startswith("last sweep") and "<" in why
+    ok, why = _decide_sweep(2.0, lock=_lock_at(0.5))
+    assert not ok and why.startswith("running")
+
+
+def test_sweep_run_stamps_its_start_with_the_lock():
+    import json
+    sr = _should_run()
+    written = []
+    ok, _ = sr.acquire("reviewer-b", True, fetch=lambda: None,
+                       decide_fn=lambda role, sweep: (True, "x"),
+                       commit=lambda f, m: written.append(f) or True)
+    assert ok and len(written) == 1  # one commit: lock and stamp land (or fail) together
+    files = written[0]
+    assert set(files) == {"locks/reviewer-b.json", "locks/reviewer-b.sweep.json"}
+    assert json.loads(files["locks/reviewer-b.sweep.json"])["role"] == "reviewer-b"
+
+
+def test_last_sweep_tolerates_missing_or_corrupt_stamp(monkeypatch):
+    sr = _should_run()
+    for raw, want in [("", None), ("{bad", None), ('{"x": 1}', None),
+                      ('{"started": "2026-10-26T11:00:00Z"}', NOW.replace(hour=11))]:
+        monkeypatch.setattr(sr, "_git", lambda *a, raw=raw, **k: raw)
+        assert sr.last_sweep("reviewer") == want
+
+
+def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
+    import yaml
+
+    bad = []
+    for wf in sorted((ROOT / ".github" / "workflows").glob("*.y*ml")):
+        try:
+            doc = yaml.safe_load(wf.read_text(encoding="utf-8"))
+        except yaml.YAMLError as e:
+            bad.append(f"{wf.name}: YAML parse error ({e.problem}, line {e.problem_mark.line + 1}) - quote scalars containing ': '")
+            continue
+        # PyYAML reads the bare key `on` as boolean True (YAML 1.1)
+        if not isinstance(doc, dict) or not ({"on", True} & doc.keys()):
+            bad.append(f"{wf.name}: missing top-level `on:` trigger")
+        elif not isinstance(doc.get("jobs"), dict) or not doc["jobs"]:
+            bad.append(f"{wf.name}: missing or empty `jobs:`")
+    assert not bad, "\n".join(bad)
+
+
+def test_two_reviewers_split_prs_by_parity():
+    import json
+    sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
+    assert sched["reviewer-b"]["instructions"] == sched["reviewer"]["instructions"] == "reviewer"
+    assert {k: v for k, v in sched["reviewer-b"].items()} == {k: v for k, v in sched["reviewer"].items()}
+    text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
+    assert "홀수" in text and "짝수" in text and "reviewer-b" in text
+
+
+def test_reviewer_locks_are_separate_per_role():
+    sr = _should_run()
+    seen = []
+    sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
+    sr.decide("reviewer", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
+    assert seen == ["reviewer-b", "reviewer"]  # each role reads ops:locks/<role>.json
+    # A held reviewer lock does not block reviewer-b.
+    held = {"role": "reviewer", "run_id": "x", "started": NOW.isoformat()}
+    ok, _ = sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: held if r == "reviewer" else None,
+                      last_sweep=lambda r: None)
+    assert ok

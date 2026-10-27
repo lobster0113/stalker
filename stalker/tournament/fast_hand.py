@@ -346,6 +346,21 @@ class FastHand:
         self._actions.append((self.seats[i], "cbr", amount))
         self._after_action()
 
+    @property
+    def stacks(self) -> dict[int, int]:
+        """Chips behind by seat, occupied seats only."""
+        return {self.seats[i]: s for i, s in enumerate(self._stacks)}
+
+    @property
+    def bets(self) -> dict[int, int]:
+        """Chips committed this street by seat."""
+        return {self.seats[i]: b for i, b in enumerate(self._bets)}
+
+    @property
+    def pot(self) -> int:
+        """All chips in the middle, this street's bets included."""
+        return sum(self._paid)
+
     def hole_cards(self, seat: int) -> list[str]:
         return [card_str(c) for c in self._hole[self._index[seat]]]
 
