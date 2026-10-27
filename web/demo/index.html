@@ -337,27 +337,141 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .log .st { color: var(--brass); font: 600 11px/1.8 var(--font-display); letter-spacing: .1em; }
 details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 
-/* ---------- learning ---------- */
-.learn { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+/* ---------- learning: gallery (learning order) → open module with side list ---------- */
+.learn { display: grid; gap: 20px; align-items: start; }
+.learn.open { grid-template-columns: 248px minmax(0, 1fr); }
 .mods { display: grid; gap: 8px; }
-.mod { text-align: left; border: 1px solid var(--line-soft); background: var(--panel); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; transition: border-color .2s, background .2s; }
+.learn.gallery .mods { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.mod { position: relative; text-align: left; border: 1px solid var(--line-soft); background: var(--panel); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; transition: border-color .2s, background .2s, transform .2s; min-width: 0; }
+.mod:hover:not(.locked) { border-color: var(--line); background: var(--panel-2); }
+.learn.gallery .mod { padding: 16px 16px 18px; gap: 6px; min-height: 150px; align-content: start; }
+.learn.gallery .mod:hover:not(.locked) { transform: translateY(-2px); border-color: rgba(214,171,85,.45); }
 .mod[aria-pressed="true"] { border-color: var(--brass); background: var(--panel-2); }
+.mod-top { display: flex; justify-content: space-between; align-items: center; }
+.mod .no { font: 700 13px/1 var(--font-display); color: var(--faint); letter-spacing: .06em; }
+.learn.gallery .mod .no { font-size: 26px; color: var(--brass); }
+.mod .lv { font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
 .mod .k { font: 600 11px/1 var(--font-display); letter-spacing: .12em; color: var(--brass); }
 .mod .nm { font-weight: 600; font-size: 14px; }
+.learn.gallery .mod .nm { font-size: 16px; }
 .mod .ds { font-size: 12px; color: var(--muted); }
+.learn.open .mod .ds, .learn.open .mod .lv { display: none; }
+.learn.open .mod { grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; padding: 10px 12px; }
+.learn.open .mod .mod-top { grid-row: span 3; }
 .mod.locked { opacity: .5; cursor: default; }
 .mod .my { font-size: 11px; color: var(--faint); }
-.drill { display: grid; gap: 16px; }
-.mini-felt { position: relative; border-radius: 22px; padding: 22px; background: radial-gradient(80% 90% at 50% 35%, #2a7a5f, var(--felt) 50%, var(--felt-deep)); box-shadow: inset 0 0 0 6px #241710, inset 0 0 0 7px #000, 0 20px 50px rgba(0,0,0,.5); display: grid; gap: 16px; }
+.mod .my b { color: var(--text); }
+.drill { display: grid; gap: 14px; min-width: 0; }
+.drill[hidden] { display: none; }
+.dr-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.dr-title { display: grid; gap: 4px; margin-right: auto; }
+.dr-title h2 { font-size: 20px; }
+.dr-hint { font-size: 12px; color: var(--muted); margin-top: -4px; }
+.dr-main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.dr-table { min-width: 0; }
+.dr-side { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.dr-range { display: grid; gap: 6px; }
+.cap-row { font-size: 12px; color: var(--muted); }
+.rgrid.big { gap: 2px; }
+.rgrid.big div { border-radius: 3px; }
+.rgrid.mine div.on { background: var(--blue); color: #08121f; }
+.mini-felt { position: relative; border-radius: 22px; padding: 18px; background: radial-gradient(80% 90% at 50% 35%, #2a7a5f, var(--felt) 50%, var(--felt-deep)); box-shadow: inset 0 0 0 6px #241710, inset 0 0 0 7px #000, 0 20px 50px rgba(0,0,0,.5); display: grid; gap: 14px; }
 .mf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; justify-content: center; }
-.mf-group { display: grid; justify-items: center; gap: 6px; }
+.mf-group { display: grid; justify-items: center; gap: 6px; min-width: 0; }
 .mf-group .cap { font-size: 11px; color: rgba(255,255,255,.7); background: rgba(0,0,0,.35); border-radius: 999px; padding: 2px 9px; }
-.mf-cards { display: flex; gap: 5px; }
-.mini-felt .card { --cw: clamp(40px, 6vw, 62px); }
-.history { background: rgba(0,0,0,.35); border-radius: 12px; padding: 10px 14px; font-size: 13px; display: grid; gap: 4px; }
+.mf-cards { display: flex; gap: 4px; }
+.mini-felt .card { --cw: clamp(32px, 3.4vw, 46px); }
+.history { background: rgba(0,0,0,.35); border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 12px; font-size: 12.5px; display: grid; gap: 4px; }
 .history b { color: var(--brass-hi); font: 600 12px/1.6 var(--font-display); letter-spacing: .1em; margin-right: 6px; }
-.mini-range { width: min(260px, 100%); }
+.mini-range { width: min(320px, 100%); }
+/* 족보 맞히기 */
+.rk-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.rk-opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; width: 100%; margin-top: 4px; }
+.rk { border: 1px solid rgba(0,0,0,.35); background: rgba(8,14,12,.62); color: var(--text); border-radius: 8px; padding: 7px 3px; font-size: 12px; line-height: 1.2; font-weight: 500; transition: all .15s; word-break: keep-all; min-width: 0; }
+.rk:hover:not(:disabled) { background: rgba(8,14,12,.85); border-color: rgba(240,205,130,.4); }
+.rk[aria-pressed="true"] { border-color: var(--brass-hi); background: rgba(214,171,85,.28); color: var(--brass-hi); }
+.rk:disabled { cursor: default; opacity: .55; }
+.rk.right { opacity: 1; border-color: var(--good); background: rgba(99,196,147,.25); color: #c9f0da; }
+.rk.wrong { opacity: 1; border-color: var(--bad); background: rgba(226,112,95,.22); color: #f6c9c1; text-decoration: line-through; }
 
+/* ---------- static table (learning scenarios, review) ---------- */
+.table-wrap.mt { --mcw: clamp(22px, 2.5vw, 36px); max-height: none; }
+.mt .board { gap: calc(var(--mcw) * .12); }
+.mt .board .card, .mt .board .slot { --cw: var(--mcw); width: var(--mcw); }
+.mt .seat { width: clamp(74px, 8.4vw, 116px); }
+.mt .seat .hole { height: calc(var(--mcw) * 1.4 * .82); margin-bottom: calc(var(--mcw) * -.4); }
+.mt .seat .hole .card { --cw: calc(var(--mcw) * .82); }
+.mt .seat.hero .hole { height: calc(var(--mcw) * 1.4 * 1.02); margin-bottom: calc(var(--mcw) * -.45); }
+.mt .seat.hero .hole .card { --cw: calc(var(--mcw) * 1.02); }
+.mt .pod { padding: 4px 8px 4px 4px; gap: 6px; }
+.mt .avatar { width: clamp(26px, 2.5vw, 32px); font-size: clamp(9px, .8vw, 11px); letter-spacing: -.02em; background: #4a565b; color: var(--text); }
+.mt .seat.hero .avatar { background: var(--text); color: var(--ink); }
+.mt .seat.focus .avatar { background: var(--brass); color: var(--brass-ink); }
+.mt .seat.focus .pod { border-color: rgba(214,171,85,.7); }
+.mt .who .nm { font-size: clamp(10.5px, .9vw, 12px); }
+.mt .who .stk { font-size: clamp(11px, 1vw, 13px); }
+.mt .seat.acting .pod::before { opacity: 1; animation: heroGlow 1.6s ease-in-out infinite; --p: 1; }
+.mt .seat.pickable { cursor: pointer; }
+.mt .seat.pickable:hover .pod { border-color: var(--brass); }
+.mt .pot .amt, .mt .bet .amt { font-size: clamp(10.5px, 1vw, 13px); }
+.mt .chips { width: clamp(14px, 1.3vw, 18px); height: clamp(14px, 1.3vw, 18px); }
+.mt .dealer { width: clamp(16px, 1.5vw, 20px); font-size: clamp(9px, .85vw, 11px); }
+.atag { position: relative; z-index: 2; margin-top: 4px; font: 600 11px/1 var(--font-display); letter-spacing: .04em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; background: var(--panel-3); color: var(--text); box-shadow: 0 3px 8px rgba(0,0,0,.4); }
+.atag.raise { background: var(--brass); color: var(--brass-ink); }
+.atag.call { background: var(--blue); color: #08121f; }
+.atag.fold { background: #3a4449; color: var(--muted); }
+
+/* ---------- answer explanation (shared) ---------- */
+.why { border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 2px; }
+.why.open { border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px; background: var(--ink-2); margin: 0; }
+details.why > summary { font-size: 12px; color: var(--brass-hi); list-style: none; display: flex; align-items: center; gap: 6px; }
+details.why > summary::before { content: "▸"; transition: transform .2s; }
+details.why[open] > summary::before { transform: rotate(90deg); }
+details.why[open] > summary { margin-bottom: 8px; }
+.why-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; margin-bottom: 8px; color: var(--brass-hi); }
+.why-sec { display: grid; gap: 6px; min-width: 0; }
+.why-txt { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.why-txt b { color: var(--text); }
+.why-dim { font-size: 12px; color: var(--faint); }
+.why-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--muted); }
+.why-legend i { display: inline-block; width: 10px; height: 6px; border-radius: 3px; margin-right: 5px; vertical-align: 1px; }
+.why-legend i.me, .bars i.me { background: var(--blue); }
+.why-legend i.op, .bars i.op { background: var(--brass); }
+.bk { display: grid; grid-template-columns: 74px minmax(0, 1fr) 62px; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 8px; border: 1px solid transparent; }
+.bk.hot { border-color: rgba(214,171,85,.45); background: rgba(214,171,85,.07); }
+.bk .bn { font-size: 12px; white-space: nowrap; }
+.bk.hot .bn { color: var(--brass-hi); font-weight: 600; }
+.bars { display: grid; gap: 2px; }
+.bars i { display: block; height: 6px; border-radius: 3px; min-width: 2px; transition: width .6s cubic-bezier(.3,.7,.2,1); }
+.bk .bv { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+.mix.wl span { color: #0b1013; }
+.wl-cap { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 11.5px; color: var(--muted); }
+.exs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.exs > div { display: grid; gap: 4px; align-content: start; }
+.exh { font-size: 11px; font-weight: 600; }
+.exrow { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; }
+.exrow b { font-size: 13px; color: var(--text); }
+.mc { display: inline-block; min-width: 1.9em; text-align: center; padding: 1px 3px; margin: 1px; border-radius: 4px; background: var(--card); color: var(--black-suit); font: 700 12px/1.35 var(--font-display); }
+.mc.red { color: var(--red-suit); }
+.cb { display: inline-flex; gap: 1px; white-space: nowrap; }
+.cb .mc { margin: 0; }
+.wc { display: grid; gap: 4px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line-soft); }
+.wc.on { border-color: rgba(214,171,85,.45); background: rgba(214,171,85,.06); }
+.wc-h { font-size: 12px; font-weight: 600; }
+.wc-list { display: flex; flex-wrap: wrap; gap: 2px; }
+.why-range { grid-template-columns: minmax(0, 1fr) minmax(0, 220px); gap: 12px; align-items: start; }
+.ws-list { display: grid; gap: 6px; align-content: start; }
+.ws { padding: 6px 8px; border-left: 2px solid var(--brass); background: rgba(255,255,255,.02); border-radius: 0 8px 8px 0; display: grid; gap: 2px; }
+.ws.edge { border-left-color: var(--line); }
+.ws-a { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 600; }
+.ws-a b { color: var(--brass-hi); white-space: nowrap; }
+.ws-t { font-size: 12px; color: var(--muted); }
+.kc { display: inline-block; font: 600 11.5px/1.4 var(--font-display); padding: 0 5px; margin: 1px 2px; border-radius: 4px; background: var(--panel-3); color: var(--muted); }
+.kc.in { background: rgba(214,171,85,.2); color: var(--brass-hi); }
+.rk-row { display: grid; grid-template-columns: 36px auto minmax(0, 1fr); gap: 8px; align-items: center; font-size: 12.5px; }
+.rk-who { color: var(--muted); }
+.rk-cards { display: flex; flex-wrap: wrap; }
+.rk-cards .hole-c .mc { box-shadow: inset 0 -2px 0 var(--brass); }
 /* ---------- review ---------- */
 .review { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .picks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -382,8 +496,23 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
   .train { grid-template-columns: minmax(0, 1fr) 340px; }
 }
 @media (max-width: 900px) {
-  .home, .learn, .review { grid-template-columns: minmax(0, 1fr); }
+  .home, .learn, .learn.open, .review { grid-template-columns: minmax(0, 1fr); }
   .brand span { display: none; }
+  .learn.open .mods { display: flex; overflow-x: auto; gap: 8px; padding-bottom: 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+  .learn.open .mod { flex: 0 0 auto; width: 176px; scroll-snap-align: start; }
+}
+@media (max-width: 760px) {
+  .dr-main, .why-range { grid-template-columns: minmax(0, 1fr); }
+  .learn.gallery .mods { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .learn.gallery .mod { min-height: 0; padding: 12px; }
+  .learn.gallery .mod .ds { font-size: 11.5px; }
+  .table-wrap.mt { --mcw: clamp(22px, 6.6vw, 32px); }
+  .mt .seat { width: clamp(70px, 23vw, 100px); }
+  .mt .avatar { width: 26px; font-size: 9.5px; }
+}
+@media (max-width: 560px) {
+  .rk-pair, .exs { grid-template-columns: minmax(0, 1fr); }
+  .rk-opts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   :root { --cw: clamp(26px, 7.6vw, 42px); }
@@ -531,11 +660,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
     <div class="hero-title">
       <span class="eyebrow">학습 섹션</span>
       <h1>단계 하나씩, 쉬운 것부터.</h1>
-      <p class="lede">같은 판단도 주어지는 정보에 따라 난이도가 달라집니다. 쉬움은 상대 핸드를, 보통은 상대 레인지를, 어려움은 상대의 액션 흐름만 보여줍니다.</p>
+      <p class="lede">배우는 순서대로 놓았어요. 족보부터 시작해 에퀴티, 레인지, 보드 순으로 올라갑니다. 문제마다 쉬움은 상대 핸드를, 보통은 상대 레인지를, 어려움은 테이블의 액션만 보여주고, 정답에는 왜 그런지를 함께 보여줘요.</p>
     </div>
-    <div class="learn">
+    <div class="learn gallery" id="learn">
       <div class="mods" id="mods"></div>
-      <div class="box drill" id="drill"></div>
+      <div class="box drill" id="drill" hidden></div>
     </div>
   </div>
 </section>
@@ -611,7 +740,7 @@ function evaluate(cs) {
   if (pairs.length) return 1 * B5 + enc([pairs[0], ...singles.slice(0, 3)]);
   return enc(singles.slice(0, 5));
 }
-const HAND_NAMES = ["하이카드", "원페어", "투페어", "트리플", "스트레이트", "플러시", "풀하우스", "포카드", "스트레이트 플러시"];
+const HAND_NAMES = ["하이카드", "원페어", "투페어", "트립스", "스트레이트", "플러시", "풀하우스", "포카드", "스트레이트 플러시"];
 const handName = s => HAND_NAMES[Math.floor(s / B5)];
 
 /* ================= preflop classes & ranges ================= */
@@ -680,11 +809,11 @@ function outsVuln(hero, board, combos, iters = 90) {
     if (dead.has(c)) continue;
     const cs = combos.filter(x => x[0] !== c && x[1] !== c);
     if (!cs.length) continue; // a known opponent card cannot come next
-    eqs.push(eqVsCombos(hero, [...board, c], cs, iters));
+    eqs.push({ c, e: eqVsCombos(hero, [...board, c], cs, iters) });
   }
   // Mean over next cards is an unbiased estimate of "equity now" and shares the per-card noise.
-  const base = eqs.reduce((a, e) => a + e, 0) / eqs.length;
-  return { outs: Math.round(eqs.filter(e => e - base >= .1).length / eqs.length * 100), vuln: Math.round(eqs.filter(e => base - e >= .1).length / eqs.length * 100) };
+  const base = eqs.reduce((a, x) => a + x.e, 0) / eqs.length, up = eqs.filter(x => x.e - base >= .1).map(x => x.c), down = eqs.filter(x => base - x.e >= .1).map(x => x.c);
+  return { outs: Math.round(up.length / eqs.length * 100), vuln: Math.round(down.length / eqs.length * 100), up, down, total: eqs.length };
 }
 // opp.value (§3.1): mass of the bet range with showdown equity > 50% vs my representative calling range.
 function valueShare(oppPct, heroCallPct, board, hero, n = 140, k = 18) {
@@ -858,13 +987,7 @@ const potTotal = () => G.pot + G.seats.reduce((a, s) => a + s.bet, 0);
 
 /* ---------- table rendering ---------- */
 const P = {}; // positions in % per seat: {x,y,bx,by,cx,cy}
-function seatPos(k) {
-  const portrait = matchMedia("(max-width: 760px)").matches;
-  const ang = Math.PI / 2 + k * 2 * Math.PI / G.n;
-  const rx = portrait ? 37 : 43, ry = portrait ? 42 : 39;
-  const x = 50 + rx * Math.cos(ang), y = 50 + ry * Math.sin(ang);
-  return { x, y, bx: 50 + (x - 50) * .58, by: 47 + (y - 50) * .5, dx: 50 + (x - 50) * .74 + (k === 0 ? 7 : 0), dy: 50 + (y - 50) * .7 };
-}
+const seatPos = k => ringPos(k, G.n, matchMedia("(max-width: 760px)").matches);
 function buildTable() {
   const layer = $("#layer");
   $$(".seat, .bet, .dealer, .fly, .banner", layer).forEach(e => e.remove());
@@ -882,11 +1005,11 @@ function buildTable() {
   renderSeats(); renderInfo();
 }
 addEventListener("resize", () => { if (!G) return; for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
-function chipStack(amount) {
+function chipStack(amount, bb = G.bb) {
   const colors = ["--chip-black", "--chip-blue", "--chip-green", "--chip-red"];
-  const n = clamp(Math.ceil(Math.log2(amount / G.bb + 1)), 1, 5);
+  const n = clamp(Math.ceil(Math.log2(amount / bb + 1)), 1, 5);
   let html = `<div class="chips">`;
-  for (let i = 0; i < n; i++) html += `<div class="chip" style="--c:var(${colors[(i + Math.floor(amount / G.bb)) % 4]});top:${-i * 3}px"></div>`;
+  for (let i = 0; i < n; i++) html += `<div class="chip" style="--c:var(${colors[(i + Math.floor(amount / bb)) % 4]});top:${-i * 3}px"></div>`;
   return html + `</div>`;
 }
 function renderSeats() {
@@ -1150,7 +1273,7 @@ function computeGTO(hero) {
   else if (L.toCall > 0) { const edge = eq - odds - icmTax; mix = edge > .22 && L.canRaise ? { raise: .55, call: .4, fold: .05 } : edge > .02 ? { call: .78, raise: L.canRaise ? .1 : 0, fold: .12 } : edge > -.06 ? { call: .4, fold: .6 } : { fold: .88, call: .12 }; }
   else { mix = eq > .62 && L.canRaise ? { raise: .72, check: .28 } : eq > .45 ? { check: .62, raise: L.canRaise ? .38 : 0 } : { check: .8, raise: L.canRaise ? .2 : 0 }; }
   v["act.choice"] = mix;
-  return { v, note, opp, L, pot, pct, rep };
+  return { v, note, opp, L, pot, pct, rep, ov, vp, ag, fd };
 }
 
 /* ---------- hero turn & TP console ---------- */
@@ -1326,6 +1449,21 @@ function bindInputs() {
   }));
   $$("[data-size]").forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; navState(); }));
 }
+// Inputs for the shared answer explanation, from what the mock teacher used for this decision.
+function trainWhyCtx(g) {
+  const hero = CUR.hero, st = g.opp.stats, pc = x => Math.round(x * 100), nm = g.opp.name;
+  const acts = G.log.filter(l => l.t.startsWith(nm + "(")).map(l => `${l.st} ${l.t.replace(/^[^)]*\)\s*/, "")}`);
+  const steps = [[`관측 프리플랍 참여 ${st.vpip}/${st.preOpp}회`, null, `모집단 사전값 26%와 섞은 수축 추정 ≈ ${pc(g.vp)}%`], [`이번 핸드 · ${acts.join(" → ") || "아직 액션 없음"}`, g.pct, "참여 비율에서 출발해 오픈·콜·레이즈마다 레인지를 좁혀요(모의 규칙)."]];
+  const base = G.tour ? { early: 18, mid: 35, bubble: 78, itm: 46, ft: 62 }[G.stage] : 0;
+  const texts = {
+    "opp.loose": `${nm}의 자발적 참여 ${st.vpip}/${st.preOpp}회를 모집단 사전값(26%)과 섞어 ≈ ${pc(g.vp)}% → 0–100 척도로 ${g.v["opp.loose"]}. 관측이 적을수록 사전값 쪽으로 당겨져요.`,
+    "opp.aggr": `벳·레이즈 ${st.raises}회 / (벳·레이즈 + 콜 ${st.raises + st.calls}회)를 사전값 40%와 섞어 ≈ ${pc(g.ag)}%.`,
+    "opp.foldy": `벳을 마주해 폴드 ${st.foldsFaced}/${st.faced}회를 사전값 45%와 섞어 ≈ ${pc(g.fd)}%.`,
+    "plan.foldeq": g.rep ? `상대 폴드 성향 추정 ${pc(g.fd)}%, 레인지 폭 상위 ${g.pct}%, 대표 사이즈 ${g.rep.label}로 계산한 모의 값이에요. 상대가 여럿이면 모두 접을 확률을 곱해요.` : "",
+    "plan.icm": G.tour ? `${STAGE_NAMES[G.stage]} 단계 기본 무게 ${base}에 내 스택 ${bbf(hero.stack)}BB 보정을 더했어요. 버블에 가까울수록, 스택이 애매할수록 무거워요.` : "",
+  };
+  return { hero: hero.cards.slice(), board: G.board.slice(), oppPct: g.pct, heroPct: heroRangePct(hero), ov: g.ov, steps, note: g.note["opp.value"], texts };
+}
 function scoreScalar(u, g) { const tol = TIERS[S.tier].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * 2.4)) }; }
 function submitTP() {
   const g = CUR.g, rows = [], refs = [];
@@ -1345,6 +1483,8 @@ function submitTP() {
     }
   }
   rows.forEach(r => recordScore(r.k, r.score));
+  const ctx = trainWhyCtx(g);
+  rows.forEach(r => r.why = whyHTML(r.k, { ...ctx, text: ctx.texts[r.k] }));
   recordInputTime((performance.now() - CUR.t0) / 1000);
   const total = rows.length ? Math.round(rows.reduce((a, r) => a + r.score, 0) / rows.length) : null;
   const worst = rows.slice().sort((a, b) => a.score - b.score)[0];
@@ -1375,7 +1515,7 @@ function resultHTML(gr, compact) {
     html += `<div class="rrow"><div class="t"><span>${SHORT[r.k]}</span><b class="num ${cls}">${r.score}</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${r.gto}%"></div><div class="mk you" style="left:${r.you}%"></div></div>
       <div class="cap"><span>나 ${r.kind === "range" ? "상위 " + r.you + "%" : r.you}</span><span>TP-GTO(모의) ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}</span></div>
-      ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}</div>`;
+      ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}${r.why ? `<details class="why"><summary>왜 이 답인가 ${CONF}</summary>${r.why}</details>` : ""}</div>`;
   }
   for (const r of gr.refs || []) {
     if (r.kind === "action") html += mixRefHTML(r.mix, r.you, SHORT[r.k]);
@@ -1431,84 +1571,353 @@ function heroBust() {
   gameToken++;
 }
 
-/* ================= learning section ================= */
-const MODS = [
-  { k: "hand.equity", tag: "D 내 핸드", name: "에퀴티 감각", ds: "상대 핸드·레인지 대비 내 쇼다운 에퀴티를 감으로 잡기" },
-  { k: "board.adv", tag: "B 보드 읽기", name: "보드 텍스처 읽기", ds: "이 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)" },
-  { k: "hand.outs", tag: "D 내 핸드", name: "유리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 올리는 비율" },
-  { k: "hand.vuln", tag: "D 내 핸드", name: "불리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 깎는 비율" },
-  { k: "opp.range", tag: "C 상대 읽기", name: "레인지 추정", ds: "포지션과 액션 흐름으로 상대 상위 몇 %인지" },
-  { k: "opp.value", tag: "C 상대 읽기", name: "밸류 쪽인가 블러프 쪽인가", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
-  { k: "plan.icm", tag: "E 계획", name: "ICM 압박", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
-];
-let LM = { k: "board.adv", lvl: "normal", prob: null, answered: false };
-function renderMods() {
-  $("#mods").innerHTML = MODS.map(m => { const a = avgScore(m.k); return `<button class="mod${m.locked ? " locked" : ""}" data-k="${m.k}" aria-pressed="${m.k === LM.k}" ${m.locked ? "aria-disabled='true'" : ""}><span class="k">${m.tag}</span><span class="nm">${m.name}</span><span class="ds">${m.ds}</span>${a != null ? `<span class="my">훈련 게임 평균 <b class="num" style="color:var(--text)">${a}</b>점</span>` : ""}</button>`; }).join("");
-  $$(".mod").forEach(b => b.onclick = () => { if (!b.classList.contains("locked")) selectModule(b.dataset.k); });
-  if (!LM.prob) newProblem(); renderDrill();
+/* ================= hand model for static tables (learning scenarios, review input) ================= */
+// 6-max, amounts in BB. Only legal actions in table order are accepted, so a scripted or user-entered line is always a real hand.
+const RPOS = ["UTG", "HJ", "CO", "BTN", "SB", "BB"];
+const f1 = x => (Math.round(x * 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
+function rhNew(heroPos, stack) {
+  const seats = RPOS.map((pos, i) => ({ i, pos, isHero: pos === heroPos, stack, bet: 0, contrib: 0, folded: false, allin: false, last: null }));
+  const h = { seats, street: 0, board: [], pot: 0, currentBet: 1, minRaise: 1, log: [], lastAgg: null, streetAgg: null, closed: false };
+  rhPost(seats[4], .5); rhPost(seats[5], 1);
+  h.pending = new Set(seats.filter(s => !s.allin).map(s => s.i)); h.toAct = 0;
+  return h;
 }
-function selectModule(k) { LM.k = k; newProblem(); renderMods(); }
-function dealN(n, dead) { const out = []; while (out.length < n) { const c = Math.floor(rand() * 52); if (!dead.has(c)) { dead.add(c); out.push(c); } } return out; }
-const SCENARIOS = [
-  { pct: 14, lines: [["프리플랍", "UTG 2.5BB 오픈, 나 BTN 콜"]] },
-  { pct: 42, lines: [["프리플랍", "BTN 2.2BB 오픈, 나 BB 콜"]] },
-  { pct: 6, lines: [["프리플랍", "나 CO 2.5BB 오픈, BTN 3벳 8BB, 나 콜"]] },
-  { pct: 11, lines: [["프리플랍", "나 BTN 2.5BB 오픈, BB 콜"], ["플랍", "BB 체크-레이즈 3배"]] },
-  { pct: 30, lines: [["프리플랍", "HJ 2.5BB 오픈, 나 BB 콜"], ["플랍", "나 체크, HJ 체크"], ["턴", "나 체크, HJ 체크"]] },
+function rhPost(s, a) { a = Math.min(a, s.stack); s.stack -= a; s.bet += a; s.contrib += a; if (!s.stack) s.allin = true; }
+const rhLive = h => h.seats.filter(s => !s.folded);
+const rhCan = h => h.seats.filter(s => !s.folded && !s.allin);
+const rhPot = h => h.pot + h.seats.reduce((a, s) => a + s.bet, 0);
+const rhActor = h => h.toAct == null ? null : h.seats[h.toAct];
+function rhLegal(h, s = rhActor(h)) {
+  const toCall = Math.max(0, h.currentBet - s.bet), others = rhCan(h).filter(o => o !== s).length, maxTo = s.bet + s.stack;
+  return { toCall: Math.min(toCall, s.stack), canCheck: toCall === 0, canRaise: s.stack > toCall && others > 0, minTo: Math.min(h.currentBet + h.minRaise, maxTo), maxTo };
+}
+function rhSizes(h) {
+  const L = rhLegal(h), pot = rhPot(h);
+  let o;
+  if (h.street === 0 && h.currentBet === 1) o = [2, 2.2, 2.5, 3, 4].map(x => ({ label: x + "BB", to: x }));
+  else if (h.currentBet > 0) o = [2.5, 3, 4].map(x => ({ label: x + "x", to: Math.round(h.currentBet * x * 10) / 10 }));
+  else o = [33, 50, 75, 100, 150].map(x => ({ label: x + "%", to: Math.round(pot * x / 10) / 10 }));
+  o = o.filter(x => x.to >= L.minTo && x.to < L.maxTo);
+  o.push({ label: "올인 " + f1(L.maxTo), to: L.maxTo, allin: true });
+  return o;
+}
+function rhAct(h, a) {
+  const s = rhActor(h); if (!s || h.closed) return false;
+  const L = rhLegal(h, s), pre = h.street === 0, potBefore = rhPot(h);
+  let label, cls = "", raised = false;
+  if (a.type === "fold") { if (L.canCheck) return false; s.folded = true; label = "폴드"; cls = "fold"; }
+  else if (a.type === "check") { if (!L.canCheck) return false; label = "체크"; cls = "check"; }
+  else if (a.type === "call") { if (L.canCheck) return false; rhPost(s, L.toCall); label = s.allin ? "올인 " + f1(s.bet) : "콜 " + f1(s.bet); cls = "call"; }
+  else if (a.type === "raise") {
+    if (!L.canRaise) return false;
+    const to = Math.min(a.to, L.maxTo); if (to < L.minTo - 1e-9 && to < L.maxTo) return false;
+    const opened = pre && h.currentBet === 1, bet0 = h.currentBet === 0;
+    if (to - h.currentBet >= h.minRaise) h.minRaise = to - h.currentBet;
+    h.currentBet = Math.max(h.currentBet, to); rhPost(s, to - s.bet); raised = true; h.lastAgg = s.i; h.streetAgg = s.i;
+    label = (s.allin ? "올인 " : opened ? "오픈 " : bet0 ? "벳 " : pre && h.log.some(l => l.st === 0 && l.type === "raise") ? "3벳 " : "레이즈 ") + f1(to); cls = "raise";
+  } else return false;
+  s.last = { label, cls };
+  h.log.push({ st: h.street, pos: s.pos, isHero: s.isHero, type: a.type, to: s.bet, label, facing: L.toCall > 0, toCall: L.toCall, potBefore, board: h.board.slice() });
+  if (raised) h.pending = new Set(rhCan(h).filter(o => o !== s).map(o => o.i)); else h.pending.delete(s.i);
+  if (rhLive(h).length === 1) h.pending.clear();
+  h.toAct = null;
+  for (let d = 1; d <= 6 && h.pending.size; d++) { const j = (s.i + d) % 6; if (h.pending.has(j)) { h.toAct = j; break; } }
+  h.closed = h.toAct == null;
+  return true;
+}
+function rhNextStreet(h, cards) {
+  for (const s of h.seats) { h.pot += s.bet; s.bet = 0; if (!s.folded) s.last = null; }
+  h.board.push(...cards); h.street++; h.currentBet = 0; h.minRaise = 1; h.streetAgg = null;
+  const can = rhCan(h);
+  h.pending = new Set(can.length >= 2 && rhLive(h).length >= 2 ? can.map(s => s.i) : []);
+  h.toAct = null; for (const j of [4, 5, 0, 1, 2, 3]) if (h.pending.has(j)) { h.toAct = j; break; }
+  h.closed = h.toAct == null;
+}
+// Script tokens: "UTG r2.5" raise to 2.5BB · "BB r3x" raise to 3× · "BTN b33" bet 33% pot · c call · k check · f fold · "|" next street.
+function rhScript(acts, heroPos, stack, board) {
+  const h = rhNew(heroPos, stack); let bi = 0;
+  for (const t of acts) {
+    if (t === "|") { const n = h.street === 0 ? 3 : 1; rhNextStreet(h, board.slice(bi, bi + n)); bi += n; continue; }
+    const [pos, a] = t.split(" "); if (rhActor(h)?.pos !== pos) throw new Error("scenario out of order: " + t);
+    const m = a[0], v = parseFloat(a.slice(1));
+    const act = m === "f" ? { type: "fold" } : m === "k" ? { type: "check" } : m === "c" ? { type: "call" } : m === "b" ? { type: "raise", to: Math.round(rhPot(h) * v / 10) / 10 } : { type: "raise", to: a.endsWith("x") ? h.currentBet * v : v };
+    if (!rhAct(h, act)) throw new Error("illegal scenario action: " + t);
+  }
+  return h;
+}
+const ST_NM = ["프리플랍", "플랍", "턴", "리버"];
+function rhLogHTML(h) {
+  const rows = [];
+  for (let st = 0; st <= h.street; st++) { const ls = h.log.filter(l => l.st === st); if (ls.length) rows.push(`<div><b>${ST_NM[st]}</b>${ls.map(l => `${l.isHero ? "나" : l.pos} ${l.label}`).join(" · ")}</div>`); }
+  return rows.join("");
+}
+
+/* ---------- static poker table (same look as the training table) ---------- */
+function ringPos(k, n, portrait) {
+  const ang = Math.PI / 2 + k * 2 * Math.PI / n, rx = portrait ? 37 : 43, ry = portrait ? 42 : 39;
+  const x = 50 + rx * Math.cos(ang), y = 50 + ry * Math.sin(ang);
+  return { x, y, bx: 50 + (x - 50) * .58, by: 47 + (y - 50) * .5, dx: 50 + (x - 50) * .74 + (k === 0 ? 7 : 0), dy: 50 + (y - 50) * .7 };
+}
+function tableHTML(h, o = {}) {
+  const portrait = matchMedia("(max-width: 760px)").matches, hi = h.seats.findIndex(s => s.isHero), base = hi < 0 ? 3 : hi;
+  let seats = "", bets = "", dealer = "";
+  for (const s of h.seats) {
+    const k = (s.i - base + 6) % 6, p = ringPos(k, 6, portrait), cs = o.cards?.[s.pos];
+    const hole = s.folded ? "" : cs ? cs.map(c => cardEl(c, { back: c == null }).outerHTML).join("") : o.noBacks ? "" : cardEl(null, { back: true }).outerHTML.repeat(2);
+    const nm = s.isHero ? "나" : s.pos === o.focus ? "상대" : "플레이어";
+    const tag = s.last ? `<span class="atag ${s.last.cls}">${s.last.label}</span>` : "";
+    seats += `<div class="seat mseat${s.isHero ? " hero" : ""}${s.folded ? " folded" : ""}${o.acting === s.pos ? " acting" : ""}${s.pos === o.focus ? " focus" : ""}${o.pick ? " pickable" : ""}" data-pos="${s.pos}" style="left:${p.x}%;top:${p.y}%"${o.pick ? ` role="button" tabindex="0" aria-label="${s.pos} 자리를 내 자리로"` : ""}>
+      <div class="hole">${hole}</div><div class="pod"><div class="avatar">${s.pos}</div><div class="who"><div class="nm">${nm}</div><div class="stk">${s.allin ? "올인" : f1(s.stack) + " BB"}</div></div></div>${tag}</div>`;
+    if (s.bet > 0) bets += `<div class="bet" style="left:${p.bx}%;top:${p.by}%">${chipStack(s.bet, 1)}<span class="amt num">${f1(s.bet)}</span></div>`;
+    if (s.pos === "BTN") dealer = `<div class="dealer" style="left:${p.dx}%;top:${p.dy}%">D</div>`;
+  }
+  const board = [0, 1, 2, 3, 4].map(i => h.board[i] != null ? cardEl(h.board[i]).outerHTML : `<div class="slot"></div>`).join("");
+  const pot = rhPot(h);
+  return `<div class="table-wrap mt"><div class="rail"></div><div class="felt"><div class="felt-mark">STALKER</div></div>
+    <div class="layer"><div class="pot">${h.pot > 0 ? chipStack(h.pot, 1) : ""}<span class="amt num"><small>팟</small>${f1(pot)} BB</span></div><div class="board">${board}</div>${seats}${bets}${dealer}</div></div>`;
+}
+
+/* ================= answer explanations (one component: learning, training result, review) ================= */
+const cardTxtHTML = c => `<span class="mc${suitOf(c) === 1 || suitOf(c) === 2 ? " red" : ""}">${RANKS[rankOf(c)] === "T" ? "10" : RANKS[rankOf(c)]}${SUITS[suitOf(c)]}</span>`;
+const comboHTML = cs => `<span class="cb">${cs.slice(0, 2).map(cardTxtHTML).join("")}</span>`;
+const BUCKETS = ["넛급", "강한 메이드", "중간", "드로", "에어"];
+const BUCKET_TIP = ["스트레이트 이상·셋/트립스", "투페어·탑페어 이상·오버페어", "그 밖의 원페어", "플러시·스트레이트 드로", "아무것도 없음"];
+const digit = (r, i) => Math.floor(r / 13 ** (4 - i)) % 13;
+function hasDraw(hole, board) {
+  const cs = [...hole, ...board];
+  for (let s = 0; s < 4; s++) if (cs.filter(c => suitOf(c) === s).length === 4 && hole.some(c => suitOf(c) === s)) return true;
+  let mask = 0; for (const c of cs) mask |= 1 << rankOf(c);
+  const ext = (mask << 1) | ((mask >> 12) & 1), hm = hole.reduce((m, c) => m | 1 << (rankOf(c) + 1) | (rankOf(c) === 12 ? 1 : 0), 0);
+  for (let lo = 0; lo <= 9; lo++) { const w = (ext >> lo) & 31; let n = 0; for (let b = 0; b < 5; b++) n += (w >> b) & 1; if (n === 4 && ((hm >> lo) & 31)) return true; }
+  return false;
+}
+// Strength bucket of a combo on this board; only strength the hole cards add counts (a paired board alone is not "중간").
+function bucketOf(a, b, board) {
+  const s = evaluate([a, b, ...board]), cat = Math.floor(s / B5), r = s % B5;
+  const bs = evaluate(board), bcat = Math.floor(bs / B5), top = Math.max(...board.map(rankOf));
+  if (cat >= 4 && cat > bcat) return 0;
+  if (cat === 3 && bcat === 0) return 0;
+  if (cat === 3 && bcat === 1) return 1;
+  if (cat === 2 && bcat === 0) return 1;
+  if ((cat === 2 && bcat === 1) || (cat === 1 && bcat === 0)) {
+    const pr = cat === 1 ? digit(r, 0) : (digit(r, 0) === digit(bs % B5, 0) ? digit(r, 1) : digit(r, 0));
+    return pr >= top ? 1 : 2;
+  }
+  if (board.length < 5 && hasDraw([a, b], board)) return 3;
+  return 4;
+}
+function bucketDist(combos, board) {
+  const n = [0, 0, 0, 0, 0], ex = [[], [], [], [], []];
+  for (const c of combos) { const k = bucketOf(c[0], c[1], board); n[k]++; if (ex[k].length < 24) ex[k].push(c); }
+  const tot = combos.length || 1;
+  return { p: n.map(x => Math.round(x / tot * 100)), ex };
+}
+function whyBuckets(heroPct, oppPct, board, hero, focus) {
+  const me = bucketDist(combosFor(classesInTop(heroPct), new Set(board)), board), op = bucketDist(combosFor(classesInTop(oppPct), new Set([...board, ...hero])), board);
+  const gaps = BUCKETS.map((_, i) => ({ i, d: op.p[i] - me.p[i] })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const hot = new Set(focus != null ? [focus] : gaps.slice(0, 2).filter(g => Math.abs(g.d) >= 4).map(g => g.i));
+  const mx = Math.max(...me.p, ...op.p, 1);
+  const g0 = focus != null ? gaps.find(g => g.i === focus) : gaps[0], side = g0.d >= 0 ? op : me;
+  const pickEx = arr => { const seen = new Set(), out = []; for (const c of arr.sort(() => rand() - .5)) { const k = classOf(c[0], c[1]).key; if (!seen.has(k)) { seen.add(k); out.push(c); } if (out.length >= 4) break; } return out; };
+  const ex = pickEx(side.ex[g0.i].slice());
+  return `<div class="why-sec"><div class="why-legend"><span><i class="me"></i>내 레인지 (상위 ${heroPct}%)</span><span><i class="op"></i>상대 레인지 (상위 ${oppPct}%)</span></div>
+    ${BUCKETS.map((b, i) => `<div class="bk${hot.has(i) ? " hot" : ""}"><span class="bn" title="${BUCKET_TIP[i]}">${b}</span><div class="bars"><i class="me" style="width:${me.p[i] / mx * 100}%"></i><i class="op" style="width:${op.p[i] / mx * 100}%"></i></div><span class="bv num">${me.p[i]} / ${op.p[i]}%</span></div>`).join("")}
+    <p class="why-txt">${Math.abs(g0.d) < 4 ? "두 레인지의 강도 분포가 비슷해요." : `<b>${BUCKETS[g0.i]}</b>(${BUCKET_TIP[g0.i]}) 비중이 ${g0.d > 0 ? "상대" : "내"} 레인지에 ${Math.abs(g0.d)}%p 더 많아요.`}${ex.length ? ` ${g0.d >= 0 ? "상대" : "내"} 쪽 대표 콤보: ${ex.map(comboHTML).join(" ")}` : ""}</p></div>`;
+}
+function eqSplit(hero, board, combos, iters = 600) {
+  let w = 0, t = 0, n = 0;
+  for (let i = 0; i < iters * 2 && n < iters; i++) {
+    const [a, b] = combos[Math.floor(rand() * combos.length)];
+    if (hero.includes(a) || hero.includes(b)) continue;
+    const full = runout(board, new Set([...hero, ...board, a, b])), sh = evaluate([...hero, ...full]), so = evaluate([a, b, ...full]);
+    if (sh > so) w++; else if (sh === so) t++; n++;
+  }
+  return n ? { win: w / n, tie: t / n } : { win: .5, tie: 0 };
+}
+function splitBar(sp) {
+  const w = Math.round(sp.win * 100), t = Math.round(sp.tie * 100), l = Math.max(0, 100 - w - t);
+  return `<div class="mix wl">${w ? `<span style="width:${w}%;background:var(--good)">${w >= 12 ? "승 " + w + "%" : ""}</span>` : ""}${t ? `<span style="width:${t}%;background:var(--muted)">${t >= 12 ? "무 " + t + "%" : ""}</span>` : ""}${l ? `<span style="width:${l}%;background:var(--bad)">${l >= 12 ? "패 " + l + "%" : ""}</span>` : ""}</div><div class="cap wl-cap"><span class="good">승 ${w}%</span><span>무 ${t}%</span><span class="bad">패 ${l}%</span><span>에퀴티 = 승 + 무/2 ≈ ${Math.round(w + t / 2)}%</span></div>`;
+}
+function whyEquity(hero, board, oppPct, oppCards) {
+  const dead = new Set([...hero, ...board]);
+  if (oppCards) {
+    const sp = eqSplit(hero, board, [[oppCards[0], oppCards[1]]], 900);
+    let txt = "";
+    if (board.length >= 3) {
+      const me = evaluate([...hero, ...board]), op = evaluate([...oppCards, ...board]);
+      txt = `지금은 내 <b>${handName(me)}</b> 대 상대 <b>${handName(op)}</b>로 ${me > op ? "내가 앞서 있어요" : me < op ? "상대가 앞서 있어요" : "같아요"}.`;
+      if (board.length < 5) {
+        const flip = []; for (let c = 0; c < 52; c++) { if (dead.has(c) || oppCards.includes(c)) continue; const a = evaluate([...hero, ...board, c]), b = evaluate([...oppCards, ...board, c]); if ((a > b) !== (me > op) && a !== b) flip.push(c); }
+        if (flip.length) txt += ` 다음 카드 중 ${flip.length}장이 순위를 뒤집어요: ${flip.slice(0, 14).map(cardTxtHTML).join("")}${flip.length > 14 ? " …" : ""}`;
+      }
+    } else txt = `프리플랍 올인 대결이에요. 보드 다섯 장을 끝까지 깔았을 때의 결과를 세요.`;
+    return `<div class="why-sec">${splitBar(sp)}<p class="why-txt">${txt}</p></div>`;
+  }
+  const keys = [...classesInTop(oppPct)], stepN = Math.max(1, Math.ceil(keys.length / 44));
+  const rows = keys.filter((_, i) => i % stepN === 0).map(key => { const cs = combosFor(new Set([key]), dead); return cs.length ? { key, eq: eqVsCombos(hero, board, cs, 40), ex: cs[Math.floor(rand() * cs.length)] } : null; }).filter(Boolean).sort((a, b) => b.eq - a.eq);
+  const all = combosFor(classesInTop(oppPct), dead), sp = eqSplit(hero, board, all, 700);
+  const li = r => `<span class="exrow">${comboHTML(r.ex)}<b class="num">${Math.round(r.eq * 100)}%</b></span>`;
+  const win = rows.filter(r => r.eq >= .5).slice(0, 4), lose = rows.filter(r => r.eq < .5).slice(-4).reverse();
+  return `<div class="why-sec">${splitBar(sp)}
+    <div class="exs"><div><div class="exh good">내가 이기는 상대 핸드 예</div>${win.map(li).join("") || `<span class="why-dim">거의 없음</span>`}</div><div><div class="exh bad">내가 지는 상대 핸드 예</div>${lose.map(li).join("") || `<span class="why-dim">거의 없음</span>`}</div></div>
+    <p class="why-txt">상대 레인지 상위 ${oppPct}%의 핸드마다 내 승률을 구해 평균한 값이에요(숫자 = 그 핸드 상대로 내 에퀴티).</p></div>`;
+}
+function whyOuts(ov, kind) {
+  const sec = (title, cs, cls, on) => `<div class="wc${on ? " on" : ""}"><div class="wc-h ${cls}">${title} <b class="num">${cs.length}</b>장</div><div class="wc-list">${cs.map(cardTxtHTML).join("") || `<span class="why-dim">없음</span>`}</div></div>`;
+  return `<div class="why-sec">${sec("유리해지는 카드 (+10%p 이상)", ov.up, "good", kind === "hand.outs")}${sec("불리해지는 카드 (−10%p 이상)", ov.down, "bad", kind === "hand.vuln")}
+    <p class="why-txt">남은 ${ov.total}장을 한 장씩 깔아 보고 지금 에퀴티와 비교했어요. ${kind === "hand.outs" ? `${ov.up.length} ÷ ${ov.total} ≈ ${ov.outs}%` : `${ov.down.length} ÷ ${ov.total} ≈ ${ov.vuln}%`}.</p></div>`;
+}
+function gridHTML(keys, cls = "") { const cells = new Array(169); for (const c of CLASSES) cells[c.row * 13 + c.col] = `<div data-key="${c.key}" class="${c.pair ? "p" : ""}${keys.has(c.key) ? " on" : ""}">${c.key.slice(0, 2)}</div>`; return `<div class="rgrid ${cls}">${cells.join("")}</div>`; }
+function whyRange(pct, steps) {
+  const keys = classesInTop(pct), inside = CLASSES.filter(c => keys.has(c.key)), outside = CLASSES.filter(c => !keys.has(c.key));
+  return `<div class="why-sec why-range"><div class="ws-list">${steps.map(s => `<div class="ws"><div class="ws-a"><span>${s[0]}</span>${s[1] != null ? `<b class="num">상위 ${s[1]}%</b>` : ""}</div>${s[2] ? `<div class="ws-t">${s[2]}</div>` : ""}</div>`).join("")}
+      <div class="ws edge"><div class="ws-t">경계 핸드 · 안쪽 ${inside.slice(-4).map(c => `<span class="kc in">${c.key}</span>`).join("")} 바로 밖 ${outside.slice(0, 3).map(c => `<span class="kc">${c.key}</span>`).join("")}</div></div></div>
+    ${gridHTML(keys, "why-grid")}</div>`;
+}
+const RANK_NM = r => RANKS[r] === "T" ? "10" : RANKS[r];
+function describeHand(s) {
+  const cat = Math.floor(s / B5), r = s % B5, d = i => RANK_NM(digit(r, i));
+  return [`${d(0)} 하이`, `${d(0)} 원페어`, `${d(0)}·${d(1)} 투페어`, `${d(0)} 트립스`, `${RANK_NM(r)} 하이 스트레이트`, `${d(0)} 하이 플러시`, `${RANK_NM(Math.floor(r / 13))} 풀하우스`, `${RANK_NM(Math.floor(r / 13))} 포카드`, `${RANK_NM(r)} 하이 스트레이트 플러시`][cat];
+}
+function best5(cs) {
+  let best = -1, pick5 = null;
+  for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) { const five = cs.filter((_, k) => k !== i && k !== j); const s = evaluate(five); if (s > best) { best = s; pick5 = five; } }
+  return { s: best, cards: pick5 };
+}
+function whyRank(hero, opp, board) {
+  const me = best5([...hero, ...board]), op = best5([...opp, ...board]);
+  const row = (who, b, hole) => `<div class="rk-row"><span class="rk-who">${who}</span><span class="rk-cards">${b.cards.map(c => `<span class="${hole.includes(c) ? "hole-c" : ""}">${cardTxtHTML(c)}</span>`).join("")}</span><b>${describeHand(b.s)}</b></div>`;
+  return `<div class="why-sec">${row("나", me, hero)}${row("상대", op, opp)}<p class="why-txt">일곱 장 중 가장 센 다섯 장으로 족보를 정해요(밑줄 = 내 손의 카드). ${me.s > op.s ? "내가 이겨요" : me.s < op.s ? "상대가 이겨요" : "같은 족보라 팟을 나눠요"}${Math.floor(me.s / B5) === Math.floor(op.s / B5) && me.s !== op.s ? " — 족보가 같으면 높은 카드(키커)로 가려요" : ""}.</p></div>`;
+}
+// ctx: { hero, board, oppPct, heroPct, oppCards, ov, steps, stats, note, text }
+function whyHTML(k, ctx) {
+  try {
+    if (k === "hand.rank") return whyRank(ctx.hero, ctx.oppCards, ctx.board);
+    if (k === "board.adv") return whyBuckets(ctx.heroPct, ctx.oppPct, ctx.board, ctx.hero);
+    if (k === "board.nut") return whyBuckets(ctx.heroPct, ctx.oppPct, ctx.board, ctx.hero, 0);
+    if (k === "hand.equity") return whyEquity(ctx.hero, ctx.board, ctx.oppPct, ctx.oppCards);
+    if ((k === "hand.outs" || k === "hand.vuln") && ctx.ov) return whyOuts(ctx.ov, k);
+    if (k === "opp.range") return whyRange(ctx.oppPct, ctx.steps || []);
+    if (k === "opp.value" && ctx.board.length < 3) return `<div class="why-sec"><p class="why-txt">프리플랍 벳이라 보드 강도 대신 상대 레인지(상위 ${ctx.oppPct}%)가 내 콜링 레인지보다 앞서는 비율로 봤어요. ${ctx.note || ""}</p></div>`;
+    if (k === "opp.value") { const d = bucketDist(combosFor(classesInTop(ctx.oppPct), new Set([...ctx.board, ...ctx.hero])), ctx.board); return `<div class="why-sec">${BUCKETS.map((b, i) => `<div class="bk${i < 2 ? " hot" : ""}"><span class="bn">${b}</span><div class="bars"><i class="op" style="width:${d.p[i]}%"></i></div><span class="bv num">${d.p[i]}%</span></div>`).join("")}<p class="why-txt">상대 벳 레인지(상위 ${ctx.oppPct}%)의 강도 분포예요. 위쪽(넛급·강한 메이드)이 밸류, 드로·에어는 블러프 쪽으로 셉니다. ${ctx.note || ""}</p></div>`; }
+    if (ctx.text) return `<div class="why-sec"><p class="why-txt">${ctx.text}</p></div>`;
+  } catch (e) { console.warn("why", k, e); }
+  return "";
+}
+const WHY_HEAD = `<div class="why-head"><span>왜 이 답인가</span>${CONF}</div>`;
+
+/* ================= learning section ================= */
+// Gallery order = learning order: rules first, then single-hand math, then range thinking.
+const MODS = [
+  { k: "hand.rank", lv: "입문", tag: "기초 · 족보", name: "족보 맞히기", ds: "보드와 두 핸드를 보고 각자 만든 족보를 고르기" },
+  { k: "hand.equity", lv: "기초", tag: "D 내 핸드", name: "에퀴티 감각", ds: "상대 핸드·레인지 대비 내 쇼다운 에퀴티를 감으로 잡기" },
+  { k: "opp.range", lv: "기초", tag: "C 상대 읽기", name: "레인지 추정", ds: "테이블의 포지션과 액션으로 상대가 상위 몇 %인지" },
+  { k: "board.adv", lv: "중급", tag: "B 보드 읽기", name: "보드 텍스처 읽기", ds: "이 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)" },
+  { k: "hand.outs", lv: "중급", tag: "D 내 핸드", name: "유리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 올리는 비율" },
+  { k: "hand.vuln", lv: "심화", tag: "D 내 핸드", name: "불리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 깎는 비율" },
+  { k: "opp.value", lv: "심화", tag: "C 상대 읽기", name: "밸류 쪽인가 블러프 쪽인가", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
+  { k: "plan.icm", lv: "심화", tag: "E 계획", name: "ICM 압박", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
 ];
+let LM = { k: null, lvl: "normal", prob: null, answered: false, val: null };
+let RANKQ = store.get("rankq", { n: 0, sum: 0 });
+const modAvg = k => k === "hand.rank" ? (RANKQ.n ? Math.round(RANKQ.sum / RANKQ.n) : null) : avgScore(k);
+function renderMods() {
+  const open = LM.k != null, wrap = $("#learn");
+  wrap.classList.toggle("open", open); wrap.classList.toggle("gallery", !open);
+  $("#drill").hidden = !open;
+  $("#mods").innerHTML = MODS.map((m, i) => { const a = modAvg(m.k); return `<button class="mod${m.locked ? " locked" : ""}" data-k="${m.k}" aria-pressed="${m.k === LM.k}" ${m.locked ? "aria-disabled='true'" : ""}>
+    <span class="mod-top"><span class="no num">${String(i + 1).padStart(2, "0")}</span><span class="lv">${m.locked ? "준비 중" : m.lv}</span></span><span class="k">${m.tag}</span><span class="nm">${m.name}</span><span class="ds">${m.ds}</span>${a != null ? `<span class="my">평균 <b class="num">${a}</b>점</span>` : ""}</button>`; }).join("");
+  $$("#mods .mod").forEach(b => b.onclick = () => { if (!b.classList.contains("locked")) selectModule(b.dataset.k); });
+  if (open) { if (!LM.prob) newProblem(); renderDrill(); }
+}
+// FLIP: the gallery cards glide into the side list (and back) instead of jumping.
+function flipMods(mutate) {
+  const before = new Map($$("#mods .mod").map(e => [e.dataset.k, e.getBoundingClientRect()]));
+  mutate();
+  if (REDUCED || !$("#view-learn").classList.contains("active")) return;
+  $$("#mods .mod").forEach((e, i) => {
+    const b = before.get(e.dataset.k); if (!b) return; const a = e.getBoundingClientRect();
+    const dx = b.left - a.left, dy = b.top - a.top; if (Math.abs(dx) + Math.abs(dy) < 1) return;
+    e.animate([{ transform: `translate(${dx}px, ${dy}px)`, opacity: .55 }, { transform: "none", opacity: 1 }], { duration: 520, delay: i * 18, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" });
+  });
+  if (LM.k) $("#drill").animate([{ opacity: 0, transform: "translateX(28px)" }, { opacity: 1, transform: "none" }], { duration: 460, delay: 120, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" });
+}
+function selectModule(k) { flipMods(() => { LM.k = k; LM.prob = null; newProblem(); renderMods(); }); if (matchMedia("(max-width: 900px)").matches) $("#learn").scrollIntoView({ block: "start", behavior: REDUCED ? "auto" : "smooth" }); }
+function closeModule() { flipMods(() => { LM.k = null; LM.prob = null; renderMods(); }); }
+function dealN(n, dead) { const out = []; while (out.length < n) { const c = Math.floor(rand() * 52); if (!dead.has(c)) { dead.add(c); out.push(c); } } return out; }
+// depth = board cards the line needs. why = reasoning steps for the range answer: [action, top %, reason].
+const SCENARIOS = [
+  { pct: 14, heroPct: 12, hero: "BTN", opp: "UTG", depth: 0, acts: ["UTG r2.5", "HJ f", "CO f", "BTN c", "SB f", "BB f"],
+    why: [["UTG 2.5BB 오픈", 14, "가장 먼저 말하는 자리라 뒤에 다섯 명이 남아요. 그래서 오픈 레인지가 가장 좁아요."], ["HJ·CO 폴드, 나 BTN 콜", 14, "내 콜은 UTG 레인지를 바꾸지 않아요."]] },
+  { pct: 42, heroPct: 38, hero: "BB", opp: "BTN", depth: 0, acts: ["UTG f", "HJ f", "CO f", "BTN r2.2", "SB f", "BB c"],
+    why: [["UTG·HJ·CO 폴드", null, "앞사람이 모두 접어 BTN은 블라인드 둘만 이기면 돼요."], ["BTN 2.2BB 오픈", 42, "스틸 자리라 넓게 열어요."]] },
+  { pct: 6, heroPct: 10, hero: "CO", opp: "BTN", depth: 0, acts: ["UTG f", "HJ f", "CO r2.5", "BTN r8", "SB f", "BB f", "CO c"],
+    why: [["나 CO 2.5BB 오픈", null, "BTN이 아직 아무것도 하지 않았어요."], ["BTN 3벳 8BB", 6, "오픈에 대한 3벳은 강한 핸드 위주라 아주 좁아요."]] },
+  { pct: 11, heroPct: 40, hero: "BTN", opp: "BB", depth: 3, open: true, acts: ["UTG f", "HJ f", "CO f", "BTN r2.5", "SB f", "BB c", "|", "BB k", "BTN b33", "BB r3x"],
+    why: [["BB 콜 (BTN 오픈에)", 40, "BB는 이미 1BB를 냈고 싸게 볼 수 있어 넓게 디펜스해요."], ["플랍 체크-레이즈 3배", 11, "체크 뒤 큰 레이즈는 강한 메이드와 좋은 드로 위주라 크게 좁아져요."]] },
+  { pct: 30, heroPct: 45, hero: "BB", opp: "HJ", depth: 4, acts: ["UTG f", "HJ r2.5", "CO f", "BTN f", "SB f", "BB c", "|", "BB k", "HJ k", "|", "BB k", "HJ k"],
+    why: [["HJ 2.5BB 오픈", 21, "중간 자리 오픈 레인지예요."], ["플랍·턴 연속 체크", 30, "강한 핸드는 보통 벳하므로 두 번 체크하면 강한 쪽이 빠지고 중간·약한 핸드가 남아요(모의: 폭으로 표현)."]] },
+];
+const RANK_W = [1, 3, 3, 2, 2, 2, 2, 1, 0];
 function newProblem() {
-  const dead = new Set(), hero = dealN(2, dead), lvl = LM.lvl, k = LM.k;
+  const lvl = LM.lvl, k = LM.k;
+  LM.answered = false; LM.val = null; LM.picks = [null, null];
+  if (k === "hand.rank") {
+    const tot = RANK_W.reduce((a, b) => a + b, 0); let r = rand() * tot, target = 0; while (r > RANK_W[target]) r -= RANK_W[target++];
+    let p;
+    for (let t = 0; t < 4000; t++) { const dead = new Set(), board = dealN(5, dead), hero = dealN(2, dead), oppCards = dealN(2, dead); p = { board, hero, oppCards }; if (Math.floor(evaluate([...hero, ...board]) / B5) === target) break; }
+    p.answer = [Math.floor(evaluate([...p.hero, ...p.board]) / B5), Math.floor(evaluate([...p.oppCards, ...p.board]) / B5)];
+    LM.prob = p; return;
+  }
   const ov = k === "hand.outs" || k === "hand.vuln";
-  const nb = ov ? (rand() < .5 ? 3 : 4) : k === "opp.range" ? 0 : pick([0, 3, 3, 4]);
-  const board = k === "board.adv" ? dealN(3, dead) : dealN(nb, dead);
-  const sc = pick(SCENARIOS), oppCards = dealN(2, dead);
-  const p = { hero, board, oppCards, sc, pct: sc.pct };
-  if (k === "opp.range") { p.answer = sc.pct; }
+  const nb = k === "opp.range" ? null : ov ? (rand() < .5 ? 3 : 4) : k === "board.adv" ? pick([3, 3, 4]) : pick([0, 3, 3, 4]);
+  const sc = pick(SCENARIOS.filter(s => nb == null || s.depth === nb || (s.depth < nb && !s.open)));
+  const dead = new Set(), hero = dealN(2, dead), full = dealN(nb == null ? sc.depth : nb, dead), oppCards = dealN(2, dead);
+  const h = rhScript(sc.acts, sc.hero, 40, full);
+  while (h.board.length < full.length) rhNextStreet(h, h.street === 0 ? full.slice(0, 3) : [full[h.board.length]]);
+  const board = h.board;
+  const p = { hero, board, oppCards, sc, pct: sc.pct, h };
+  if (k === "opp.range") p.answer = sc.pct;
   else if (ov) {
     const combos = lvl === "easy" ? [[oppCards[0], oppCards[1], 0]] : combosFor(classesInTop(sc.pct), new Set([...hero, ...board]));
-    const r = outsVuln(hero, board, combos, 120);
-    p.answer = r ? (k === "hand.outs" ? r.outs : r.vuln) : 0;
-  }
-  else {
-    let eq;
-    if (lvl === "easy") eq = eqVsCombos(hero, board, [[oppCards[0], oppCards[1], 0]], 1400);
-    else eq = eqVsPct(hero, board, sc.pct, 1400);
-    p.answer = Math.round(k === "board.adv" ? 100 - eq * 100 : eq * 100);
-  }
-  LM.prob = p; LM.answered = false; LM.val = 50;
+    p.ov = outsVuln(hero, board, combos, 120);
+    p.answer = p.ov ? (k === "hand.outs" ? p.ov.outs : p.ov.vuln) : 0;
+  } else if (k === "board.adv") p.answer = Math.round(100 - rangeVsRange(sc.heroPct, sc.pct, board, 900) * 100);
+  else p.answer = Math.round((lvl === "easy" ? eqVsCombos(hero, board, [[oppCards[0], oppCards[1], 0]], 1400) : eqVsPct(hero, board, sc.pct, 1400)) * 100);
+  LM.prob = p;
+}
+function drillHead(m) {
+  return `<div class="dr-head"><button class="iconbtn" id="dr-back" aria-label="전체 섹션 보기">← 전체</button><div class="dr-title"><span class="eyebrow">${m.tag}</span><h2>${m.name}</h2></div>
+    ${LM.k === "hand.rank" ? "" : `<div class="seg" id="lvl-seg">${["easy", "normal", "hard"].map(l => `<button data-v="${l}" aria-pressed="${l === LM.lvl}">${{ easy: "쉬움", normal: "보통", hard: "어려움" }[l]}</button>`).join("")}</div>`}</div>`;
 }
 function renderDrill() {
-  const m = MODS.find(x => x.k === LM.k), p = LM.prob, lvl = LM.lvl, isRange = LM.k === "opp.range";
-  const lvTxt = { easy: "쉬움 · 상대 핸드를 보여줘요", normal: "보통 · 상대 레인지를 보여줘요", hard: "어려움 · 상대의 액션 흐름만 보여줘요" };
-  const showOpp = lvl === "easy" && !isRange, showRange = lvl === "normal" && !isRange, showHist = lvl === "hard" || isRange;
-  const q = TP[LM.k];
-  const el = $("#drill");
-  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center">
-      <div><span class="eyebrow">${m.tag}</span><h2 style="font-size:20px;margin-top:6px">${m.name}</h2></div>
-      <div class="seg" id="lvl-seg">${["easy", "normal", "hard"].map(l => `<button data-v="${l}" aria-pressed="${l === lvl}">${{ easy: "쉬움", normal: "보통", hard: "어려움" }[l]}</button>`).join("")}</div>
-    </div>
-    <div style="font-size:12px;color:var(--muted)">${isRange ? "포지션과 액션 흐름으로 상대 레인지 폭을 추정하세요." : lvTxt[lvl]}</div>
-    <div class="mini-felt">
-      ${p.board.length ? `<div class="mf-row"><div class="mf-group"><div class="mf-cards" id="mf-board"></div><span class="cap">보드</span></div></div>` : ""}
-      <div class="mf-row">
-        ${isRange ? "" : `<div class="mf-group"><div class="mf-cards" id="mf-hero"></div><span class="cap">내 핸드</span></div>`}
-        ${showOpp ? `<div class="mf-group"><div class="mf-cards" id="mf-opp"></div><span class="cap">상대 핸드</span></div>` : ""}
-        ${showRange ? `<div class="mf-group"><div class="rgrid mini-range" id="mf-range">${gridCells()}</div><span class="cap">상대 레인지 · 상위 ${p.pct}%</span></div>` : ""}
-      </div>
-      ${showHist ? `<div class="history">${p.sc.lines.map(([s, t]) => `<div><b>${s}</b>${t}</div>`).join("")}</div>` : ""}
-    </div>
-    <div class="q" style="grid-template-columns:minmax(0,1fr)"><div class="body">
-      <div class="t"><span>${isRange ? "상대는 상위 몇 % 레인지인가?" : q.q}</span><span class="val num" id="dr-val">${isRange ? "상위 " + LM.val + "%" : LM.val}</span></div>
-      <input type="range" id="dr-in" min="${isRange ? 2 : 0}" max="100" step="1" value="${LM.val}" ${LM.answered ? "disabled" : ""} aria-label="답 입력">
-      <div class="ends"><span>${isRange ? "2% 좁음" : "0 " + q.ends[0]}</span><span>${isRange ? "넓음 100%" : q.ends[1] + " 100"}</span></div>
+  const m = MODS.find(x => x.k === LM.k), p = LM.prob, el = $("#drill");
+  if (LM.k === "hand.rank") return renderRankDrill(m, p, el);
+  const lvl = LM.lvl, isRange = LM.k === "opp.range", isBoard = LM.k === "board.adv";
+  const lvTxt = isBoard ? { easy: "쉬움 · 두 레인지를 모두 보여줘요", normal: "보통 · 상대 레인지를 보여줘요", hard: "어려움 · 테이블의 액션만 보여줘요" } : { easy: "쉬움 · 상대 핸드를 보여줘요", normal: "보통 · 상대 레인지를 보여줘요", hard: "어려움 · 테이블의 액션만 보여줘요" };
+  const showOpp = lvl === "easy" && !isRange && !isBoard, showRange = !isRange && (lvl === "normal" || (isBoard && lvl === "easy")), showHero = isBoard && lvl === "easy";
+  const q = TP[LM.k], qText = isRange ? `${p.sc.opp}(상대)는 상위 몇 % 레인지인가?` : q.q;
+  const cards = { [p.sc.hero]: p.hero }; if (showOpp) cards[p.sc.opp] = p.oppCards;
+  const acting = rhActor(p.h)?.isHero ? p.sc.hero : null;
+  const side = `${showRange ? `<div class="dr-range"><div class="cap-row"><span>상대 레인지 · 상위 ${p.pct}%</span></div>${gridHTML(classesInTop(p.pct), "big")}</div>` : ""}
+    ${showHero ? `<div class="dr-range"><div class="cap-row"><span>내 레인지 · 상위 ${p.sc.heroPct}%</span></div>${gridHTML(classesInTop(p.sc.heroPct), "big mine")}</div>` : ""}
+    <div class="history">${rhLogHTML(p.h)}</div>`;
+  const scale = isRange ? `${chipRow(RANGE_CHIPS, v => v + "%")}${stepper([-5, -1, 1, 5])}` : `<div class="ends"><span>0 ${q.ends[0]}</span><span>${q.ends[1]} 100</span></div>${chipRow(scaleChips(10))}${stepper([-5, -1, 1, 5])}`;
+  el.innerHTML = `${drillHead(m)}
+    <div class="dr-hint">${isRange ? "테이블의 포지션과 액션을 보고 상대 레인지 폭을 추정하세요." : lvTxt[lvl]}</div>
+    <div class="dr-main${showRange && showHero ? " two" : ""}"><div class="dr-table">${tableHTML(p.h, { cards, focus: p.sc.opp, acting })}</div><div class="dr-side">${side}</div></div>
+    <div class="q dr-q" style="grid-template-columns:minmax(0,1fr)" data-k="${LM.k}"><div class="body">
+      <div class="t"><span>${qText}</span><span class="val num" id="dr-val">${LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val}</span></div>${scale}
     </div></div>
     <div id="dr-res"></div>
-    <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go">${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 ${CONF} 값이에요(몬테카를로 계산, 데모).</span></div>`;
-  for (const [id, cs] of [["mf-board", p.board], ["mf-hero", p.hero], ["mf-opp", p.oppCards]]) { const c = $("#" + id); if (c) cs.forEach(x => c.appendChild(cardEl(x))); }
-  const mr = $("#mf-range"); if (mr) paintGrid(mr, classesInTop(p.pct));
-  $$("#lvl-seg button").forEach(b => b.onclick = () => { LM.lvl = b.dataset.v; newProblem(); renderDrill(); });
-  const inp = $("#dr-in"); setFill(inp);
-  inp.oninput = () => { LM.val = +inp.value; $("#dr-val").textContent = isRange ? "상위 " + inp.value + "%" : inp.value; setFill(inp); };
+    <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go" ${LM.answered || LM.val != null ? "" : "disabled"}>${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 ${CONF} 값이에요(몬테카를로 계산, 데모).</span></div>`;
+  bindDrillCommon();
+  const qel = $(".dr-q", el), mark = () => { $$("[data-chip]", qel).forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.chip === LM.val))); $("#dr-val").textContent = LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val; $("#dr-go").disabled = !LM.answered && LM.val == null; };
+  const setV = v => { if (LM.answered) return; LM.val = clamp(Math.round(v), isRange ? 2 : 0, 100); mark(); };
+  $$("[data-chip]", qel).forEach(c => c.onclick = () => setV(+c.dataset.chip));
+  $$("[data-step]", qel).forEach(c => c.onclick = () => setV((LM.val ?? (isRange ? 30 : 50)) + +c.dataset.step));
+  if (LM.answered) $$("button", qel).forEach(b => b.disabled = true);
+  mark();
   $("#dr-go").onclick = () => {
     if (LM.answered) { newProblem(); renderDrill(); return; }
     LM.answered = true;
@@ -1516,16 +1925,50 @@ function renderDrill() {
     recordScore(LM.k, sc);
     renderDrill();
     const lo = Math.min(LM.val, p.answer), hi = Math.max(LM.val, p.answer), cls = sc >= 80 ? "good" : sc >= 55 ? "warn" : "bad";
+    const ctx = { hero: p.hero, board: p.board, oppPct: p.pct, heroPct: p.sc.heroPct, oppCards: lvl === "easy" ? p.oppCards : null, ov: p.ov, steps: p.sc.why };
     $("#dr-res").innerHTML = `<div class="rrow"><div class="t"><span>정답 ${CONF} <b class="num" style="color:var(--good)">${isRange ? "상위 " + p.answer + "%" : p.answer}</b> · 내 답 <b class="num">${isRange ? "상위 " + LM.val + "%" : LM.val}</b></span><b class="num ${cls}">${sc}점</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${p.answer}%"></div><div class="mk you" style="left:${LM.val}%"></div></div>
-      <div class="cap"><span>${explain(LM.k, p)}</span></div></div>`;
+      <div class="cap"><span>${explain(LM.k, p)}</span></div></div>
+      <div class="why open">${WHY_HEAD}${whyHTML(LM.k, ctx)}</div>`;
+  };
+}
+function bindDrillCommon() {
+  $("#dr-back").onclick = closeModule;
+  $$("#lvl-seg button").forEach(b => b.onclick = () => { LM.lvl = b.dataset.v; newProblem(); renderDrill(); });
+}
+function renderRankDrill(m, p, el) {
+  const opts = (who, i) => `<div class="rk-opts" data-who="${i}" role="group" aria-label="${who} 족보">${HAND_NAMES.map((nm, c) => {
+    const pickd = LM.picks[i] === c, st = LM.answered ? (c === p.answer[i] ? " right" : pickd ? " wrong" : "") : "";
+    return `<button class="rk${st}" data-c="${c}" aria-pressed="${pickd}" ${LM.answered ? "disabled" : ""}>${nm}</button>`; }).join("")}</div>`;
+  el.innerHTML = `${drillHead(m)}
+    <div class="dr-hint">보드 다섯 장과 두 사람의 핸드를 보고, 각자 만든 족보를 눌러 고르세요.</div>
+    <div class="mini-felt rank-felt"><div class="mf-row"><div class="mf-group"><div class="mf-cards">${p.board.map(c => cardEl(c).outerHTML).join("")}</div><span class="cap">보드</span></div></div>
+      <div class="rk-pair">
+        <div class="mf-group"><div class="mf-cards">${p.hero.map(c => cardEl(c).outerHTML).join("")}</div><span class="cap">내 핸드</span>${opts("내 핸드", 0)}</div>
+        <div class="mf-group"><div class="mf-cards">${p.oppCards.map(c => cardEl(c).outerHTML).join("")}</div><span class="cap">상대 핸드</span>${opts("상대 핸드", 1)}</div>
+      </div></div>
+    <div id="dr-res"></div>
+    <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go" ${LM.answered || LM.picks.every(x => x != null) ? "" : "disabled"}>${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">둘 다 고르면 채점해요. 족보는 규칙이라 정답이 정확해요.</span></div>`;
+  bindDrillCommon();
+  $$(".rk-opts", el).forEach(g => $$("button", g).forEach(b => b.onclick = () => { LM.picks[+g.dataset.who] = +b.dataset.c; renderRankDrill(m, p, el); }));
+  if (LM.answered) {
+    const ok = LM.picks.map((x, i) => x === p.answer[i]), sc = ok.filter(Boolean).length * 50;
+    $("#dr-res").innerHTML = `<div class="rrow"><div class="t"><span>나 <b class="${ok[0] ? "good" : "bad"}">${HAND_NAMES[p.answer[0]]}</b> · 상대 <b class="${ok[1] ? "good" : "bad"}">${HAND_NAMES[p.answer[1]]}</b></span><b class="num ${sc === 100 ? "good" : sc ? "warn" : "bad"}">${sc}점</b></div></div>
+      <div class="why open"><div class="why-head"><span>왜 이 답인가</span></div>${whyHTML("hand.rank", { hero: p.hero, oppCards: p.oppCards, board: p.board })}</div>`;
+  }
+  $("#dr-go").onclick = () => {
+    if (LM.answered) { newProblem(); renderDrill(); return; }
+    LM.answered = true;
+    const sc = LM.picks.filter((x, i) => x === p.answer[i]).length * 50;
+    RANKQ = { n: RANKQ.n + 1, sum: RANKQ.sum + sc }; store.set("rankq", RANKQ);
+    renderRankDrill(m, p, el);
   };
 }
 function explain(k, p) {
   if (k === "opp.range") return "오픈 위치가 앞일수록, 3벳·체크레이즈가 나올수록 레인지는 좁아집니다.";
   if (k === "hand.outs") return "남은 카드 하나하나를 깔아 보고, 지금보다 에퀴티가 10%p 이상 오르는 카드의 비율입니다. 드로가 많을수록 큽니다.";
   if (k === "hand.vuln") return "지금보다 에퀴티가 10%p 이상 떨어지는 카드의 비율입니다. 앞서 있지만 취약한 핸드일수록 큽니다.";
-  if (k === "board.adv") return "보드가 상대 레인지의 강한 핸드와 잘 맞을수록 100에 가깝습니다.";
+  if (k === "board.adv") return "100 × (1 − 내 레인지 대 상대 레인지의 평균 에퀴티). 보드가 상대 레인지의 강한 핸드와 잘 맞을수록 100에 가깝습니다.";
   return p.board.length ? `보드 ${p.board.length}장 기준, 남은 카드를 끝까지 깔았을 때의 승률입니다.` : "프리플랍 올인 기준 승률입니다.";
 }
 
