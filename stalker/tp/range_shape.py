@@ -95,7 +95,9 @@ def score(user, truth) -> int:
 
 
 TIGHT = (0.00, 0.05, 0.15, 0.30, 0.50)   # top ~5% of hands
-LOOSE = (0.25, 0.25, 0.25, 0.15, 0.10)   # top ~80%
+LOOSE = (0.15, 0.10, 0.25, 0.25, 0.25)   # top ~80%
+# Both ends satisfy the `linear` rule (b4+b5 >= b3 >= b1+b2, b1 <= 0.20). The rule is a set of linear
+# inequalities, so every mix of the two is linear too: a width answer always means a linear range.
 
 
 def width_default(width: float) -> tuple[float, ...]:

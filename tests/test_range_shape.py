@@ -78,6 +78,7 @@ def test_width_default_is_linear_and_tighter_means_stronger():
     for d in (tight, mid, loose):
         assert sum(d) == pytest.approx(1.0)
     assert tight[4] > mid[4] > loose[4] and tight[0] < mid[0] < loose[0]
-    assert RS.shape_of(tight) == "linear"
+    for w in np.linspace(0.01, 1.0, 100):          # every width answer is a linear range by shape_of
+        assert RS.shape_of(RS.width_default(float(w))) == "linear", w
     with pytest.raises(ValueError, match="width"):
         RS.width_default(0)
