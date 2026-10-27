@@ -361,7 +361,9 @@ async function load() {
     document.querySelector(".wrap").insertAdjacentHTML("beforeend", `<div class="panel">strategies.json을 읽지 못했습니다. <code>python -m stalker.browser.export --out web/demo/strategies.json</code> 후 <code>python -m http.server</code>로 여세요.</div>`);
     return;
   }
-  spot = D.spots.find(s => s.id === "hu-pf-10bb") || D.spots[0];
+  // A plain #<spot id> (e.g. #9h-icm-10bb) opens that spot, so lessons and reviews can link to it.
+  const want = (location.hash || "").slice(1);
+  spot = D.spots.find(s => s.id === want) || D.spots.find(s => s.id === "hu-pf-10bb") || D.spots[0];
   path = [];
   render();
 }
