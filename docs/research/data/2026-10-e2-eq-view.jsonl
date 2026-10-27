@@ -1,0 +1,2 @@
+{"tier": "beginner", "view": "equity", "iters": 6000, "iters_per_s": 12.42, "infosets": 13186, "lbr_bb": 0.7597, "stderr_bb": 0.3875, "seat0_bb": 0.354, "seat1_bb": 1.1654, "hands": 600}
+{"tier": "mid", "view": "equity", "iters": 6000, "iters_per_s": 8.47, "infosets": 22725, "lbr_bb": 1.2469, "stderr_bb": 0.3785, "seat0_bb": 1.0652, "seat1_bb": 1.4285, "hands": 600}
