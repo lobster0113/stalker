@@ -26,12 +26,35 @@ import numpy as np
 from referee.anchors import pushfold as P
 
 TIER_STEP = {"beginner": 25, "mid": 10, "pro": 1}
+TIER_LEVELS = {"beginner": 5, "mid": 11, "pro": 101}
+SCALES = ("uniform", "quantile")
 E1_STACKS = [s for s in P.STACKS if s <= 15]
 E1_ANTES = P.ANTES
 
 
 def _quantize(equity_pct: np.ndarray, step: int) -> np.ndarray:
     return np.rint(equity_pct / step).astype(int)
+
+
+def _quantile_bins(equity_pct: np.ndarray, weight: np.ndarray, levels: int) -> np.ndarray:
+    """Bucket by weighted quantile: each of `levels` buckets holds about the same hand mass.
+
+    In E1 both seats' own ranges are every hand when they decide, so this is also the rank item
+    `hand.pct` (top-X% of my range by equity) on the same number of levels.
+    """
+    order = np.argsort(equity_pct, kind="stable")
+    cum = np.cumsum(weight[order]) / weight.sum()
+    out = np.empty(len(order), dtype=int)
+    out[order] = np.minimum((cum - weight[order] / weight.sum() / 2) * levels, levels - 1).astype(int)
+    return out
+
+
+def _bucketer(tier: str, scale: str, weight: np.ndarray):
+    if scale == "uniform":
+        return lambda eq: _quantize(eq, TIER_STEP[tier])
+    if scale == "quantile":
+        return lambda eq: _quantile_bins(eq, weight, TIER_LEVELS[tier])
+    raise ValueError(f"scale {scale!r}; use one of {SCALES}")
 
 
 def sb_equity() -> np.ndarray:
@@ -86,23 +109,25 @@ def seat_gains(stack: float, ante: float, push: np.ndarray, call: np.ndarray) ->
     return sb, float(np.maximum(g, 0).sum() - (call * g).sum())
 
 
-def train(stack: float, ante: float, tier: str, iters: int = 4000, sb_view: str = "random") -> Result:
+def train(stack: float, ante: float, tier: str, iters: int = 4000, sb_view: str = "random",
+          scale: str = "uniform") -> Result:
     """sb_view: what the SB's `hand.equity` is measured against — "random" (TP v0.1: the BB's range
     before it acts) or "called" (the BB's calling range, i.e. equity when called)."""
-    step = TIER_STEP[tier]
     p, sb_call, bb_gain = P._payoffs(stack, ante)
-    sb_b = _quantize(sb_equity(), step)
+    q_sb = _bucketer(tier, scale, p.sum(axis=1))   # SB class mass
+    q_bb = _bucketer(tier, scale, p.sum(axis=0))   # BB class mass
+    sb_b = q_sb(sb_equity())
     push = np.full(169, 0.5)          # SB running average, per class
     call = np.full(169, 0.5)          # BB running average, per class
     changes = 0
-    bb_b = _quantize(bb_equity(push), step)
+    bb_b = q_bb(bb_equity(push))
     for t in range(1, iters + 1):
         if sb_view == "called":
-            sb_b = _quantize(sb_equity_when_called(call), step)
+            sb_b = q_sb(sb_equity_when_called(call))
         nb_sb = sb_b.max() + 1
         s = _project(push, sb_b, p.sum(axis=1))
         # The BB's equity scale is equity against the SB's current (average) range: recompute it.
-        new_bb = _quantize(bb_equity(s), step)
+        new_bb = q_bb(bb_equity(s))
         changes += int(not np.array_equal(new_bb, bb_b))
         bb_b = new_bb
         nb_bb = bb_b.max() + 1
@@ -118,9 +143,9 @@ def train(stack: float, ante: float, tier: str, iters: int = 4000, sb_view: str 
     avg_push, avg_call = push, call
     for _ in range(10):
         if sb_view == "called":
-            sb_b = _quantize(sb_equity_when_called(call), step)
+            sb_b = q_sb(sb_equity_when_called(call))
         push = _project(avg_push, sb_b, p.sum(axis=1))
-        bb_b = _quantize(bb_equity(push), step)
+        bb_b = q_bb(bb_equity(push))
         new_call = _project(avg_call, bb_b, (p * push[:, None]).sum(axis=0))
         if np.array_equal(new_call, call):
             break
@@ -130,16 +155,17 @@ def train(stack: float, ante: float, tier: str, iters: int = 4000, sb_view: str 
 
 
 def table(stacks=None, antes=None, tiers=("beginner", "mid", "pro"), views=("random", "called"),
-          iters: int = 4000) -> list[dict]:
+          iters: int = 4000, scales=("uniform",)) -> list[dict]:
     rows = []
     for ante in antes or E1_ANTES:
         for stack in stacks or E1_STACKS:
             for view in views:
+              for scale in scales:
                 for tier in tiers:
-                    r = train(stack, ante, tier, iters, view)
+                    r = train(stack, ante, tier, iters, view, scale)
                     sb_gain, bb_gain = seat_gains(stack, ante, r.push, r.call)
                     sb_freq, bb_freq = P.frequencies(r.push, r.call)
-                    rows.append({"stack": stack, "ante": ante, "sb_view": view, "tier": tier,
+                    rows.append({"stack": stack, "ante": ante, "sb_view": view, "scale": scale, "tier": tier,
                                  "exploitability": round(r.exploitability, 5), "sb_gain": round(sb_gain, 5),
                                  "bb_gain": round(bb_gain, 5), "nash_fp_exploitability": round(r.nash_exploitability, 5),
                                  "sb_shove": round(sb_freq, 4), "bb_call": round(bb_freq, 4)})
@@ -154,6 +180,9 @@ if __name__ == "__main__":
     ap.add_argument("--stacks", type=float, nargs="*")
     ap.add_argument("--antes", type=float, nargs="*")
     ap.add_argument("--iters", type=int, default=4000)
+    ap.add_argument("--scales", nargs="*", default=["uniform"], choices=SCALES)
+    ap.add_argument("--tiers", nargs="*", default=["beginner", "mid", "pro"], choices=list(TIER_STEP))
+    ap.add_argument("--views", nargs="*", default=["random", "called"], choices=["random", "called"])
     a = ap.parse_args()
-    for row in table(a.stacks, a.antes, iters=a.iters):
+    for row in table(a.stacks, a.antes, a.tiers, a.views, a.iters, a.scales):
         print(json.dumps(row), flush=True)
