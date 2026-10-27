@@ -25,3 +25,17 @@ def test_falls_back_to_numpy_without_numba(monkeypatch):
     hands = np.array([rng.permutation(52)[:7] for _ in range(500)])
     monkeypatch.setattr(F, "HAVE_NUMBA", False)
     assert np.array_equal(F.evaluate_batch(hands), reference(hands))
+
+
+def test_compiled_board_tables_equal_the_numpy_path(monkeypatch):
+    from stalker.e2 import abstraction as A
+
+    rng = np.random.default_rng(7)
+    boards = [tuple(int(x) for x in rng.permutation(52)[:k]) for k in (3, 4, 5) for _ in range(4)]
+    A.ehs_table.cache_clear()
+    fast = [A.ehs_table(b) for b in boards]
+    A.ehs_table.cache_clear()
+    monkeypatch.setattr(F, "HAVE_NUMBA", False)
+    slow = [A.ehs_table(b) for b in boards]
+    A.ehs_table.cache_clear()
+    assert all(np.array_equal(np.nan_to_num(a, nan=-1), np.nan_to_num(b, nan=-1)) for a, b in zip(fast, slow))
