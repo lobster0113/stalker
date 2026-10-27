@@ -40,6 +40,17 @@ def test_bash_guard_blocks_policy_violations():
         assert g.check(cmd) is None, cmd
 
 
+def test_bash_guard_checks_each_command_separately():
+    g = _load(ROOT / "harness" / "hooks" / "guard_bash.py")
+    for cmd in ["git push -u origin x && gh pr view 1 --jq '\"a\" + .b'",
+                "git push origin x; gh issue comment 1 --body \"고수 + SB\"",
+                "git push -q origin x 2>&1 | grep -v remote\ngh pr view 2 --jq '.a + .b'"]:
+        assert g.check(cmd) is None, cmd
+    for cmd in ["git push origin +x", "git push origin x --force", "cd a && git push --force origin y",
+                "echo hi; git push origin main", "git commit -m ok && git push -f origin z"]:
+        assert g.check(cmd), cmd
+
+
 def test_schedule_covers_all_routines():
     import json
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
