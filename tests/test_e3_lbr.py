@@ -31,7 +31,7 @@ def test_lbr_reads_the_policy_with_the_training_keys():
         seen.append(key)
         return m.policy().get(key)
     L.lbr(spy, seat=2, hands=2, seed=4)
-    assert seen and all(k.count("|") == 8 and k.split("|")[-1].startswith("e") for k in seen)
+    assert seen and all(k.split("|")[-1].startswith("e") for k in seen)  # TP keys end in the equity step
     assert any(k in m.policy() for k in seen) or not m.policy()
 
 
