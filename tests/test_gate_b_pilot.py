@@ -1,8 +1,8 @@
 import json
+from pathlib import Path
 
 import pytest
 
-from referee import metrics
 from referee.evaluate import SCHEMA_VERSION, evaluate
 from referee.agents.reference_bot import factory
 from referee.gate_b.candidates import random_legal
@@ -26,10 +26,19 @@ def test_eval_result_v2_carries_game_diffs():
         assert diff == pytest.approx(sum(games) / len(games))
 
 
+PILOT_SPEC = Path(__file__).resolve().parent.parent / "referee" / "gate_b" / "pilot_v1.json"
+RANDOM = "referee.gate_b.candidates:random_legal"
+
+
+def _pilot(spec=None):
+    file_spec, sha = load_spec(PILOT_SPEC)
+    return run_pilot(spec if spec is not None else file_spec, sha, RANDOM)
+
+
 def test_pilot_keys_and_determinism():
-    a = metrics.gate_b_pilot(SMALL)
-    assert a == metrics.gate_b_pilot(SMALL)
-    _, sha = load_spec(metrics.GATE_B_PILOT_SPEC)
+    a = _pilot(SMALL)
+    assert a == _pilot(SMALL)
+    _, sha = load_spec(PILOT_SPEC)
     assert a["gate_b_pilot_spec_sha256"] == sha
     for k in KEYS:
         assert f"gate_b_pilot_6max_sng_wta_{k}" in a
@@ -49,14 +58,14 @@ def test_reference_vs_reference_ci_contains_zero():
 
 
 def test_pilot_spec_file_is_fixed():
-    spec, _ = load_spec(metrics.GATE_B_PILOT_SPEC)
+    spec, _ = load_spec(PILOT_SPEC)
     assert spec["presets"] == ["6max_sng_wta", "9max_sng_503020"]
     assert spec["blocks"] < required_tournaments(spec["pilot_sigma"], spec["delta_min"])  # a pilot, not a verdict
 
 
 @pytest.mark.slow
 def test_real_pilot_random_legal_loses():
-    snap = metrics.gate_b_pilot()
+    snap = _pilot()
     for preset in ("6max_sng_wta", "9max_sng_503020"):
         k = f"gate_b_pilot_{preset}"
         assert snap[f"{k}_roi_diff"] < 0 and snap[f"{k}_ci_upper"] < 0, preset

@@ -1,7 +1,8 @@
 """Compute the metrics snapshot that CI appends to ops:metrics/history.jsonl.
 
-Only CI runs this for the record. Product metrics (strength, adaptation, typing fidelity)
-register here through referee-change PRs as their evaluators come online.
+Only CI runs this for the record. Product metrics register here through referee-change PRs as
+their evaluators come online. The retired Gate A/B and sufficiency keys (ADR 0008) were dropped
+in #101; their last values stay in history.jsonl.
 """
 from __future__ import annotations
 
@@ -50,76 +51,6 @@ def gate_l(report=None) -> dict:
             "gate_l_items": items}
 
 
-# Fixed dataset for the sufficiency metric; changing any of these breaks the trend, so bump deliberately.
-SUFFICIENCY_PRESET = "sng6"
-SUFFICIENCY_GAMES = 100
-SUFFICIENCY_SEED = 1
-
-
-def sufficiency(report: dict | None = None) -> dict:
-    """Data-sufficiency metrics from a reference-bot dataset (fixed preset/games/seed above).
-
-    `report` lets tests inject a typing report; CI leaves it None and generates the dataset.
-    """
-    if report is None:
-        import tempfile
-
-        from stalker.pipeline.generate import generate, resolve_config
-        from stalker.typing.report import build_report
-
-        cfg = resolve_config(SUFFICIENCY_PRESET)
-        with tempfile.TemporaryDirectory() as tmp:
-            decisions = generate(cfg, SUFFICIENCY_GAMES, SUFFICIENCY_SEED, tmp)
-        report = build_report(decisions, players=cfg.players, seed=SUFFICIENCY_SEED)
-    cells = report["cells"]
-    n = len(cells)
-
-    def rate(key: str) -> float:
-        # An empty dataset must not read as sufficient.
-        return round(sum(bool(c[key]) for c in cells) / n, 6) if n else 0.0
-
-    return {"suff_cells": n, "suff_lessonable_cells": report["summary"]["lessonable_cells"],
-            "suff_s1_rate": rate("s1"), "suff_s4_rate": rate("s4"), "suff_s5_rate": rate("s5"),
-            "d1_preliminary": round(report["summary"]["d1_preliminary"]["lessonable_decision_share"], 6) if n else 0.0}
-
-
-GATE_A_CANDIDATES = ("reference", "always_fold")
-
-
-def gate_a(results: dict | None = None, spec_file=None, spots_file=None) -> dict:
-    """Gate A verdicts of built-in candidates against the ICM reference on spot set v1.
-
-    `results` ({candidate: run_gate_a result}) lets tests inject; `spec_file`/`spots_file` let slow tests
-    shrink the run to a spot subset (the full v1 run costs minutes inside the record-metrics 30-minute limit).
-    CI leaves all three None. The baseline solve is lru-cached in `runner.nash`, so it is paid once across candidates.
-    """
-    from referee.gate_a.runner import BASELINE, SPEC_V1, load_spec, run_gate_a
-    from referee.gate_a.spots import SPOTS_V1
-
-    spec, sha = load_spec(spec_file or SPEC_V1)
-    out = {"gate_a_spot_set": spec["spot_set_version"], "gate_a_baseline": BASELINE}
-    for name in GATE_A_CANDIDATES:
-        res = (results[name] if results is not None
-               else run_gate_a(spec, sha, f"referee.gate_a.candidates:{name}", spots_file or SPOTS_V1))
-        out[f"gate_a_{name}_verdict"] = res["verdict"]
-        out[f"gate_a_{name}_worst_ni_lower"] = round(
-            min(f["nash_noninferiority"]["lo"] for f in res["formats"].values()), 6)
-    return out
-
-
-# Fixed Gate B pilot; editing the spec file changes gate_b_pilot_spec_sha256, which marks the trend break.
-GATE_B_PILOT_SPEC = ROOT / "referee" / "gate_b" / "pilot_v1.json"
-GATE_B_PILOT_CANDIDATE = "referee.gate_b.candidates:random_legal"
-
-
-def gate_b_pilot(spec: dict | None = None) -> dict:
-    """Gate B pilot keys (referee/GATES.md Gate B). `spec` lets tests shrink the run; CI uses the file."""
-    from referee.gate_b.runner import load_spec, run_pilot
-
-    file_spec, sha = load_spec(GATE_B_PILOT_SPEC)
-    return run_pilot(spec if spec is not None else file_spec, sha, GATE_B_PILOT_CANDIDATE)
-
-
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
@@ -128,9 +59,6 @@ def snapshot() -> dict:
     snap.update(code_size())
     snap.update(gate_r())
     snap.update(gate_l())
-    snap.update(sufficiency())
-    snap.update(gate_a())
-    snap.update(gate_b_pilot())
     return snap
 
 

@@ -33,9 +33,7 @@
   - `gate_r/` — Gate R 규칙 정확성 스위트(`python -m referee.gate_r [--full]`, `gates full`에 등록, 지표 `gate_r_pass_rate`). `evaluator.py`(독립 7장 평가기)·`settlement.py`(독립 사이드팟 정산: 앤티 데드 머니, 레이어 분할, 못 이기는 핸드 머크 후 같은 좌석 팟 병합, 홀수 칩은 버튼 왼쪽 첫 승자)·`checks.py`(공개 이벤트 스트림을 독립 규칙 모델로 재생해 항목별 `Tally`)·`suite.py`(프리셋 × fast 구조 변형 × 봇 × 시드). PokerKit·`stalker.tournament.hand`를 import하지 않는다(테스트로 강제).
 - `harness/` — 하네스(L1/L2). 프로토콜, 루틴 지침, 스케줄, 훅, 실험 기록.
 - CI(`.github/workflows/ci.yml`) — `gates`(`[dev]`만 설치, `gates full`; torch 테스트는 여기서 skip), `guard`(보호·하네스 경로 라벨 검사), `rl`(CPU torch + `[dev,rl]`, `tests/test_rl_*.py`를 `STALKER_REQUIRE_TORCH=1`로 실행: `tests/conftest.py`가 torch 관련 skip을 실패로 바꾼다), `record-metrics`(main 푸시 시 `ops:metrics` append). 별도 `texassolver.yml`(수동 `workflow_dispatch` 전용, 필수 체크 아님): TexasSolver 빌드(캐시) → `pytest -m slow tests/test_texassolver.py` → `bench_texassolver` 결과+러너 사양 JSON 줄을 아티팩트로 업로드. 별도 `cloud.yml`(`workflow_dispatch` + 일 1회 schedule, 필수 체크 아님): 예산 가드 클라우드 런처 `harness/cloud/launcher.py`(표준 라이브러리만) — `jobs/*.yaml` 검증 → `harness/budget.json` 월 상한 대비 `ops:budget/ledger.jsonl` 검사(종료분 실제 비용 + 진행분 최악 예약) → RunPod pod 생성·감시·최대 시간 종료(finally) → 실제 비용 기록. `check`(잔액 조회)·`reap`(고아 pod 종료). 형식은 `jobs/README.md`.
-- 데이터 충분성 지표 — `metrics.sufficiency()`가 고정 데이터셋(참조 봇 sng6, 100게임, 시드 1)으로 `stalker.pipeline.generate`→유형화 리포트를 만들어 `suff_*`·`d1_preliminary`를 스냅샷에 넣는다(약 90초, 로컬 참고값).
-- Gate A 지표 — `metrics.gate_a()`가 `reference`·`always_fold`를 스팟 세트 v1로 판정해 `gate_a_*`를 스냅샷에 넣는다(키는 `referee/GATES.md` Gate A 절).
-- Gate B 파일럿 지표 — `metrics.gate_b_pilot()`가 고정 명세 `referee/gate_b/pilot_v1.json`(6max_sng_wta·9max_sng_503020, 20 blocks, rotations 3)으로 `random_legal`을 참조 봇과 판정해 `gate_b_pilot_*`(프리셋별 roi_diff·CI·판정·`sd_dup`·`sd_indep`, `required_tournaments`)를 스냅샷에 넣는다(약 2분, 로컬 참고값). 계산은 `referee/gate_b/runner.py:run_pilot`.
+- 은퇴 지표 — 충분성(`suff_*`·`d1_preliminary`)·Gate A(`gate_a_*`)·Gate B 파일럿(`gate_b_pilot_*`)은 #101에서 스냅샷에서 뺐다. 마지막 값은 `ops:metrics/history.jsonl`에 남아 있고, 계산 코드(`referee/gate_a`·`gate_b`·`sufficiency`)는 CLI로만 남는다.
 - `ops` 브랜치 — 운영 데이터(STATE, journal, metrics, reports).
 
 ## 핵심 설계 결정 (상세는 `docs/decisions/`)
