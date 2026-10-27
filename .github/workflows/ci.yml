@@ -14,7 +14,7 @@ concurrency:
 jobs:
   gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50  # gates full ~30 min on hosted runners even with xdist (#190, #199)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
