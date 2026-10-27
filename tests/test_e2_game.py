@@ -62,10 +62,24 @@ def test_illegal_actions_are_rejected():
 
 def test_random_play_conserves_chips_and_matches_the_evaluator():
     rng = np.random.default_rng(7)
-    for _ in range(4000):
+    for _ in range(10_000):
         s = G.deal(rng)
+        inc = {}  # largest raise increment so far on each street (the big blind preflop)
         while not s.done:
-            s = G.apply(s, rng.choice(G.legal(s)))
+            acts = G.legal(s)
+            if 0 in s.stack:
+                # Someone is all in: the only decision left is answering it, never putting in more.
+                assert s.to_call() > 0 and set(acts) <= {"f", "c"}, (s.history, acts)
+            a = rng.choice(acts)
+            ns = G.apply(s, a)
+            if a in ("r", "b33", "b75") or (a == "a" and ns.street == s.street and ns.bet[s.to_act] > max(s.bet)):
+                step = ns.bet[s.to_act] - max(s.bet)
+                floor = max(G.BB, inc.get(s.street, G.BB if s.street == 0 else 0))
+                if a != "a":
+                    assert step >= floor, (s.history, a, step, floor)  # min-raise rule; only all-in may be short
+                if step >= floor:
+                    inc[s.street] = step
+            s = ns
         assert sum(s.stack) + s.pot == 2 * G.STACK
         v = G.payoff(s)
         if s.folded is None:
@@ -80,5 +94,5 @@ def test_deal_is_seeded():
 
 
 def test_public_tree_is_small_and_finite():
-    t = G.public_tree_size()
-    assert t["preflop"] > 0 and sum(t.values()) < 10_000
+    # Exact sizes, reported in ADR 0012 and docs/ARCHITECTURE.md; a menu change must update them.
+    assert G.public_tree_size() == {"preflop": 16, "flop": 116, "turn": 628, "river": 2548}
