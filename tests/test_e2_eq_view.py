@@ -62,3 +62,14 @@ def test_runouts_do_not_depend_on_the_process_hash_seed():
     outs = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
                            env={**__import__("os").environ, "PYTHONHASHSEED": str(h)}).stdout for h in (1, 2)}
     assert len(outs) == 1 and outs != {""}
+
+
+def test_compiled_equity_equals_the_numpy_path(monkeypatch):
+    from stalker.core import fast_eval as F
+
+    rng = np.random.default_rng(11)
+    cases = [(tuple(int(x) for x in rng.permutation(52)[:k]), rng.random(N)) for k in (3, 4, 5) for _ in range(3)]
+    fast = [equity_vs(b, w) for b, w in cases]
+    monkeypatch.setattr(F, "HAVE_NUMBA", False)
+    slow = [equity_vs(b, w) for b, w in cases]
+    assert all(np.array_equal(np.nan_to_num(a, nan=-1), np.nan_to_num(s, nan=-1)) for a, s in zip(fast, slow))
