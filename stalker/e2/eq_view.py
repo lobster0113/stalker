@@ -22,6 +22,7 @@ from functools import lru_cache
 
 import numpy as np
 
+from stalker.core import fast_eval
 from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.core.cards import COMBO_INDEX, COMBOS
 from stalker.e2 import game as G
@@ -67,6 +68,16 @@ def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.nd
     return out
 
 
+@lru_cache(maxsize=4096)
+def _flat_runouts(board: tuple[int, ...]):
+    """`_runouts` concatenated for the compiled kernel: idx, order, lo, hi, segment offsets."""
+    rs = _runouts(board)
+    off = np.cumsum([0] + [len(r[0]) for r in rs])
+    return (np.concatenate([r[0] for r in rs]).astype(np.int64), np.concatenate([r[1] for r in rs]).astype(np.int64),
+            np.concatenate([r[2] for r in rs]).astype(np.int64), np.concatenate([r[3] for r in rs]).astype(np.int64),
+            off.astype(np.int64))
+
+
 def equity_vs(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
     """Equity of every combo against range weights `w` (nan where the combo collides with the board)."""
     if not board:
@@ -77,6 +88,11 @@ def equity_vs(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
         eq = np.divide(num @ wc, d, out=np.full(len(d), 0.5), where=d > 0)
         return eq[cls]
     acc, cnt = np.zeros(N), np.zeros(N)
+    if fast_eval.HAVE_NUMBA:
+        fast_eval.equity_segments(np.ascontiguousarray(w, dtype=np.float64), *_flat_runouts(tuple(board)), acc, cnt)
+        out = np.divide(acc, cnt, out=np.full(N, 0.5), where=cnt > 0)
+        out[_board_dead(tuple(board))] = np.nan
+        return out
     for idx, order, lo, hi in _runouts(tuple(board)):
         ww = w[idx]
         cw = np.concatenate([[0.0], np.cumsum(ww[order])])
