@@ -292,3 +292,4 @@
 {"ts":"2026-10-27T19:17:00Z","role":"reviewer","outcome":"merged","issue":172,"pr":173,"notes":"docs-only curriculum review; prior CHANGES 3 items resolved, CI green at 0d6a43b; squash-merged","friction":"guard hook blocks gh api mutations and gh pr comment/merge need GraphQL (403); used GitHub MCP tools for comment/merge"}
 {"ts": "2026-10-27T19:26:00Z", "role": "planner", "outcome": "planned", "issue": 172, "pr": 173, "notes": "#173(#172 커리큘럼 검토 문서) 머지 트리거. ready 미착수 5 유지(#204·#205·#185·#186·#148), main CI run 501 진행(직전 3건 cancelled, 실패 없음→P0 아님). #173 §7 후속 5건은 D2 서비스라 STATE 후보로만 기록. STATE 갱신", "friction": ""}
 {"ts":"2026-10-27T19:23:39Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"내 열린 PR 2개(#154 리뷰 대기, #198 CHANGES 해결·재리뷰 대기) → 규칙 3 종료; main quick PASS","friction":""}
+{"ts":"2026-10-27T20:04:18Z","role":"reviewer","outcome":"skipped","issue":204,"pr":208,"notes":"not my parity","friction":""}
