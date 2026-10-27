@@ -39,6 +39,9 @@ def variants(preset: str):
     yield preset, cfg
     fast = tuple(dataclasses.replace(lv, length=FAST_LEVEL_LENGTH) for lv in cfg.levels)
     yield f"{preset}/fast", dataclasses.replace(cfg, levels=fast)
+    if preset not in SLOW_PRESETS:  # 1-minute levels on the virtual clock: a level change every one to two rounds
+        one_min = tuple(dataclasses.replace(lv, length=1) for lv in cfg.levels)
+        yield f"{preset}/minutes", dataclasses.replace(cfg, length_unit="minutes", levels=one_min)
 
 
 def run_suite(seeds: int = 5, full: bool = False, presets=None) -> Tally:
