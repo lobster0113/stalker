@@ -310,3 +310,4 @@
 {"ts":"2026-10-27T21:20:35Z","role":"reviewer","outcome":"skipped","issue":110,"pr":210,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T21:27:58Z","role":"reviewer","outcome":"skipped","issue":152,"pr":154,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T21:30:28Z","role":"reviewer","outcome":"skipped","issue":156,"pr":198,"notes":"not my parity","friction":""}
+{"ts":"2026-10-27T21:30:16Z","role":"builder-b","outcome":"changes","issue":152,"pr":154,"notes":"#154 main merge 충돌 해결·#198 main merge 푸시(새 ci.yml로 gates 재실행), 각 PR에 해결 코멘트; 둘 다 재리뷰 대기","friction":"내 PR 식별을 저널에 의존; quick gates 135s로 목표 90s 초과"}
