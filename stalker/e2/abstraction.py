@@ -29,7 +29,7 @@ def preflop_bucket(a: int, b: int) -> int:
     return CLASS_INDEX[hand_class(a, b)]
 
 
-@lru_cache(maxsize=200_000)
+@lru_cache(maxsize=20_000)  # boards rarely repeat across hands; bounds memory on long runs (~10 KB each)
 def ehs_table(board: tuple[int, ...]) -> np.ndarray:
     """EHS of every combo on `board` (nan for combos that collide with the board)."""
     rng = np.random.default_rng(abs(hash(board)) % (2 ** 32))
@@ -96,7 +96,7 @@ def _preflop_pct_buckets(k: int) -> np.ndarray:
     return quantile_buckets(vs_random, _class_weights(), k)
 
 
-@lru_cache(maxsize=200_000)
+@lru_cache(maxsize=20_000)  # boards rarely repeat across hands; bounds memory on long runs (~10 KB each)
 def _postflop_pct_buckets(board: tuple[int, ...], k: int) -> np.ndarray:
     e = ehs_table(board)
     ok = ~np.isnan(e)
