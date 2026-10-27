@@ -1,4 +1,4 @@
-"""Quality gates. `python -m referee.gates quick|full`.
+"""Quality gates. `python -m referee.gates quick|full [--part tests|checks]`.
 
 G0 (quick): byte-compile + fast tests.
 G1 (full):  all tests incl. slow/property tests + registered determinism checks.
@@ -57,16 +57,38 @@ def quick() -> bool:
     return ok
 
 
-def full() -> bool:
+def full(part: str = "all") -> bool:
+    """`part` lets CI run the test suite and the registered checks as parallel jobs (#203)."""
+    if part not in ("all", "tests", "checks"):
+        raise SystemExit(f"unknown part {part!r}; use all, tests or checks")
     ok = _run("compile", [PY, "-m", "compileall", "-q", "stalker", "referee", "harness"])
-    ok &= _run("tests", [PY, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *FULL_TEST_WORKERS])
-    for name, argv in FULL_CHECKS:
-        ok &= _run(name, argv)
+    if part in ("all", "tests"):
+        ok &= _run("tests", [PY, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *FULL_TEST_WORKERS])
+    if part in ("all", "checks"):
+        for name, argv in FULL_CHECKS:
+            ok &= _run(name, argv)
     return ok
 
 
+def _parse(argv: list[str]) -> tuple[str, str]:
+    mode = argv[1] if len(argv) > 1 else "quick"
+    if mode not in ("quick", "full"):
+        raise SystemExit(f"unknown mode {mode!r}; use quick or full")
+    part = "all"
+    if "--part" in argv:
+        i = argv.index("--part")
+        if mode != "full":
+            raise SystemExit("--part works with full only: python -m referee.gates full --part tests|checks")
+        if i + 1 >= len(argv):
+            raise SystemExit("--part needs a value; use all, tests or checks")
+        part = argv[i + 1]
+        if part not in ("all", "tests", "checks"):
+            raise SystemExit(f"unknown part {part!r}; use all, tests or checks")
+    return mode, part
+
+
 if __name__ == "__main__":
-    mode = sys.argv[1] if len(sys.argv) > 1 else "quick"
-    passed = {"quick": quick, "full": full}[mode]()
-    print(summary(mode, passed))
+    mode, part = _parse(sys.argv)
+    passed = quick() if mode == "quick" else full(part)
+    print(summary(mode if part == "all" else f"{mode}:{part}", passed))
     sys.exit(0 if passed else 1)
