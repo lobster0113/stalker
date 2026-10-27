@@ -14,6 +14,13 @@ is summarised on the current board by five strength bins and a shape label compu
     merged     anything else
   capped (a flag on top of the shape): the opponent's b5 < 0.5 x my b5.
 - grading the 5-bin answer: earth mover's distance on the ordered bins, scaled to 0..1.
+- beginner input is the width only ("top X% of hands"): `width_default` turns it into a linear
+  5-bin distribution (tighter -> more mass in the strong bins), graded the same way.
+
+Bins are equity bins against my range, not hand categories: a draw already sits in the bin of its
+equity, so a separate "draw" bin would double-count and need a street-dependent outs definition
+(#159 proposed one; dropped here, reason in the PR). "Narrow value" is not a separate shape: it is a
+linear range with a small width (see `width_default`).
 
 Inputs are public cards plus explicit ranges (TeacherContext stand-ins); no hidden cards.
 """
@@ -85,3 +92,15 @@ def emd(user, truth) -> float:
 def score(user, truth) -> int:
     """0–100 grade of a 5-bin answer."""
     return int(round(100 * (1 - emd(user, truth))))
+
+
+TIGHT = (0.00, 0.05, 0.15, 0.30, 0.50)   # top ~5% of hands
+LOOSE = (0.25, 0.25, 0.25, 0.15, 0.10)   # top ~80%
+
+
+def width_default(width: float) -> tuple[float, ...]:
+    """Beginner answer "top X%" (0.05..0.80) as a linear 5-bin distribution, interpolated tight -> loose."""
+    if not 0 < width <= 1:
+        raise ValueError("width is the share of starting hands, 0 < width <= 1")
+    a = min(max((width - 0.05) / 0.75, 0.0), 1.0)
+    return tuple((1 - a) * t + a * l for t, l in zip(TIGHT, LOOSE))

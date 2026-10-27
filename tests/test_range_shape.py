@@ -40,7 +40,8 @@ def test_same_width_different_shape_gets_a_different_score():
     # The point of #159: a polar range read as "linear, same width" must lose points.
     truth = _bins([["KsKd", 1], ["5h4h", 1], ["6h5c", 1]])
     assert RS.score(truth, truth) == 100
-    assert RS.score(RS.TEMPLATES["polar"], truth) > RS.score(RS.TEMPLATES["condensed"], truth)
+    # Reading a polar range as linear loses points (hand calc: polar template 82, linear template 63).
+    assert RS.score(RS.TEMPLATES["polar"], truth) == 82 and RS.score(RS.TEMPLATES["linear"], truth) == 63
     assert RS.score([0, 0, 1, 0, 0], truth) == 50  # hand calc: cumulative gaps .667+.667+.333+.333 = 2.0 / 4
 
 
@@ -56,3 +57,27 @@ def test_templates_are_distributions_with_their_own_shape():
     for name, t in RS.TEMPLATES.items():
         assert sum(t) == pytest.approx(1.0)
         assert RS.shape_of(t) == name, name
+
+
+def test_emd_is_a_metric_on_random_distributions():
+    rng = np.random.default_rng(159)
+    for _ in range(200):
+        a, b, c = (rng.dirichlet(np.ones(5)) for _ in range(3))
+        assert RS.emd(a, b) == pytest.approx(RS.emd(b, a))
+        assert RS.emd(a, c) <= RS.emd(a, b) + RS.emd(b, c) + 1e-12
+        assert RS.emd(a, a) == pytest.approx(0.0)
+
+
+def test_every_template_scores_100_against_itself():
+    for t in RS.TEMPLATES.values():
+        assert RS.score(t, t) == 100
+
+
+def test_width_default_is_linear_and_tighter_means_stronger():
+    tight, mid, loose = RS.width_default(0.05), RS.width_default(0.30), RS.width_default(0.80)
+    for d in (tight, mid, loose):
+        assert sum(d) == pytest.approx(1.0)
+    assert tight[4] > mid[4] > loose[4] and tight[0] < mid[0] < loose[0]
+    assert RS.shape_of(tight) == "linear"
+    with pytest.raises(ValueError, match="width"):
+        RS.width_default(0)
