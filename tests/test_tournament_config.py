@@ -92,6 +92,18 @@ def test_minutes_unit_uses_index_lookup():
     with pytest.raises(ValueError, match="minutes"):
         cfg.level_at(1)
 
+def test_seconds_per_seat_validation_roundtrip_and_legacy_json():
+    assert make().seconds_per_seat == 7
+    for bad, msg in ((0, ">= 1"), (-3, ">= 1"), (6.5, "integers")):
+        with pytest.raises(ConfigError, match=msg):
+            make(seconds_per_seat=bad)
+    cfg = make(length_unit="minutes", seconds_per_seat=5)
+    assert TournamentConfig.from_json(cfg.to_json()) == cfg
+    d = cfg.to_dict()
+    del d["seconds_per_seat"]  # files written before the field existed
+    assert TournamentConfig.from_dict(d).seconds_per_seat == 7
+
+
 def test_presets_load_and_cover_required_set():
     names = c.preset_names()
     assert len(names) >= 6
