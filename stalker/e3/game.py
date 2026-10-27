@@ -14,7 +14,7 @@ in postflop order). Chips are integers with BB = 100. The state is immutable.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from typing import NamedTuple
 
 import numpy as np
 
@@ -36,8 +36,9 @@ def position_names(n: int) -> tuple[str, ...]:
     return early + ("BTN", "SB", "BB")
 
 
-@dataclass(frozen=True)
-class State:
+class State(NamedTuple):
+    # Immutable; NamedTuple because `_replace` is much cheaper than dataclasses.replace and
+    # training creates a state per tree edge.
     n: int
     hole: tuple[tuple[int, int], ...]
     deck: tuple[int, ...]                 # remaining cards; the board is dealt from the front
@@ -154,21 +155,21 @@ def _street_closed(s: State) -> bool:
 
 def _deal_street(s: State) -> State:
     k = 3 if s.street == 0 else 1
-    ns = replace(s, street=s.street + 1, board=s.board + s.deck[:k], deck=s.deck[k:], bet=(0,) * s.n,
+    ns = s._replace(street=s.street + 1, board=s.board + s.deck[:k], deck=s.deck[k:], bet=(0,) * s.n,
                  raises=0, last_raise=BB, acted=(False,) * s.n, history=s.history + ("/",))
     first = next((i for i in postflop_order(s.n) if not s.folded[i] and s.stack[i] > 0), s.n - 2)
-    return replace(ns, to_act=first)
+    return ns._replace(to_act=first)
 
 
 def _after_close(s: State) -> State:
     if len(s.live()) == 1:
-        return replace(s, done=True)
+        return s._replace(done=True)
     if len(s.active()) <= 1:  # nobody left to bet against: run the board out
         while s.street < 3:
             s = _deal_street(s)
-        return replace(s, done=True)
+        return s._replace(done=True)
     if s.street == 3:
-        return replace(s, done=True)
+        return s._replace(done=True)
     return _deal_street(s)
 
 
@@ -180,9 +181,9 @@ def apply(s: State, a: str) -> State:
     if a == "f":
         folded = list(s.folded)
         folded[p] = True
-        ns = replace(s, folded=tuple(folded), history=hist)
+        ns = s._replace(folded=tuple(folded), history=hist)
         if len(ns.live()) == 1:
-            return replace(ns, done=True)
+            return ns._replace(done=True)
     else:
         to = s.bet[p] if a == "k" else _amount_to(s, a)
         add = to - s.bet[p]
@@ -193,12 +194,12 @@ def apply(s: State, a: str) -> State:
         raised = to > max(s.bet)
         acted = [False] * s.n if raised else list(s.acted)
         acted[p] = True
-        ns = replace(s, stack=tuple(stack), bet=tuple(bet), total=tuple(total), acted=tuple(acted), history=hist,
+        ns = s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), acted=tuple(acted), history=hist,
                      raises=s.raises + int(raised),
                      last_raise=max(s.last_raise, to - max(s.bet)) if raised else s.last_raise)
     if _street_closed(ns):
         return _after_close(ns)
-    return replace(ns, to_act=_next_to_act(ns, p))
+    return ns._replace(to_act=_next_to_act(ns, p))
 
 
 def payoff(s: State) -> np.ndarray:
