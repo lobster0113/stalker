@@ -36,6 +36,16 @@ def test_heads_up_button_posts_small_blind_and_acts_first():
     assert la.seat == 1 and la.call_amount == 1 and la.min_raise_to == 4 and la.max_raise_to == 100
 
 
+def test_hole_cards_survive_a_hand_that_ends_while_dealing():
+    # BB all-in for 1 chip with the SB already matching it: no one acts, PokerKit runs out and mucks the
+    # loser inside the constructor. The session/director read hole cards after that (#147 cash agreement).
+    for seed in range(8):
+        ref, fast = _pair(seed, stacks=[100, 1], button=0, small_blind=1, big_blind=2)
+        assert ref.is_over and fast.is_over
+        for seat in (0, 1):
+            assert len(ref.hole_cards(seat)) == 2 and ref.hole_cards(seat) == fast.hole_cards(seat)
+
+
 def test_short_all_in_does_not_reopen_betting():
     kw = dict(stacks=[1000, 1000, 1000, 130], button=0, small_blind=5, big_blind=10)
     ref, fast = _pair(**kw)

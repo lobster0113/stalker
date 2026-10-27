@@ -125,6 +125,7 @@ class Hand:
         self.state = self.game([stacks[s] for s in self.seats], n)
         self._deck = [int(c) for c in rng.permutation(N_CARDS)]
         self._pots: tuple[Pot, ...] = ()
+        self._holes: list[list[str]] = [[] for _ in range(n)]  # as dealt: PokerKit forgets mucked hands
         self._advance()
 
     def _draw(self) -> Card:
@@ -134,7 +135,9 @@ class Hand:
         st = self.state
         while True:
             if st.can_deal_hole():
-                st.deal_hole([self._draw()])
+                card = self._draw()
+                self._holes[st.hole_dealee_index].append(repr(card))
+                st.deal_hole([card])
             elif st.can_burn_card():
                 st.burn_card(self._draw())
             elif st.can_deal_board():
@@ -179,7 +182,8 @@ class Hand:
         return self.state.total_pot_amount
 
     def hole_cards(self, seat: int) -> list[str]:
-        return [repr(c) for c in self.state.hole_cards[self._index[seat]]]
+        """The seat's dealt cards, also after PokerKit mucked them (a hand can end inside the constructor)."""
+        return list(self._holes[self._index[seat]])
 
     def board(self) -> list[str]:
         return [repr(c) for c in self.state.get_board_cards(0)]
