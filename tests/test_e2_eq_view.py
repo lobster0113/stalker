@@ -17,7 +17,7 @@ def _only(hand):
 
 def test_equity_against_a_known_range_follows_hand_order():
     assert equity_vs(BOARD, _only("KsKd"))[combo_index(tuple(cards("7h7s")))] < 0.15  # set under set
-    assert equity_vs(BOARD, _only("4h3h"))[combo_index(tuple(cards("KsKd")))] > 0.95
+    assert equity_vs(BOARD, _only("4h3h"))[combo_index(tuple(cards("KsKd")))] > 0.85  # 12 sampled runouts
     assert equity_vs((), _only("KsKd"))[combo_index(tuple(cards("AsAd")))] == pytest.approx(0.82, abs=0.03)
     assert np.isnan(equity_vs(BOARD, np.ones(N))).sum() == N - 1176
 
@@ -51,3 +51,14 @@ def test_lbr_reads_an_equity_policy_through_its_view():
     r1 = L.exploitability_lb(m.policy(), 4, seed=3, view=m.view)
     assert r1 == L.exploitability_lb(m.policy(), 4, seed=3, view=EqView(5))
     assert np.isfinite(r1["lbr_bb"])
+
+
+def test_runouts_do_not_depend_on_the_process_hash_seed():
+    import subprocess
+    import sys
+
+    code = ("from stalker.e2.eq_view import equity_vs, N; import numpy as np; from stalker.core.cards import cards;"
+            "print(repr(float(np.nansum(equity_vs(tuple(cards('Kc7d2s')), np.ones(N))))))")
+    outs = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                           env={**__import__("os").environ, "PYTHONHASHSEED": str(h)}).stdout for h in (1, 2)}
+    assert len(outs) == 1 and outs != {""}

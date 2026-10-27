@@ -50,7 +50,8 @@ def _class_table() -> tuple[np.ndarray, np.ndarray]:
 @lru_cache(maxsize=4096)  # boards rarely repeat across deals; bounded memory (~0.5 MB each)
 def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """Per sampled runout: usable combo indices, their order by score, and tie-group bounds."""
-    rng = np.random.default_rng(abs(hash(("eq", board))) % (2 ** 32))
+    # Seed from the cards themselves: hash() of a tuple holding a str changes per process.
+    rng = np.random.default_rng([20261028, *board])
     live = np.array([c for c in range(52) if c not in board])
     ok = ~np.isin(COMBO_ARR, list(board)).any(axis=1)
     need = 5 - len(board)
@@ -68,25 +69,42 @@ def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.nd
 
 def equity_vs(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
     """Equity of every combo against range weights `w` (nan where the combo collides with the board)."""
+    return equity_vs_many(board, w[None, :])[0]
+
+
+@lru_cache(maxsize=1)
+def _class_matrix() -> np.ndarray:
+    m = np.zeros((N, len(_class_weights())))
+    m[np.arange(N), _combo_classes()] = 1.0
+    return m
+
+
+@lru_cache(maxsize=4096)
+def _board_dead(board: tuple[int, ...]) -> np.ndarray:
+    return np.isin(COMBO_ARR, list(board)).any(axis=1)
+
+
+def equity_vs_many(board: tuple[int, ...], W: np.ndarray) -> np.ndarray:
+    """Row r: equity of every combo against range W[r] — one pass for several opponents (E3)."""
+    m = W.shape[0]
     if not board:
         num, den = _class_table()
-        cls = _combo_classes()
-        wc = np.bincount(cls, w, num.shape[0]) / _class_weights()
-        d = den @ wc
-        eq = np.divide(num @ wc, d, out=np.full(len(d), 0.5), where=d > 0)
-        return eq[cls]
-    acc, cnt = np.zeros(N), np.zeros(N)
+        wc = (W @ _class_matrix()) / _class_weights()
+        d = wc @ den.T
+        eq = np.divide(wc @ num.T, d, out=np.full(d.shape, 0.5), where=d > 0)
+        return eq[:, _combo_classes()]
+    acc, cnt = np.zeros((m, N)), np.zeros((m, N))
     for idx, order, lo, hi in _runouts(tuple(board)):
-        ww = w[idx]
-        cw = np.concatenate([[0.0], np.cumsum(ww[order])])
-        below, upto = cw[lo], cw[hi]
-        tot = cw[-1] - ww
+        ww = W[:, idx]
+        cw = np.concatenate([np.zeros((m, 1)), np.cumsum(ww[:, order], axis=1)], axis=1)
+        below, upto = cw[:, lo], cw[:, hi]
+        tot = cw[:, -1:] - ww
         tie = upto - below - ww  # equal scores, excluding the combo itself
         good = tot > 0
-        acc[idx[good]] += (below[good] + 0.5 * tie[good]) / tot[good]
-        cnt[idx[good]] += 1
-    out = np.divide(acc, cnt, out=np.full(N, 0.5), where=cnt > 0)
-    out[np.isin(COMBO_ARR, list(board)).any(axis=1)] = np.nan
+        acc[:, idx] += np.where(good, (below + 0.5 * tie) / np.where(good, tot, 1.0), 0.0)
+        cnt[:, idx] += good
+    out = np.divide(acc, cnt, out=np.full((m, N), 0.5), where=cnt > 0)
+    out[:, _board_dead(tuple(board))] = np.nan
     return out
 
 
