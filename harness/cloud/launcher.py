@@ -39,6 +39,8 @@ REAP_GRACE_MIN = 10
 # and ledger push well inside that, or the runner limit kills the job before its finally runs.
 MAX_JOB_MINUTES = 330
 REST_URL = "https://rest.runpod.io/v1"
+# RunPod sits behind Cloudflare, which rejects urllib's default "Python-urllib" agent with 403/1010.
+USER_AGENT = "stalker-launcher/1 (+https://github.com/lobster0113/stalker)"
 GRAPHQL_URL = "https://api.runpod.io/graphql"
 
 
@@ -195,14 +197,18 @@ Transport = Callable[[str, str, dict | None], dict | list | None]
 def http_transport(api_key: str) -> Transport:
     def call(method: str, url: str, body: dict | None):
         req = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None,
-                                     headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
+                                     headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+                                              "Accept": "application/json", "User-Agent": USER_AGENT})
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 raw = r.read()
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return None
-            raise LauncherError(f"RunPod {method} {url}: HTTP {e.code} {e.read()[:300]!r}") from e
+            body = e.read()[:300]
+            hint = (" — Cloudflare rejected the client signature; check USER_AGENT in harness/cloud/launcher.py"
+                    if e.code == 403 and b"1010" in body else "")
+            raise LauncherError(f"RunPod {method} {url}: HTTP {e.code} {body!r}{hint}") from e
         return json.loads(raw) if raw.strip() else {}
     return call
 
