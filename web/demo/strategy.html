@@ -83,6 +83,7 @@ td.best { color: var(--brass-hi); font-weight: 600; }
 .facts { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .facts b { color: var(--text); font-weight: 600; }
 .badge { font: 700 10.5px/1 var(--font-display); letter-spacing: .12em; padding: 3px 6px; border-radius: 5px; background: #63c49322; color: var(--good); }
+.badge.approx { background: #d6ab5522; color: var(--brass-hi); }
 @media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } .spot-group b { min-width: 100%; } }
 </style>
 </head>
@@ -148,7 +149,7 @@ function renderSpots() {
   const el = document.getElementById("spots");
   const groups = {};
   for (const s of D.spots) (groups[s.env] ||= []).push(s);
-  const names = { E1: "헤즈업 푸시/폴드", E1b: "헤즈업 오픈 / 3벳 셔브", ICM3: "3인 ICM 푸시/폴드", ICM6: "6인 SNG ICM 푸시/폴드", ICM9: "9인 SNG ICM 푸시/폴드" };
+  const names = { E1: "헤즈업 푸시/폴드", E1b: "헤즈업 오픈 / 3벳 셔브", ICM3: "3인 ICM 푸시/폴드", ICM6: "6인 SNG ICM 푸시/폴드", ICM9: "9인 SNG ICM 푸시/폴드", "E3-6": "6인 100BB 캐시 (근사)", "E3-9": "9인 100BB 캐시 (근사)" };
   el.innerHTML = "";
   for (const [env, list] of Object.entries(groups)) {
     const g = document.createElement("div");
@@ -200,7 +201,7 @@ function renderStrat(n) {
   const el = document.getElementById("strat");
   el.innerHTML = "";
   const avail = n && !n.terminal ? Object.keys(n.strategy) : ["gto"];
-  if (!avail.includes(strat)) strat = "gto";
+  if (!avail.includes(strat)) strat = avail.includes("gto") ? "gto" : avail[0];
   for (const [k, label] of Object.entries(D.strategy_labels)) {
     const b = document.createElement("button");
     b.textContent = label;
@@ -239,7 +240,7 @@ function renderGrid(n) {
   if (!n || n.terminal) { cap.textContent = "핸드별 전략"; legend.innerHTML = ""; return; }
   cap.textContent = `${n.seat}의 핸드별 전략 · ${D.strategy_labels[strat]}`;
   const idx = Object.fromEntries(D.classes.map((c, i) => [c, i]));
-  const rows = n.strategy[strat], gto = n.strategy.gto, reach = reachOf(n, n.seat);
+  const rows = n.strategy[strat], gto = n.strategy.gto || rows, reach = reachOf(n, n.seat);
   for (let r = 0; r < 13; r++) for (let c = 0; c < 13; c++) {
     const name = cellName(r, c), i = idx[name];
     const d = document.createElement("div");
@@ -312,7 +313,7 @@ function renderRanges(n) {
       const last = path[path.length - 1];
       if (last.seat === seat) {
         const k = ref.actions.indexOf(last.action);
-        reach = reach.map((r, i) => r * ref.strategy.gto[i][k]);
+        reach = reach.map((r, i) => r * (ref.strategy.gto || ref.strategy[strat] || Object.values(ref.strategy)[0])[i][k]);
       }
     }
     let w = 0, tot = 0;
@@ -343,8 +344,11 @@ function lastDecision() {
 
 function renderFacts() {
   document.getElementById("facts").innerHTML =
-    `<span><span class="badge">EXACT</span> 이 모델 안에서 정확히 풀린 균형</span>`
-    + `<span>착취 가능성 <b>${spot.exploitability}</b> ${spot.value_model === "icm" ? "(상금풀 비율)" : "bb/핸드"}</span>`
+    (spot.exact
+      ? `<span><span class="badge">EXACT</span> 이 모델 안에서 정확히 풀린 균형</span>`
+        + `<span>착취 가능성 <b>${spot.exploitability}</b> ${spot.value_model === "icm" ? "(상금풀 비율)" : "bb/핸드"}</span>`
+      : `<span><span class="badge approx">근사</span> 학습 중인 TP 정책 — GTO라고 부르지 않는다(Gate Q)</span>`
+        + (spot.exploitability != null ? `<span>착취 하한(N인 LBR) <b>${spot.exploitability}</b> bb/핸드</span>` : ""))
     + `<span>가치 <b>${spot.value_model === "icm" ? "ICM" : "칩 EV"}</b></span>`
     + `<span>스택 <b>${spot.stack_bb}BB</b>${spot.ante_bb ? ` · 앤티 ${spot.ante_bb}BB` : ""}</span>`;
 }
