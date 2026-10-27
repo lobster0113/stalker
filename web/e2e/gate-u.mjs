@@ -57,7 +57,8 @@ await page.click("#start-btn");
 await page.waitForSelector("#tp-body .tpc:not([hidden])");
 await inspect("train-input");
 // #163: the level clock is frozen while it is my turn (the TP panel is open).
-if (await page.locator("#lv-left").count()) {
+must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
+{
   const before = (await page.textContent("#lv-left")).trim();
   await page.waitForTimeout(2500);
   must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
