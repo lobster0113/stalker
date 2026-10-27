@@ -343,3 +343,4 @@
 {"ts": "2026-10-27T23:16:28Z", "role": "reviewer-b", "outcome": "changes", "issue": 152, "pr": 154, "notes": "CI green, 코드·테스트 통과. 지난 판정 2번(PR 본문 후속: edge.py:470 주석·referee-change 후속 이슈) 미이행. CHANGES 2회째", "friction": ""}
 {"ts": "2026-10-27T23:16:28Z", "role": "reviewer-b", "outcome": "changes", "issue": 161, "pr": 212, "notes": "ADR 0011 내용은 수용 기준 충족. 근거 docs/research/2026-10-e1-tp-pushfold.md가 main에 없음(미머지 브랜치), E2 수치가 main path-to-9max.md와 불일치", "friction": ""}
 {"ts": "2026-10-27T23:16:28Z", "role": "reviewer-b", "outcome": "changes", "issue": 159, "pr": 214, "notes": "Closes #159인데 판별력 측정·P50 입력 시간 없음. 모양/구간 체계가 본문·ARCHITECTURE와 코드가 다름, 본문이 주장한 EMD 대칭·삼각부등식 테스트 없음", "friction": "수용 기준 일부만 구현한 PR이 Closes로 열림"}
+{"ts":"2026-10-27T23:18:24Z","role":"reviewer","outcome":"skipped","issue":161,"pr":212,"notes":"not my parity","friction":""}
