@@ -655,8 +655,8 @@ details.why[open] > summary { margin-bottom: 8px; }
             <li><span><b>보드 읽기</b> · 누구 레인지에 유리한가, (고수) 넛은 누가 더 많은가 — 헤즈업 플랍 이후</span></li>
             <li><span><b>상대 읽기</b> · 성향 0–100(기회가 쌓인 뒤), 13×13 레인지, 방금 벳은 밸류 쪽인가</span></li>
             <li><span><b>내 핸드</b> · 쇼다운 에퀴티, 다음 카드 중 유리·불리해지는 비율</span></li>
-            <li><span><b>계획</b> · 대표 사이즈에 상대가 접을 확률, (토너먼트) 칩을 잃는 위험의 무게, 팟을 키울지(성찰, 채점 안 함)</span></li>
             <li><span><b>액션</b> · 폴드·체크·콜·레이즈와 사이즈 — 모의 혼합 전략은 참고로만 보여주고 점수에 넣지 않아요</span></li>
+            <li><span><b>액션 점검</b> · 고른 액션에 맞는 근거: 레이즈면 그 사이즈에 상대가 접을 확률, (토너먼트) 콜이면 상금 구조까지 생각한 필요 승률</span></li>
           </ol>
         </div>
       </div>
@@ -825,6 +825,23 @@ function eqVsCombos(hero, board, combos, iters = 500) {
   return w / iters;
 }
 function eqVsPct(hero, board, pct, iters) { const dead = new Set([...hero, ...board]); return eqVsCombos(hero, board, combosFor(classesInTop(pct), dead), iters); }
+// hand.equity multiway (TP v0.1 §3.1): share of the whole pot against every remaining opponent at once
+// (ties split among the best hands), so it compares directly with the pot-odds requirement.
+function eqVsMulti(hero, board, pcts, iters = 500) {
+  if (pcts.length <= 1) return eqVsPct(hero, board, pcts[0] ?? 100, iters);
+  const pools = pcts.map(p => combosFor(classesInTop(p), new Set([...hero, ...board])));
+  if (pools.some(p => !p.length)) return 0.5;
+  let w = 0, n = 0;
+  for (let i = 0; i < iters * 4 && n < iters; i++) {
+    const used = new Set([...hero, ...board]), hands = [];
+    let ok = true;
+    for (const pool of pools) { const c = pool[Math.floor(rand() * pool.length)]; if (used.has(c[0]) || used.has(c[1])) { ok = false; break; } used.add(c[0]); used.add(c[1]); hands.push(c); }
+    if (!ok) continue;
+    const full = runout(board, used), sh = evaluate([...hero, ...full]), so = hands.map(c => evaluate([c[0], c[1], ...full])), best = Math.max(...so);
+    w += sh > best ? 1 : sh === best ? 1 / (1 + so.filter(s => s === best).length) : 0; n++;
+  }
+  return n ? w / n : 0.5;
+}
 function rangeVsRange(pctA, pctB, board, iters = 400) {
   const dead = new Set(board), A = combosFor(classesInTop(pctA), dead), Bc = combosFor(classesInTop(pctB), dead);
   let w = 0, n = 0;
@@ -892,9 +909,10 @@ const TP = {
   "hand.equity": { stage: "D 내 핸드", q: "내 쇼다운 에퀴티", ends: ["0%", "100%"] },
   "hand.outs":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 유리해지는 비율", ends: ["0%", "100%"] },
   "hand.vuln":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 불리해지는 비율", ends: ["0%", "100%"] },
-  "plan.foldeq": { stage: "E 계획", q: "대표 사이즈로 벳·레이즈하면 상대가 접을 확률", ends: ["0%", "100%"] },
-  "plan.icm":    { stage: "E 계획", q: "이 결정에서 칩을 잃는 위험의 무게", ends: ["가벼움", "무거움"] },
-  "plan.pot":    { stage: "E 계획", q: "팟을 키울 것인가?", ends: ["억제", "증가"], reflection: true },
+  // Plan items follow the chosen action (card G): fold equity only after choosing a bet/raise size, ICM only after choosing to call.
+  "plan.foldeq": { stage: "G 액션 점검", q: "이 사이즈로 벳·레이즈하면 상대가 접을 확률", ends: ["0%", "100%"] },
+  "plan.icm":    { stage: "G 액션 점검", q: "상금 구조(ICM)까지 생각하면 이 콜에 필요한 승률은?", ends: ["0%", "100%"] },
+  "plan.pot":    { stage: "G 액션 점검", q: "팟을 키울 것인가?", ends: ["억제", "증가"], reflection: true },
   "act.choice":  { stage: "F 액션", q: "액션", type: "action" },
 };
 const SHORT = { "board.adv": "보드 읽기", "board.nut": "넛 우위", "opp.loose": "상대 성향(루즈)", "opp.aggr": "상대 성향(공격성)", "opp.foldy": "폴드 성향", "opp.range": "레인지 추정", "opp.value": "밸류/블러프 판단", "hand.equity": "에퀴티 감각", "hand.outs": "유리해지는 카드", "hand.vuln": "불리해지는 카드", "plan.foldeq": "폴드 에퀴티", "plan.icm": "ICM 압박", "plan.pot": "팟 컨트롤(성찰)", "act.choice": "액션 선택" };
@@ -1275,7 +1293,9 @@ function computeGTO(hero) {
   if (G.street === 0 && opp.rangePct === 100) pct = clamp(vp * 100 * 1.1, 8, 100);
   if (G.street === 0 && opp.rangePct < 100) pct = clamp(opp.rangePct * (0.6 + vp * 1.6), 4, 100);
   pct = Math.round(clamp(pct, 3, 100));
-  const eq = eqVsPct(hero.cards, G.board, pct, 700);
+  // Other opponents' ranges: their public narrowing, or a participation-based guess when they have not acted.
+  const others = live().filter(s => s !== hero && s !== opp).map(s => s.rangePct < 100 ? s.rangePct : Math.round(clamp(shrink(s.stats.vpip, s.stats.preOpp, .26, 5) * 110, 8, 100)));
+  const eq = eqVsMulti(hero.cards, G.board, [pct, ...others], 700);
   const v = {}, note = {}, post = G.board.length >= 3, hu = live().length === 2;
   v["opp.loose"] = Math.round(clamp((vp - .1) / .5 * 100));
   v["opp.aggr"] = Math.round(clamp(ag * 100));
@@ -1294,22 +1314,31 @@ function computeGTO(hero) {
     note["opp.value"] = `가정: 내 콜링 레인지 상위 ${cp}%, 세미블러프는 블러프 쪽`;
   }
   const rep = L.canRaise ? repSize(hero, L, pot) : null;
-  if (rep) {
-    const frac = (rep.to - G.currentBet) / Math.max(pot, G.bb);
-    // Multiway: everyone has to fold.
+  // Fold probability for the size the hero actually chose (asked after the action). Multiway: everyone has to fold.
+  const foldeqAt = to => {
+    const frac = (to - G.currentBet) / Math.max(pot, G.bb);
     let all = 1;
     for (const o of live().filter(s => s !== hero && !s.allin)) { const f = shrink(o.stats.foldsFaced, o.stats.faced, .45, 5); all *= clamp(f * .75 + o.rangePct / 100 * .2 + (frac - .75) * .1, .02, .95); }
-    v["plan.foldeq"] = Math.round(all * 100);
+    return Math.round(all * 100);
+  };
+  // plan.icm (TP §3.3): required equity to call under ICM = chip-EV requirement (pot odds) + risk premium (pp).
+  // Mock premium: grows with the tournament stage and with the share of my stack the call puts at risk.
+  const odds = L.toCall / (pot + L.toCall || 1);
+  let icm = null;
+  if (G.tour && L.toCall > 0) {
+    const base = { early: 2, mid: 5, bubble: 14, itm: 7, ft: 10 }[G.stage], risk = Math.min(1, L.toCall / Math.max(hero.stack + hero.bet, 1));
+    const prem = Math.round(base * (0.4 + 0.6 * risk) * 10) / 10, chip = Math.round(odds * 1000) / 10;
+    icm = { chip, prem, base, risk: Math.round(risk * 100) };
+    v["plan.icm"] = Math.round(clamp(chip + prem));
   }
-  if (G.tour) { const base = { early: 18, mid: 35, bubble: 78, itm: 46, ft: 62 }[G.stage]; const stackFac = hero.stack / G.bb < 12 ? -10 : hero.stack / G.bb > 45 ? -6 : 6; v["plan.icm"] = Math.round(clamp(base + stackFac)); }
   // action mix
-  const odds = L.toCall / (pot + L.toCall || 1), icmTax = G.tour ? (v["plan.icm"] - 30) / 400 : 0;
+  const icmTax = icm ? icm.prem / 100 : 0;
   let mix;
   if (G.street === 0 && L.toCall <= G.bb && G.currentBet === G.bb && !L.canCheck) { const open = { BTN: 45, CO: 30, HJ: 22, UTG: 15, SB: 38, MP: 18, LJ: 18, "UTG+1": 15 }[posName(hero)] || 20; const hp = classOf(...hero.cards).pct; mix = hp <= open * .8 ? { raise: .92, fold: .08 } : hp <= open ? { raise: .55, fold: .45 } : { fold: .9, call: .1 }; }
   else if (L.toCall > 0) { const edge = eq - odds - icmTax; mix = edge > .22 && L.canRaise ? { raise: .55, call: .4, fold: .05 } : edge > .02 ? { call: .78, raise: L.canRaise ? .1 : 0, fold: .12 } : edge > -.06 ? { call: .4, fold: .6 } : { fold: .88, call: .12 }; }
   else { mix = eq > .62 && L.canRaise ? { raise: .72, check: .28 } : eq > .45 ? { check: .62, raise: L.canRaise ? .38 : 0 } : { check: .8, raise: L.canRaise ? .2 : 0 }; }
   v["act.choice"] = mix;
-  return { v, note, opp, L, pot, pct, rep, ov, vp, ag, fd };
+  return { v, note, opp, L, pot, pct, rep, ov, vp, ag, fd, icm, foldeqAt };
 }
 
 /* ---------- hero turn & TP console ---------- */
@@ -1336,9 +1365,9 @@ function applies(k) {
   if (k === "board.adv" || k === "board.nut") return post && hu;
   if (k === "hand.outs" || k === "hand.vuln") return G.board.length === 3 || G.board.length === 4;
   if (k === "opp.value") return G.streetAgg != null && G.streetAgg !== hero.i;
-  if (k === "plan.foldeq") return L.canRaise;
-  if (k === "plan.icm") return G.tour && (L.toCall > 0 || hero.stack + hero.bet <= 15 * G.bb);
-  if (k === "plan.pot") return S.tier !== "beginner";
+  if (k === "plan.foldeq") return L.canRaise && CUR.action === "raise" && CUR.size != null;
+  if (k === "plan.icm") return G.tour && L.toCall > 0 && CUR.action === "call";
+  if (k === "plan.pot") return S.tier !== "beginner" && !!CUR.action && CUR.action !== "fold";
   return true;
 }
 function itemsNow() {
@@ -1357,28 +1386,48 @@ function setTP(mode) {
   // ask: card news — one card per TP stage (B → F), 이전/다음, last card submits.
   $("#tp-ctx").innerHTML = ctxChips();
   tp.classList.add("open");
-  const opp = CUR.g.opp, items = itemsNow(), cards = [];
+  const opp = CUR.g.opp, items = itemsNow().filter(k => !isFollow(k)), cards = [];
   for (const k of items) { const st = TP[k].stage; if (!cards.length || cards.at(-1).stage !== st) cards.push({ stage: st, keys: [] }); cards.at(-1).keys.push(k); }
-  CUR.cards = cards; CUR.card = 0;
+  CUR.base = cards.length; CUR.cards = cards; CUR.card = 0;
   let n = 0;
   body.innerHTML = `<div class="tpc-opp">판단 대상 상대 · <b>${opp.name}</b> (${posName(opp)}) · 이번 게임 관측 <b class="num">${opp.stats.hands - 1}</b>핸드</div>
     <div class="tpc-view">${cards.map((c, ci) => `<section class="tpc" data-card="${ci}" ${ci ? "hidden" : ""} aria-label="${c.stage}">
       <header class="tpc-h"><span class="tpc-letter">${c.stage[0]}</span><span class="tpc-name">${c.stage.slice(2)}</span><span class="tpc-count num">${ci + 1} / ${cards.length}</span></header>
       ${c.keys.map(k => { n++; const na = naNow(k); return `<div class="q${na ? " na" : ""}" data-k="${k}"><div class="n">${n}</div><div class="body">${qInput(k, na)}</div></div>`; }).join("")}
-    </section>`).join("")}</div>`;
+    </section>`).join("")}<section class="tpc" data-card="follow" hidden aria-label="G 액션 점검"></section></div>`;
+  CUR.qn = n;
   body.scrollTop = 0;
   foot.hidden = false;
   foot.innerHTML = `<div class="tpc-nav"><button class="cta ghost small" id="tp-prev">이전</button>
-      <div class="dots" id="tp-dots">${cards.map((c, i) => `<button class="dot" data-go="${i}" aria-label="${c.stage}"><span>${c.stage[0]}</span></button>`).join("")}</div>
+      <div class="dots" id="tp-dots"></div>
       <button class="cta small" id="tp-next">다음</button><button class="cta small" id="tp-submit" disabled hidden>제출하고 진행</button></div>
     <span class="tpc-note">제출하면 바로 채점해요(정답 ${CONF}). 액션은 점수에 넣지 않고, 내 차례에는 레벨 시계가 멈춰요.</span>`;
-  bindInputs();
+  bindInputs($("#tp-body"));
   $("#tp-prev").onclick = () => goCard(CUR.card - 1);
   $("#tp-next").onclick = () => goCard(CUR.card + 1);
-  $$("#tp-dots [data-go]").forEach(d => d.onclick = () => goCard(+d.dataset.go));
   $("#tp-submit").onclick = submitTP;
+  renderFollow();
   goCard(0, true);
   if (matchMedia("(max-width: 760px)").matches) tp.classList.add("open");
+}
+const isFollow = k => TP[k].stage[0] === "G";
+// Card G holds the checks that depend on the chosen action; it exists only while it has questions.
+function renderFollow() {
+  const keys = itemsNow().filter(isFollow), sec = $('#tp-body .tpc[data-card="follow"]');
+  if (CUR.action === "raise" && CUR.size != null) { const o = sizeOptions()[CUR.size]; CUR.g.rep = o; CUR.g.v["plan.foldeq"] = CUR.g.foldeqAt(o.to); }
+  CUR.cards = CUR.cards.slice(0, CUR.base);
+  if (keys.length) CUR.cards.push({ stage: "G 액션 점검", keys });
+  let n = CUR.qn;
+  const what = CUR.action === "raise" ? (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + CUR.g.rep.label : ACT_NM[CUR.action];
+  sec.innerHTML = keys.length ? `<header class="tpc-h"><span class="tpc-letter">G</span><span class="tpc-name">액션 점검</span><span class="tpc-count num">${CUR.cards.length} / ${CUR.cards.length}</span></header>
+    <div class="hint">고른 액션(${what})에 맞는 근거를 확인해요.</div>
+    ${keys.map(k => { n++; const na = naNow(k); return `<div class="q${na ? " na" : ""}" data-k="${k}"><div class="n">${n}</div><div class="body">${qInput(k, na)}</div></div>`; }).join("")}` : "";
+  $$("#tp-body .tpc").forEach(c => { if (c.dataset.card !== "follow") { const t = $(".tpc-count", c); if (t) t.textContent = `${+c.dataset.card + 1} / ${CUR.cards.length}`; } });
+  bindInputs(sec);
+  for (const k of keys) if (CUR.answers[k] != null) { const q = $(`.q[data-k="${k}"]`, sec); $$("[data-chip]", q).forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.chip === CUR.answers[k]))); $("[data-val]", q).textContent = CUR.answers[k]; }
+  $("#tp-dots").innerHTML = CUR.cards.map((c, i) => `<button class="dot" data-go="${i}" aria-label="${c.stage}"><span>${c.stage[0]}</span></button>`).join("");
+  $$("#tp-dots [data-go]").forEach(d => d.onclick = () => goCard(+d.dataset.go));
+  if (CUR.card >= CUR.cards.length) goCard(CUR.cards.length - 1, true); else navState();
 }
 // A card is done when every graded, applicable item on it has an answer (action also needs a size for raises).
 function cardDone(ci) {
@@ -1400,7 +1449,7 @@ function goCard(i, first) {
   if (!CUR || i < 0 || i >= CUR.cards.length) return;
   if (i > CUR.card && !doneUpTo(i)) return;
   const dir = i >= CUR.card ? "r" : "l";
-  $$("#tp-body .tpc").forEach(c => { const on = +c.dataset.card === i; c.hidden = !on; c.classList.remove("in-r", "in-l"); if (on && !first) { void c.offsetWidth; c.classList.add("in-" + dir); } });
+  $$("#tp-body .tpc").forEach(c => { const idx = c.dataset.card === "follow" ? CUR.base : +c.dataset.card, on = idx === i; c.hidden = !on; c.classList.remove("in-r", "in-l"); if (on && !first) { void c.offsetWidth; c.classList.add("in-" + dir); } });
   CUR.card = i; $("#tp-body").scrollTop = 0; navState();
 }
 // Tap inputs on the tier scale (TP v0.1 §4.1): chips on the tier grid; the 0–100 tier adds a ±1/±5 stepper instead of a slider.
@@ -1420,8 +1469,13 @@ function qInput(k, na) {
   }
   if (d.type === "action") return actionInput();
   if (na) return `<div class="t"><span>${d.q}</span><span class="val num">N/A</span></div><div class="hint">이 상대의 ${d.na.what} 기회가 ${CUR.g.opp.stats[d.na.stat]}/${d.na.min}회라 아직 묻지도 채점하지도 않아요.</div>`;
-  const q = k === "plan.foldeq" && CUR.g.rep ? `대표 사이즈 ${CUR.g.rep.label}(${bbf(CUR.g.rep.to)}BB)로 ${G.street === 0 || CUR.g.L.toCall ? "레이즈" : "벳"}하면 상대가 ${live().length > 2 ? "모두 " : ""}접을 확률` : d.q;
-  const hint = d.reflection ? `<div class="hint">성찰 질문 · 정의가 확정되지 않아 채점하지 않아요(선택 입력).</div>` : k === "plan.foldeq" ? `<div class="hint">결정 전에 묻는 계획 질문이에요. 실제로 고를 액션과 상관없이 답하세요.</div>` : "";
+  if (k === "plan.icm" && CUR.g.icm) return `<div class="hint">칩만 보면 필요한 승률(팟 오즈)은 <b>${CUR.g.icm.chip}%</b>예요. 토너먼트에서는 지면 탈락 위험 때문에 이보다 더 필요해요.</div><div class="t"><span>${d.q}</span><span class="val num" data-val>—</span></div>
+    <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
+  const nOpp = live().length - 1;
+  if (k === "hand.equity" && nOpp > 1) return `<div class="hint">멀티웨이 · 남은 ${nOpp}명을 <b>모두</b> 이겨 팟 전체를 가져갈 확률(+분할 몫)이에요. 헤즈업보다 낮게 나오고, 콜에 필요한 에퀴티와 바로 비교할 수 있어요.</div><div class="t"><span>${d.q} (${nOpp}명 상대)</span><span class="val num" data-val>—</span></div>
+    <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
+  const q = k === "plan.foldeq" && CUR.g.rep ? `고른 사이즈 ${CUR.g.rep.label}(${bbf(CUR.g.rep.to)}BB)로 ${G.street === 0 || CUR.g.L.toCall ? "레이즈" : "벳"}하면 상대가 ${live().length > 2 ? "모두 " : ""}접을 확률` : d.q;
+  const hint = d.reflection ? `<div class="hint">성찰 질문 · 정의가 확정되지 않아 채점하지 않아요(선택 입력).</div>` : k === "plan.foldeq" ? `<div class="hint">접을 확률이 높을수록 블러프·세미블러프가 이득이에요. 낮으면 밸류가 충분한 핸드일 때만 커져요.</div>` : "";
   return `${hint}<div class="t"><span>${q}</span><span class="val num" data-val>—</span></div>
     <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>
     ${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
@@ -1449,7 +1503,7 @@ function actionInput() {
     <div class="sizes" data-sizes hidden>${sizeOptions().map((o, i) => `<button class="size" data-size="${i}" aria-pressed="false">${o.label}</button>`).join("")}</div>`;
 }
 function setFill(inp) { inp.style.setProperty("--fill", ((inp.value - inp.min) / (inp.max - inp.min) * 100) + "%"); }
-function bindInputs() {
+function bindInputs(root) {
   const minOf = k => TP[k].type === "range" ? (S.tier === "beginner" ? 5 : 2) : 0;
   const setVal = (q, v, fromGrid) => {
     const k = q.dataset.k; v = clamp(Math.round(v), minOf(k), 100);
@@ -1461,12 +1515,12 @@ function bindInputs() {
     } else $("[data-val]", q).textContent = v;
     navState();
   };
-  $$("#tp-body .q[data-k]").forEach(q => {
+  $$(".q[data-k]", root).forEach(q => {
     const k = q.dataset.k;
     $$("[data-chip]", q).forEach(c => c.onclick = () => setVal(q, +c.dataset.chip));
     $$("[data-step]", q).forEach(c => c.onclick = () => setVal(q, (CUR.answers[k] ?? (TP[k].type === "range" ? 30 : 50)) + +c.dataset.step));
   });
-  const grid = $("#tp-body [data-grid]");
+  const grid = $("[data-grid]", root);
   if (grid) {
     paintGrid(grid, new Set());
     if (grid.classList.contains("edit")) {
@@ -1478,25 +1532,24 @@ function bindInputs() {
       grid.addEventListener("pointerup", () => painting = null);
     }
   }
-  $$("[data-act]").forEach(b => b.addEventListener("click", () => {
+  $$("[data-act]", root).forEach(b => b.addEventListener("click", () => {
     $$("[data-act]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.action = b.dataset.act; CUR.size = null;
     const sz = $("[data-sizes]"); sz.hidden = CUR.action !== "raise"; $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", "false"));
-    $("[data-val]", b.closest(".body")).textContent = b.textContent; navState();
+    $("[data-val]", b.closest(".body")).textContent = b.textContent; delete CUR.answers["plan.foldeq"]; renderFollow();
   }));
-  $$("[data-size]").forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; navState(); }));
+  $$("[data-size]", root).forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; delete CUR.answers["plan.foldeq"]; renderFollow(); }));
 }
 // Inputs for the shared answer explanation, from what the mock teacher used for this decision.
 function trainWhyCtx(g) {
   const hero = CUR.hero, st = g.opp.stats, pc = x => Math.round(x * 100), nm = g.opp.name;
   const acts = G.log.filter(l => l.t.startsWith(nm + "(")).map(l => `${l.st} ${l.t.replace(/^[^)]*\)\s*/, "")}`);
   const steps = [[`관측 프리플랍 참여 ${st.vpip}/${st.preOpp}회`, null, `모집단 사전값 26%와 섞은 수축 추정 ≈ ${pc(g.vp)}%`], [`이번 핸드 · ${acts.join(" → ") || "아직 액션 없음"}`, g.pct, "참여 비율에서 출발해 오픈·콜·레이즈마다 레인지를 좁혀요(모의 규칙)."]];
-  const base = G.tour ? { early: 18, mid: 35, bubble: 78, itm: 46, ft: 62 }[G.stage] : 0;
-  const texts = {
+    const texts = {
     "opp.loose": `${nm}의 자발적 참여 ${st.vpip}/${st.preOpp}회를 모집단 사전값(26%)과 섞어 ≈ ${pc(g.vp)}% → 0–100 척도로 ${g.v["opp.loose"]}. 관측이 적을수록 사전값 쪽으로 당겨져요.`,
     "opp.aggr": `벳·레이즈 ${st.raises}회 / (벳·레이즈 + 콜 ${st.raises + st.calls}회)를 사전값 40%와 섞어 ≈ ${pc(g.ag)}%.`,
     "opp.foldy": `벳을 마주해 폴드 ${st.foldsFaced}/${st.faced}회를 사전값 45%와 섞어 ≈ ${pc(g.fd)}%.`,
     "plan.foldeq": g.rep ? `상대 폴드 성향 추정 ${pc(g.fd)}%, 레인지 폭 상위 ${g.pct}%, 대표 사이즈 ${g.rep.label}로 계산한 모의 값이에요. 상대가 여럿이면 모두 접을 확률을 곱해요.` : "",
-    "plan.icm": G.tour ? `${STAGE_NAMES[G.stage]} 단계 기본 무게 ${base}에 내 스택 ${bbf(hero.stack)}BB 보정을 더했어요. 버블에 가까울수록, 스택이 애매할수록 무거워요.` : "",
+    "plan.icm": g.icm ? `칩만 보면 필요한 승률은 콜 ÷ (팟 + 콜) = <b>${g.icm.chip}%</b>. 여기에 ICM 리스크 프리미엄 <b>+${g.icm.prem}%p</b>를 더해 <b>${g.v["plan.icm"]}%</b>가 필요해요. 프리미엄은 ${STAGE_NAMES[G.stage]} 단계(기본 ${g.icm.base}%p)와 이 콜이 내 스택의 ${g.icm.risk}%를 거는 정도로 정한 모의 값이에요. 실제 정답은 ICM 계산(이기면·지면·폴드할 때 상금 기대값)으로 구해요: 필요 승률 = (폴드 − 질 때) ÷ (이길 때 − 질 때).` : "",
   };
   return { hero: hero.cards.slice(), board: G.board.slice(), oppPct: g.pct, heroPct: heroRangePct(hero), ov: g.ov, steps, note: g.note["opp.value"], texts };
 }
