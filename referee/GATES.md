@@ -5,7 +5,8 @@
 
 ## Gate R — 시뮬레이터 규칙 정확성 (상시 CI, 모든 게이트의 전제)
 - 칩 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 블라인드·앤티(일반/BB 앤티)와 숏스택 징수, 탈락·순위·상금 배분. 통과율 100%.
-- 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`를 기록한다.
+- 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`(토너먼트)와 `gate_r_cash_pass_rate`·`gate_r_cash_checks`(캐시)를 기록한다.
+- 엣지 케이스(SIM-d): `python -m referee.gate_r.edge [--cases N]`(`gates full`의 `gate_r_edge`, 로컬 약 25초). 무작위 플레이로는 드문 상황 8종 — 숏 올인 연쇄, 3개 이상 사이드팟+동점 분할+홀수 칩, 앤티로만 올인, 블라인드 숏, 보드 플레이 분할, 휠·키커, 헤즈업 전환 직후, 동시 다중 탈락 — 을 고정 시드로 일부러 만들고, 분류기가 그 상황이 실제로 일어났다고 확인한 케이스만 센다(종마다 ≥ 50, 못 채우면 실패). 핸드 6종은 덱을 고정해 PokerKit `Hand`·`FastHand`를 같은 액션으로 진행(항목 `engines`: 매 단계 액터·합법 액션, 끝의 카드·`HandResult` 일치)하고 같은 이벤트를 독립 모델로 재생한다. 게임 2종은 `run_game` + 위 검사 전체. 경계 항목별 손계산 골든 케이스는 `tests/test_gate_r_edge.py`(기대값과 계산 근거 주석).
 - 방법: 모든 프리셋 × 구조 변형 × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 게임을 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, `evaluator.py`, `settlement.py`)로 재생해 칩 단위로 대조한다.
 - 검사 항목: `antes_blinds`, `action_order`, `bet_sizing`, `street_flow`, `settlement`, `chip_conservation`, `button`, `stack_continuity`, `elimination`, `prizes`.
 - 규칙 명세(교과서에 없는 부분은 ADR 0005의 엔진 규칙과 같게 고정):
@@ -13,7 +14,29 @@
   - 헤즈업은 버튼이 SB를 내고 프리플랍 먼저 행동. 프리플랍은 BB 왼쪽, 이후 스트리트는 버튼 왼쪽부터.
   - 최소 레이즈 증분 = max(1BB, 이번 스트리트 최대 증분). 그 미만은 올인일 때만. 숏 올인 뒤 이미 행동한 좌석은 연속 숏 올인 합이 풀 레이즈에 이를 때까지 콜/폴드만.
   - 미콜 칩 반환. 쇼다운에서 어떤 팟도 이길 수 없는 핸드를 먼저 버리고 인접 팟을 합친다. 동점 분할의 홀수 칩은 버튼 왼쪽 첫 승자에게.
-- **캐시게임 확장(D2)**: 고정 블라인드·탈락 없음·리바이/탑업 규칙·좌석 이탈을 명세에 추가하고 같은 독립 모델로 대조한다. 레이크는 v1 범위 밖(명세에 명시).
+- **캐시게임 확장(D2)**: 고정 블라인드·탈락 없음·리바이/탑업 규칙·좌석 이탈을 명세에 추가하고 같은 독립 모델로 대조한다. 레이크는 v1 범위 밖(명세에 명시). 규칙 v1과 검사 5종(`referee/gate_r/cash.py`, 엔진 `CashSession`은 SIM-b에서 이 명세에 맞춘다):
+
+  | 규칙 | v1 값 |
+  |---|---|
+  | 블라인드 | 세션 내 고정 SB/BB, 스트래들 없음 |
+  | 레이크 | 0 (도입 시 명세·검사 개정) |
+  | 인원 | 세션 동안 고정 좌석 수. 중간 합류·이탈 없음(v1) — 버튼은 모든 좌석을 순서대로 돈다 |
+  | 최초 바이인 | `min_buyin` ≤ 금액 ≤ `max_buyin` |
+  | 리바이 | 핸드 사이에, 스택이 0인 좌석만, 바이인 한도 안. 스택 0인 좌석은 다음 핸드 전에 반드시 리바이(빈 스택으로 핸드 시작 금지) |
+  | 탑업 | 핸드 사이에, 스택이 0보다 크고 `스택+금액 ≤ max_buyin` |
+  | 세션 길이 | 정확히 `hands` 핸드 |
+
+  | 검사 | 불변식 |
+  |---|---|
+  | `cash_rebuy` | 위 최초 바이인·리바이 규칙(핸드 시작 시 빈 스택 금지 포함) |
+  | `cash_topup` | 위 탑업 규칙(핸드 도중 금지 포함) |
+  | `button` | 핸드마다 버튼이 다음 좌석으로 한 칸 이동 |
+  | `chip_conservation` | 핸드 전후 테이블 전체 칩 동일, 음수 스택 없음, 핸드 시작 스택 = 추적 스택, 좌석별 순손익(최종 스택 − 총 바이인) 합 = −레이크 |
+  | `session_length` | 핸드 수 = 설정값, 핸드가 열린 채 끝나지 않음, 좌석 수 = 설정값이고 첫 핸드 뒤 좌석 추가 없음 |
+- **캐시 3자 일치(SIM-b2·SIM-c)**: `referee/gate_r/cash_suite.py`가 캐시 프리셋 9개 × 세션(무작위 합법 봇·콜링 스테이션 × 탑업 있음/없음, 고정 시드)을 `FastHand`와 PokerKit `Hand`로 같은 시드에 각각 돌린다.
+  - `engine_agreement`: 두 엔진의 세션 스트림(SEAT/HAND/HAND_END/REBUY/TOPUP)·핸드 이벤트·최종 스택·리바이·탑업이 같다. 핸드를 끝내는 액션의 `pot` 하나만 비교에서 뺀다(PokerKit은 지급 뒤 0, FastHand는 지급 전 값을 보고하는 표시값이며, 뒤따르는 스택·델타는 전부 비교한다).
+  - 두 엔진 스트림 각각을 독립 모델로 재생한다: 세션 검사 5종(위 표)과 핸드 검사(`antes_blinds`: SB/BB 고정·앤티 0, `action_order`·`bet_sizing`·`street_flow`·`settlement`는 토너먼트와 같은 모델). 그래서 두 엔진이 같은 오답에 합의해도 모델이 잡는다.
+  - 규모: `python -m referee.gate_r`(지표용 기본) 프리셋당 2세션×100핸드, `--full` 프리셋당 12세션×1000핸드 = 합계 108,000핸드(엔진당). quick 게이트(pytest)는 프리셋당 2세션×50핸드. 통과율 100%.
 - 규칙 명세를 바꾸는 것은 referee-change다. 엔진이 명세와 다르면 엔진을 고친다(검사를 xfail로 돌리지 않는다).
 - **통과가 보증하는 것과 아닌 것**: Gate R 100%는 "지정한 검사 집합에서 세 구현(PokerKit·FastHand·독립 모델)이 일치"를 뜻한다. 모든 가능한 상태의 무오류를 보증하지 않는다(세 구현이 같은 해석 결함을 공유할 수 있다). 그래서 경계 항목(`button`, 숏 올인 재오픈, 미콜 반환, 동점 분할·홀수 칩, 동시 탈락, 탑업)마다 손으로 검증한 골든 케이스를 두고, 공개 핸드 기록(PHH) 재생은 규칙 환경이 맞는 게임만 쓰며 배제 사유를 기록한다.
 - **토너먼트 시계(확장 시)**: 레벨 길이가 시간 단위면 대회 전역 가상 시계를 쓴다. 테이블별 핸드 완료 이벤트가 시계를 진행시키고, 블라인드 상승은 "상승 시각 이후 시작하는 핸드"부터 적용, 테이블 병합·이동은 핸드 사이에만. 가상 시간은 실제 대회의 근사임을 결과에 표시한다.
@@ -111,5 +134,5 @@
 | 3 실사용 효과 | 사용자 본인의 TP 오차·EV 손실이 기간별로 유의하게 감소(처음 보는 문제 포함) |
 
 ## 은퇴한 게이트 (기록 보존)
-2026-10-27 방향 전환(ADR 0008)으로 **Gate A**(ICMizer 지원 스팟 직접 비교), **Gate B**(ICMizer-informed 참조 봇과 전체 토너먼트), **Gate C**(AI-0/1/2 기억 가치)는 성공 정의에서 빠졌다. 코드(`referee/gate_a/`, `referee/gate_b/`, `referee/agents/reference_bot.py`)와 CI 지표는 은퇴 이슈가 처리될 때까지 남아 있으며 판정 근거로 쓰지 않는다. ICM 참조기와 참조 봇은 Gate Q의 앵커·페르소나 후보로 재사용할 수 있다. 정의 원문은 git 이력(`64f586c` 이후 `referee/GATES.md`)에 있다.
+2026-10-27 방향 전환(ADR 0008)으로 **Gate A**(ICMizer 지원 스팟 직접 비교), **Gate B**(ICMizer-informed 참조 봇과 전체 토너먼트), **Gate C**(AI-0/1/2 기억 가치)는 성공 정의에서 빠졌다. CI 지표 스냅샷에서는 #101로 빠졌다(마지막 값은 `ops:metrics/history.jsonl`에 보존). 코드(`referee/gate_a/`, `referee/gate_b/`, `referee/agents/reference_bot.py`)는 CLI로 남아 있으며 판정 근거로 쓰지 않는다. ICM 참조기와 참조 봇은 Gate Q의 앵커·페르소나 후보로 재사용할 수 있다. 정의 원문은 git 이력(`64f586c` 이후 `referee/GATES.md`)에 있다.
 - 은퇴 시점 Gate A 명세 값(`referee/gate_a/spec_v1.json`과 일치, 테스트가 확인): δ_ni = 5e-05, δ_min = 0.0001.
