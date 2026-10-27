@@ -341,7 +341,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .learn { display: grid; gap: 20px; align-items: start; }
 .learn.open { grid-template-columns: 248px minmax(0, 1fr); }
 .mods { display: grid; gap: 8px; }
-.tab-link { text-decoration: none; display: inline-flex; align-items: center; }
+.tab-link { text-decoration: none; display: inline-flex; align-items: center; padding: 7px 12px; border-radius: 10px; font-size: 13px; color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.tab-link:hover { color: var(--text); border-color: var(--brass); }
 .learn.gallery .mods { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 .mod { position: relative; text-align: left; border: 1px solid var(--line-soft); background: var(--panel); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; transition: border-color .2s, background .2s, transform .2s; min-width: 0; }
 .mod:hover:not(.locked) { border-color: var(--line); background: var(--panel-2); }
@@ -582,8 +583,8 @@ details.why[open] > summary { margin-bottom: 8px; }
     <button class="tab" role="tab" data-view="train" aria-selected="false">훈련 게임</button>
     <button class="tab" role="tab" data-view="learn" aria-selected="false">학습 섹션</button>
     <button class="tab" role="tab" data-view="review" aria-selected="false">복기</button>
-    <a class="tab tab-link" href="strategy.html" target="_blank" rel="noopener" title="GTO 전략 브라우저 (#189)">전략 보기 ↗</a>
   </nav>
+  <a class="tab-link" href="strategy.html" target="_blank" rel="noopener" title="GTO 전략 브라우저 (#189)">전략 보기 ↗</a>
   <span class="demo-pill" title="AI가 아직 연결되지 않았습니다. 정답은 규칙 기반 모의값입니다.">데모 · 모의 정답</span>
 </header>
 
