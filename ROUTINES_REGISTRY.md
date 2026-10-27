@@ -3,6 +3,7 @@
 |---|---|---|---|
 | builder | trig_011eAx9HtqKQiiDEYG2uAFuS | cron `0 * * * *` (UTC), opus-5.5 | 2026-10-24 |
 | reviewer | trig_01Ngm2AeBPCVHfLAaUfgMHAn | cron `30 * * * *` + GitHub PR opened/synchronize/reopened (webhook 855db140-fa9f-4d16-a894-16ab933e331b), opus-5.5 | 2026-10-24 |
+| reviewer-b | trig_01UMyEMLMmpXiHkRqRXp6zUy | cron `10 * * * *` + GitHub PR opened/synchronize/reopened (webhook bd8e2eb7-0aae-46de-b803-bcaad3beb631), opus-5.5, 짝수 PR(실험 013, #175) | 2026-10-27 |
 | planner | trig_01PeXvjPCd8wAQByCuZEEECN | cron `0 21 * * *` (06:00 KST), opus-5.5 | 2026-10-24 |
 | researcher | trig_01P8Ave4Fb6zbimdsc2A6MtH | cron `0 0 * * 2` (화 09:00 KST), sonnet-5.5 | 2026-10-24 |
 | gardener | trig_01XBXWsTMYMuCDNdBhECqiG4 | cron `0 0 * * 4` (목 09:00 KST), sonnet-5.5 | 2026-10-24 |
