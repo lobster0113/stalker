@@ -87,7 +87,7 @@ class RecordingBot(Agent):
                           REFERENCE_BOT_VERSION),
             tournament_context=TournamentContext(
                 table_size=cfg.table_size, sb=o.sb, bb=o.bb, ante_type=cfg.ante_mode if o.ante else "none",
-                ante=o.ante, level=cfg.level_index_for_hand(o.hand_no), remaining=o.players_remaining,
+                ante=o.ante, level=o.level_index if o.level_index is not None else cfg.level_index_for_hand(o.hand_no), remaining=o.players_remaining,
                 paid_places=o.paid_places, payout_vector=tuple(float(x) for x in cfg.payout_amounts()),
                 next_level=o.next_blinds, stacks=StackSummary.of(list(o.all_stacks))),
             table_observation=TableObservation(

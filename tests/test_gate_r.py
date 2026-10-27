@@ -147,6 +147,28 @@ def test_detects_wrong_blind_level():
     assert _fails(cfg, events, res, "antes_blinds")
 
 
+def test_minutes_levels_follow_the_virtual_clock_and_a_one_round_lag_is_caught():
+    cfg = dataclasses.replace(load_preset("9max_sng_flat"), length_unit="minutes",
+                              levels=tuple(dataclasses.replace(lv, length=1) for lv in load_preset("9max_sng_flat").levels))
+    events = []
+    res = run_game(cfg, [RandomLegalAgent(np.random.default_rng([0, i])) for i in range(cfg.players)],
+                   np.random.default_rng(0), observer=events.append)
+    t = check_game(cfg, events, res)
+    assert t.failures == []
+    by_round = {}
+    for e in events:
+        if e.type == "NEW_HAND":
+            by_round.setdefault(e.data["hand_no"], e.data)
+    assert len({(d["sb"], d["bb"]) for d in by_round.values()}) > 1  # levels do rise
+    lagged = []
+    for e in events:  # blinds of the previous round: the director raising a round too late
+        if e.type == "NEW_HAND" and e.data["hand_no"] > 1:
+            prev = by_round[e.data["hand_no"] - 1]
+            e = _replace(e, sb=prev["sb"], bb=prev["bb"], ante=prev["ante"])
+        lagged.append(e)
+    assert _fails(cfg, lagged, res, "antes_blinds")
+
+
 def test_detects_out_of_turn_action():
     cfg, events, res = _game()
     i = _first(events, "ACTION")
