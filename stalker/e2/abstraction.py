@@ -75,6 +75,9 @@ def quantile_buckets(x: np.ndarray, w: np.ndarray, k: int) -> np.ndarray:
     """k-step quantile scale of x under weights w; equal values share a step (-1 where w == 0)."""
     out = np.full(len(x), -1)
     live = w > 0
+    if fast_eval.HAVE_NUMBA:
+        out[live] = fast_eval.quantile_steps(x[live], w[live], k, float(w[live].sum()))
+        return out
     vals, inv = np.unique(x[live], return_inverse=True)
     mass = np.bincount(inv, w[live], len(vals)) / w[live].sum()
     mid = np.cumsum(mass) - mass / 2

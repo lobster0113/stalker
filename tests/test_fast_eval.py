@@ -39,3 +39,18 @@ def test_compiled_board_tables_equal_the_numpy_path(monkeypatch):
     slow = [A.ehs_table(b) for b in boards]
     A.ehs_table.cache_clear()
     assert all(np.array_equal(np.nan_to_num(a, nan=-1), np.nan_to_num(b, nan=-1)) for a, b in zip(fast, slow))
+
+
+def test_compiled_quantile_steps_equal_the_numpy_path(monkeypatch):
+    from stalker.e2.abstraction import quantile_buckets
+
+    rng = np.random.default_rng(13)
+    cases = []
+    for _ in range(40):
+        x = np.round(rng.random(1326), int(rng.integers(1, 4)))      # many ties
+        w = (rng.random(1326) > 0.1) * (rng.random(1326) if rng.random() < 0.5 else 1.0)
+        cases.append((x, w, int(rng.choice([5, 11]))))
+    fast = [quantile_buckets(x, w, k) for x, w, k in cases]
+    monkeypatch.setattr(F, "HAVE_NUMBA", False)
+    slow = [quantile_buckets(x, w, k) for x, w, k in cases]
+    assert all(np.array_equal(a, b) for a, b in zip(fast, slow))
