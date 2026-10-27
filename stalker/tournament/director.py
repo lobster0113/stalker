@@ -12,8 +12,9 @@ Conventions:
   (no dead button).
 - short_stack_rule='skip': a seat whose hand-start stack is below bb + ante (ante only when one is in force)
   is still dealt in but posts no blind; SB and BB go to the first two seats that can cover it, counting
-  clockwise from the seat left of the button (the button last), with no dead blind. Fewer than two such seats, or heads-up, falls back to the 'all_in'
-  postings. The button still moves to the next occupied seat. Rule text: referee/GATES.md Gate R.
+  clockwise from the seat left of the button (the button last), with no dead blind. Fewer than two such
+  seats, or heads-up, falls back to the 'all_in' postings. The button still moves to the next occupied
+  seat. Rule text: referee/GATES.md Gate R.
 - A seat's hole cards become public only in SHOWDOWN (every player still in the hand when it ends with
   two or more players left); folded or won-uncontested cards are never revealed.
 """
