@@ -4,11 +4,11 @@ Same action labels as E2 (stalker/e2/game.py, ADR 0012) so TP keys and tools car
   preflop: f, c (call or check), r (open to 2.5BB, then 3x, then 2.2x the current bet), a (all in)
   postflop, nothing to call: k, b33, b75, a
   postflop, facing a bet: f, c, r (raise to 3x the bet), a
-At most RAISE_CAP raises per street (the big blind counts as one preflop). A size that would put a
-player within one BB of all in is not offered.
+At most RAISE_CAP raises per street; preflop that is RAISE_CAP raises after the big blind. A size
+that would put a player within one BB of all in is not offered (the all-in covers it).
 
 Seats are numbered in preflop order: 0 = UTG ... n-3 = BTN, n-2 = SB, n-1 = BB. Postflop the SB
-acts first; heads-up (n = 2) the SB is the button, acts first preflop and last postflop. Every player starts with the same stack, so an all-in is the largest possible
+acts first. Heads-up (n = 2) the SB is the button: first preflop, last postflop. Every player starts with the same stack, so an all-in is the largest possible
 contribution and no side pot can arise; showdowns split one pot (odd chips to the first winner
 in postflop order). Chips are integers with BB = 100. The state is immutable.
 """
