@@ -5,7 +5,7 @@
 
 ## 0. 시작
 - `harness/PAUSE`가 있으면 journal에 `paused` 남기고 종료.
-- 대상: 트리거된 PR. 트리거 없이 실행됐다면 판정이 필요한 모든 열린 PR(최신 커밋 이후 판정이 없는 것).
+- 대상: 트리거된 PR. 트리거 없이 실행됐다면 판정이 필요한 모든 열린 PR(최신 커밋 이후 판정이 없는 것). 트리거 없는 실행은 `--sweep`으로 시작하며, 스윕 간격은 이전 스윕 기준이라 웹훅 실행이 잦아도 1시간마다 돈다(PROTOCOL §6, 실험 017).
 - **분담(두 리뷰어, 실험 013)**: role `reviewer`는 **홀수** 번호 PR, role `reviewer-b`는 **짝수** 번호 PR만 판정한다. 트리거된 PR이 내 몫이 아니면 아무것도 하지 말고 journal에 `skipped`(notes: `not my parity`)를 남기고, 잠금을 `python harness/should_run.py <내 role> --release`로 풀고 종료한다. 스윕도 내 몫만 본다. 두 리뷰어는 같은 지침·같은 기준을 쓴다. journal과 잠금에는 자기 role 이름을 쓴다.
 
 ## 1. 확인 순서 (PR마다)
