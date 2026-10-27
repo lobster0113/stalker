@@ -14,7 +14,7 @@ concurrency:
 jobs:
   gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50  # gates full ~30 min on hosted runners even with xdist (#190, #199)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -56,6 +56,32 @@ jobs:
         env:
           STALKER_REQUIRE_TORCH: "1"
         run: python -m pytest -rs --no-header -p no:cacheprovider tests/test_rl_*.py
+
+  web:
+    # Gate U: demo E2E + 3-viewport screenshots + axe (#99). Commands: web/README.md.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/e2e/package-lock.json
+      - run: npm ci
+        working-directory: web/e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: web/e2e
+      - run: npm test
+        working-directory: web/e2e
+        env:
+          SCREENSHOT_DIR: ${{ github.workspace }}/web-screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-screenshots
+          path: web-screenshots/
+          if-no-files-found: warn
 
   record-metrics:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -8,6 +8,9 @@ import pytest
 from referee.anchors import icm_reference as ir
 from referee.gate_a import SPOT_SET_VERSION, SPOTS_V1, SpotSetError, load_spots, spot_set_hash
 
+# Retired metric (ADR 0008): kept for the record, run only in the full gate (#104).
+pytestmark = pytest.mark.slow
+
 
 def _write(tmp_path, spots):
     p = tmp_path / "s.json"
