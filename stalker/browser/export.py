@@ -45,17 +45,36 @@ class _Tree:
     def __init__(self):
         self.nodes: dict[str, dict] = {}
 
-    def decision(self, nid, seat, actions, gto, reach, ev=None, tiers=None, note=None):
+    def decision(self, nid, seat, actions, gto, reach, ev=None, tiers=None, note=None, tp=None):
         n = {"seat": seat, "actions": [a for a, _ in actions], "next": {a: nxt for a, nxt in actions},
              "strategy": {"gto": gto, **(tiers or {})}, "reach": {k: _r(v) for k, v in reach.items()}}
         if ev is not None:
             n["ev"] = ev
         if note:
             n["note"] = note
+        if tp:
+            n["tp"] = tp  # per-class TP values that explain the answer (item id -> 169 values, %)
         self.nodes[nid] = n
 
     def terminal(self, nid, text):
         self.nodes[nid] = {"terminal": text}
+
+
+def _eq_vs(e: np.ndarray, p: np.ndarray, w: np.ndarray, axis: int) -> np.ndarray:
+    """Equity of each class against an opponent range `w` (per class), exact card removal via `p`.
+    axis=1: rows are my classes (e[mine, theirs]); axis=0: columns are my classes (e is the row seat's)."""
+    if axis == 1:
+        W = p * w[None, :]
+        num, den = (W * e).sum(axis=1), W.sum(axis=1)
+    else:
+        W = p * w[:, None]
+        num, den = (W * (1 - e)).sum(axis=0), W.sum(axis=0)
+    return np.divide(num, den, out=np.full(169, 0.5), where=den > 0)
+
+
+def _need(call: float, pot_after: float) -> float:
+    """Chip-EV required equity to call: what I put in over the final pot."""
+    return call / pot_after
 
 
 def hu_pushfold(stack: float, ante: float = 0.0, tiers: bool = True) -> dict:
@@ -76,13 +95,18 @@ def hu_pushfold(stack: float, ante: float = 0.0, tiers: bool = True) -> dict:
             r = T.train(stack, ante, t, iters=3000, sb_view="called", scale="quantile")
             tier_sb[f"tp_{t}"] = _cols(1 - r.push, r.push)
             tier_bb[f"tp_{t}"] = _cols(1 - r.call, r.call)
+    e, _ = P._tables()
+    called = (p * call[None, :]).sum(axis=1)
+    sb_tp = {"plan.foldeq": _r(100 * (1 - called / pa), 1), "hand.equity": _r(100 * _eq_vs(e, p, call, 1), 1)}
+    need = _need(stack - 1.0, 2 * stack + ante)
+    bb_tp = {"hand.equity": _r(100 * _eq_vs(e, p, push, 0), 1), "need": round(100 * need, 1)}
     tr = _Tree()
     one = np.ones(169)
     tr.decision("", "SB", [("Fold", "f"), ("All-in", "a")], _cols(1 - push, push), {"SB": one, "BB": one},
-                ev=_cols(np.full(169, P.SB_FOLD), shove_ev), tiers=tier_sb)
+                ev=_cols(np.full(169, P.SB_FOLD), shove_ev), tiers=tier_sb, tp=sb_tp)
     tr.terminal("f", "SB 폴드 — BB가 블라인드를 가져간다")
     tr.decision("a", "BB", [("Fold", "a-f"), ("Call", "a-c")], _cols(1 - call, call), {"SB": push, "BB": one},
-                ev=_cols(np.full(169, bb_fold), bb_call_ev), tiers=tier_bb)
+                ev=_cols(np.full(169, bb_fold), bb_call_ev), tiers=tier_bb, tp=bb_tp)
     tr.terminal("a-f", "BB 폴드 — SB가 팟을 가져간다")
     tr.terminal("a-c", "올인 쇼다운")
     return {"id": f"hu-pf-{stack:g}bb", "title": f"헤즈업 푸시/폴드 {stack:g}BB", "env": "E1",
@@ -124,11 +148,15 @@ def hu_open_shove(stack: float, ante: float = 0.0, iters: int = 3000) -> dict:
     tr.terminal("o-f", "BB 폴드 — SB가 블라인드를 가져간다")
     tr.decision("o-a", "SB", [("Fold", "o-a-f"), ("Call", "o-a-c")], _cols(1 - st.call3, st.call3),
                 {"SB": st.open, "BB": st.bb3}, ev=_cols(np.full(169, -r), sb_call3),
+                tp={"hand.equity": _r(100 * _eq_vs(g.e, p, st.bb3, 1), 1),
+                    "need": round(100 * _need(stack - r, 2 * stack + a), 1)},
                 note="plan.vs_raise 정답: 오픈할 때 이미 정해 두는 3벳 대응")
     tr.terminal("o-a-f", "SB 폴드 — 오픈 금액을 잃는다")
     tr.terminal("o-a-c", "올인 쇼다운")
     tr.decision("a", "BB", [("Fold", "a-f"), ("Call", "a-c")], _cols(1 - st.bbcall, st.bbcall),
-                {"SB": st.shove, "BB": one}, ev=_cols(bb_fold_open, bb_call))
+                {"SB": st.shove, "BB": one}, ev=_cols(bb_fold_open, bb_call),
+                tp={"hand.equity": _r(100 * _eq_vs(g.e, p, st.shove, 0), 1),
+                    "need": round(100 * _need(stack - 1.0, 2 * stack + a), 1)})
     tr.terminal("a-f", "BB 폴드")
     tr.terminal("a-c", "올인 쇼다운")
     return {"id": f"hu-os-{stack:g}bb", "title": f"헤즈업 오픈/3벳 셔브 {stack:g}BB", "env": "E1b",

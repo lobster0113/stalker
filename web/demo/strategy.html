@@ -273,6 +273,16 @@ function renderDetail(n) {
       + (ev ? `<td class="${k === bestK ? "best" : ""}">${ev[k].toFixed(spot.ev_unit === "bb" ? 2 : 2)}</td>` : "") + "</tr>";
   });
   html += "</table></div>";
+  if (n.tp) {
+    // The same numbers the TP asks for (docs/TP.md §3): the answer follows from them.
+    const t = n.tp, eq = t["hand.equity"] ? t["hand.equity"][i] : null;
+    if (t.need !== undefined && eq !== null) {
+      const ok = eq >= t.need;
+      html += `<div class="why"><b>TP로 보면</b> 상대 레인지 대비 승률(hand.equity) <b>${eq.toFixed(1)}%</b> · 콜에 필요한 승률 <b>${t.need.toFixed(1)}%</b> → ${ok ? "넘으니 <b>콜</b>" : "못 미치니 <b>폴드</b>"}.</div>`;
+    } else if (t["plan.foldeq"]) {
+      html += `<div class="why"><b>TP로 보면</b> 올인하면 상대가 접을 확률(plan.foldeq) <b>${t["plan.foldeq"][i].toFixed(1)}%</b>, 콜당했을 때 승률(hand.equity) <b>${eq.toFixed(1)}%</b>. 접어 주면 팟을 그냥 가져가고, 콜당해도 이 승률만큼 돌려받는다.</div>`;
+    }
+  }
   if (ev) {
     const sorted = [...ev].sort((a, b) => b - a);
     const margin = sorted[0] - sorted[1];
