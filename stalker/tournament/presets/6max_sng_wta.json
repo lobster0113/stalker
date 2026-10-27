@@ -91,5 +91,6 @@
   "length_unit": "hands",
   "short_stack_rule": "all_in",
   "buy_in": 100,
+  "seconds_per_seat": 7,
   "schema_version": 1
 }

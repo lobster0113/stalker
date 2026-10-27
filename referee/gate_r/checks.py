@@ -209,6 +209,16 @@ class _Desync(Exception):
     """The engine took an action the model cannot follow; the rest of the hand is not checkable."""
 
 
+def _level_for_minutes(levels, minutes: int):
+    """Level in force after `minutes` of tournament time (the last level repeats). Independent of the director."""
+    end = 0
+    for lv in levels:
+        end += lv.length
+        if minutes < end:
+            return lv
+    return levels[-1]
+
+
 def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label: str = "") -> Tally:
     """Replay one game's events (as emitted to `run_game`'s observer) and its `GameResult` into `tally`."""
     tally = tally or Tally()
@@ -219,11 +229,17 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
     round_chips: dict[int, dict[int, int]] = {}
     hand = d = None
     showdown = None
+    clock_s, round_no, round_max = 0, None, 0  # virtual clock (length_unit='minutes'): see GATES.md Gate R
     for e in events:
         if e.type == "NEW_HAND":
             d = e.data
             where = f"{label} hand {e.hand_id} (round {d['hand_no']}, table {e.table_id})"
-            lv = cfg.level_at(d["hand_no"])
+            if d["hand_no"] != round_no:
+                clock_s += round_max * cfg.seconds_per_seat
+                round_no, round_max = d["hand_no"], 0
+            round_max = max(round_max, len(d["seat_players"]))
+            lv = (_level_for_minutes(cfg.levels, clock_s // 60) if cfg.length_unit == "minutes"
+                  else cfg.level_at(d["hand_no"]))
             tally.check("antes_blinds", (d["sb"], d["bb"], d["ante"]) == (lv.sb, lv.bb, lv.ante),
                         f"{where}: blinds {d['sb']}/{d['bb']}/{d['ante']}, schedule says {lv.sb}/{lv.bb}/{lv.ante}")
             ok = all(stacks.get(p) == d["stacks"][s] and d["stacks"][s] > 0 for s, p in d["seat_players"].items())

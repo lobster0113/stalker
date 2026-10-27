@@ -42,6 +42,7 @@ def test_same_seed_same_actions_same_trajectory():
     assert traj(TournamentEnv(hyper_sng())) == traj(TournamentEnv(hyper_sng()))
 
 
+@pytest.mark.slow  # multi-second; full gate only (#104)
 def test_rewards_conserve_money_over_100_tournaments():
     cfg = hyper_sng()
     env = TournamentEnv(cfg)

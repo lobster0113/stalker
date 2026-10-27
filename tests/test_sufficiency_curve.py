@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pytest
 
+# Retired metric (ADR 0008): kept for the record, run only in the full gate (#104).
+pytestmark = pytest.mark.slow
+
 ROOT = Path(__file__).resolve().parent.parent
 _spec = importlib.util.spec_from_file_location("sufficiency_curve", ROOT / "scripts" / "sufficiency_curve.py")
 sc = importlib.util.module_from_spec(_spec)
