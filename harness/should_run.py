@@ -12,6 +12,8 @@ right after writing its journal line (PROTOCOL §6); a crashed run's lock expire
 
 The planner also runs early when the ready queue is low (`ready_floor`, experiment 008):
 builders idling on no_work cost more than an extra planner run.
+With `run_on_merge` the planner also runs as soon as main has a commit newer than its last
+run, so a merge refills the queue without waiting for the interval (a PR-closed webhook plus an hourly cron wake it).
 """
 from __future__ import annotations
 
@@ -68,6 +70,13 @@ def last_run(role: str) -> datetime | None:
     return latest
 
 
+def main_updated_at() -> datetime | None:
+    """Commit time of origin/main (a squash merge's time), or None if unknown."""
+    _git("fetch", "-q", "origin", "main")
+    out = _git("log", "-1", "--format=%cI", "origin/main").strip()
+    return _ts(out) if out else None
+
+
 def read_lock(role: str) -> dict | None:
     """Current lock for role on origin/ops (caller fetches first), or None."""
     raw = _git("show", f"origin/ops:locks/{role}.json")
@@ -105,6 +114,7 @@ def run_id() -> str:
 def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = read_lock,
            last_run: Callable[[str], datetime | None] = last_run,
            ready_count: Callable[[], int | None] = ready_count,
+           main_updated_at: Callable[[], datetime | None] = main_updated_at,
            now: datetime | None = None) -> tuple[bool, str]:
     if role != "auditor" and (ROOT / "harness" / "PAUSE").exists():
         return False, "harness/PAUSE present"
@@ -128,6 +138,10 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
     elapsed = now - prev
     # 10-minute grace so hourly triggers that start a little early still run.
     if elapsed + timedelta(minutes=10) < timedelta(hours=hours):
+        if cfg.get("run_on_merge"):
+            merged = main_updated_at()
+            if merged is not None and merged > prev:
+                return True, f"main updated {now - merged} ago, after last run {elapsed} ago"
         if role == "planner":
             floor = cfg.get("ready_floor", DEFAULT_READY_FLOOR)
             min_hours = cfg.get("queue_low_min_hours", DEFAULT_QUEUE_LOW_MIN_HOURS)

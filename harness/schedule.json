@@ -2,7 +2,7 @@
   "builder": {"enabled": true, "min_interval_hours": 1, "instructions": "builder"},
   "builder-b": {"enabled": true, "min_interval_hours": 1, "instructions": "builder"},
   "reviewer": {"enabled": true, "min_interval_hours": 0, "sweep_min_interval_hours": 1, "lock_hours": 1, "instructions": "reviewer"},
-  "planner": {"enabled": true, "min_interval_hours": 10, "ready_floor": 1, "queue_low_min_hours": 2, "instructions": "planner"},
+  "planner": {"enabled": true, "min_interval_hours": 10, "run_on_merge": true, "ready_floor": 1, "queue_low_min_hours": 2, "instructions": "planner"},
   "researcher": {"enabled": true, "min_interval_hours": 68, "instructions": "researcher"},
   "gardener": {"enabled": true, "min_interval_hours": 144, "instructions": "gardener"},
   "auditor": {"enabled": true, "min_interval_hours": 144, "instructions": "auditor"}

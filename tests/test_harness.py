@@ -187,7 +187,7 @@ def test_should_run_without_lock_falls_back_to_throttle():
     assert not ok and "<" in why
 
 
-def _decide_planner(ready, prev_hours_ago):
+def _decide_planner(ready, prev_hours_ago, merged_hours_ago=None):
     from datetime import timedelta
     sr = _should_run()
     calls = []
@@ -196,9 +196,28 @@ def _decide_planner(ready, prev_hours_ago):
         calls.append(1)
         return ready
 
+    merged = None if merged_hours_ago is None else NOW - timedelta(hours=merged_hours_ago)
     ok, why = sr.decide("planner", False, now=NOW, read_lock=lambda r: None,
-                        last_run=lambda r: NOW - timedelta(hours=prev_hours_ago), ready_count=count)
+                        last_run=lambda r: NOW - timedelta(hours=prev_hours_ago), ready_count=count,
+                        main_updated_at=lambda: merged)
     return ok, why, calls
+
+
+def test_planner_runs_right_after_a_merge():
+    ok, why, _ = _decide_planner(ready=5, prev_hours_ago=0.5, merged_hours_ago=0.2)
+    assert ok and why.startswith("main updated"), why
+    # A merge older than the last run does not trigger it again.
+    ok, why, _ = _decide_planner(ready=5, prev_hours_ago=0.5, merged_hours_ago=1)
+    assert not ok and "<" in why
+
+
+def test_merge_trigger_still_respects_the_lock():
+    from datetime import timedelta
+    sr = _should_run()
+    ok, why = sr.decide("planner", False, now=NOW, read_lock=lambda r: _lock_at(0.5),
+                        last_run=lambda r: NOW - timedelta(hours=1),
+                        main_updated_at=lambda: NOW - timedelta(minutes=5))
+    assert not ok and why.startswith("running")
 
 
 def test_planner_runs_early_when_ready_queue_is_low():
@@ -228,7 +247,8 @@ def test_queue_floor_applies_to_planner_only():
     from datetime import timedelta
     sr = _should_run()
     ok, _ = sr.decide("researcher", False, now=NOW, read_lock=lambda r: None,
-                      last_run=lambda r: NOW - timedelta(hours=3), ready_count=lambda: 0)
+                      last_run=lambda r: NOW - timedelta(hours=3), ready_count=lambda: 0,
+                      main_updated_at=lambda: NOW)
     assert not ok
 
 
