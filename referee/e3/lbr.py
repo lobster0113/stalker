@@ -15,7 +15,7 @@ exploitation gain — a lower bound, never a certificate (referee/GATES.md Gate 
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -41,7 +41,7 @@ def seat_probs(policy, s: G.State, seat: int, ranges, k: int, depth: str = "full
 
 
 def _as_actor(s: G.State, q: int) -> G.State:
-    return replace(s, to_act=q)
+    return s._replace(to_act=q)
 
 
 def _eq_all(hole, board, weights: list[np.ndarray]) -> float:
