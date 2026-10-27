@@ -149,7 +149,6 @@ def test_demo_parser_finds_definitions():
     assert "hand.equity" in items and set(tiers) == {"beginner", "mid", "pro"}
 
 
-@pytest.mark.xfail(strict=True, reason="demo still on TP v0; #115 updates it, then this must pass")
 def test_demo_matches_spec():
     diffs = demo_differences()
     print("\n".join(diffs))
