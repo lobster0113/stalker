@@ -45,6 +45,7 @@ class TPVector(Mapping):
             if x is not None and i != "plan.icm" and not 0.0 <= x <= 100.0:
                 raise ValueError(f"{i}={x} is outside the 0-100 scale")
         self.spec_version = spec.version
+        self._spec = spec
 
     def __getitem__(self, k):
         return self._v[k]
