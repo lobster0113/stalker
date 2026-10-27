@@ -64,3 +64,4 @@
 32. [x] 18:3xZ #200·#190 머지 → 열린 PR 12개에 main 병합(CI 재실행, 50분 상한·xdist). gates 병렬 분할 PR #207(#206) 열림. 다음: 바탕 PR 머지되는 대로 쌓인 브랜치 PR 열기.
 33. [x] #176 머지(reviewer-b 역할 등록) → reviewer-b 다시 켬(enabled:true). 짝수 PR은 reviewer-b, 홀수 PR은 reviewer.
 34. [x] 19:03Z 머지: #200 #190 #176 #183. RunPod 잔액 확인(cloud.yml mode=check, run 40565247726) success — #183 UA 수정으로 403 해결. CHANGES 대응: #193(단계별 Go 수치 기준·근거 위치), #173(승인 상태 §3.7 정합, DRAFT, 토너먼트 통과 조건). E2 3시드 eq5 vs pct5 10만 회 진행 중.
+35. [x] 19:5xZ #135·#180·#195 gates 실패 원인 = test_min_raise_rule[FastHand] 판정 모델 결함(#204, 짧은 BB 뒤 첫 풀 레이즈를 낸 블라인드에서 잼). 두 엔진은 정상(최소 반례 재현) → PR #208. 머지 뒤 세 PR에 main 병합 필요. E2 3시드 pct5 10만 회: 0.76/1.28/0.43(평균 0.83), eq5 진행 중.
