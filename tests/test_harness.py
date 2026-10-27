@@ -114,8 +114,11 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "tests/test_rl_" in rl
     assert "timeout-minutes: 20" in rl
     assert "cache: pip" in rl
-    gates = "\n".join(jobs["gates"])
-    assert "python -m referee.gates full" in gates and "rl]" not in gates
+    parts = "\n".join(jobs["gates-part"])
+    assert "python -m referee.gates full --part ${{ matrix.part }}" in parts and "rl]" not in parts
+    assert "part: [tests, checks]" in parts
+    gates = "\n".join(jobs["gates"])  # the required check: fails unless every part succeeded
+    assert "needs: gates-part" in gates and "if: always()" in gates and '!= "success"' in gates
 
 
 def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
