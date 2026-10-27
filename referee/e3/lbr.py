@@ -24,10 +24,10 @@ from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
 
 
-def seat_probs(policy, s: G.State, seat: int, ranges, k: int) -> np.ndarray:
+def seat_probs(policy, s: G.State, seat: int, ranges, k: int, depth: str = "full") -> np.ndarray:
     """(1326, n_actions): the policy's action probabilities for `seat` at `s`, per combo."""
     acts = G.legal(s)
-    public = K.public_key(s, seat)
+    public = K.public_key(s, seat, depth)
     steps = K.equity_steps(s, seat, ranges, k)
     out = np.full((N, len(acts)), 1.0 / len(acts))
     for v in np.unique(steps):
@@ -62,7 +62,7 @@ class LBRResult:
     stderr_bb: float
 
 
-def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6) -> LBRResult:
+def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full") -> LBRResult:
     rng = np.random.default_rng(seed)
     wins = []
     for _ in range(hands):
@@ -71,13 +71,13 @@ def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6) ->
         ranges = K.initial_ranges(n)        # the policy's public beliefs, every seat
         while not s.done:
             p = s.to_act
-            probs = seat_probs(policy, s, p, ranges, k)
+            probs = seat_probs(policy, s, p, ranges, k, depth)
             acts = G.legal(s)
             if p != seat:
                 row = probs[combo_index(s.hole[p])]
                 a = int(rng.choice(len(acts), p=row / row.sum()))
             else:
-                vals = [_value(policy, s, x, ranges, mine, seat, k) for x in acts]
+                vals = [_value(policy, s, x, ranges, mine, seat, k, depth) for x in acts]
                 a = int(np.argmax(vals))
             ranges = list(ranges)
             ranges[p] = ranges[p] * probs[:, a]
@@ -88,7 +88,7 @@ def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6) ->
     return LBRResult(seat, hands, float(arr.mean()), se)
 
 
-def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int) -> float:
+def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int, depth: str) -> float:
     if a == "f":
         return -float(s.total[me])
     opps = [q for q in s.live() if q != me]
@@ -105,7 +105,7 @@ def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int
             continue
         qs = _as_actor(ns, q)
         acts = G.legal(qs)
-        pr = seat_probs(policy, qs, q, ranges, k)
+        pr = seat_probs(policy, qs, q, ranges, k, depth)
         fold = pr[:, acts.index("f")] if "f" in acts else np.zeros(N)
         tot = w[q].sum()
         pf[q] = float((w[q] * fold).sum() / tot) if tot > 0 else 1.0
@@ -118,10 +118,10 @@ def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int
     return p_all * win_now + (1 - p_all) * (eq * called_pot - ns.total[me])
 
 
-def exploitability_lb(policy, hands: int, seed: int = 0, k: int = 5, n: int = 6, seats=None) -> dict:
+def exploitability_lb(policy, hands: int, seed: int = 0, k: int = 5, n: int = 6, seats=None, depth: str = "full") -> dict:
     """Mean over seats of the LBR player's winnings (bb/hand): a lower bound on one-seat exploitation."""
     seats = list(range(n)) if seats is None else list(seats)
-    rs = [lbr(policy, q, hands, seed + 101 * q, k, n) for q in seats]
+    rs = [lbr(policy, q, hands, seed + 101 * q, k, n, depth) for q in seats]
     return {"lbr_bb": round(float(np.mean([r.mean_bb for r in rs])), 4),
             "stderr_bb": round(float(np.sqrt(sum(r.stderr_bb ** 2 for r in rs)) / len(rs)), 4),
             "by_seat": {G.position_names(n)[r.seat]: round(r.mean_bb, 4) for r in rs}, "hands": hands}
