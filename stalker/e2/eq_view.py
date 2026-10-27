@@ -48,7 +48,7 @@ def _class_table() -> tuple[np.ndarray, np.ndarray]:
     return Np * E, Np
 
 
-@lru_cache(maxsize=4096)  # boards rarely repeat across deals; bounded memory (~0.5 MB each)
+@lru_cache(maxsize=256)  # boards rarely repeat across deals; ~0.4 MB each (4096 reached GBs per process)
 def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """Per sampled runout: usable combo indices, their order by score, and tie-group bounds."""
     # Seed from the cards themselves: hash() of a tuple holding a str changes per process.
@@ -68,7 +68,7 @@ def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.nd
     return out
 
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=256)
 def _flat_runouts(board: tuple[int, ...]):
     """`_runouts` concatenated for the compiled kernel: idx, order, lo, hi, segment offsets."""
     rs = _runouts(board)
@@ -107,7 +107,7 @@ def equity_vs(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
     return out
 
 
-@lru_cache(maxsize=4096)
+@lru_cache(maxsize=256)
 def _board_dead(board: tuple[int, ...]) -> np.ndarray:
     return np.isin(COMBO_ARR, list(board)).any(axis=1)
 
