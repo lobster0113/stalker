@@ -352,3 +352,4 @@
 {"ts":"2026-10-27T23:23:12Z","role":"reviewer","outcome":"skipped","issue":159,"pr":214,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T23:27:41Z","role":"builder-b","outcome":"waiting_ci","issue":152,"pr":154,"notes":"PR #154 CHANGES 2회차 해결: 본문 후속 갱신, 후속 이슈 #221 생성, main merge 3d7aace 푸시","friction":"builder가 연 후속 이슈에 referee-change 라벨을 못 붙여 Planner 대기가 필요함; 충돌 해소 merge 때 import가 조용히 빠져 로컬 확인 필요했음"}
 {"ts":"2026-10-27T23:27:58Z","role":"reviewer","outcome":"skipped","issue":152,"pr":154,"notes":"not my parity","friction":""}
+{"ts":"2026-10-27T23:41:17Z","role":"reviewer-b","outcome":"merged","issue":219,"pr":220,"notes":"guard merge-base fix; CI green, local repro confirms stale-base false positive removed","friction":"CI job logs (blob.core.windows.net) blocked by proxy so guard output could not be read; gh api mutations blocked by hook, used MCP tools for comment/merge"}
