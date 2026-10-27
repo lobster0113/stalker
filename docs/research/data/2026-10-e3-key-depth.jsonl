@@ -1,0 +1,2 @@
+{"keys": "basic", "iters": 1500, "policy": "average", "n_keys": 1406, "under10_share": 0.425, "lbr_bb": 2.5815, "stderr_bb": 0.8783, "by_seat": {"UTG": 0.0, "HJ": 0.6867, "CO": 1.3933, "BTN": 2.6833, "SB": 1.3115, "BB": 9.4139}, "hands": 150}
+{"keys": "basic", "iters": 1500, "policy": "current", "n_keys": 1406, "under10_share": 0.425, "lbr_bb": 3.1564, "stderr_bb": 1.1378, "by_seat": {"UTG": 2.0233, "HJ": 0.68, "CO": 2.8467, "BTN": 0.0533, "SB": 5.0593, "BB": 8.2759}, "hands": 150}
