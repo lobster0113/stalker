@@ -289,3 +289,4 @@
 {"ts":"2026-10-27T19:05:14Z","role":"reviewer","outcome":"skipped","issue":null,"pr":168,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T19:05:41Z","role":"reviewer-b","outcome":"skipped","issue":192,"pr":193,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T19:06:37Z","role":"reviewer-b","outcome":"changes","issue":141,"pr":168,"notes":"CHANGES: harness-change인데 experiments 기록 없음; #158(012 기록 포함)과 중복이라 #158 머지 후 superseded 닫기 권장","friction":"같은 이슈에 PR 두 개(#158 홀수=reviewer, #168 짝수=reviewer-b)라 홀짝 분담으로는 중복 처리 주체가 불명확"}
+{"ts":"2026-10-27T19:17:00Z","role":"reviewer","outcome":"merged","issue":172,"pr":173,"notes":"docs-only curriculum review; prior CHANGES 3 items resolved, CI green at 0d6a43b; squash-merged","friction":"guard hook blocks gh api mutations and gh pr comment/merge need GraphQL (403); used GitHub MCP tools for comment/merge"}
