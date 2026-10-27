@@ -16,6 +16,7 @@ from functools import lru_cache
 
 import numpy as np
 
+from stalker.core import fast_eval
 from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.core.cards import COMBO_INDEX, COMBOS, hand_class, HAND_CLASSES
 
@@ -38,22 +39,24 @@ def ehs_table(board: tuple[int, ...]) -> np.ndarray:
     acc = np.zeros(len(COMBOS))
     need = 5 - len(board)
     runs = RUNOUTS if need else 1  # the river has nothing left to deal: one evaluation is exact
-    for _ in range(runs):
-        extra = rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)
-        full = np.concatenate([np.array(board, dtype=np.int64), extra])
-        usable = ok & ~np.isin(COMBO_ARR, extra).any(axis=1)
-        idx = np.flatnonzero(usable)
-        hands = np.concatenate([COMBO_ARR[idx], np.broadcast_to(full, (len(idx), 5))], axis=1)
-        score = evaluate_batch(hands)
-        order = np.argsort(score, kind="stable")
-        ranks = np.empty(len(idx))
-        # Share of other usable combos this combo beats (ties count half).
-        s_sorted = score[order]
-        lo = np.searchsorted(s_sorted, score, side="left")
-        hi = np.searchsorted(s_sorted, score, side="right")
-        ranks = (lo + (hi - lo - 1) / 2) / max(len(idx) - 1, 1)
-        acc[idx] += ranks
-        acc[~usable & ok] += 0.5  # a combo blocked only by this runout: neutral contribution
+    extras = [rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)
+              for _ in range(runs)]  # same draws in the same order as before, compiled or not
+    if fast_eval.HAVE_NUMBA:
+        fulls = np.array([np.concatenate([np.array(board, dtype=np.int64), x]) for x in extras], dtype=np.int64)
+        fast_eval.rank_runouts(COMBO_ARR, ok, fulls, acc)
+    else:
+        for extra in extras:
+            full = np.concatenate([np.array(board, dtype=np.int64), extra])
+            usable = ok & ~np.isin(COMBO_ARR, extra).any(axis=1)
+            idx = np.flatnonzero(usable)
+            hands = np.concatenate([COMBO_ARR[idx], np.broadcast_to(full, (len(idx), 5))], axis=1)
+            score = evaluate_batch(hands)
+            # Share of other usable combos this combo beats (ties count half).
+            s_sorted = np.sort(score)
+            lo = np.searchsorted(s_sorted, score, side="left")
+            hi = np.searchsorted(s_sorted, score, side="right")
+            acc[idx] += (lo + (hi - lo - 1) / 2) / max(len(idx) - 1, 1)
+            acc[~usable & ok] += 0.5  # a combo blocked only by this runout: neutral contribution
     out = acc / runs
     out[~ok] = np.nan
     return out
