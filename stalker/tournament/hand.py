@@ -87,6 +87,7 @@ class Hand:
         rng: np.random.Generator,
         ante: int = 0,
         ante_mode: AnteMode = "none",
+        blind_seats: tuple[int, int] | None = None,
     ) -> None:
         stacks = [int(s) for s in stacks]
         if any(s < 0 for s in stacks):
@@ -113,14 +114,24 @@ class Hand:
         self.button = button
         self.starting_stacks = tuple(stacks)
 
+        # PokerKit opens preflop left of the largest posted blind, so blinds moved past short seats
+        # (short_stack_rule='skip') keep the usual "left of the BB acts first" order.
+        if blind_seats is None:
+            sb_i, bb_i = 0, 1
+        else:
+            if n < 3 or len(set(blind_seats)) != 2 or not all(s in self._index for s in blind_seats):
+                raise ValueError(f"blind_seats={blind_seats}: need two distinct occupied seats and >= 3 players")
+            sb_i, bb_i = (self._index[s] for s in blind_seats)
+            if sb_i > bb_i:
+                raise ValueError(f"blind_seats={blind_seats}: the SB must come before the BB left of the button")
         if ante_mode == "classic":
             antes: int | dict[int, int] = ante
         elif ante_mode == "bb_ante":
-            antes = {1: ante}  # index 1 is the BB for n > 2; heads-up pokerkit swaps it to the BB too
+            antes = {bb_i: ante}  # heads-up pokerkit swaps index 1 to the BB too
         else:
             antes = 0
         self.game = NoLimitTexasHoldem(
-            _AUTOMATIONS, False, antes, (small_blind, big_blind), big_blind, mode=Mode.TOURNAMENT
+            _AUTOMATIONS, False, antes, {sb_i: small_blind, bb_i: big_blind}, big_blind, mode=Mode.TOURNAMENT
         )
         self.state = self.game([stacks[s] for s in self.seats], n)
         self._deck = [int(c) for c in rng.permutation(N_CARDS)]
