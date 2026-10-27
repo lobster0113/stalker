@@ -28,7 +28,7 @@
 - 막히면: 이슈에 인수인계 코멘트(시도한 것, 원인 추정, 다음 단계)를 남기고 `blocked` 또는 `needs-split` 라벨, `in-progress` 해제.
 
 ## 3. 제출
-1. `python -m referee.gates full` 통과.
+1. `python -m referee.gates full` 통과. 몇십 분 걸릴 수 있으니 **백그라운드로 실행하고 완료 알림을 기다린다**(포그라운드 타임아웃으로 끊기지 않게). 진행은 stderr의 `[gate] <단계> ok <초>` 줄로 보인다. quick(`-m "not slow"`)은 90초 안팎이 목표다. 새 테스트가 몇 초 이상 걸리면 `@pytest.mark.slow`를 붙인다(실험 010).
 2. PR 생성: 템플릿을 채우고 수용 기준별로 "어떻게 확인했는지" 적는다. 이슈의 `area:*`·`kind:*`·권한 라벨을 PR에도 붙인다.
 3. 스스로 머지하지 않는다. Reviewer가 판정한다.
 

@@ -105,7 +105,8 @@ def test_balancing_and_table_breaking(preset):
         assert n_tables == sorted(n_tables, reverse=True)
 
 
-_GATE_R_PRESETS = [pytest.param(p, marks=pytest.mark.slow) if p == "mtt180_bbante" else p for p in preset_names()]
+_GATE_R_PRESETS = [pytest.param(p, marks=pytest.mark.slow) if p in ("mtt180_bbante", "mtt54") else p
+                   for p in preset_names()]
 
 
 @pytest.mark.parametrize("preset", _GATE_R_PRESETS)
@@ -267,7 +268,9 @@ def _spec_order(obs: Observation) -> tuple[int, ...]:
     return tuple(s for s in order if s in obs.in_hand and obs.stacks[s] > 0)
 
 
-@pytest.mark.parametrize("preset,mode", [("mtt54", "classic"), ("mtt180_bbante", "bb_ante"),
+# mtt180 alone took ~110s of the quick gate (#104); it still runs in the full gate.
+@pytest.mark.parametrize("preset,mode", [pytest.param("mtt54", "classic", marks=pytest.mark.slow),
+                                         pytest.param("mtt180_bbante", "bb_ante", marks=pytest.mark.slow),
                                          ("6max_sng_wta", "none"), ("9max_sng_flat", "none")])
 def test_observation_ante_mode_and_action_order(preset, mode):
     _OrderProbe.seen = []

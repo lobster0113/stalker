@@ -6,6 +6,9 @@ from referee.gate_b.__main__ import main
 from referee.gate_b.runner import FAIL, INSUFFICIENT, PASS, load_spec, run_gate_b
 from referee.stats import required_tournaments
 
+# Retired metric (ADR 0008): kept for the record, run only in the full gate (#104).
+pytestmark = pytest.mark.slow
+
 SPEC = {"name": "t", "reference_version": "refbot-v1+icm-ref-v1+chart-v1+post-v1+short15bb", "presets": ["6max_sng_wta"], "blocks": 4,
         "rotations": 1, "seed": 3, "delta_min": 0.1, "pilot_sigma": 0.6, "alpha": 0.05, "power": 0.9}
 
