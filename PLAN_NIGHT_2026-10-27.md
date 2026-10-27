@@ -45,3 +45,7 @@
 13. [~] E3 학습 품질: N인 LBR(#197)이 1500회 정책의 과도한 폴드·올인 대응 미학습을 잡음(평균 6.1, 현재 전략 3.0 vs 균등 2.2 bb/핸드). 원인: 콜/폴드 전용 키가 너무 잘게 나뉘어 방문 부족 → 짧은 키(콜 결정 = 에퀴티 vs 필요 승률) 도입(1353→171 키). 재측정 중.
 14. [~] 로컬 장기 실행: E2 초보 pct/eq/기준선 30k회 LBR 1000핸드(공통 난수) — 아침 보고에 포함.
 15. [x] 전략 브라우저 v4: 6·9인 SNG ICM, plan.icm(칩 vs 상금 구조 필요 승률) 근거. Artifact https://claude.ai/artifact/LXeqxnXefedExitvz3VyM4
+16. [x] reviewer-b **일시 정지**(16:00Z): main에 #176(reviewer-b 역할 등록)이 없어 매 실행 `SKIP (unknown role)` + 사용자에게 푸시 알림. #176 머지 뒤 다시 켠다(RemoteTrigger update enabled:true). 그동안 reviewer가 모든 PR을 맡는다.
+17. [x] #200(#199) CI gates 상한 30→50분(하네스). #190(xdist)과 함께 판정 정체 해소용.
+18. [x] #201 학습 처리량: numba(선택 의존성, ADR 0013) 7장 평가기 + 강도표 랭킹 커널 → E2 MCCFR 43.8→196 it/s(같은 정책 해시). 브랜치 claude/201-fast-eval, train.yml이 [fast] 설치(#184).
+19. [~] E2 장기 로컬(빠른 코드): pct5·eq5·기준선·pct11 각 10k/30k/100k, LBR 1000핸드. E3 짧은 키·basic 깊이 비교, E3 2만 회 곡선.
