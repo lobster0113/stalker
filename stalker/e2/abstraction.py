@@ -27,7 +27,7 @@ def preflop_bucket(a: int, b: int) -> int:
 @lru_cache(maxsize=200_000)
 def ehs_table(board: tuple[int, ...]) -> np.ndarray:
     """EHS of every combo on `board` (nan for combos that collide with the board)."""
-    rng = np.random.default_rng(abs(hash(board)) % (2 ** 32))
+    rng = np.random.default_rng([20261027, *board])  # seeded by the cards themselves, process-independent
     live = np.array([c for c in range(52) if c not in board])
     ok = ~np.isin(COMBO_ARR, list(board)).any(axis=1)
     acc = np.zeros(len(COMBOS))
@@ -40,7 +40,6 @@ def ehs_table(board: tuple[int, ...]) -> np.ndarray:
         hands = np.concatenate([COMBO_ARR[idx], np.broadcast_to(full, (len(idx), 5))], axis=1)
         score = evaluate_batch(hands)
         order = np.argsort(score, kind="stable")
-        ranks = np.empty(len(idx))
         # Share of other usable combos this combo beats (ties count half).
         s_sorted = score[order]
         lo = np.searchsorted(s_sorted, score, side="left")
