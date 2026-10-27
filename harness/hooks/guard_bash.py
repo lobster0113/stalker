@@ -17,10 +17,15 @@ BLOCK = [
 ]
 
 
+# Rules see one command at a time: a `.*` spanning separators blamed e.g. a jq `"a" + .b` on the push before it.
+SEPARATORS = re.compile(r"&&|\|\||[;|\n]")
+
+
 def check(cmd: str) -> str | None:
-    for pat, why in BLOCK:
-        if re.search(pat, cmd):
-            return why
+    for part in SEPARATORS.split(cmd):
+        for pat, why in BLOCK:
+            if re.search(pat, part):
+                return why
     return None
 
 
