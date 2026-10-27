@@ -369,6 +369,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .dr-hint { font-size: 12px; color: var(--muted); margin-top: -4px; }
 .dr-main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .dr-table { min-width: 0; }
+.dr-main.solo { grid-template-columns: minmax(0, 1fr); }
+.dr-main.solo .dr-table { width: 100%; max-width: 640px; justify-self: center; }
 .dr-side { display: grid; gap: 12px; align-content: start; min-width: 0; }
 .dr-range { display: grid; gap: 6px; }
 .cap-row { font-size: 12px; color: var(--muted); }
@@ -395,10 +397,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .rk.wrong { opacity: 1; border-color: var(--bad); background: rgba(226,112,95,.22); color: #f6c9c1; text-decoration: line-through; }
 
 /* ---------- static table (learning scenarios, review) ---------- */
-.table-wrap.mt { --mcw: clamp(22px, 2.5vw, 36px); max-height: none; }
+.mt-host { container-type: inline-size; min-width: 0; }
+.table-wrap.mt { --mcw: clamp(20px, 6.4cqi, 40px); max-height: none; }
 .mt .board { gap: calc(var(--mcw) * .12); }
 .mt .board .card, .mt .board .slot { --cw: var(--mcw); width: var(--mcw); }
-.mt .seat { width: clamp(74px, 8.4vw, 116px); }
+.mt .seat { width: clamp(68px, 20cqi, 124px); }
 .mt .seat .hole { height: calc(var(--mcw) * 1.4 * .82); margin-bottom: calc(var(--mcw) * -.4); }
 .mt .seat .hole .card { --cw: calc(var(--mcw) * .82); }
 .mt .seat.hero .hole { height: calc(var(--mcw) * 1.4 * 1.02); margin-bottom: calc(var(--mcw) * -.45); }
@@ -416,6 +419,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .mt .pot .amt, .mt .bet .amt { font-size: clamp(10.5px, 1vw, 13px); }
 .mt .chips { width: clamp(14px, 1.3vw, 18px); height: clamp(14px, 1.3vw, 18px); }
 .mt .dealer { width: clamp(16px, 1.5vw, 20px); font-size: clamp(9px, .85vw, 11px); }
+.mt .pot { top: 59.5%; flex-direction: row; gap: 6px; }
 .atag { position: relative; z-index: 2; margin-top: 4px; font: 600 11px/1 var(--font-display); letter-spacing: .04em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; background: var(--panel-3); color: var(--text); box-shadow: 0 3px 8px rgba(0,0,0,.4); }
 .atag.raise { background: var(--brass); color: var(--brass-ink); }
 .atag.call { background: var(--blue); color: #08121f; }
@@ -482,9 +486,41 @@ details.why[open] > summary { margin-bottom: 8px; }
 .deck button { border: 1px solid var(--line); background: var(--card); border-radius: 4px; font: 700 12px/1 var(--font-display); padding: 6px 0; color: var(--black-suit); }
 .deck button.red { color: var(--red-suit); }
 .deck button:disabled { opacity: .18; }
-.lines { display: grid; gap: 8px; }
-.line { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: center; }
-.line > span { font: 600 12px/1 var(--font-display); letter-spacing: .1em; color: var(--brass); }
+.review { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+#rv-table { width: 100%; max-width: 660px; margin-inline: auto; }
+.rv-left { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); display: grid; gap: 12px; }
+.rv-cap { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.rv-st { font: 700 16px/1 var(--font-display); letter-spacing: .06em; color: var(--text); }
+.rv-bar { display: grid; gap: 8px; }
+.rv-bar:empty { display: none; }
+.rv-bar-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.rv-who b { color: var(--brass-hi); font-size: 15px; margin-right: 2px; }
+.rv-right { display: grid; gap: 14px; min-width: 0; }
+.rv-steps { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px; }
+.rvs { position: relative; display: grid; justify-items: center; gap: 4px; border: 0; background: transparent; color: var(--muted); padding: 2px 0; font-size: 11.5px; white-space: nowrap; letter-spacing: -.02em; transition: color .2s; min-width: 0; }
+.rvs::before { content: ""; position: absolute; top: 13px; left: -50%; right: 50%; height: 2px; background: var(--line-soft); z-index: 0; }
+.rvs:first-child::before { display: none; }
+.rvs.done::before, .rvs.cur::before { background: rgba(99,196,147,.5); }
+.rvs .num { position: relative; z-index: 1; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-3); border: 1px solid var(--line); font-size: 12px; transition: all .2s; }
+.rvs.done { color: var(--text); }
+.rvs.done .num { background: var(--good); border-color: var(--good); color: #062014; }
+.rvs.cur { color: var(--brass-hi); font-weight: 600; }
+.rvs.cur .num { background: var(--brass); border-color: var(--brass-hi); color: var(--brass-ink); transform: scale(1.12); box-shadow: 0 0 0 4px rgba(214,171,85,.15); }
+.rvs.skip { text-decoration: line-through; }
+.rvs:disabled { opacity: .45; cursor: not-allowed; }
+.rv-body { display: grid; gap: 10px; min-width: 0; }
+.rv-body.in-r { animation: tpcInR .38s cubic-bezier(.2,.8,.2,1); }
+.rv-body.in-l { animation: tpcInL .38s cubic-bezier(.2,.8,.2,1); }
+.rv-body .setting:first-of-type { border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.rv-body h2 { font-size: 17px; }
+.rv-body .sub { margin: 0; }
+.rv-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.rv-nav .cta:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+.rv-hint { font-size: 12px; color: var(--faint); text-align: center; }
+.rv-log { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.rv-log li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.rv-log li b { min-width: 34px; font: 600 13px/1 var(--font-display); color: var(--muted); }
+.rv-log .atag { margin: 0; box-shadow: none; }
 
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; z-index: 60; background: var(--panel-3); border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-size: 13px; transition: all .3s; pointer-events: none; max-width: calc(100% - 32px); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -497,6 +533,7 @@ details.why[open] > summary { margin-bottom: 8px; }
 }
 @media (max-width: 900px) {
   .home, .learn, .learn.open, .review { grid-template-columns: minmax(0, 1fr); }
+  .rv-left { position: static; }
   .brand span { display: none; }
   .learn.open .mods { display: flex; overflow-x: auto; gap: 8px; padding-bottom: 6px; scroll-snap-type: x proximity; scrollbar-width: thin; }
   .learn.open .mod { flex: 0 0 auto; width: 176px; scroll-snap-align: start; }
@@ -506,11 +543,10 @@ details.why[open] > summary { margin-bottom: 8px; }
   .learn.gallery .mods { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .learn.gallery .mod { min-height: 0; padding: 12px; }
   .learn.gallery .mod .ds { font-size: 11.5px; }
-  .table-wrap.mt { --mcw: clamp(22px, 6.6vw, 32px); }
-  .mt .seat { width: clamp(70px, 23vw, 100px); }
   .mt .avatar { width: 26px; font-size: 9.5px; }
 }
 @media (max-width: 560px) {
+  .rvs { font-size: 10px; letter-spacing: -.05em; }
   .rk-pair, .exs { grid-template-columns: minmax(0, 1fr); }
   .rk-opts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -675,11 +711,11 @@ details.why[open] > summary { margin-bottom: 8px; }
     <div class="hero-title">
       <span class="eyebrow">복기용 Training Game</span>
       <h1>실전 핸드를 입력하면, 갈린 판단을 찾아드려요.</h1>
-      <p class="lede">프리플랍부터 액션과 보드를 입력하고 내가 한 액션을 고르세요. TP-GTO의 판단과 비교한 뒤, 비슷한 상황으로 바로 훈련 게임을 시작할 수 있습니다.</p>
+      <p class="lede">포지션 → 핸드 → 프리플랍 → 플랍 → 턴 → 리버 → 쇼다운 순서로, 테이블 위에서 자리마다 액션을 눌러 입력하세요. 마지막 내 결정을 TP-GTO(모의)의 판단과 비교하고, 비슷한 상황으로 바로 훈련할 수 있어요.</p>
     </div>
     <div class="review">
-      <div class="box" id="rv-form"></div>
-      <div class="box" id="rv-out"></div>
+      <div class="box rv-left"><div id="rv-table" class="mt-host"></div><div class="rv-bar" id="rv-bar"></div></div>
+      <div class="box rv-right"><nav class="rv-steps" id="rv-steps" aria-label="복기 단계"></nav><div class="rv-body" id="rv-body"></div><div class="rv-nav" id="rv-nav"></div></div>
     </div>
   </div>
 </section>
@@ -1668,7 +1704,8 @@ function tableHTML(h, o = {}) {
     const tag = s.last ? `<span class="atag ${s.last.cls}">${s.last.label}</span>` : "";
     seats += `<div class="seat mseat${s.isHero ? " hero" : ""}${s.folded ? " folded" : ""}${o.acting === s.pos ? " acting" : ""}${s.pos === o.focus ? " focus" : ""}${o.pick ? " pickable" : ""}" data-pos="${s.pos}" style="left:${p.x}%;top:${p.y}%"${o.pick ? ` role="button" tabindex="0" aria-label="${s.pos} 자리를 내 자리로"` : ""}>
       <div class="hole">${hole}</div><div class="pod"><div class="avatar">${s.pos}</div><div class="who"><div class="nm">${nm}</div><div class="stk">${s.allin ? "올인" : f1(s.stack) + " BB"}</div></div></div>${tag}</div>`;
-    if (s.bet > 0) bets += `<div class="bet" style="left:${p.bx}%;top:${p.by}%">${chipStack(s.bet, 1)}<span class="amt num">${f1(s.bet)}</span></div>`;
+    // Bets sit a little closer to the seat than in the live table so the pot can sit under the board.
+    if (s.bet > 0) bets += `<div class="bet" style="left:${p.bx}%;top:${50 + (p.y - 50) * .42}%">${chipStack(s.bet, 1)}<span class="amt num">${f1(s.bet)}</span></div>`;
     if (s.pos === "BTN") dealer = `<div class="dealer" style="left:${p.dx}%;top:${p.dy}%">D</div>`;
   }
   const board = [0, 1, 2, 3, 4].map(i => h.board[i] != null ? cardEl(h.board[i]).outerHTML : `<div class="slot"></div>`).join("");
@@ -1905,7 +1942,7 @@ function renderDrill() {
   const scale = isRange ? `${chipRow(RANGE_CHIPS, v => v + "%")}${stepper([-5, -1, 1, 5])}` : `<div class="ends"><span>0 ${q.ends[0]}</span><span>${q.ends[1]} 100</span></div>${chipRow(scaleChips(10))}${stepper([-5, -1, 1, 5])}`;
   el.innerHTML = `${drillHead(m)}
     <div class="dr-hint">${isRange ? "테이블의 포지션과 액션을 보고 상대 레인지 폭을 추정하세요." : lvTxt[lvl]}</div>
-    <div class="dr-main${showRange && showHero ? " two" : ""}"><div class="dr-table">${tableHTML(p.h, { cards, focus: p.sc.opp, acting })}</div><div class="dr-side">${side}</div></div>
+    <div class="dr-main${showRange || showHero ? "" : " solo"}"><div class="dr-table mt-host">${tableHTML(p.h, { cards, focus: p.sc.opp, acting })}</div><div class="dr-side">${side}</div></div>
     <div class="q dr-q" style="grid-template-columns:minmax(0,1fr)" data-k="${LM.k}"><div class="body">
       <div class="t"><span>${qText}</span><span class="val num" id="dr-val">${LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val}</span></div>${scale}
     </div></div>
@@ -1973,83 +2010,212 @@ function explain(k, p) {
 }
 
 /* ================= review mode ================= */
-const RV = { hero: [null, null], board: [null, null, null, null, null], slot: "h0", mode: "tournament", heroPos: "BTN", oppPos: "BB", stack: 25, lines: { pre: "open-call", flop: "check", turn: "none", river: "none" }, act: "bet" };
-const LINE_OPTS = {
-  pre: [["open-call", "내 오픈, 상대 콜"], ["call-open", "상대 오픈, 내 콜"], ["3bet-call", "내 오픈, 상대 3벳, 내 콜"], ["limp", "림프 팟"]],
-  post: [["none", "— (진행 안 함)"], ["check", "상대 체크"], ["bet-small", "상대 벳 1/3 팟"], ["bet-big", "상대 벳 3/4 팟"], ["checkcheck", "체크–체크"], ["betcall", "벳–콜"]],
-};
+// Steps: position → hand → preflop → flop → turn → river → showdown(if any) → compare.
+// Actions go through the same hand model as the learning tables, so only legal, in-order actions can be entered.
+const RV_STEPS = ["포지션", "핸드", "프리플랍", "플랍", "턴", "리버", "쇼다운", "비교"];
+const RV = { step: 0, mode: "tournament", heroPos: "BTN", stack: 25, hero: [null, null], acts: [], buf: [], sd: {}, sdSlot: null, sizing: false };
+function rvRebuild() {
+  const h = rhNew(RV.heroPos, RV.stack);
+  for (const a of RV.acts) { if (a.deal) rhNextStreet(h, a.deal); else rhAct(h, a); }
+  RV.h = h; return h;
+}
+const rvOver = h => rhLive(h).length === 1;
+const rvUsed = () => new Set([...RV.hero, ...RV.h.board, ...RV.buf, ...Object.values(RV.sd).flat()].filter(c => c != null));
+// Which steps can be visited given the hand so far.
+function rvStepState(i) {
+  const h = RV.h;
+  if (i <= 1) return "ok";
+  if (RV.hero.some(c => c == null)) return "locked";
+  if (i === 2) return "ok";
+  if (i >= 3 && i <= 5) { const prevDone = h.street > i - 3 || (h.street === i - 3 && h.closed); if (rvOver(h) && h.street < i - 2) return "skip"; return prevDone ? "ok" : "locked"; }
+  if (i === 6) { if (rvOver(h)) return "skip"; return h.street === 3 && h.closed ? "ok" : "locked"; }
+  return rvStepDone(2) && (rvOver(h) || (h.street === 3 && h.closed)) ? "ok" : "locked";
+}
+function rvStepDone(i) {
+  const h = RV.h;
+  if (i === 0) return true;
+  if (i === 1) return RV.hero.every(c => c != null);
+  if (i >= 2 && i <= 5) { const st = i - 2; return rvOver(h) || h.street > st || (h.street === st && h.closed); }
+  return true;
+}
+function rvNextStep(i) { for (let j = i + 1; j < RV_STEPS.length; j++) { const s = rvStepState(j); if (s === "ok") return j; if (s === "locked") return -1; } return -1; }
 function renderReview() {
-  const f = $("#rv-form");
-  const slotBtn = (id, c) => `<button class="pick${RV.slot === id ? " sel" : ""}" data-slot="${id}" aria-label="카드 선택 칸">${c != null ? cardEl(c).outerHTML : "+"}</button>`;
-  const used = new Set([...RV.hero, ...RV.board].filter(x => x != null));
-  f.innerHTML = `<h2>핸드 입력</h2><p class="sub">칸을 고른 뒤 아래 카드를 누르세요. 보드는 결정했던 스트리트까지만 채우면 됩니다.</p>
-    <div class="setting"><div class="grid2">
-      <label class="field"><span>게임</span><select id="rv-mode"><option value="tournament">토너먼트</option><option value="cash">캐시게임</option></select></label>
-      <label class="field"><span>유효 스택 (BB)</span><input class="input num" id="rv-stack" type="number" min="1" max="400" value="${RV.stack}"></label>
-      <label class="field"><span>내 포지션</span><select id="rv-hpos">${["UTG", "HJ", "CO", "BTN", "SB", "BB"].map(p => `<option ${p === RV.heroPos ? "selected" : ""}>${p}</option>`).join("")}</select></label>
-      <label class="field"><span>상대 포지션</span><select id="rv-opos">${["UTG", "HJ", "CO", "BTN", "SB", "BB"].map(p => `<option ${p === RV.oppPos ? "selected" : ""}>${p}</option>`).join("")}</select></label>
-    </div></div>
-    <div class="setting"><div class="lab">내 핸드 · 보드</div><div class="picks">${slotBtn("h0", RV.hero[0])}${slotBtn("h1", RV.hero[1])}<span style="width:14px"></span>${RV.board.map((c, i) => slotBtn("b" + i, c)).join("")}</div>
-      <div class="deck" id="rv-deck">${[3, 2, 1, 0].map(s => RANKS.split("").reverse().map((r, ri) => { const c = (12 - ri) * 4 + s; return `<button data-c="${c}" class="${s === 1 || s === 2 ? "red" : ""}" ${used.has(c) ? "disabled" : ""}>${r}${SUITS[s]}</button>`; }).join("")).join("")}</div></div>
-    <div class="setting"><div class="lab">액션 흐름</div><div class="lines">
-      <label class="line"><span>프리플랍</span><select data-line="pre">${LINE_OPTS.pre.map(([v, t]) => `<option value="${v}" ${RV.lines.pre === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
-      ${["flop", "turn", "river"].map(st => `<label class="line"><span>${{ flop: "플랍", turn: "턴", river: "리버" }[st]}</span><select data-line="${st}">${LINE_OPTS.post.map(([v, t]) => `<option value="${v}" ${RV.lines[st] === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>`).join("")}
-    </div></div>
-    <div class="setting"><div class="lab">마지막 결정에서 내가 한 액션</div><div class="seg" id="rv-act">${[["fold", "폴드"], ["check", "체크"], ["call", "콜"], ["bet", "벳·레이즈"]].map(([v, t]) => `<button data-v="${v}" aria-pressed="${RV.act === v}">${t}</button>`).join("")}</div></div>
-    <div class="start-row"><button class="cta" id="rv-go">TP-GTO와 비교</button></div>`;
-  $("#rv-mode").value = RV.mode;
-  $$("[data-slot]", f).forEach(b => b.onclick = () => { RV.slot = b.dataset.slot; renderReview(); });
-  $$("#rv-deck button").forEach(b => b.onclick = () => {
-    const c = +b.dataset.c, [t, i] = [RV.slot[0], +RV.slot.slice(1)];
-    (t === "h" ? RV.hero : RV.board)[i] = c;
-    const order = ["h0", "h1", "b0", "b1", "b2", "b3", "b4"], next = order[order.indexOf(RV.slot) + 1]; if (next) RV.slot = next;
-    renderReview();
+  const h = rvRebuild();
+  if (rvStepState(RV.step) !== "ok") RV.step = 0;
+  const s = RV.step, acting = s >= 2 && s <= 5 && h.street === s - 2 && !h.closed && rhActor(h) ? rhActor(h).pos : null;
+  const cards = { [RV.heroPos]: RV.hero.slice(), ...RV.sd };
+  $("#rv-table").innerHTML = `<div class="rv-cap"><span class="eyebrow">${RV.mode === "tournament" ? "토너먼트" : "캐시게임"} · 6인 · 유효 ${RV.stack}BB</span><span class="rv-st">${s >= 2 && s <= 6 ? ST_NM[Math.min(h.street, 3)] : RV_STEPS[s]}</span></div>${tableHTML(h, { cards, acting, pick: s === 0, noBacks: s < 2 })}`;
+  if (s === 0) $$("#rv-table .mseat").forEach(e => { const go = () => { RV.heroPos = e.dataset.pos; RV.acts = []; RV.sd = {}; renderReview(); }; e.onclick = go; e.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); } }; });
+  $("#rv-steps").innerHTML = RV_STEPS.map((nm, i) => { const st = rvStepState(i); return `<button class="rvs${i === s ? " cur" : ""}${st === "skip" ? " skip" : ""}${i < s && st === "ok" ? " done" : ""}" data-step="${i}" ${st !== "ok" ? "disabled" : ""}><span class="num">${i + 1}</span>${nm}</button>`; }).join("");
+  $$("#rv-steps .rvs").forEach(b => b.onclick = () => { RV.step = +b.dataset.step; RV.sizing = false; renderReview(); });
+  renderRvBar(h, acting);
+  renderRvBody(h);
+  if (RV.lastStep != null && RV.lastStep !== s) { const b = $("#rv-body"); b.classList.remove("in-r", "in-l"); void b.offsetWidth; b.classList.add(s > RV.lastStep ? "in-r" : "in-l"); }
+  RV.lastStep = s;
+  const nx = rvNextStep(s), last = s === RV_STEPS.length - 1;
+  $("#rv-nav").innerHTML = `<button class="cta ghost small" id="rv-prev" ${s === 0 ? "disabled" : ""}>이전</button><span class="rv-hint">${rvHint(h)}</span>${last ? "" : `<button class="cta small" id="rv-next" ${rvStepDone(s) && nx > 0 ? "" : "disabled"}>${nx === RV_STEPS.length - 1 ? "비교 보기" : "다음"}</button>`}`;
+  $("#rv-prev").onclick = () => { for (let j = s - 1; j >= 0; j--) if (rvStepState(j) === "ok") { RV.step = j; break; } renderReview(); };
+  if (!last) $("#rv-next").onclick = () => { RV.step = nx; RV.buf = []; renderReview(); };
+}
+function rvHint(h) {
+  const s = RV.step;
+  if (s === 0) return "테이블에서 내 자리를 누르거나 아래에서 고르세요.";
+  if (s === 1) return RV.hero.every(c => c != null) ? "다음으로 넘어가 프리플랍 액션을 입력하세요." : "내 핸드 두 장을 고르세요.";
+  if (s >= 2 && s <= 5) {
+    if (rvOver(h)) return "한 명만 남아 핸드가 끝났어요.";
+    if (h.street < s - 2) return `${RV_STEPS[s]} 카드를 고르세요.`;
+    if (!h.closed) return `${rhActor(h).isHero ? "내" : rhActor(h).pos} 차례예요. 테이블 아래에서 액션을 고르세요.`;
+    return "이 스트리트 액션이 끝났어요.";
+  }
+  if (s === 6) return "상대 카드를 알면 입력하세요(선택).";
+  return "";
+}
+function renderRvBar(h, acting) {
+  const bar = $("#rv-bar");
+  if (!acting) { bar.innerHTML = RV.acts.length && RV.step >= 2 && RV.step <= 6 ? `<div class="rv-bar-row"><span class="rv-who">${rvOver(h) ? "핸드 종료" : h.closed ? "액션 마감" : ""}</span><button class="iconbtn" id="rv-undo">↶ 되돌리기</button></div>` : ""; $("#rv-undo")?.addEventListener("click", rvUndo); return; }
+  const s = rhActor(h), L = rhLegal(h), sizes = rhSizes(h), raiseWord = h.currentBet === 0 ? "벳" : h.street === 0 && h.currentBet === 1 ? "오픈" : "레이즈";
+  bar.innerHTML = `<div class="rv-bar-row"><span class="rv-who"><b>${s.isHero ? "나" : s.pos}</b> 차례 · ${L.toCall ? `콜 ${f1(L.toCall)}BB` : "체크 가능"} · 팟 ${f1(rhPot(h))}BB</span>${RV.acts.length ? `<button class="iconbtn" id="rv-undo">↶ 되돌리기</button>` : ""}</div>
+    <div class="acts">${`<button class="act" data-rv="fold" ${L.canCheck ? "disabled" : ""}>폴드</button>`}${L.canCheck ? `<button class="act" data-rv="check">체크</button>` : `<button class="act" data-rv="call">콜 ${f1(L.toCall)}</button>`}<button class="act" data-rv="raise" ${L.canRaise ? "" : "disabled"} aria-pressed="${RV.sizing}">${raiseWord}…</button></div>
+    ${RV.sizing && L.canRaise ? `<div class="sizes">${sizes.map((o, i) => `<button class="size" data-rvsize="${i}">${o.allin ? o.label : raiseWord + " " + (o.label.endsWith("x") || o.label.endsWith("%") ? o.label + " · " + f1(o.to) : f1(o.to))}</button>`).join("")}</div>` : ""}`;
+  $("#rv-undo")?.addEventListener("click", rvUndo);
+  $$("[data-rv]", bar).forEach(b => b.onclick = () => {
+    if (b.dataset.rv === "raise") { RV.sizing = !RV.sizing; renderReview(); return; }
+    rvPush({ type: b.dataset.rv });
   });
-  $$("[data-line]", f).forEach(s => s.onchange = () => RV.lines[s.dataset.line] = s.value);
-  $$("#rv-act button").forEach(b => b.onclick = () => { RV.act = b.dataset.v; $$("#rv-act button").forEach(x => x.setAttribute("aria-pressed", x === b)); });
-  $("#rv-mode").onchange = e => RV.mode = e.target.value;
-  $("#rv-stack").onchange = e => RV.stack = +e.target.value;
-  $("#rv-hpos").onchange = e => RV.heroPos = e.target.value;
-  $("#rv-opos").onchange = e => RV.oppPos = e.target.value;
-  $("#rv-go").onclick = analyzeReview;
+  $$("[data-rvsize]", bar).forEach(b => b.onclick = () => rvPush({ type: "raise", to: sizes[+b.dataset.rvsize].to }));
+}
+function rvPush(a) {
+  const h = rvRebuild();
+  if (!rhAct(h, a)) { toast("지금은 할 수 없는 액션이에요."); return; }
+  RV.acts.push(a); RV.sizing = false; renderReview();
+}
+function rvUndo() {
+  const a = RV.acts.pop(); if (!a) return;
+  if (a.deal) RV.buf = [];
+  RV.sizing = false; RV.sd = {};
+  const h = rvRebuild(); RV.step = 2 + h.street + (a.deal ? 1 : 0);
+  renderReview();
+}
+function deckHTML(used) {
+  return `<div class="deck" id="rv-deck">${[3, 2, 1, 0].map(s => RANKS.split("").reverse().map((r, ri) => { const c = (12 - ri) * 4 + s; return `<button data-c="${c}" class="${s === 1 || s === 2 ? "red" : ""}" ${used.has(c) ? "disabled" : ""} aria-label="${cardTxt(c)}">${r === "T" ? "10" : r}${SUITS[s]}</button>`; }).join("")).join("")}</div>`;
+}
+const slotsHTML = (cs, n, attr) => `<div class="picks">${Array.from({ length: n }, (_, i) => `<button class="pick${cs[i] == null && cs.findIndex(x => x == null) === i ? " sel" : ""}" ${attr}="${i}" aria-label="카드 칸 ${i + 1}">${cs[i] != null ? cardEl(cs[i]).outerHTML : "+"}</button>`).join("")}</div>`;
+function renderRvBody(h) {
+  const b = $("#rv-body"), s = RV.step;
+  if (s === 0) {
+    b.innerHTML = `<h2>포지션과 스택</h2><p class="sub">6인 테이블 기준이에요. 바꾸면 입력한 액션은 처음부터 다시 입력해요.</p>
+      <div class="setting"><div class="lab">게임</div><div class="seg" id="rv-mode">${[["tournament", "토너먼트"], ["cash", "캐시게임"]].map(([v, t]) => `<button data-v="${v}" aria-pressed="${RV.mode === v}">${t}</button>`).join("")}</div></div>
+      <div class="setting"><div class="lab">내 포지션</div><div class="seg" id="rv-pos">${RPOS.map(p => `<button data-v="${p}" aria-pressed="${RV.heroPos === p}">${p}</button>`).join("")}</div></div>
+      <div class="setting"><div class="lab"><span>유효 스택</span><b class="num" style="color:var(--brass-hi);font-size:15px">${RV.stack} BB</b></div>${chipRow([10, 15, 20, 25, 30, 40, 60, 100], v => v)}${stepper([-5, -1, 1, 5])}</div>`;
+    $$("#rv-mode button").forEach(x => x.onclick = () => { RV.mode = x.dataset.v; renderReview(); });
+    $$("#rv-pos button").forEach(x => x.onclick = () => { RV.heroPos = x.dataset.v; RV.acts = []; RV.sd = {}; renderReview(); });
+    const setStack = v => { RV.stack = clamp(Math.round(v), 2, 400); RV.acts = []; RV.sd = {}; renderReview(); };
+    $$("#rv-body [data-chip]").forEach(c => { c.setAttribute("aria-pressed", String(+c.dataset.chip === RV.stack)); c.onclick = () => setStack(+c.dataset.chip); });
+    $$("#rv-body [data-step]").forEach(c => c.onclick = () => setStack(RV.stack + +c.dataset.step));
+    return;
+  }
+  if (s === 1) {
+    b.innerHTML = `<h2>내 핸드</h2><p class="sub">칸이 차례로 채워져요. 채운 칸을 누르면 비워요.</p>${slotsHTML(RV.hero, 2, "data-hs")}${deckHTML(rvUsed())}`;
+    $$("[data-hs]", b).forEach(x => x.onclick = () => { RV.hero[+x.dataset.hs] = null; RV.acts = []; renderReview(); });
+    $$("#rv-deck button", b).forEach(x => x.onclick = () => { const i = RV.hero.findIndex(c => c == null); if (i < 0) return; RV.hero[i] = +x.dataset.c; renderReview(); });
+    return;
+  }
+  if (s >= 2 && s <= 5) {
+    const st = s - 2, need = st === 1 ? 3 : 1;
+    if (st > 0 && h.street < st) {
+      b.innerHTML = `<h2>${RV_STEPS[s]} 카드</h2><p class="sub">${need}장을 고르면 테이블에 깔리고 액션 입력으로 넘어가요.</p>${slotsHTML(RV.buf, need, "data-bs")}${deckHTML(rvUsed())}`;
+      $$("[data-bs]", b).forEach(x => x.onclick = () => { RV.buf.splice(+x.dataset.bs, 1); renderReview(); });
+      $$("#rv-deck button", b).forEach(x => x.onclick = () => { RV.buf.push(+x.dataset.c); if (RV.buf.length === need) { RV.acts.push({ deal: RV.buf.slice() }); RV.buf = []; } renderReview(); });
+      return;
+    }
+    const ls = h.log.filter(l => l.st === st);
+    b.innerHTML = `<h2>${RV_STEPS[s]} 액션</h2><p class="sub">${st === 0 ? "UTG부터 순서대로" : "SB부터 남은 사람 순서대로"} 각 자리의 액션을 테이블 아래 버튼으로 입력하세요. 순서가 아닌 자리나 규칙에 맞지 않는 액션은 고를 수 없어요.</p>
+      <ol class="rv-log">${ls.map(l => `<li><b>${l.isHero ? "나" : l.pos}</b><span class="atag ${l.type === "raise" ? "raise" : l.type === "call" ? "call" : l.type === "fold" ? "fold" : ""}">${l.label}</span></li>`).join("") || `<li class="why-dim">아직 입력한 액션이 없어요.</li>`}</ol>
+      ${rvOver(h) ? `<div class="empty">한 명만 남아 핸드가 끝났어요. ‘비교 보기’로 넘어가세요.</div>` : h.closed && st < 3 && rhCan(h).length < 2 ? `<div class="empty">더 이상 베팅할 수 있는 사람이 없어요(올인). 남은 카드만 입력하세요.</div>` : ""}`;
+    return;
+  }
+  if (s === 6) {
+    const opps = rhLive(h).filter(x => !x.isHero);
+    b.innerHTML = `<h2>쇼다운</h2><p class="sub">상대가 보여준 카드를 알면 넣으세요. 몰라도 넘어갈 수 있어요.</p>
+      ${opps.map(o => `<div class="setting"><div class="lab">${o.pos} 카드</div>${slotsHTML(RV.sd[o.pos] || [null, null], 2, `data-sd-${o.pos}`)}</div>`).join("")}
+      ${deckHTML(rvUsed())}<div id="rv-sdres"></div>`;
+    const target = () => opps.find(o => (RV.sd[o.pos] || [null, null]).some(c => c == null));
+    for (const o of opps) $$(`[data-sd-${o.pos}]`, b).forEach(x => x.onclick = () => { const a = RV.sd[o.pos]; if (a) { a[+x.getAttribute(`data-sd-${o.pos}`)] = null; if (a.every(c => c == null)) delete RV.sd[o.pos]; } renderReview(); });
+    $$("#rv-deck button", b).forEach(x => x.onclick = () => { const o = target(); if (!o) return; const a = RV.sd[o.pos] || (RV.sd[o.pos] = [null, null]); a[a.findIndex(c => c == null)] = +x.dataset.c; renderReview(); });
+    const known = opps.filter(o => RV.sd[o.pos]?.every(c => c != null));
+    if (known.length) {
+      const me = evaluate([...RV.hero, ...h.board]), res = known.map(o => ({ o, s: evaluate([...RV.sd[o.pos], ...h.board]) }));
+      const best = Math.max(me, ...res.map(r => r.s));
+      $("#rv-sdres").innerHTML = `<div class="rrow"><div class="t"><span>나 <b>${describeHand(me)}</b>${me === best ? " · 승" : ""}</span></div>${res.map(r => `<div class="t"><span>${r.o.pos} <b>${describeHand(r.s)}</b>${r.s === best ? " · 승" : ""}</span></div>`).join("")}</div>`;
+    }
+    return;
+  }
+  b.innerHTML = `<h2>비교 결과 ${CONF}</h2><div id="rv-out"></div>`;
+  analyzeReview();
+}
+const OPEN_PCT = { UTG: 15, HJ: 21, CO: 28, BTN: 42, SB: 38, BB: 50 };
+// Mock range narrowing from a seat's public actions (no opponent model in review): returns [pct, reasoning steps].
+function rvRange(log, pos) {
+  let pct = 100; const steps = [];
+  for (const l of log.filter(l => l.pos === pos)) {
+    const big = l.to / Math.max(l.potBefore, 1) > .5;
+    let why;
+    if (l.st === 0) {
+      if (l.type === "raise" && !l.facing) { pct = Math.min(pct, OPEN_PCT[pos]); why = `${pos} 오픈 레인지`; }
+      else if (l.type === "raise" && l.label.startsWith("올인")) { pct = Math.min(pct, 9); why = "프리플랍 올인은 강한 핸드 위주"; }
+      else if (l.type === "raise") { pct = Math.min(pct, 7); why = "오픈에 대한 3벳 이상은 아주 좁아요"; }
+      else if (l.type === "call") { pct = Math.min(pct, l.toCall > 3 ? 10 : pos === "BB" ? 40 : 25); why = l.toCall > 3 ? "3벳에 콜: 강하지만 리레이즈하지 않은 핸드" : pos === "BB" ? "BB는 싸게 넓게 디펜스해요" : "오픈에 콜: 중간 강도 위주"; }
+      else if (l.type === "check") { pct = Math.min(pct, 70); why = "BB 체크: 레이즈하지 않은 넓은 레인지"; }
+      else continue;
+    } else {
+      if (l.type === "raise" && l.facing) { pct = Math.max(3, Math.round(pct * .5)); why = "포스트플랍 레이즈는 강한 쪽으로 크게 좁혀요"; }
+      else if (l.type === "raise") { pct = Math.max(3, Math.round(pct * (big ? .62 : .8))); why = big ? "큰 벳: 강한 핸드·드로 위주" : "작은 벳: 넓게 칠 수 있어요"; }
+      else if (l.type === "call") { pct = Math.max(4, Math.round(pct * .78)); why = "벳에 콜: 아주 약한 핸드가 빠져요"; }
+      else continue;
+    }
+    steps.push([`${ST_NM[l.st]} ${pos} ${l.label}`, pct, why]);
+  }
+  return [pct, steps];
 }
 function analyzeReview() {
-  const out = $("#rv-out");
-  if (RV.hero.some(x => x == null)) { out.innerHTML = `<div class="empty">내 핸드 두 장을 먼저 입력하세요.</div>`; return; }
-  const board = []; for (const c of RV.board) { if (c == null) break; board.push(c); }
-  if (board.length && board.length < 3) { out.innerHTML = `<div class="empty">보드는 플랍 3장부터 입력할 수 있어요. 지금 ${board.length}장이에요.</div>`; return; }
-  let pct = { "open-call": 40, "call-open": { UTG: 15, HJ: 21, CO: 28, BTN: 42, SB: 38, BB: 50 }[RV.oppPos] || 25, "3bet-call": 7, limp: 60 }[RV.lines.pre];
-  const lastSt = ["flop", "turn", "river"].slice(0, Math.max(0, board.length - 2));
-  let facing = false;
-  for (const st of lastSt) { const l = RV.lines[st]; if (l === "bet-small") { pct *= .8; facing = true; } else if (l === "bet-big") { pct *= .62; facing = true; } else if (l === "betcall") pct *= .78; else facing = false; }
-  pct = Math.round(clamp(pct, 3, 100));
-  const eq = eqVsPct(RV.hero, board, pct, 1500), adv = board.length ? Math.round(100 - rangeVsRange(35, pct, board, 500) * 100) : null;
-  const odds = facing ? (RV.lines[lastSt.at(-1)] === "bet-big" ? .3 : .2) : 0;
+  const out = $("#rv-out"), h = RV.h, log = h.log;
+  const di = log.map((l, i) => l.isHero ? i : -1).filter(i => i >= 0).at(-1);
+  if (di == null) { out.innerHTML = `<div class="empty">내가 행동한 결정이 없어요. 프리플랍 액션에서 내 차례 액션을 입력하세요.</div>`; return; }
+  const d = log[di], before = log.slice(0, di), board = d.board;
+  const aggr = before.filter(l => !l.isHero && l.type === "raise").at(-1);
+  const liveAt = RPOS.filter(p => p !== RV.heroPos && !before.some(l => l.pos === p && l.type === "fold"));
+  const oppPos = aggr && liveAt.includes(aggr.pos) ? aggr.pos : liveAt.includes("BB") ? "BB" : liveAt[0] || "BB";
+  let [pct, steps] = rvRange(before, oppPos); if (pct === 100) { pct = 60; steps.push([`${oppPos} 아직 의미 있는 액션 없음`, 60, "모의 가정: 넓은 레인지"]); }
+  let [heroPct] = rvRange(before, RV.heroPos); if (heroPct === 100) heroPct = 35;
+  const eq = eqVsPct(RV.hero, board, pct, 1500), adv = board.length >= 3 ? Math.round(100 - rangeVsRange(heroPct, pct, board, 500) * 100) : null;
+  const facing = d.facing, odds = facing ? d.toCall / (d.potBefore + d.toCall) : 0;
   const mix = facing ? (eq - odds > .2 ? { raise: .5, call: .45, fold: .05 } : eq - odds > 0 ? { call: .8, raise: .05, fold: .15 } : { fold: .85, call: .15 }) : (eq > .62 ? { raise: .7, check: .3 } : eq > .45 ? { check: .6, raise: .4 } : { check: .8, raise: .2 });
-  const my = { fold: "fold", check: "check", call: "call", bet: "raise" }[RV.act];
-  out.innerHTML = `<h2>비교 결과 ${CONF}</h2><p class="sub">TP 단계별로 TP-GTO(모의)가 이 상황을 어떻게 봤는지 보여줘요. 정답 출처 승인 상태는 모의(규칙 기반 대체)예요.</p>
+  const ctx = { hero: RV.hero, board, oppPct: pct, heroPct, steps };
+  const why = k => `<details class="why"><summary>왜 이 답인가 ${CONF}</summary>${whyHTML(k, ctx)}</details>`;
+  out.innerHTML = `<p class="sub">마지막 내 결정(${ST_NM[d.st]} · ${d.label}) 기준으로, 상대 ${oppPos}에 대해 TP-GTO(모의)가 이 상황을 어떻게 봤는지 보여줘요. 복기에서는 상대 정책을 모르므로 공개 액션으로 추정한 레인지예요.</p>
     <div style="display:grid;gap:10px">
-      <div class="rrow"><div class="t"><span>1 · 상대 레인지 추정</span><b class="num">상위 ${pct}%</b></div><div class="rgrid mini-range" id="rv-grid" style="width:min(240px,100%)">${gridCells()}</div></div>
-      ${adv != null ? `<div class="rrow"><div class="t"><span>2 · 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)</span><b class="num">${adv}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${adv}%"></div></div></div>` : ""}
-      <div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}%</span></div>` : ""}</div>
-      ${mixRefHTML(mix, my, "4 · 액션")}
+      <div class="rrow"><div class="t"><span>1 · ${oppPos} 레인지 추정</span><b class="num">상위 ${pct}%</b></div>${why("opp.range")}</div>
+      ${adv != null ? `<div class="rrow"><div class="t"><span>2 · 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)</span><b class="num">${adv}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${adv}%"></div></div>${why("board.adv")}</div>` : ""}
+      <div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}${why("hand.equity")}</div>
+      ${mixRefHTML(mix, d.type, "4 · 액션")}
     </div>
-    <div class="start-row"><button class="cta" id="rv-train">비슷한 상황으로 훈련 시작</button><span class="note">같은 핸드 유형과 비슷한 보드로 첫 핸드를 시작해요.</span></div>`;
-  paintGrid($("#rv-grid"), classesInTop(pct));
+    <div class="start-row"><button class="cta" id="rv-train">비슷한 상황으로 훈련 시작</button><button class="cta ghost small" id="rv-new">새 핸드 복기</button></div>`;
   $("#rv-train").onclick = () => {
-    RIG = { hero: RV.hero.slice(), board };
+    RIG = { hero: RV.hero.slice(), board: board.slice() };
     S.mode = RV.mode; $$("#set-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === S.mode)); $("#set-tour").hidden = S.mode !== "tournament"; $("#set-cash").hidden = S.mode !== "cash";
     gameToken++; G = null; showView("train");
   };
+  $("#rv-new").onclick = () => { Object.assign(RV, { step: 0, hero: [null, null], acts: [], buf: [], sd: {}, sizing: false }); renderReview(); };
 }
 function rigDeal(r) {
   // same hand class & board ranks, fresh suits
-  const used = new Set(); const remap = new Map();
   const perm = [0, 1, 2, 3].sort(() => rand() - .5);
-  const conv = c => { let n = rankOf(c) * 4 + perm[suitOf(c)]; return n; };
-  const hero = r.hero.map(conv), board = r.board.map(conv);
-  return { hero, board };
+  const conv = c => rankOf(c) * 4 + perm[suitOf(c)];
+  return { hero: r.hero.map(conv), board: r.board.map(conv) };
 }
+// Static tables lay seats out differently in portrait; redraw only when that layout flips.
+let lastPortrait = matchMedia("(max-width: 760px)").matches;
+addEventListener("resize", () => { const pt = matchMedia("(max-width: 760px)").matches; if (pt === lastPortrait) return; lastPortrait = pt; renderReview(); const t = $("#drill .dr-table"); if (t && LM.prob?.h) t.innerHTML = tableHTML(LM.prob.h, { cards: { [LM.prob.sc.hero]: LM.prob.hero, ...(LM.lvl === "easy" && !["opp.range", "board.adv"].includes(LM.k) ? { [LM.prob.sc.opp]: LM.prob.oppCards } : {}) }, focus: LM.prob.sc.opp, acting: rhActor(LM.prob.h)?.isHero ? LM.prob.sc.hero : null }); });
 renderReview();
 </script>
 </body>
