@@ -60,19 +60,20 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6) -> dict:
     from referee.e3.lbr import exploitability_lb
     from stalker.e3.mccfr import E3MCCFR, coverage
-    from stalker.e3.tp_key import TIER_K
+    from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
     t0 = time.monotonic()
-    m = E3MCCFR(seed, TIER_K[tier], players)
+    m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier])
     m.iterate(iters)
     train_s = time.monotonic() - t0
     avg, cur = m.policy(), m.current_policy()
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     t1 = time.monotonic()
     # Same LBR deals for both policies; 100 hands per seat keeps the job inside the runner limit.
-    lbr = {k: exploitability_lb(pol, 100, seed=10_000 + seed, k=m.k, n=players) for k, pol in (("average", avg), ("current", cur))}
+    lbr = {k: exploitability_lb(pol, 100, seed=10_000 + seed, k=m.k, n=players, depth=m.depth)
+           for k, pol in (("average", avg), ("current", cur))}
     cov = coverage(m)
-    return {"iters": iters, "tier": tier, "players": players, "train_seconds": round(train_s, 1),
+    return {"iters": iters, "tier": tier, "depth": m.depth, "players": players, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / train_s, 2), "infosets": len(m.regret), "coverage": cov,
             "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}

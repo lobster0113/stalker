@@ -63,9 +63,9 @@ def test_eq_jobs_train_with_the_equity_view(tmp_path, monkeypatch):
 def test_e3_job_records_both_policies_and_coverage(tmp_path, monkeypatch):
     import referee.e3.lbr as lbr3
 
-    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n: {"lbr_bb": 3.0, "hands": hands})
+    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n, depth: {"lbr_bb": 3.0, "hands": hands})
     T.run("e3-tp-beginner", 2, 1, tmp_path)
     r = json.loads((tmp_path / "e3-tp-beginner-seed1.json").read_text())
-    assert r["players"] == 6 and r["lbr"]["lbr_bb"] == 3.0 and r["coverage"]
+    assert r["players"] == 6 and r["depth"] == "basic" and r["lbr"]["lbr_bb"] == 3.0 and r["coverage"]
     pol = json.loads((tmp_path / "e3-tp-beginner-seed1.policy.json").read_text())
     assert set(pol) == {"average", "current"}
