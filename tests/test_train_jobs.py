@@ -36,3 +36,15 @@ def test_train_workflow_is_manual_and_passes_inputs_through_env():
     for step in wf["jobs"]["run"]["steps"] + wf["jobs"]["summarize"]["steps"]:
         assert "${{ inputs" not in step.get("run", ""), step  # no inputs interpolated into shell
     assert "secrets." not in text  # CPU training needs no secrets
+
+
+def test_tier_jobs_train_at_their_tp_resolution(tmp_path, monkeypatch):
+    import referee.e2.lbr as lbr
+
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, **kw: {"lbr_bb": 2.0, "hands": hands})
+    T.run("e2-tier-beginner", 20, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-tier-beginner-seed1.json").read_text())
+    assert r["tier"] == "beginner" and r["abstraction"] == {"pre_k": 5, "post_k": 5}
+    pol = json.loads((tmp_path / "e2-tier-beginner-seed1.policy.json").read_text())
+    assert {int(k.split("|")[2]) for k in pol} <= set(range(5))
+    assert T.summarize("e2-tier-beginner", tmp_path)["lbr_bb_mean"] == 2.0
