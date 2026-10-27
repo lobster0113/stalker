@@ -81,12 +81,29 @@ def spr_step(s: G.State, seat: int) -> int:
     return int(np.searchsorted(SPR_EDGES, eff / max(s.pot, 1), side="right"))
 
 
+_EQ_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray]] = {}
+
+
+def _equity_cached(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
+    # Within a walk, seats that did not act keep the same range object, so siblings and descendants
+    # reuse it; the entry holds `w` itself so its id cannot be recycled while cached.
+    key = (board, id(w))
+    hit = _EQ_CACHE.get(key)
+    if hit is not None and hit[0] is w:
+        return hit[1]
+    if len(_EQ_CACHE) > 20_000:
+        _EQ_CACHE.clear()
+    eq = equity_vs(board, w)
+    _EQ_CACHE[key] = (w, eq)
+    return eq
+
+
 def multi_equity(s: G.State, seat: int, ranges: list[np.ndarray]) -> np.ndarray:
     """P(beat all remaining opponents) for every combo of `seat` (nan on board collisions)."""
     eq = np.ones(N)
     for q in s.live():
         if q != seat:
-            eq = eq * equity_vs(tuple(s.board), ranges[q])
+            eq = eq * _equity_cached(tuple(s.board), ranges[q])
     return eq
 
 
