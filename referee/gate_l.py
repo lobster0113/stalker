@@ -358,13 +358,16 @@ class _Caller(Agent):
 class _HeroTap(_Caller):
     def __init__(self, rng: _DeckRng, hands: list, stop_at: int | None = None) -> None:
         self.rng, self.hands, self.stop_at = rng, hands, stop_at
-        # (observation, index of its hand's deck, engine truth: hero hole cards + dealt board)
-        self.decisions: list[tuple[Observation, int, tuple[str, ...]]] = []
+        # (observation, index of its hand's deck, engine truth: hero hole cards + dealt board,
+        #  every seat's hole cards)
+        self.decisions: list[tuple[Observation, int, tuple[str, ...], dict[int, tuple[str, ...]]]] = []
 
     def act(self, observation: Observation):
-        st = self.hands[-1].state
-        truth = tuple(repr(c) for c in st.hole_cards[self.hands[-1]._index[observation.seat]]) +             tuple(repr(c) for c in st.get_board_cards(0))
-        self.decisions.append((observation, len(self.rng.dealt) - 1, truth))
+        hand = self.hands[-1]
+        st = hand.state
+        holes = {seat: tuple(repr(c) for c in st.hole_cards[i]) for i, seat in enumerate(hand.seats)}
+        truth = holes[observation.seat] + tuple(repr(c) for c in st.get_board_cards(0))
+        self.decisions.append((observation, len(self.rng.dealt) - 1, truth, holes))
         if self.stop_at is not None and len(self.decisions) > self.stop_at:
             raise _Stop
         return super().act(observation)
@@ -401,7 +404,7 @@ def hidden_worlds(cfg: TournamentConfig, seed: int, decision: int, n: int,
     the hero's hole cards and the dealt board in place and shuffles every other card. Every world's
     observation is built by the director itself, so a leak anywhere on the engine -> observation path shows."""
     hero, base_rng = _play_until(cfg, seed, {}, decision)
-    _, hand_idx, truth = hero.decisions[decision]
+    _, hand_idx, truth, _ = hero.decisions[decision]
     deck = base_rng.dealt[hand_idx]
     fixed = {CARD_INDEX[c] for c in truth}
     free_pos = [i for i, c in enumerate(deck) if c not in fixed]
@@ -412,16 +415,16 @@ def hidden_worlds(cfg: TournamentConfig, seed: int, decision: int, n: int,
         for i, c in zip(free_pos, rng.permutation(moved)):
             d[i] = int(c)
         h, _ = _play_until(cfg, seed, {hand_idx: d}, decision)
-        w_obs = h.decisions[decision][0]
-        worlds.append((w_obs, PrivateWorldState({w_obs.seat: tuple(w_obs.hole_cards)}, tuple(card_str(c) for c in d))))
+        w_obs, _, _, holes = h.decisions[decision]
+        worlds.append((w_obs, PrivateWorldState(holes, tuple(card_str(c) for c in d))))
     return worlds
 
 
 def l7_decisions(cfg: TournamentConfig, seed: int, k: int) -> list[int]:
     """Hero decision indices: k//2 preflop ones facing an action, then postflop ones."""
     hero, _ = _play_until(cfg, seed, {}, None)
-    pre = [i for i, (o, _, _) in enumerate(hero.decisions) if not o.board and o.action_history]
-    post = [i for i, (o, _, _) in enumerate(hero.decisions) if o.board]
+    pre = [i for i, (o, *_) in enumerate(hero.decisions) if not o.board and o.action_history]
+    post = [i for i, (o, *_) in enumerate(hero.decisions) if o.board]
     return pre[: k // 2] + post[: k - k // 2]
 
 

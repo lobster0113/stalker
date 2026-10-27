@@ -31,6 +31,30 @@ def _leaky_policy_input(obs, private, teacher, builder):
     return dc + repr(private.deck[-1:]), labels
 
 
+def _leaky_opponent_cards(obs, private, teacher, builder):
+    """Reads the opponents' real hole cards from the world state."""
+    dc, labels = contract_pipeline(obs, private, teacher, builder)
+    return dc, labels + tuple(sorted(v for s, v in private.hole_cards.items() if s != obs.seat))
+
+
+def test_l7_catches_a_pipeline_reading_opponent_hole_cards():
+    r = Report()
+    check_l7(r, {"fake": _leaky_opponent_cards}, agents={})
+    assert not r.ok and "differ only in hidden cards" in r.failures[0]
+
+
+def test_l7_policy_comparison_catches_a_leaking_engine(monkeypatch):
+    from stalker.core.cards import card_str
+    from stalker.tournament import hand as hand_mod
+
+    real = hand_mod.Hand.board
+    monkeypatch.setattr(hand_mod.Hand, "board",
+                        lambda self: (lambda b: b[:-1] + [card_str(self._deck[-1])] if b else b)(real(self)))
+    r = Report()
+    check_l7(r, pipelines={}, agents={"reference_bot_v1": gate_l.REGISTRY["reference_bot_v1"]})
+    assert not r.ok and all("policy output differs" in f for f in r.failures)
+
+
 def test_l7_checks_pipelines_and_registered_policies():
     r = Report()
     check_l7(r)
@@ -66,6 +90,10 @@ def test_hidden_worlds_keep_public_cards_and_vary_hidden_ones():
     first = worlds[0][0]
     assert first.board and all(o.hole_cards == first.hole_cards and o.board == first.board for o, _ in worlds)
     assert len({w.deck for _, w in worlds}) == 20
+    opp = next(s for s in first.in_hand if s != first.seat)
+    assert all(set(w.hole_cards) == set(first.stacks) for _, w in worlds)  # every seated player
+    assert all(w.hole_cards[first.seat] == tuple(first.hole_cards) for _, w in worlds)
+    assert len({w.hole_cards[opp] for _, w in worlds}) > 1  # opponents' cards really differ
     assert all(o == first for o, _ in worlds)  # the engine built identical observations in every world
 
 
@@ -126,7 +154,8 @@ def test_decision_context_facts_are_computed_from_public_info():
     assert dc.hero_position in {"blinds", "early", "middle", "late"}
     obs2, po2 = _first_decision(preflop=False)
     dc2 = decision_context(po2)
-    assert dc2.street in {"flop", "turn", "river"} and dc2.street_aggressor is None
+    assert dc2.street in {"flop", "turn", "river"}
+    assert dc2.street_aggressor is None and dc2.preflop_aggressor is None  # documented limit (#127)
 
 
 def test_decision_context_fields_follow_tp_spec():

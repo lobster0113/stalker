@@ -45,8 +45,8 @@ class DecisionContext:
     """Facts the action head may read directly (docs/TP.md §1.1). Chips are in big blinds.
 
     Positions count seats after the button among occupied seats (0 = button, 1 = SB, 2 = BB).
-    `street_aggressor` is known preflop only: the public history has no street markers yet, so
-    postflop it is None rather than a guess.
+    `street_aggressor` and `preflop_aggressor` are filled preflop only: the public action history
+    has no street markers yet, so postflop both are None rather than a guess (#127 adds markers).
     """
 
     street: str
