@@ -57,7 +57,12 @@ jobs:
       - name: referee-guard
         env:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-        run: python -m referee.guard --base "${{ github.event.pull_request.base.sha }}" --labels "$LABELS"
+          BASE_REF: ${{ github.base_ref }}
+        # The event's base.sha can be older than the main this PR already merged, so files that landed
+        # on main would count as PR changes (#219). Diff from the merge base with the current base tip.
+        run: |
+          git fetch -q origin "$BASE_REF"
+          python -m referee.guard --base "$(git merge-base "origin/$BASE_REF" HEAD)" --labels "$LABELS"
 
   rl:
     # gates installs [dev] only, so torch tests skip there; this job runs them for real (#51).
