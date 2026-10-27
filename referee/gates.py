@@ -19,6 +19,7 @@ PY = sys.executable
 # Extra full-gate checks: (name, argv). Added via referee-change PRs as the product grows.
 FULL_CHECKS: list[tuple[str, list[str]]] = [
     ("gate_r", [PY, "-m", "referee.gate_r", "--full"]),
+    ("gate_r_edge", [PY, "-m", "referee.gate_r.edge"]),
     ("gate_l", [PY, "-m", "referee.gate_l"]),
 ]
 
