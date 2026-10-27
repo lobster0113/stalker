@@ -107,6 +107,18 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "python -m referee.gates full" in gates and "rl]" not in gates
 
 
+def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    web = ci.split("\n  web:\n", 1)[1].split("\n\n", 1)[0]
+    minutes = int(re.search(r"timeout-minutes: (\d+)", web).group(1))
+    assert minutes <= 15
+    assert "npm test" in web and "playwright install" in web
+    assert "name: web-screenshots" in web and "if: always()" in web
+    script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text()
+    assert "scrollWidth" in script and "critical" in script
+    assert all(f"{w}" in script for w in ("390", "820", "1440"))
+
+
 def test_texassolver_job_is_manual_capped_and_secretless():
     wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
     on = wf.split("\non:\n", 1)[1].split("\n\n", 1)[0]
