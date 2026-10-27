@@ -234,6 +234,7 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .handle { display: none; }
 .tp-body { overflow: auto; padding: 12px 16px 16px; display: grid; gap: 12px; align-content: start; min-height: 0; }
 .tp-foot { padding: 12px 16px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
+.tp-foot[hidden] { display: none; } /* author display:grid would otherwise override [hidden] and leave a stale submit button */
 .waiting { display: grid; gap: 10px; color: var(--muted); font-size: 13px; }
 .waiting .spin { display: inline-flex; gap: 4px; }
 .waiting .spin i { width: 6px; height: 6px; border-radius: 50%; background: var(--brass); animation: dot 1s infinite; }
@@ -289,6 +290,11 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .cmp .mk.gto { background: var(--good); }
 .rrow .cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); }
 .good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.conf { display: inline-block; vertical-align: middle; padding: 2px 7px; border-radius: 999px; font: 600 10.5px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--warn); border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.1); white-space: nowrap; }
+.rrow.ref { border-style: dashed; }
+.rrow.ref .cap { flex-wrap: wrap; gap: 2px 10px; }
+.itime { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.itime b { color: var(--text); font: 600 13px/1 var(--font-display); }
 .reco { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(214,171,85,.14), rgba(214,171,85,.03)); border: 1px solid rgba(214,171,85,.3); font-size: 13px; }
 .mix { display: flex; height: 18px; border-radius: 6px; overflow: hidden; font: 600 10.5px/18px var(--font-display); }
 .mix span { text-align: center; color: #0b1013; white-space: nowrap; overflow: hidden; }
@@ -427,9 +433,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
         <div class="setting">
           <div class="lab">Thinking Process 등급</div>
           <div class="seg" id="set-tier">
-            <button data-v="beginner" aria-pressed="false">초보 · 4단계</button>
-            <button data-v="mid" aria-pressed="true">중수 · 10단계</button>
-            <button data-v="pro" aria-pressed="false">고수 · 12단계</button>
+            <button data-v="beginner" aria-pressed="false">초보 · 6항목</button>
+            <button data-v="mid" aria-pressed="true">중수 · 11항목</button>
+            <button data-v="pro" aria-pressed="false">고수 · 13항목</button>
           </div>
         </div>
         <div class="start-row">
@@ -447,11 +453,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
         <div class="box">
           <h2>내 차례가 오면</h2>
           <ol class="tp-flow" style="padding:0;margin:0">
-            <li><span><b>보드 읽기</b> · 이 보드는 누구에게 유리한가 (플랍 이후)</span></li>
-            <li><span><b>상대 읽기</b> · 성향 0–100, 13×13 레인지, 블러프인가 밸류인가</span></li>
-            <li><span><b>내 핸드</b> · 레인지 대비 승률, 다음 카드의 유불리</span></li>
-            <li><span><b>계획</b> · 팟을 키울지, (토너먼트) 칩을 잃는 위험의 무게</span></li>
-            <li><span><b>액션</b> · 폴드·체크·콜·레이즈와 사이즈, 상대가 접을 확률</span></li>
+            <li><span><b>보드 읽기</b> · 누구 레인지에 유리한가, (고수) 넛은 누가 더 많은가 — 헤즈업 플랍 이후</span></li>
+            <li><span><b>상대 읽기</b> · 성향 0–100(기회가 쌓인 뒤), 13×13 레인지, 방금 벳은 밸류 쪽인가</span></li>
+            <li><span><b>내 핸드</b> · 쇼다운 에퀴티, 다음 카드 중 유리·불리해지는 비율</span></li>
+            <li><span><b>계획</b> · 대표 사이즈에 상대가 접을 확률, (토너먼트) 칩을 잃는 위험의 무게, 팟을 키울지(성찰, 채점 안 함)</span></li>
+            <li><span><b>액션</b> · 폴드·체크·콜·레이즈와 사이즈 — 모의 혼합 전략은 참고로만 보여주고 점수에 넣지 않아요</span></li>
           </ol>
         </div>
       </div>
@@ -634,42 +640,76 @@ function rangeVsRange(pctA, pctB, board, iters = 400) {
   }
   return n ? w / n : .5;
 }
-function futureScore(hero, board, pct) {
-  if (board.length < 3 || board.length >= 5) return null;
-  const dead = new Set([...hero, ...board]);
-  const combos = combosFor(classesInTop(pct), dead);
-  const base = eqVsCombos(hero, board, combos, 400);
-  let up = 0, down = 0, n = 0;
+// hand.outs / hand.vuln (TP v0.1 §3.2): share of next cards moving my equity by ≥ +10pp / ≤ −10pp.
+function outsVuln(hero, board, combos, iters = 90) {
+  if (board.length < 3 || board.length >= 5 || !combos.length) return null;
+  const dead = new Set([...hero, ...board]), eqs = [];
   for (let c = 0; c < 52; c++) {
     if (dead.has(c)) continue;
-    const e = eqVsCombos(hero, [...board, c], combos.filter(x => x[0] !== c && x[1] !== c), 36);
-    n++; if (e - base > .1) up++; else if (base - e > .1) down++;
+    const cs = combos.filter(x => x[0] !== c && x[1] !== c);
+    if (!cs.length) continue; // a known opponent card cannot come next
+    eqs.push(eqVsCombos(hero, [...board, c], cs, iters));
   }
-  return Math.round(clamp(50 + 50 * (down - up) / n));
+  // Mean over next cards is an unbiased estimate of "equity now" and shares the per-card noise.
+  const base = eqs.reduce((a, e) => a + e, 0) / eqs.length;
+  return { outs: Math.round(eqs.filter(e => e - base >= .1).length / eqs.length * 100), vuln: Math.round(eqs.filter(e => base - e >= .1).length / eqs.length * 100) };
+}
+// opp.value (§3.1): mass of the bet range with showdown equity > 50% vs my representative calling range.
+function valueShare(oppPct, heroCallPct, board, hero, n = 140, k = 18) {
+  const O = combosFor(classesInTop(oppPct), new Set([...board, ...hero])), H = combosFor(classesInTop(heroCallPct), new Set(board));
+  if (!O.length || !H.length) return 50;
+  let val = 0;
+  for (let i = 0; i < n; i++) {
+    const o = O[Math.floor(rand() * O.length)];
+    let w = 0, t = 0;
+    for (let j = 0; j < k * 4 && t < k; j++) {
+      const x = H[Math.floor(rand() * H.length)];
+      if (x[0] === o[0] || x[0] === o[1] || x[1] === o[0] || x[1] === o[1]) continue;
+      const full = runout(board, new Set([...board, o[0], o[1], x[0], x[1]]));
+      const so = evaluate([o[0], o[1], ...full]), sx = evaluate([x[0], x[1], ...full]);
+      w += so > sx ? 1 : so === sx ? .5 : 0; t++;
+    }
+    if (t && w / t > .5) val++;
+  }
+  return Math.round(val / n * 100);
+}
+// board.nut (§3.2): share of "near-nut" mass (top 10% of all hands on this board) held by the opponent.
+function nutShare(heroPct, oppPct, board, hero) {
+  const str = new Map(), sOf = ([a, b]) => { const key = a * 52 + b; if (!str.has(key)) str.set(key, evaluate([a, b, ...board])); return str.get(key); };
+  const all = combosFor(classesInTop(100), new Set(board)).map(sOf).sort((a, b) => b - a), thr = all[Math.floor(all.length * .1)];
+  const share = cs => cs.length ? cs.filter(c => sOf(c) >= thr).length / cs.length : 0;
+  const hn = share(combosFor(classesInTop(heroPct), new Set(board))), on = share(combosFor(classesInTop(oppPct), new Set([...board, ...hero])));
+  return hn + on ? Math.round(on / (hn + on) * 100) : 50;
 }
 
-/* ================= TP definition (docs/TP.md v0) ================= */
+/* ================= TP definition (docs/TP.md v0.1, stalker/tp/spec/tp_v0_1.json) ================= */
+// na: opportunity-count N/A (spec items[].na.min_opportunities); stat = counter in seat.stats.
 const TP = {
-  "board.adv":   { stage: "B 보드 읽기", q: "이 보드는 누구에게 유리한가?", ends: ["나", "상대"] },
-  "opp.loose":   { stage: "C 상대 읽기", q: "상대는 루즈한가?", ends: ["타이트", "루즈"], needsHands: true },
-  "opp.aggr":    { stage: "C 상대 읽기", q: "상대는 공격적인가?", ends: ["패시브", "공격적"], needsHands: true },
-  "opp.foldy":   { stage: "C 상대 읽기", q: "압박에 잘 접는가?", ends: ["안 접음", "잘 접음"], needsHands: true },
+  "board.adv":   { stage: "B 보드 읽기", q: "이 보드는 누구 레인지에 유리한가?", ends: ["나", "상대"] },
+  "board.nut":   { stage: "B 보드 읽기", q: "넛에 가까운 핸드는 누가 더 많은가?", ends: ["나", "상대"] },
+  "opp.loose":   { stage: "C 상대 읽기", q: "상대는 루즈한가?", ends: ["타이트", "루즈"], na: { min: 8, stat: "preOpp", what: "프리플랍 행동" } },
+  "opp.aggr":    { stage: "C 상대 읽기", q: "상대는 공격적인가?", ends: ["패시브", "공격적"], na: { min: 8, stat: "aggOpp", what: "벳·레이즈가 가능했던 결정" } },
+  "opp.foldy":   { stage: "C 상대 읽기", q: "압박에 잘 접는가?", ends: ["안 접음", "잘 접음"], na: { min: 6, stat: "faced", what: "벳을 마주한 결정" } },
   "opp.range":   { stage: "C 상대 읽기", q: "상대 핸드 레인지", type: "range" },
-  "opp.bluff":   { stage: "C 상대 읽기", q: "방금 액션은 블러프인가 밸류인가?", ends: ["블러프", "밸류"] },
-  "hand.equity": { stage: "D 내 핸드", q: "상대 레인지 대비 내 승률", ends: ["0%", "100%"] },
-  "hand.future": { stage: "D 내 핸드", q: "다음 카드들은 누구에게 유리한가?", ends: ["나", "상대"] },
-  "plan.pot":    { stage: "E 계획", q: "팟을 키울 것인가?", ends: ["억제", "증가"] },
-  "plan.icm":    { stage: "E 계획", q: "칩을 잃는 위험이 얼마나 무거운가?", ends: ["가벼움", "무거움"] },
+  "opp.value":   { stage: "C 상대 읽기", q: "방금 상대 벳은 밸류 쪽인가?", ends: ["블러프 쪽", "밸류 쪽"] },
+  "hand.equity": { stage: "D 내 핸드", q: "내 쇼다운 에퀴티", ends: ["0%", "100%"] },
+  "hand.outs":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 유리해지는 비율", ends: ["0%", "100%"] },
+  "hand.vuln":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 불리해지는 비율", ends: ["0%", "100%"] },
+  "plan.foldeq": { stage: "E 계획", q: "대표 사이즈로 벳·레이즈하면 상대가 접을 확률", ends: ["0%", "100%"] },
+  "plan.icm":    { stage: "E 계획", q: "이 결정에서 칩을 잃는 위험의 무게", ends: ["가벼움", "무거움"] },
+  "plan.pot":    { stage: "E 계획", q: "팟을 키울 것인가?", ends: ["억제", "증가"], reflection: true },
   "act.choice":  { stage: "F 액션", q: "액션", type: "action" },
-  "act.foldprob":{ stage: "F 액션", q: "이 사이즈에 상대가 접을 확률", ends: ["0%", "100%"] },
 };
-const SHORT = { "board.adv": "보드 읽기", "opp.loose": "상대 성향(루즈)", "opp.aggr": "상대 성향(공격성)", "opp.foldy": "폴드 성향", "opp.range": "레인지 추정", "opp.bluff": "블러프/밸류 판단", "hand.equity": "승률 감각", "hand.future": "다음 카드 유불리", "plan.pot": "팟 컨트롤", "plan.icm": "ICM 압박", "act.choice": "액션 선택", "act.foldprob": "폴드 확률 예측" };
+const SHORT = { "board.adv": "보드 읽기", "board.nut": "넛 우위", "opp.loose": "상대 성향(루즈)", "opp.aggr": "상대 성향(공격성)", "opp.foldy": "폴드 성향", "opp.range": "레인지 추정", "opp.value": "밸류/블러프 판단", "hand.equity": "에퀴티 감각", "hand.outs": "유리해지는 카드", "hand.vuln": "불리해지는 카드", "plan.foldeq": "폴드 에퀴티", "plan.icm": "ICM 압박", "plan.pot": "팟 컨트롤(성찰)", "act.choice": "액션 선택" };
 const TIERS = {
-  beginner: { name: "초보", step: 25, tol: 12.5, items: ["opp.loose", "opp.range", "hand.equity", "act.choice"] },
-  mid: { name: "중수", step: 10, tol: 5, items: ["board.adv", "opp.loose", "opp.aggr", "opp.range", "opp.bluff", "hand.equity", "hand.future", "plan.pot", "plan.icm", "act.choice"] },
-  pro: { name: "고수", step: 1, tol: 3, items: ["board.adv", "opp.loose", "opp.aggr", "opp.foldy", "opp.range", "opp.bluff", "hand.equity", "hand.future", "plan.pot", "plan.icm", "act.choice", "act.foldprob"] },
+  beginner: { name: "초보", step: 25, tol: 12.5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "act.choice"] },
+  mid: { name: "중수", step: 10, tol: 5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "act.choice"] },
+  pro: { name: "고수", step: 1, tol: 3, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "opp.foldy", "board.nut", "act.choice"] },
 };
-const MIN_HANDS = 3; // demo: opp.* needs this many observed hands
+const REFLECTION = ["plan.pot"]; // spec reflection_items: asked (Guided-like tiers) but never graded
+// Action has no Q(s,a) in the demo, so per TP §5 it is reference-only; plan.pot has no fixed definition.
+const isScored = k => !!TP[k] && k !== "act.choice" && !TP[k].reflection;
+const CONF = `<span class="conf" title="정답 출처 승인 상태: 모의 = 규칙 기반 대체값 (TP §5)">모의</span>`;
 
 /* ================= personas (difficulty 1–20) ================= */
 const PERSONAS = {
@@ -713,16 +753,26 @@ $("#set-diff").addEventListener("input", renderDiff); renderDiff();
 
 /* ================= weakness store ================= */
 let WEAK = store.get("weak", {});
-function recordScore(item, score) { const w = WEAK[item] || { n: 0, sum: 0 }; w.n++; w.sum += score; WEAK[item] = w; store.set("weak", WEAK); }
+function recordScore(item, score) { if (!isScored(item)) return; const w = WEAK[item] || { n: 0, sum: 0 }; w.n++; w.sum += score; WEAK[item] = w; store.set("weak", WEAK); }
 const avgScore = item => WEAK[item] ? Math.round(WEAK[item].sum / WEAK[item].n) : null;
-function weakestItem() { let best = null; for (const k in WEAK) { const a = avgScore(k); if (best == null || a < avgScore(best)) best = k; } return best; }
-const LEARN_FOR = { "board.adv": "board.adv", "hand.equity": "hand.equity", "hand.future": "hand.future", "opp.range": "opp.range", "opp.loose": "opp.range", "opp.aggr": "opp.range", "opp.foldy": "opp.range", "opp.bluff": "opp.range", "plan.pot": "hand.equity", "plan.icm": "hand.equity", "act.choice": "hand.equity", "act.foldprob": "opp.range" };
+const LEARN_FOR = { "board.adv": "board.adv", "board.nut": "board.adv", "hand.equity": "hand.equity", "hand.outs": "hand.outs", "hand.vuln": "hand.vuln", "opp.range": "opp.range", "opp.loose": "opp.range", "opp.aggr": "opp.range", "opp.foldy": "opp.range", "opp.value": "opp.range", "plan.foldeq": "opp.range", "plan.icm": "hand.equity" };
+// Per-decision input time (TP §4.2 Quick: P50/P95), training game only.
+let ITIMES = store.get("itimes", []);
+function recordInputTime(sec) { ITIMES.push(Math.round(sec * 10) / 10); if (ITIMES.length > 300) ITIMES = ITIMES.slice(-300); store.set("itimes", ITIMES); }
+const pctl = (xs, p) => { const s = xs.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.max(0, Math.ceil(p / 100 * s.length) - 1))]; };
+function itimeHTML() {
+  if (!ITIMES.length) return `<div class="itime"><span>결정당 입력 시간 · 아직 기록 없음</span></div>`;
+  const f = x => x.toLocaleString("ko-KR", { maximumFractionDigits: 1 });
+  return `<div class="itime"><span>결정당 입력 시간</span><span>P50 <b>${f(pctl(ITIMES, 50))}초</b></span><span>P95 <b>${f(pctl(ITIMES, 95))}초</b></span><span>${ITIMES.length}회</span></div>`;
+}
 function renderWeakHome() {
-  const keys = Object.keys(WEAK).sort((a, b) => avgScore(a) - avgScore(b));
+  // Old records may hold v0 items (hand.future, opp.bluff, act.*) — show only items graded in TP v0.1.
+  const keys = Object.keys(WEAK).filter(isScored).sort((a, b) => avgScore(a) - avgScore(b));
   const el = $("#weak-home");
-  if (!keys.length) { el.innerHTML = `<div class="empty">아직 기록이 없어요. 훈련 게임에서 판단을 한 번 제출하면 TP 항목별 점수가 여기에 쌓입니다.</div>`; return; }
+  if (!keys.length) { el.innerHTML = `<div class="empty">아직 기록이 없어요. 훈련 게임에서 판단을 한 번 제출하면 TP 항목별 점수가 여기에 쌓입니다.</div>${itimeHTML()}`; return; }
   el.innerHTML = `<div class="weak-list">${keys.slice(0, 6).map(k => { const a = avgScore(k); return `<div class="weak-item"><span class="nm">${SHORT[k]} <span style="color:var(--faint)">· ${WEAK[k].n}회</span></span><span class="sc num ${a >= 80 ? "good" : a >= 55 ? "warn" : "bad"}">${a}</span><div class="meter"><i style="width:${a}%;background-position:${100 - a}% 0"></i></div></div>`; }).join("")}</div>
-  <div class="start-row"><button class="cta small ghost" data-learn="${LEARN_FOR[keys[0]]}">가장 약한 항목 연습하기</button></div>`;
+  ${itimeHTML()}
+  <div class="start-row"><button class="cta small ghost" data-learn="${LEARN_FOR[keys[0]]}">가장 약한 항목 연습하기</button><span class="note">점수 정답은 ${CONF} 값이에요.</span></div>`;
   el.querySelector("[data-learn]").onclick = e => { showView("learn"); selectModule(e.target.dataset.learn); };
 }
 renderWeakHome();
@@ -748,7 +798,7 @@ const STAGE_NAMES = { early: "초반", mid: "중반", bubble: "버블 근처", i
 function newSeat(i, isHero, stackBB) {
   const key = isHero ? null : pick(personaPool(S.diff));
   return { i, isHero, persona: key, name: isHero ? "나" : pick(NAMES), stack: Math.round(stackBB * 100), cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100,
-    stats: { hands: 0, vpip: 0, raises: 0, calls: 0, faced: 0, foldsFaced: 0 }, out: false };
+    stats: { hands: 0, vpip: 0, raises: 0, calls: 0, faced: 0, foldsFaced: 0, preOpp: 0, aggOpp: 0 }, out: false };
 }
 function startGame() {
   const tour = S.mode === "tournament";
@@ -868,7 +918,7 @@ async function runLoop() {
 }
 async function playHand(token) {
   const alive = () => G && token === gameToken;
-  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null;
+  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null;
   // replenish
   for (const s of G.seats) {
     if (s.stack <= 0) {
@@ -880,7 +930,7 @@ async function playHand(token) {
   if (G.seats.some(s => !s.isHero && s.stack <= 0)) return;
   G.button = nextIdx(G.button);
   buildTable();
-  for (const s of G.seats) { Object.assign(s, { cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100 }); s.stats.hands++; s.vpipThis = false; }
+  for (const s of G.seats) { Object.assign(s, { cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100 }); s.stats.hands++; s.vpipThis = false; s.preSeen = false; }
   // deck (optionally rigged from review)
   const deck = []; for (let c = 0; c < 52; c++) deck.push(c);
   for (let i = 51; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
@@ -906,7 +956,7 @@ async function playHand(token) {
       const cnt = st === 1 ? 3 : 1;
       for (let c = 0; c < cnt; c++) { const card = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(card); const e = cardEl(card); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(220); }
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
-      G.currentBet = 0; G.minRaise = G.bb;
+      G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null;
       await sleep(500);
     }
     if (live().length > 1 && canAct().length > (G.currentBet > 0 ? 0 : 1)) {
@@ -958,6 +1008,8 @@ function legal(s) {
 function applyAction(s, a) {
   const L = legal(s), pre = G.street === 0, facing = L.toCall > 0;
   if (facing) { s.stats.faced++; if (a.type === "fold") s.stats.foldsFaced++; }
+  if (L.canRaise) s.stats.aggOpp++;
+  if (pre && !s.preSeen) { s.preSeen = true; s.stats.preOpp++; }
   let raised = false, label = "", cls = "";
   if (a.type === "fold") { s.folded = true; label = "폴드"; cls = "fold"; }
   else if (a.type === "check") { label = "체크"; }
@@ -966,7 +1018,7 @@ function applyAction(s, a) {
     const to = clamp(Math.round(a.to), L.minTo, L.maxTo), amt = to - s.bet;
     if (to - G.currentBet >= G.minRaise) G.minRaise = to - G.currentBet;
     G.currentBet = Math.max(G.currentBet, to); s.stack -= amt; s.bet = to; s.contrib += amt; if (!s.stack) s.allin = true;
-    raised = true; G.lastAgg = s.i; s.stats.raises++;
+    raised = true; G.lastAgg = s.i; G.streetAgg = s.i; s.stats.raises++;
     label = s.allin ? "올인 " + bbf(to) : (facing ? "레이즈 " : (pre ? "레이즈 " : "벳 ")) + bbf(to); cls = "raise";
   }
   if (pre && (a.type === "call" || a.type === "raise") && !s.vpipThis) { s.vpipThis = true; s.stats.vpip++; }
@@ -1009,32 +1061,53 @@ async function botTurn(s) {
 /* ---------- mock TP-GTO (heuristic stand-in until D3) ---------- */
 const shrink = (k, n, prior, w) => (k + prior * w) / (n + w);
 function targetOpp(hero) {
-  if (G.lastAgg != null && G.lastAgg !== hero.i && !G.seats[G.lastAgg].folded) return G.seats[G.lastAgg];
+  for (const k of [G.streetAgg, G.lastAgg]) if (k != null && k !== hero.i && !G.seats[k].folded) return G.seats[k];
   const opp = live().filter(s => s !== hero);
   return opp.sort((a, b) => a.rangePct - b.rangePct)[0];
 }
 function heroRangePct(hero) { return G.street === 0 ? 100 : clamp(hero.rangePct, 8, 100); }
+// Mock assumption for opp.value: my representative calling range (TeacherContext stand-in).
+const heroCallPct = hero => Math.round(clamp(heroRangePct(hero) * .6, 8, 45));
+// One size the screen proposes for plan.foldeq (spec size_buckets), asked before the decision.
+function repSize(hero, L, pot) {
+  let o;
+  if (G.street === 0) o = G.currentBet === G.bb ? { label: "2.5x", to: 2.5 * G.bb } : { label: "3x", to: G.currentBet * 3 };
+  else o = L.toCall > 0 ? { label: "3x", to: G.currentBet * 3 } : { label: "75% 팟", to: G.currentBet + pot * .75 };
+  return o.to >= L.maxTo ? { label: "올인", to: L.maxTo } : o;
+}
 function computeGTO(hero) {
   const L = legal(hero), opp = targetOpp(hero), st = opp.stats, pot = potTotal();
-  const vp = shrink(st.vpip, st.hands, .26, 5), ag = shrink(st.raises, st.raises + st.calls, .4, 6), fd = shrink(st.foldsFaced, st.faced, .45, 5);
+  const vp = shrink(st.vpip, st.preOpp, .26, 5), ag = shrink(st.raises, st.raises + st.calls, .4, 6), fd = shrink(st.foldsFaced, st.faced, .45, 5);
   let pct = opp.rangePct;
   if (G.street === 0 && opp.rangePct === 100) pct = clamp(vp * 100 * 1.1, 8, 100);
   if (G.street === 0 && opp.rangePct < 100) pct = clamp(opp.rangePct * (0.6 + vp * 1.6), 4, 100);
   pct = Math.round(clamp(pct, 3, 100));
   const eq = eqVsPct(hero.cards, G.board, pct, 700);
-  const v = {};
+  const v = {}, note = {}, post = G.board.length >= 3, hu = live().length === 2;
   v["opp.loose"] = Math.round(clamp((vp - .1) / .5 * 100));
   v["opp.aggr"] = Math.round(clamp(ag * 100));
   v["opp.foldy"] = Math.round(clamp(fd * 100));
   v["opp.range"] = pct;
   v["hand.equity"] = Math.round(eq * 100);
-  if (G.board.length) v["board.adv"] = Math.round(100 - rangeVsRange(heroRangePct(hero), pct, G.board, 350) * 100);
-  const fut = futureScore(hero.cards, G.board, pct); if (fut != null) v["hand.future"] = fut;
-  if (L.toCall > 0) {
-    if (G.board.length) { const dead = new Set([...hero.cards, ...G.board]); const cs = combosFor(classesInTop(pct), dead); const hs = evaluate([...hero.cards, ...G.board]); let ahead = 0; const N = Math.min(cs.length, 300); for (let i = 0; i < N; i++) { const c = cs[Math.floor(rand() * cs.length)]; if (evaluate([c[0], c[1], ...G.board]) > hs) ahead++; } v["opp.bluff"] = Math.round(ahead / N * 100); }
-    else v["opp.bluff"] = Math.round(clamp(92 - pct * 1.1));
+  if (post && hu) {
+    v["board.adv"] = Math.round(100 - rangeVsRange(heroRangePct(hero), pct, G.board, 350) * 100);
+    v["board.nut"] = nutShare(heroRangePct(hero), pct, G.board, hero.cards);
   }
-  v["plan.pot"] = Math.round(clamp((eq - .35) / .4 * 100));
+  const ov = outsVuln(hero.cards, G.board, combosFor(classesInTop(pct), new Set([...hero.cards, ...G.board])));
+  if (ov) { v["hand.outs"] = ov.outs; v["hand.vuln"] = ov.vuln; }
+  if (G.streetAgg != null && G.streetAgg !== hero.i) {
+    const cp = heroCallPct(hero);
+    v["opp.value"] = valueShare(pct, cp, G.board, hero.cards);
+    note["opp.value"] = `가정: 내 콜링 레인지 상위 ${cp}%, 세미블러프는 블러프 쪽`;
+  }
+  const rep = L.canRaise ? repSize(hero, L, pot) : null;
+  if (rep) {
+    const frac = (rep.to - G.currentBet) / Math.max(pot, G.bb);
+    // Multiway: everyone has to fold.
+    let all = 1;
+    for (const o of live().filter(s => s !== hero && !s.allin)) { const f = shrink(o.stats.foldsFaced, o.stats.faced, .45, 5); all *= clamp(f * .75 + o.rangePct / 100 * .2 + (frac - .75) * .1, .02, .95); }
+    v["plan.foldeq"] = Math.round(all * 100);
+  }
   if (G.tour) { const base = { early: 18, mid: 35, bubble: 78, itm: 46, ft: 62 }[G.stage]; const stackFac = hero.stack / G.bb < 12 ? -10 : hero.stack / G.bb > 45 ? -6 : 6; v["plan.icm"] = Math.round(clamp(base + stackFac)); }
   // action mix
   const odds = L.toCall / (pot + L.toCall || 1), icmTax = G.tour ? (v["plan.icm"] - 30) / 400 : 0;
@@ -1043,8 +1116,7 @@ function computeGTO(hero) {
   else if (L.toCall > 0) { const edge = eq - odds - icmTax; mix = edge > .22 && L.canRaise ? { raise: .55, call: .4, fold: .05 } : edge > .02 ? { call: .78, raise: L.canRaise ? .1 : 0, fold: .12 } : edge > -.06 ? { call: .4, fold: .6 } : { fold: .88, call: .12 }; }
   else { mix = eq > .62 && L.canRaise ? { raise: .72, check: .28 } : eq > .45 ? { check: .62, raise: L.canRaise ? .38 : 0 } : { check: .8, raise: L.canRaise ? .2 : 0 }; }
   v["act.choice"] = mix;
-  v["act.foldprob"] = Math.round(clamp(fd * 100 * .85 + (100 - pct) * .12));
-  return { v, opp, L, pot, pct };
+  return { v, note, opp, L, pot, pct, rep };
 }
 
 /* ---------- hero turn & TP console ---------- */
@@ -1056,6 +1128,7 @@ function heroTurn(hero) {
     const g = computeGTO(hero);
     CUR = { hero, g, answers: {}, action: null, size: null };
     setTP("ask");
+    CUR.t0 = performance.now(); // input time = hero's turn shown -> submit
   });
 }
 function ctxChips() {
@@ -1064,16 +1137,22 @@ function ctxChips() {
   const eff = Math.min(hero.stack + hero.bet, Math.max(...live().filter(s => s !== hero).map(s => s.stack + s.bet)));
   return `<span><b>${st}</b></span><span>${posName(hero)}</span><span>유효 <b>${bbf(eff)}BB</b></span><span>팟 <b>${bbf(CUR.g.pot)}BB</b></span>${L.toCall ? `<span>콜 <b>${bbf(L.toCall)}BB</b></span>` : ""}${G.board.length ? `<span>SPR <b>${(eff / CUR.g.pot).toFixed(1)}</b></span>` : ""}`;
 }
-function itemsNow() {
-  const L = CUR.g.L;
-  return TIERS[S.tier].items.filter(k => {
-    if (k === "board.adv" && !G.board.length) return false;
-    if (k === "hand.future" && (G.board.length < 3 || G.board.length === 5)) return false;
-    if (k === "opp.bluff" && !L.toCall) return false;
-    if (k === "plan.icm" && !G.tour) return false;
-    return true;
-  });
+// Spec `applies` per item; reflection items only in the deeper tiers (Guided/Deep stand-in).
+function applies(k) {
+  const L = CUR.g.L, hero = CUR.hero, post = G.board.length >= 3, hu = live().length === 2;
+  if (k === "board.adv" || k === "board.nut") return post && hu;
+  if (k === "hand.outs" || k === "hand.vuln") return G.board.length === 3 || G.board.length === 4;
+  if (k === "opp.value") return G.streetAgg != null && G.streetAgg !== hero.i;
+  if (k === "plan.foldeq") return L.canRaise;
+  if (k === "plan.icm") return G.tour && (L.toCall > 0 || hero.stack + hero.bet <= 15 * G.bb);
+  if (k === "plan.pot") return S.tier !== "beginner";
+  return true;
 }
+function itemsNow() {
+  const ks = [...TIERS[S.tier].items, ...REFLECTION].filter(applies);
+  return ks.sort((a, b) => TP[a].stage < TP[b].stage ? -1 : TP[a].stage > TP[b].stage ? 1 : 0);
+}
+const naNow = k => { const d = TP[k]; return !!d.na && CUR.g.opp.stats[d.na.stat] < d.na.min; };
 function setTP(mode) {
   const body = $("#tp-body"), foot = $("#tp-foot"), tp = $("#tp");
   if (mode === "waiting") {
@@ -1092,12 +1171,12 @@ function setTP(mode) {
     const d = TP[k];
     if (d.stage !== lastStage) { html += `<div class="stage-label">${d.stage}</div>`; lastStage = d.stage; }
     n++;
-    const na = d.needsHands && opp.stats.hands - 1 < MIN_HANDS;
+    const na = naNow(k);
     html += `<div class="q${na ? " na" : ""}" data-k="${k}"><div class="n">${n}</div><div class="body">${qInput(k, na)}</div></div>`;
   }
   body.innerHTML = html; body.scrollTop = 0;
   foot.hidden = false;
-  foot.innerHTML = `<button class="cta" id="tp-submit" disabled>제출하고 진행</button><span style="font-size:11px;color:var(--faint);text-align:center">제출하면 바로 채점하고, 고른 액션으로 핸드가 진행됩니다.</span>`;
+  foot.innerHTML = `<button class="cta" id="tp-submit" disabled>제출하고 진행</button><span style="font-size:11px;color:var(--faint);text-align:center">제출하면 판단을 바로 채점하고(정답 ${CONF}), 고른 액션으로 핸드가 진행됩니다. 액션은 점수에 넣지 않아요.</span>`;
   bindInputs(); $("#tp-submit").onclick = submitTP;
   if (matchMedia("(max-width: 760px)").matches) tp.classList.add("open");
 }
@@ -1111,9 +1190,11 @@ function qInput(k, na) {
       <div class="hint">${edit ? "슬라이더로 채운 뒤 칸을 누르거나 끌어서 고칠 수 있어요." : "대각선 위 = 수딧, 아래 = 오프수트, 대각선 = 페어"}</div>`;
   }
   if (d.type === "action") return actionInput();
-  if (na) return `<div class="t"><span>${d.q}</span><span class="val num">정보 부족</span></div><div class="hint">이 상대를 ${MIN_HANDS}핸드 이상 보기 전에는 채점하지 않아요. 모집단 기본값 50을 씁니다.</div>`;
+  if (na) return `<div class="t"><span>${d.q}</span><span class="val num">N/A</span></div><div class="hint">이 상대의 ${d.na.what} 기회가 ${CUR.g.opp.stats[d.na.stat]}/${d.na.min}회라 아직 묻지도 채점하지도 않아요.</div>`;
   const ticks = tier.step >= 10 ? `<div class="ticks">${"<i></i>".repeat(100 / tier.step + 1)}</div>` : "";
-  return `<div class="t"><span>${d.q}</span><span class="val num" data-val>—</span></div>
+  const q = k === "plan.foldeq" && CUR.g.rep ? `대표 사이즈 ${CUR.g.rep.label}(${bbf(CUR.g.rep.to)}BB)로 ${G.street === 0 || CUR.g.L.toCall ? "레이즈" : "벳"}하면 상대가 ${live().length > 2 ? "모두 " : ""}접을 확률` : d.q;
+  const hint = d.reflection ? `<div class="hint">성찰 질문 · 정의가 확정되지 않아 채점하지 않아요(선택 입력).</div>` : k === "plan.foldeq" ? `<div class="hint">결정 전에 묻는 계획 질문이에요. 실제로 고를 액션과 상관없이 답하세요.</div>` : "";
+  return `${hint}<div class="t"><span>${q}</span><span class="val num" data-val>—</span></div>
     <input type="range" min="0" max="100" step="${tier.step}" value="50" data-slider aria-label="${d.q}">${ticks}
     <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>`;
 }
@@ -1137,12 +1218,11 @@ function actionInput() {
   const btn = (t, label, dis) => `<button class="act" data-act="${t}" ${dis ? "disabled" : ""} aria-pressed="false">${label}</button>`;
   return `<div class="t"><span>액션</span><span class="val num" data-val>—</span></div>
     <div class="acts">${btn("fold", "폴드", L.canCheck)}${L.canCheck ? btn("check", "체크") : btn("call", "콜 " + bbf(L.toCall))}${btn("raise", L.toCall || G.street === 0 ? "레이즈" : "벳", !L.canRaise)}</div>
-    <div class="sizes" data-sizes hidden>${sizeOptions().map((o, i) => `<button class="size" data-size="${i}" aria-pressed="false">${o.label}</button>`).join("")}</div>
-    ${TIERS[S.tier].items.includes("act.foldprob") ? `<div data-fp hidden><div class="t" style="margin-top:6px"><span>${TP["act.foldprob"].q}</span><span class="val num" data-fpval>50</span></div><input type="range" min="0" max="100" step="1" value="50" data-fpslider aria-label="상대가 접을 확률"></div>` : ""}`;
+    <div class="sizes" data-sizes hidden>${sizeOptions().map((o, i) => `<button class="size" data-size="${i}" aria-pressed="false">${o.label}</button>`).join("")}</div>`;
 }
 function setFill(inp) { inp.style.setProperty("--fill", ((inp.value - inp.min) / (inp.max - inp.min) * 100) + "%"); }
 function bindInputs() {
-  const check = () => { const need = itemsNow().filter(k => TP[k].type !== "action" && !(TP[k].needsHands && CUR.g.opp.stats.hands - 1 < MIN_HANDS)); const ok = need.every(k => CUR.answers[k] != null) && CUR.action && (CUR.action !== "raise" || CUR.size != null); $("#tp-submit").disabled = !ok; };
+  const check = () => { const need = itemsNow().filter(k => TP[k].type !== "action" && !TP[k].reflection && !naNow(k)); const ok = need.every(k => CUR.answers[k] != null) && CUR.action && (CUR.action !== "raise" || CUR.size != null); $("#tp-submit").disabled = !ok; };
   $$("[data-slider]").forEach(inp => { setFill(inp); inp.addEventListener("input", () => { const k = inp.closest(".q").dataset.k; CUR.answers[k] = +inp.value; inp.closest(".body").querySelector("[data-val]").textContent = inp.value; setFill(inp); check(); }); });
   const rs = $("[data-range]");
   if (rs) {
@@ -1161,37 +1241,33 @@ function bindInputs() {
   $$("[data-act]").forEach(b => b.addEventListener("click", () => {
     $$("[data-act]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.action = b.dataset.act; CUR.size = null;
     const sz = $("[data-sizes]"); sz.hidden = CUR.action !== "raise"; $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", "false"));
-    const fp = $("[data-fp]"); if (fp) fp.hidden = CUR.action !== "raise";
     $("[data-val]", b.closest(".body")).textContent = b.textContent; check();
   }));
   $$("[data-size]").forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; check(); }));
-  const fps = $("[data-fpslider]"); if (fps) { setFill(fps); fps.addEventListener("input", () => { CUR.answers["act.foldprob"] = +fps.value; $("[data-fpval]").textContent = fps.value; setFill(fps); }); }
 }
 function scoreScalar(u, g) { const tol = TIERS[S.tier].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * 2.4)) }; }
 function submitTP() {
-  const g = CUR.g, rows = [];
+  const g = CUR.g, rows = [], refs = [];
   for (const k of itemsNow()) {
-    const d = TP[k];
-    if (d.needsHands && g.opp.stats.hands - 1 < MIN_HANDS) continue;
+    if (naNow(k)) continue;
     if (k === "act.choice") {
-      const mix = g.v[k], mx = Math.max(...Object.values(mix)), p = mix[CUR.action] || 0;
-      rows.push({ k, kind: "action", mix, you: CUR.action, score: Math.round(p / mx * 100) });
+      refs.push({ k, kind: "action", mix: g.v[k], you: CUR.action });
+    } else if (TP[k].reflection) {
+      if (CUR.answers[k] != null) refs.push({ k, kind: "reflect", you: CUR.answers[k] });
     } else if (k === "opp.range") {
       const gk = classesInTop(g.v[k]), uk = CUR.rangeKeys || classesInTop(30);
       let inter = 0, uni = 0; for (const c of CLASSES) { const a = uk.has(c.key), b = gk.has(c.key); if (a && b) inter += c.combos; if (a || b) uni += c.combos; }
       const jac = uni ? inter / uni : 1, u = CUR.answers[k] ?? 30, sc = S.tier === "pro" ? Math.round(jac * 100) : scoreScalar(u, g.v[k]).score;
       rows.push({ k, kind: "range", you: u, gto: g.v[k], score: sc, uk, gk });
-    } else if (k === "act.foldprob") {
-      if (CUR.action !== "raise") continue;
-      const u = CUR.answers[k] ?? 50; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], ...scoreScalar(u, g.v[k]) });
-    } else {
-      const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], ...scoreScalar(u, g.v[k]) });
+    } else if (g.v[k] != null) {
+      const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], note: g.note[k], ...scoreScalar(u, g.v[k]) });
     }
   }
   rows.forEach(r => recordScore(r.k, r.score));
-  const total = Math.round(rows.reduce((a, r) => a + r.score, 0) / rows.length);
+  recordInputTime((performance.now() - CUR.t0) / 1000);
+  const total = rows.length ? Math.round(rows.reduce((a, r) => a + r.score, 0) / rows.length) : null;
   const worst = rows.slice().sort((a, b) => a.score - b.score)[0];
-  G.lastGrade = { rows, total, worst, street: ["프리플랍", "플랍", "턴", "리버"][G.street], hand: CUR.hero.cards.map(cardTxt).join(" ") };
+  G.lastGrade = { rows, refs, total, worst, street: ["프리플랍", "플랍", "턴", "리버"][G.street], hand: CUR.hero.cards.map(cardTxt).join(" ") };
   // resolve action
   let act;
   if (CUR.action === "raise") act = { type: "raise", to: sizeOptions()[CUR.size].to };
@@ -1202,22 +1278,27 @@ function submitTP() {
   $("#tp").classList.add("open");
   res(act);
 }
+const ACT_NM = { fold: "폴드", check: "체크", call: "콜", raise: "벳·레이즈" }, ACT_COL = { fold: "#5d6a6f", check: "#8d999c", call: "#5d8fd8", raise: "#d6ab55" };
+// Reference-only action row: no Q values in the demo, so no score and no EV-loss number (TP §5).
+function mixRefHTML(mix, you, title) {
+  const order = ["fold", "check", "call", "raise"], p = Math.round((mix[you] || 0) * 100);
+  return `<div class="rrow ref"><div class="t"><span>${title} · 내 선택 <b style="font-family:var(--font-body);font-size:12.5px">${ACT_NM[you]}</b></span>${CONF}</div>
+    <div class="mix">${order.filter(o => mix[o] > 0).map(o => `<span style="width:${mix[o] * 100}%;background:${ACT_COL[o]}">${mix[o] >= .12 ? ACT_NM[o] + " " + Math.round(mix[o] * 100) + "%" : ""}</span>`).join("")}</div>
+    <div class="cap"><span>모의 참고: TP-GTO(모의) 혼합 전략 · 내 선택 빈도 ${p}%</span><span>EV 손실 미산출 · 점수 제외</span></div></div>`;
+}
 function resultHTML(gr, compact) {
-  let html = `<div class="result-top"><div class="ring" style="--v:${gr.total}"><b class="num">${gr.total}</b></div><div><div style="font-weight:600">${gr.street} 판단 채점</div><div style="font-size:12px;color:var(--muted)">내 핸드 ${gr.hand} · 흰 막대 = 내 입력, 초록 막대 = TP-GTO(모의)</div></div></div>`;
+  let html = `<div class="result-top"><div class="ring" style="--v:${gr.total ?? 0}"><b class="num">${gr.total ?? "—"}</b></div><div><div style="font-weight:600">${gr.street} 판단 채점 ${CONF}</div><div style="font-size:12px;color:var(--muted)">내 핸드 ${gr.hand} · 흰 막대 = 내 입력, 초록 막대 = TP-GTO(모의)${gr.total == null ? " · 이번에는 채점할 판단이 없었어요" : ""}</div></div></div>`;
   for (const r of gr.rows) {
     const cls = r.score >= 80 ? "good" : r.score >= 55 ? "warn" : "bad";
-    if (r.kind === "action") {
-      const order = ["fold", "check", "call", "raise"], col = { fold: "#5d6a6f", check: "#8d999c", call: "#5d8fd8", raise: "#d6ab55" }, nm = { fold: "폴드", check: "체크", call: "콜", raise: "레이즈" };
-      html += `<div class="rrow"><div class="t"><span>${SHORT[r.k]} · 내 선택 <b style="font-family:var(--font-body);font-size:12.5px">${nm[r.you]}</b></span><b class="num ${cls}">${r.score}</b></div>
-        <div class="mix">${order.filter(o => r.mix[o] > 0).map(o => `<span style="width:${r.mix[o] * 100}%;background:${col[o]}">${r.mix[o] >= .12 ? nm[o] + " " + Math.round(r.mix[o] * 100) + "%" : ""}</span>`).join("")}</div>
-        <div class="cap"><span>TP-GTO 혼합 전략(모의)</span><span>${r.score >= 80 ? "주 선택과 일치" : r.score >= 30 ? "혼합에 포함된 선택" : "거의 쓰지 않는 선택"}</span></div></div>`;
-      continue;
-    }
     const lo = Math.min(r.you, r.gto), hi = Math.max(r.you, r.gto);
     html += `<div class="rrow"><div class="t"><span>${SHORT[r.k]}</span><b class="num ${cls}">${r.score}</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${r.gto}%"></div><div class="mk you" style="left:${r.you}%"></div></div>
-      <div class="cap"><span>나 ${r.kind === "range" ? "상위 " + r.you + "%" : r.you}</span><span>TP-GTO ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}</span></div>
-      ${r.kind === "range" && !compact ? "" : ""}</div>`;
+      <div class="cap"><span>나 ${r.kind === "range" ? "상위 " + r.you + "%" : r.you}</span><span>TP-GTO(모의) ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}</span></div>
+      ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}</div>`;
+  }
+  for (const r of gr.refs || []) {
+    if (r.kind === "action") html += mixRefHTML(r.mix, r.you, SHORT[r.k]);
+    else html += `<div class="rrow ref"><div class="t"><span>${SHORT[r.k]} · 내 답 <b class="num">${r.you}</b></span><span style="font-size:11px;color:var(--faint)">채점 안 함</span></div><div class="cap"><span>정의가 확정되지 않은 성찰 질문이라 정답·점수가 없어요.</span></div></div>`;
   }
   if (gr.worst && gr.worst.score < 80) html += `<div class="reco"><div><b>${SHORT[gr.worst.k]}</b>에서 가장 크게 갈렸어요. 약점으로 기록했습니다.</div><button class="cta small" data-learn="${LEARN_FOR[gr.worst.k]}">학습 섹션에서 연습하기</button></div>`;
   return html;
@@ -1271,11 +1352,12 @@ function heroBust() {
 
 /* ================= learning section ================= */
 const MODS = [
-  { k: "hand.equity", tag: "D 내 핸드", name: "승률 감각", ds: "상대 핸드·레인지 대비 내 에퀴티를 감으로 잡기" },
-  { k: "board.adv", tag: "B 보드 읽기", name: "보드 텍스처 읽기", ds: "이 보드는 누구에게 유리한가 (0 나 – 100 상대)" },
-  { k: "hand.future", tag: "D 내 핸드", name: "다음 카드의 유불리", ds: "드로와 취약성: 턴·리버가 누구 편인가" },
+  { k: "hand.equity", tag: "D 내 핸드", name: "에퀴티 감각", ds: "상대 핸드·레인지 대비 내 쇼다운 에퀴티를 감으로 잡기" },
+  { k: "board.adv", tag: "B 보드 읽기", name: "보드 텍스처 읽기", ds: "이 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)" },
+  { k: "hand.outs", tag: "D 내 핸드", name: "유리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 올리는 비율" },
+  { k: "hand.vuln", tag: "D 내 핸드", name: "불리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 깎는 비율" },
   { k: "opp.range", tag: "C 상대 읽기", name: "레인지 추정", ds: "포지션과 액션 흐름으로 상대 상위 몇 %인지" },
-  { k: "opp.bluff", tag: "C 상대 읽기", name: "블러프인가 밸류인가", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
+  { k: "opp.value", tag: "C 상대 읽기", name: "밸류 쪽인가 블러프 쪽인가", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
   { k: "plan.icm", tag: "E 계획", name: "ICM 압박", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
 ];
 let LM = { k: "board.adv", lvl: "normal", prob: null, answered: false };
@@ -1295,12 +1377,17 @@ const SCENARIOS = [
 ];
 function newProblem() {
   const dead = new Set(), hero = dealN(2, dead), lvl = LM.lvl, k = LM.k;
-  const nb = k === "hand.future" ? (rand() < .5 ? 3 : 4) : k === "opp.range" ? 0 : pick([0, 3, 3, 4]);
+  const ov = k === "hand.outs" || k === "hand.vuln";
+  const nb = ov ? (rand() < .5 ? 3 : 4) : k === "opp.range" ? 0 : pick([0, 3, 3, 4]);
   const board = k === "board.adv" ? dealN(3, dead) : dealN(nb, dead);
   const sc = pick(SCENARIOS), oppCards = dealN(2, dead);
   const p = { hero, board, oppCards, sc, pct: sc.pct };
   if (k === "opp.range") { p.answer = sc.pct; }
-  else if (k === "hand.future") { p.answer = futureScore(hero, board, lvl === "easy" ? 100 : sc.pct) ?? 50; }
+  else if (ov) {
+    const combos = lvl === "easy" ? [[oppCards[0], oppCards[1], 0]] : combosFor(classesInTop(sc.pct), new Set([...hero, ...board]));
+    const r = outsVuln(hero, board, combos, 120);
+    p.answer = r ? (k === "hand.outs" ? r.outs : r.vuln) : 0;
+  }
   else {
     let eq;
     if (lvl === "easy") eq = eqVsCombos(hero, board, [[oppCards[0], oppCards[1], 0]], 1400);
@@ -1335,7 +1422,7 @@ function renderDrill() {
       <div class="ends"><span>${isRange ? "2% 좁음" : "0 " + q.ends[0]}</span><span>${isRange ? "넓음 100%" : q.ends[1] + " 100"}</span></div>
     </div></div>
     <div id="dr-res"></div>
-    <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go">${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 몬테카를로 계산값이에요(데모).</span></div>`;
+    <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go">${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 ${CONF} 값이에요(몬테카를로 계산, 데모).</span></div>`;
   for (const [id, cs] of [["mf-board", p.board], ["mf-hero", p.hero], ["mf-opp", p.oppCards]]) { const c = $("#" + id); if (c) cs.forEach(x => c.appendChild(cardEl(x))); }
   const mr = $("#mf-range"); if (mr) paintGrid(mr, classesInTop(p.pct));
   $$("#lvl-seg button").forEach(b => b.onclick = () => { LM.lvl = b.dataset.v; newProblem(); renderDrill(); });
@@ -1348,14 +1435,15 @@ function renderDrill() {
     recordScore(LM.k, sc);
     renderDrill();
     const lo = Math.min(LM.val, p.answer), hi = Math.max(LM.val, p.answer), cls = sc >= 80 ? "good" : sc >= 55 ? "warn" : "bad";
-    $("#dr-res").innerHTML = `<div class="rrow"><div class="t"><span>정답 <b class="num" style="color:var(--good)">${isRange ? "상위 " + p.answer + "%" : p.answer}</b> · 내 답 <b class="num">${isRange ? "상위 " + LM.val + "%" : LM.val}</b></span><b class="num ${cls}">${sc}점</b></div>
+    $("#dr-res").innerHTML = `<div class="rrow"><div class="t"><span>정답 ${CONF} <b class="num" style="color:var(--good)">${isRange ? "상위 " + p.answer + "%" : p.answer}</b> · 내 답 <b class="num">${isRange ? "상위 " + LM.val + "%" : LM.val}</b></span><b class="num ${cls}">${sc}점</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${p.answer}%"></div><div class="mk you" style="left:${LM.val}%"></div></div>
       <div class="cap"><span>${explain(LM.k, p)}</span></div></div>`;
   };
 }
 function explain(k, p) {
   if (k === "opp.range") return "오픈 위치가 앞일수록, 3벳·체크레이즈가 나올수록 레인지는 좁아집니다.";
-  if (k === "hand.future") return "50보다 작으면 다음 카드가 나에게 유리(드로가 많음), 크면 상대에게 유리(내 핸드가 취약)합니다.";
+  if (k === "hand.outs") return "남은 카드 하나하나를 깔아 보고, 지금보다 에퀴티가 10%p 이상 오르는 카드의 비율입니다. 드로가 많을수록 큽니다.";
+  if (k === "hand.vuln") return "지금보다 에퀴티가 10%p 이상 떨어지는 카드의 비율입니다. 앞서 있지만 취약한 핸드일수록 큽니다.";
   if (k === "board.adv") return "보드가 상대 레인지의 강한 핸드와 잘 맞을수록 100에 가깝습니다.";
   return p.board.length ? `보드 ${p.board.length}장 기준, 남은 카드를 끝까지 깔았을 때의 승률입니다.` : "프리플랍 올인 기준 승률입니다.";
 }
@@ -1415,16 +1503,12 @@ function analyzeReview() {
   const odds = facing ? (RV.lines[lastSt.at(-1)] === "bet-big" ? .3 : .2) : 0;
   const mix = facing ? (eq - odds > .2 ? { raise: .5, call: .45, fold: .05 } : eq - odds > 0 ? { call: .8, raise: .05, fold: .15 } : { fold: .85, call: .15 }) : (eq > .62 ? { raise: .7, check: .3 } : eq > .45 ? { check: .6, raise: .4 } : { check: .8, raise: .2 });
   const my = { fold: "fold", check: "check", call: "call", bet: "raise" }[RV.act];
-  const p = mix[my] || 0, mx = Math.max(...Object.values(mix)), sc = Math.round(p / mx * 100);
-  const nm = { fold: "폴드", check: "체크", call: "콜", raise: "벳·레이즈" }, col = { fold: "#5d6a6f", check: "#8d999c", call: "#5d8fd8", raise: "#d6ab55" };
-  out.innerHTML = `<h2>비교 결과</h2><p class="sub">TP 단계별로 TP-GTO(모의)가 이 상황을 어떻게 봤는지 보여줘요.</p>
+  out.innerHTML = `<h2>비교 결과 ${CONF}</h2><p class="sub">TP 단계별로 TP-GTO(모의)가 이 상황을 어떻게 봤는지 보여줘요. 정답 출처 승인 상태는 모의(규칙 기반 대체)예요.</p>
     <div style="display:grid;gap:10px">
       <div class="rrow"><div class="t"><span>1 · 상대 레인지 추정</span><b class="num">상위 ${pct}%</b></div><div class="rgrid mini-range" id="rv-grid" style="width:min(240px,100%)">${gridCells()}</div></div>
-      ${adv != null ? `<div class="rrow"><div class="t"><span>2 · 보드 읽기 (0 나 – 100 상대)</span><b class="num">${adv}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${adv}%"></div></div></div>` : ""}
-      <div class="rrow"><div class="t"><span>3 · 상대 레인지 대비 내 승률</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}%</span></div>` : ""}</div>
-      <div class="rrow"><div class="t"><span>4 · 액션 · 내 선택 ${nm[my]}</span><b class="num ${sc >= 80 ? "good" : sc >= 30 ? "warn" : "bad"}">${sc}</b></div>
-        <div class="mix">${Object.entries(mix).filter(([, v]) => v > 0).map(([k, v]) => `<span style="width:${v * 100}%;background:${col[k]}">${v >= .12 ? nm[k] + " " + Math.round(v * 100) + "%" : ""}</span>`).join("")}</div>
-        <div class="cap"><span>${sc >= 80 ? "TP-GTO의 주 선택과 같아요." : sc >= 30 ? "TP-GTO도 가끔 쓰는 선택이에요. 빈도를 의식하세요." : "TP-GTO는 이 상황에서 거의 하지 않는 선택이에요. 승률과 필요 승률 비교를 다시 보세요."}</span></div></div>
+      ${adv != null ? `<div class="rrow"><div class="t"><span>2 · 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)</span><b class="num">${adv}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${adv}%"></div></div></div>` : ""}
+      <div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}%</span></div>` : ""}</div>
+      ${mixRefHTML(mix, my, "4 · 액션")}
     </div>
     <div class="start-row"><button class="cta" id="rv-train">비슷한 상황으로 훈련 시작</button><span class="note">같은 핸드 유형과 비슷한 보드로 첫 핸드를 시작해요.</span></div>`;
   paintGrid($("#rv-grid"), classesInTop(pct));
