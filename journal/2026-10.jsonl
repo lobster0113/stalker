@@ -288,3 +288,4 @@
 {"ts":"2026-10-27T19:05:03Z","role":"builder","outcome":"waiting_ci","issue":141,"pr":168,"notes":"#200·#190 머지로 30분 타임아웃 해소 → main을 #168에 merge(b1f3758, 충돌 없음)해 gates 재실행; 열린 내 PR 1개","friction":"#168 재실행만으로 한 실행을 씀(한 실행 한 가지 일); quick gates 112s"}
 {"ts":"2026-10-27T19:05:14Z","role":"reviewer","outcome":"skipped","issue":null,"pr":168,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T19:05:41Z","role":"reviewer-b","outcome":"skipped","issue":192,"pr":193,"notes":"not my parity","friction":""}
+{"ts":"2026-10-27T19:06:37Z","role":"reviewer-b","outcome":"changes","issue":141,"pr":168,"notes":"CHANGES: harness-change인데 experiments 기록 없음; #158(012 기록 포함)과 중복이라 #158 머지 후 superseded 닫기 권장","friction":"같은 이슈에 PR 두 개(#158 홀수=reviewer, #168 짝수=reviewer-b)라 홀짝 분담으로는 중복 처리 주체가 불명확"}
