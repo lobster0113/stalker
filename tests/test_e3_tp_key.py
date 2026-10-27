@@ -70,3 +70,13 @@ def test_call_or_fold_spots_share_a_short_key_across_seats():
     b = _play(G.deal(np.random.default_rng(8)), "f", "a")             # HJ shoves
     ka, kb = K.public_key(a, a.to_act), K.public_key(b, b.to_act)
     assert ka.startswith("call|0|") and ka.endswith("|fc") and ka == kb
+
+
+def test_beginner_keys_drop_the_items_a_beginner_is_not_asked():
+    s = _play(G.deal(np.random.default_rng(9)), "f", "r")              # HJ opens
+    b = K.public_key(s, s.to_act, "basic")
+    assert b.startswith("b|late|0|2|1|") and K.public_key(s, s.to_act).startswith("2|0|3|1|0|")
+    # UTG and HJ are both "early": the same beginner key for the same situation.
+    a = _play(G.deal(np.random.default_rng(9)), "r", "f")
+    assert K.public_key(a, 2, "basic") == b
+    assert K.position_group(6, 0) == K.position_group(6, 1) == "early" and K.position_group(9, 6) == "late"

@@ -26,9 +26,9 @@ from stalker.e3 import tp_key as K
 
 
 class E3MCCFR:
-    def __init__(self, seed: int = 0, k: int = 5, n: int = 6):
+    def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full"):
         self.rng = np.random.default_rng(seed)
-        self.k, self.n = k, n
+        self.k, self.n, self.depth = k, n, depth
         self.regret: dict[str, np.ndarray] = {}
         self.avg: dict[str, np.ndarray] = defaultdict(lambda: None)
         self.iterations = 0
@@ -64,7 +64,7 @@ class E3MCCFR:
         acts = G.legal(s)
         p = s.to_act
         steps = K.equity_steps(s, p, ranges, self.k)
-        public = K.public_key(s, p)
+        public = K.public_key(s, p, self.depth)
         key = K.key(public, K.my_step(steps, s, p))
         sigma = self._sigma(key, len(acts))
         probs = self._seat_probs(public, steps, len(acts))
@@ -113,7 +113,7 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--players", type=int, default=6)
     a = ap.parse_args(argv)
-    m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players)
+    m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier])
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0

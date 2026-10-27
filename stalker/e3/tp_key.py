@@ -33,6 +33,8 @@ from stalker.e2.eq_view import N, combo_index, equity_vs
 from stalker.e3 import game as G
 
 TIER_K = {"beginner": 5, "mid": 11}
+# Key depth per tier = the TP items that tier is asked (docs/TP.md §4.1: tier = depth of knowledge).
+TIER_DEPTH = {"beginner": "basic", "mid": "full"}
 AGGRESSIVE = ("r", "b33", "b75", "a")
 POT_ODDS_EDGES = (0.2, 0.3, 0.4)
 SPR_EDGES = (1.0, 3.0, 6.0)
@@ -117,7 +119,14 @@ def equity_steps(s: G.State, seat: int, ranges: list[np.ndarray], k: int) -> np.
     return quantile_buckets(np.nan_to_num(eq), live.astype(float), k)
 
 
-def public_key(s: G.State, seat: int) -> str:
+def position_group(n: int, seat: int) -> str:
+    """early / late (the two seats before the blinds) / blinds."""
+    if seat >= n - 2:
+        return "blind"
+    return "late" if seat >= n - 4 else "early"
+
+
+def public_key(s: G.State, seat: int, depth: str = "full") -> str:
     n_opp = min(len(s.live()) - 1, 3)
     legal = "".join(G.legal(s))
     if legal in ("fc", "c"):
@@ -125,6 +134,11 @@ def public_key(s: G.State, seat: int) -> str:
         # hand.equity against the required equity (ADR 0011 D1), so seat, raise count, initiative
         # and SPR are not part of the key. Fewer keys -> these rare spots learn from more samples.
         return f"call|{s.street}|{n_opp}|{pot_odds_step(s, seat)}|{legal}"
+    if depth == "basic":
+        # Beginner TP: where am I, how many opponents, was there a raise, what does a call cost,
+        # how strong is my hand. No exact seat, initiative or SPR.
+        return (f"b|{position_group(s.n, seat)}|{s.street}|{min(n_opp, 2)}|{min(raise_level(s), 2)}|"
+                f"{pot_odds_step(s, seat)}|{legal}")
     return (f"{seat}|{s.street}|{n_opp}|{raise_level(s)}|{initiative(s, seat)}|"
             f"{pot_odds_step(s, seat)}|{spr_step(s, seat)}|{legal}")
 
