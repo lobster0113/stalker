@@ -24,7 +24,17 @@ FULL_CHECKS: list[tuple[str, list[str]]] = [
 ]
 
 
+# Serial, the full test run alone took 21 of CI's 30 minutes (#167); a few slow tests run 1-5 minutes each,
+# so worksteal keeps one long test from leaving the other workers idle.
+FULL_TEST_WORKERS = ["-n", "auto", "--dist", "worksteal"]
+
 TIMINGS: dict[str, float] = {}
+
+
+def summary(mode: str, passed: bool) -> str:
+    steps = " ".join(f"{k}={v:.0f}s" for k, v in TIMINGS.items())
+    slowest = f" slowest={max(TIMINGS, key=TIMINGS.get)}" if TIMINGS else ""
+    return f"gates {mode}: {'PASS' if passed else 'FAIL'} ({steps}){slowest}"
 
 
 def _run(name: str, argv: list[str]) -> bool:
@@ -49,7 +59,7 @@ def quick() -> bool:
 
 def full() -> bool:
     ok = _run("compile", [PY, "-m", "compileall", "-q", "stalker", "referee", "harness"])
-    ok &= _run("tests", [PY, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider"])
+    ok &= _run("tests", [PY, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *FULL_TEST_WORKERS])
     for name, argv in FULL_CHECKS:
         ok &= _run(name, argv)
     return ok
@@ -58,6 +68,5 @@ def full() -> bool:
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "quick"
     passed = {"quick": quick, "full": full}[mode]()
-    steps = " ".join(f"{k}={v:.0f}s" for k, v in TIMINGS.items())
-    print(f"gates {mode}: {'PASS' if passed else 'FAIL'} ({steps})")
+    print(summary(mode, passed))
     sys.exit(0 if passed else 1)
