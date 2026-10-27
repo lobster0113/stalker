@@ -106,3 +106,25 @@ def test_validation_matches_hand():
         kw = dict(small_blind=1, big_blind=2) | bad
         with pytest.raises(ValueError):
             FastHand(rng=np.random.default_rng(0), **kw)
+
+
+def test_public_state_accessors_match_pokerkit():
+    # stacks/bets/pot feed agent observations in CashSession, so both engines must report them identically.
+    rng = np.random.default_rng(99)
+    for seed in range(40):
+        n = int(rng.integers(2, 10))
+        kw = dict(stacks=[int(x) for x in rng.integers(1, 300, n)], button=int(rng.integers(n)),
+                  small_blind=1, big_blind=2)
+        ref, fast = _pair(seed, **kw)
+        while not fast.is_over:
+            assert (fast.stacks, fast.bets, fast.pot) == (ref.stacks, ref.bets, ref.pot)
+            la = fast.legal_actions()
+            r = rng.random()
+            for h in (ref, fast):
+                if la.can_fold and r < 0.2:
+                    h.fold()
+                elif la.min_raise_to is not None and r > 0.7:
+                    h.raise_to(la.min_raise_to if r < 0.9 else la.max_raise_to)
+                else:
+                    h.check_or_call()
+        assert ref.is_over

@@ -163,6 +163,21 @@ class Hand:
         i = self.state.actor_index
         return None if i is None else self.seats[i]
 
+    @property
+    def stacks(self) -> dict[int, int]:
+        """Chips behind by seat, occupied seats only."""
+        return {self.seats[i]: s for i, s in enumerate(self.state.stacks)}
+
+    @property
+    def bets(self) -> dict[int, int]:
+        """Chips committed this street by seat."""
+        return {self.seats[i]: b for i, b in enumerate(self.state.bets)}
+
+    @property
+    def pot(self) -> int:
+        """All chips in the middle, this street's bets included."""
+        return self.state.total_pot_amount
+
     def hole_cards(self, seat: int) -> list[str]:
         return [repr(c) for c in self.state.hole_cards[self._index[seat]]]
 
