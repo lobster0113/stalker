@@ -44,10 +44,10 @@ class E3MCCFR:
         return pos / t if t > 0 else np.full(m, 1.0 / m)
 
     def _seat_probs(self, public: str, steps: np.ndarray, m: int) -> np.ndarray:
-        out = np.zeros((len(steps), m))
-        for v in np.unique(steps):
-            if v >= 0:
-                out[steps == v] = self._sigma(K.key(public, int(v)), m)
+        # One strategy row per equity step, gathered per combo; board collisions (-1) get zeros.
+        table = np.array([self._sigma(K.key(public, v), m) for v in range(self.k)])
+        out = table[np.maximum(steps, 0)]
+        out[steps < 0] = 0.0
         return out
 
     def iterate(self, iters: int = 1) -> None:
