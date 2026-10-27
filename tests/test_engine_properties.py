@@ -143,22 +143,77 @@ def test_min_raise_rule(engine, spec):
     _play(h, spec, on_step=step)
 
 
+def _independent_contributions(spec, steps):
+    """Per-seat chips put in the pot, from the spec and the applied actions only (never from engine results).
+
+    Blinds/antes follow the ruleset in `fast_hand.py` (capped by stack after ante; heads-up the button is SB).
+    Calls use the `cc` amount, raises use `cbr` raise-to minus what the seat already committed this street.
+    Refund (PokerKit convention, mirrored by both engines): bets of the last betting street are not yet in a pot
+    when the hand ends, so the uncalled part of the top bet (top minus runner-up) goes back to its owner, and a
+    sole survivor of folds gets their whole bet of that street back. Antes are never refunded.
+    """
+    n_seats = len(spec["stacks"])
+    order = [s for s in ((spec["button"] + 1 + k) % n_seats for k in range(n_seats)) if spec["stacks"][s] > 0]
+    heads_up = len(order) == 2
+    bb_seat = order[0] if heads_up else order[1]
+    sb_seat = order[1] if heads_up else order[0]
+    ante = {s: 0 for s in order}
+    if spec["ante_mode"] == "classic":
+        ante = {s: min(spec["ante"], spec["stacks"][s]) for s in order}
+    elif spec["ante_mode"] == "bb_ante":
+        ante[bb_seat] = min(spec["ante"], spec["stacks"][bb_seat])
+    street_bet = {s: 0 for s in order}
+    for seat, blind in ((sb_seat, spec["small_blind"]), (bb_seat, spec["big_blind"])):
+        street_bet[seat] = min(blind, spec["stacks"][seat] - ante[seat])
+    bets = dict(street_bet)
+    cur_street, folded = 0, set()
+    for street, seat, kind, amount in steps:
+        if street != cur_street:
+            cur_street, street_bet = street, {s: 0 for s in order}
+        if kind == "f":
+            folded.add(seat)
+        elif kind == "cc":
+            street_bet[seat] += amount
+            bets[seat] += amount
+        elif kind == "cbr":
+            bets[seat] += amount - street_bet[seat]
+            street_bet[seat] = amount
+    top = sorted(street_bet.values(), reverse=True)
+    alive = [x for x in order if x not in folded]
+    refund_to, refund = max(street_bet, key=street_bet.get), top[0] - top[1]
+    if len(alive) == 1:
+        refund_to, refund = alive[0], street_bet[alive[0]]
+    contrib = [0] * n_seats
+    for x in order:
+        contrib[x] = ante[x] + bets[x] - (refund if x == refund_to else 0)
+    return contrib
+
+
 @pytest.mark.parametrize("engine", ENGINES)
 @given(spec=hands())
 def test_pot_equals_contributions(engine, spec):
     h = _new(engine, spec)
-    _play(h, spec)
+    steps, seen, street = [], 0, 0
+
+    def track(h, la):
+        nonlocal seen, street
+        for seat, kind, amount in h.actions()[seen:]:  # made in the street seen at the previous step
+            steps.append((street, seat, kind, amount))
+        seen = len(h.actions())
+        street = len(h.board())
+
+    _play(h, spec, on_step=track)
+    for seat, kind, amount in h.actions()[seen:]:
+        steps.append((street, seat, kind, amount))
     r = h.result()
-    pot_total = sum(p.amount for p in r.pots)
-    won = sum(a.amount for a in r.awards)
-    assert pot_total == won
+    expected = _independent_contributions(spec, steps)
     won_by_seat = [0] * len(spec["stacks"])
     for a in r.awards:
         for seat, chips in a.awards.items():
             won_by_seat[seat] += chips
-    contributed = [s - f + w for s, f, w in zip(r.starting_stacks, r.final_stacks, won_by_seat)]
-    assert all(c >= 0 for c in contributed)
-    assert sum(contributed) == pot_total
+    assert sum(p.amount for p in r.pots) == sum(a.amount for a in r.awards) == sum(expected)
+    for seat in range(len(spec["stacks"])):
+        assert expected[seat] == r.starting_stacks[seat] - r.final_stacks[seat] + won_by_seat[seat], (seat, expected)
     for p in r.pots:
         assert p.amount > 0 and p.eligible and all(spec["stacks"][s] > 0 for s in p.eligible)
 
@@ -174,3 +229,7 @@ def test_seat_rotation_invariant(engine, spec, rotate):
     b, r = base.result(), rot.result()
     assert tuple(r.deltas[(i + rotate) % n] for i in range(n)) == b.deltas
     assert sorted(p.amount for p in r.pots) == sorted(p.amount for p in b.pots)
+    def award_key(a, shift):
+        return a.amount, tuple(sorted(((seat + shift) % n, chips) for seat, chips in a.awards.items()))
+
+    assert sorted(award_key(a, rotate) for a in b.awards) == sorted(award_key(a, 0) for a in r.awards)
