@@ -48,3 +48,13 @@ def test_tier_jobs_train_at_their_tp_resolution(tmp_path, monkeypatch):
     pol = json.loads((tmp_path / "e2-tier-beginner-seed1.policy.json").read_text())
     assert {int(k.split("|")[2]) for k in pol} <= set(range(5))
     assert T.summarize("e2-tier-beginner", tmp_path)["lbr_bb_mean"] == 2.0
+
+
+def test_eq_jobs_train_with_the_equity_view(tmp_path, monkeypatch):
+    import referee.e2.lbr as lbr
+
+    seen = {}
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, **kw: seen.update(kw) or {"lbr_bb": 1.5})
+    T.run("e2-eq-beginner", 3, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-eq-beginner-seed1.json").read_text())
+    assert r["view"] == {"view": "equity", "k": 5} and seen["view"].k == 5
