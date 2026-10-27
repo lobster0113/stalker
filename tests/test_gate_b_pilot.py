@@ -10,6 +10,9 @@ from referee.gate_b.runner import INSUFFICIENT, load_spec, run_pilot
 from referee.stats import required_tournaments
 from stalker.tournament.config import load_preset
 
+# Retired metric (ADR 0008): kept for the record, run only in the full gate (#104).
+pytestmark = pytest.mark.slow
+
 SMALL = {"name": "t", "reference_version": "refbot-v1+icm-ref-v1+chart-v1+post-v1+short15bb",
          "presets": ["6max_sng_wta"], "blocks": 4, "rotations": 3, "seed": 5, "delta_min": 0.1,
          "pilot_sigma": 0.6, "alpha": 0.05, "power": 0.9}
