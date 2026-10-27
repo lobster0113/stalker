@@ -66,6 +66,24 @@ def test_invalid_specs_say_how_to_fix(over, msg):
         _spec(**over)
 
 
+@pytest.mark.parametrize("over,msg", [
+    ({"ante_mode": "bogus"}, "ante_mode 'bogus'"),
+    ({"ante_mode": "none"}, "non-zero antes"),
+    ({"payout_mode": "xx"}, "payout_mode 'xx'"),
+    ({"time_model": "?"}, "time_model '?'"),
+    ({"reentry_rule": "one"}, "reentry_rule 'one'"),
+    ({"initial_stacks": (1000, 1000, 1000)}, "for field_size 2"),
+])
+def test_enum_and_consistency_errors_on_pushfold(over, msg):
+    with pytest.raises(S.EnvSpecError, match=msg):
+        dataclasses.replace(S.pushfold(10, 1), **over)
+
+
+def test_ante_mode_without_antes_is_rejected():
+    with pytest.raises(S.EnvSpecError, match="needs at least one ante"):
+        dataclasses.replace(S.pushfold(10, 0), ante_mode="dead")
+
+
 def test_chip_fields_reject_floats_and_bools():
     one_level = S.pushfold(10, 1)
     with pytest.raises(S.EnvSpecError, match="integer ante"):

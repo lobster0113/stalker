@@ -13,6 +13,11 @@ from pathlib import Path
 
 REGISTRY_DIR = Path(__file__).resolve().parent / "registry"
 KINDS = ("cash", "sng", "mtt", "hu_pushfold")
+ANTE_MODES = ("none", "classic", "bb_ante", "dead")
+PAYOUT_MODES = ("ratio", "amount", "none")
+TIME_MODELS = ("hands", "minutes")
+REENTRY_RULES = ("none",)  # v1
+TOURNAMENT_KINDS = ("sng", "mtt", "hu_pushfold")
 RULES_VERSION = "nlhe-1"
 RNG_SCHEMA_VERSION = 1
 
@@ -64,6 +69,16 @@ class EnvSpec:
             fail("ante_schedule needs one non-negative integer ante (chips) per blind level")
         if self.rake < 0:
             fail("rake must be >= 0")
+        for name, allowed in (("ante_mode", ANTE_MODES), ("payout_mode", PAYOUT_MODES),
+                              ("time_model", TIME_MODELS), ("reentry_rule", REENTRY_RULES)):
+            if getattr(self, name) not in allowed:
+                fail(f"{name} {getattr(self, name)!r}; use one of {allowed}")
+        if self.ante_mode == "none" and any(self.ante_schedule):
+            fail("ante_mode 'none' with non-zero antes; set ante_mode (classic/bb_ante/dead) or zero the antes")
+        if self.ante_mode != "none" and not any(self.ante_schedule):
+            fail(f"ante_mode {self.ante_mode!r} needs at least one ante > 0; use ante_mode 'none' for no antes")
+        if self.kind in TOURNAMENT_KINDS and len(self.initial_stacks) != self.field_size:
+            fail(f"{len(self.initial_stacks)} initial_stacks for field_size {self.field_size}; give one per entrant")
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
