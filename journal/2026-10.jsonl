@@ -309,3 +309,4 @@
 {"ts": "2026-10-27T21:18:02Z", "role": "reviewer-b", "outcome": "changes", "issue": 152, "pr": 154, "notes": "main과 충돌(dirty), 이 sha에 CI 실행 0건 → merge·충돌 해결 요구, edge.py:470 주석은 referee-change 후속으로", "friction": "충돌 PR은 CI가 아예 안 돌아 builder가 모른 채 10시간 이상 방치"}
 {"ts":"2026-10-27T21:20:35Z","role":"reviewer","outcome":"skipped","issue":110,"pr":210,"notes":"not my parity","friction":""}
 {"ts":"2026-10-27T21:27:58Z","role":"reviewer","outcome":"skipped","issue":152,"pr":154,"notes":"not my parity","friction":""}
+{"ts":"2026-10-27T21:30:28Z","role":"reviewer","outcome":"skipped","issue":156,"pr":198,"notes":"not my parity","friction":""}
