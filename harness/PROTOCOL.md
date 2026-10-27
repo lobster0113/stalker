@@ -66,7 +66,7 @@ CHANGES가 2회 누적된 PR이 또 미달이면 CLOSE하고, 이슈에 `needs-s
 ## 6. Run journal
 모든 루틴은 종료 직전 `ops:journal/YYYY-MM.jsonl`에 한 줄(JSON) append:
 ```json
-{"ts":"2026-10-24T12:00:00Z","role":"builder","outcome":"pr_opened|merged|changes|closed|no_work|blocked|failed|paused","issue":12,"pr":34,"notes":"한 줄 요약","friction":"하네스 때문에 막히거나 헷갈린 점(없으면 빈 문자열)"}
+{"ts":"2026-10-24T12:00:00Z","role":"builder","outcome":"pr_opened|merged|changes|closed|no_work|blocked|failed|paused|waiting_ci","issue":12,"pr":34,"notes":"한 줄 요약","friction":"하네스 때문에 막히거나 헷갈린 점(없으면 빈 문자열)"}
 ```
 `friction`은 L2(Auditor)가 하네스를 개선하는 핵심 입력이다. 솔직하게 쓴다.
 

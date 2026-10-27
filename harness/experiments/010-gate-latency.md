@@ -9,7 +9,8 @@
 - `referee/gates.py`: 단계마다 stderr에 `[gate] <단계> ...`, `[gate] <단계> ok|FAIL <초>`, stdout 요약에 단계별 시간.
 - quick에서 `slow`로 옮김(삭제 없음): `test_director` mtt180·mtt54 매개변수, `test_gate_r` mtt54, `test_rl_env` 100토너먼트, `test_gate_stats` 2건, 은퇴 지표 모듈 테스트(`test_gate_b`·`test_gate_b_pilot`·`test_gate_a_spots`·`test_sufficiency`·`test_sufficiency_curve`).
 - 로컬 결과(참고값): quick 테스트 275초 → 77초.
-- `harness/routines/builder.md`·`reviewer.md`: full과 CI 대기는 백그라운드 + 완료 대기.
+- `harness/routines/builder.md`·`reviewer.md`: full과 CI는 턴을 끝내지 않고 9분 단위 포그라운드 반복 대기(백그라운드로 보내고 턴을 끝내면 세션이 종료됨 — 10-26 23:42 reviewer 실행이 판정 없이 끝나며 잠금을 3시간 남김). reviewer는 40분 초과 시 `waiting_ci` journal 후 잠금 해제.
+- `harness/schedule.json`: reviewer `lock_hours` 3 → 1(실행은 대개 40분 안에 끝난다. 남은 잠금이 리뷰를 3시간 막지 않게).
 ## 측정 지표와 측정창
 머지 후 14일. (1) journal `friction`에서 게이트·CI 대기 타임아웃 언급 건수, (2) CI `gates` 잡 소요 시간(분, 중앙값), (3) builder 실행당 quick 소요(진행 줄의 초).
 ## 성공 기준
