@@ -17,10 +17,16 @@ BLOCK = [
 ]
 
 
+# Rules apply per shell command, so a `+` or `-f` in another command of the same line (a jq
+# expression, a comment body) cannot read as part of a `git push`.
+SEPARATORS = re.compile(r"&&|\|\||[;|\n]")
+
+
 def check(cmd: str) -> str | None:
-    for pat, why in BLOCK:
-        if re.search(pat, cmd):
-            return why
+    for part in SEPARATORS.split(cmd):
+        for pat, why in BLOCK:
+            if re.search(pat, part):
+                return why
     return None
 
 
