@@ -107,6 +107,23 @@ def test_only_legal_actions_apply(engine, spec):
     assert h.is_over and h.actor is None
 
 
+def _max_posted_blind(spec):
+    """Largest blind actually posted preflop; blinds are capped by the stack left after the ante."""
+    n_seats = len(spec["stacks"])
+    order = [s for s in ((spec["button"] + 1 + k) % n_seats for k in range(n_seats)) if spec["stacks"][s] > 0]
+    heads_up = len(order) == 2
+    bb_seat, sb_seat = (order[0], order[1]) if heads_up else (order[1], order[0])
+    ante = {s: 0 for s in order}
+    if spec["ante_mode"] == "classic":
+        ante = {s: min(spec["ante"], spec["stacks"][s]) for s in order}
+    elif spec["ante_mode"] == "bb_ante":
+        ante[bb_seat] = min(spec["ante"], spec["stacks"][bb_seat])
+    return max(
+        min(blind, spec["stacks"][seat] - ante[seat])
+        for seat, blind in ((sb_seat, spec["small_blind"]), (bb_seat, spec["big_blind"]))
+    )
+
+
 @pytest.mark.parametrize("engine", ENGINES)
 @given(spec=hands())
 def test_min_raise_rule(engine, spec):
@@ -116,7 +133,8 @@ def test_min_raise_rule(engine, spec):
     postflop it starts at 0 with a minimum bet of one BB.
     """
     bb = spec["big_blind"]
-    state = {"street": 0, "level": None, "inc": bb}
+    posted = _max_posted_blind(spec)
+    state = {"street": 0, "level": bb if posted >= bb else None, "inc": bb}
     seen = 0
 
     def step(h, la):
@@ -128,8 +146,8 @@ def test_min_raise_rule(engine, spec):
             if kind != "cbr":
                 continue
             if state["level"] is None:
-                if amount - bb >= bb:  # first preflop raise that is certainly a full one
-                    state.update(level=amount, inc=amount - bb)
+                if amount - posted >= bb:  # first preflop raise that is certainly a full one
+                    state.update(level=amount, inc=amount - posted)
                 continue
             if amount - state["level"] >= state["inc"]:
                 state["inc"] = amount - state["level"]
