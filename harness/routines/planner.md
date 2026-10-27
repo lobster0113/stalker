@@ -4,7 +4,7 @@
 
 ## 0. 시작
 - `harness/PAUSE`가 있으면 journal에 `paused` 남기고 종료.
-- 읽기: `docs/CHARTER.md`, `docs/TP.md`, `docs/HARNESS_DESIGN.md` §8 로드맵(D0~D4), `ops:STATE.md`, `ops:metrics/history.jsonl`(최근), `ops:journal/`(최근 7일), 열린 이슈/PR, 최근 7일 머지된 PR.
+- 읽기: `docs/CHARTER.md`, `docs/TP.md`, `docs/HARNESS_DESIGN.md` §8 로드맵(D0~D4), `ops:STATE.md`, `ops:metrics/history.jsonl`(최근), `ops:journal/`(최근 7일), `ops:FEEDBACK.md`(없으면 건너뛴다), 열린 이슈/PR, 최근 7일 머지된 PR.
 
 ## 1. 건강 점검 (먼저)
 - main CI 실패 → `P0` 이슈 존재 확인.
@@ -23,6 +23,7 @@
 - 시뮬레이터 규칙을 바꾸는 이슈에는 반드시 "Gate R 검사 추가"를 수용 기준에 넣는다.
 - TP 명세(`docs/TP.md`, `stalker/tp/spec/`)를 바꾸는 이슈는 `referee-change`이며, 근거(조사·판별력 측정)를 요구한다.
 - 단계 종료에 사용자 체험이 필요하면(D1 데모 등) `ops:NEEDS_HUMAN.md`에 "체험 피드백 요청"을 올린다(비차단, §9).
+- **미처리 피드백 먼저**: `ops:FEEDBACK.md`의 `상태: open` 항목을 모두 처리한다(PROTOCOL §9 4단계). 항목마다 계약 형식 이슈를 만들거나(`## 참고`에 `FB-번호`), 기존 이슈에 연결하거나, 이유를 적어 `declined`. 그다음 `ops:FEEDBACK.md`의 상태 줄을 고쳐 ops에 커밋한다.
 - 로드맵 단계 전환 조건(이전 단계 핵심 이슈 완료 + 해당 지표 산출 가능)이 충족되면 STATE에 단계 전환을 기록한다.
 
 ## 3. STATE 갱신
