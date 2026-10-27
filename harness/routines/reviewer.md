@@ -6,6 +6,7 @@
 ## 0. 시작
 - `harness/PAUSE`가 있으면 journal에 `paused` 남기고 종료.
 - 대상: 트리거된 PR. 트리거 없이 실행됐다면 판정이 필요한 모든 열린 PR(최신 커밋 이후 판정이 없는 것).
+- **분담(두 리뷰어, 실험 013)**: role `reviewer`는 **홀수** 번호 PR, role `reviewer-b`는 **짝수** 번호 PR만 판정한다. 트리거된 PR이 내 몫이 아니면 아무것도 하지 말고 journal에 `skipped`(notes: `not my parity`)를 남기고, 잠금을 `python harness/should_run.py <내 role> --release`로 풀고 종료한다. 스윕도 내 몫만 본다. 두 리뷰어는 같은 지침·같은 기준을 쓴다. journal과 잠금에는 자기 role 이름을 쓴다.
 
 ## 1. 확인 순서 (PR마다)
 1. **CI**: `gh pr checks <n>`. 진행 중이면 최대 40분 기다린다(gates 잡은 20~30분). **턴을 끝내지 말고 포그라운드에서 나눠 기다린다**: 명령 하나는 10분 제한이니 `timeout 540 <대기 루프>`처럼 9분씩 끊어 반복한다. 백그라운드로 보내고 턴을 끝내면 루틴 세션이 그대로 종료돼 결과도 판정도 남지 않고, 같은 role 잠금이 만료될 때까지 남는다(10-26 23:42 reviewer 실행이 이렇게 끝났다). 40분이 지나도 진행 중이면 판정하지 말고 journal에 `waiting_ci`를 남기고 종료한다(다음 실행이 이어받는다). 판정 없이 종료할 때도 잠금은 `python harness/should_run.py reviewer --release`로 푼다. 실패면 `CHANGES`(실패 요약 포함).

@@ -290,3 +290,12 @@ def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
         elif not isinstance(doc.get("jobs"), dict) or not doc["jobs"]:
             bad.append(f"{wf.name}: missing or empty `jobs:`")
     assert not bad, "\n".join(bad)
+
+
+def test_two_reviewers_split_prs_by_parity():
+    import json
+    sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
+    assert sched["reviewer-b"]["instructions"] == sched["reviewer"]["instructions"] == "reviewer"
+    assert {k: v for k, v in sched["reviewer-b"].items()} == {k: v for k, v in sched["reviewer"].items()}
+    text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
+    assert "홀수" in text and "짝수" in text and "reviewer-b" in text
