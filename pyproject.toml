@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "pokerkit==0.7.7"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pyyaml>=6", "hypothesis>=6", "pytest-xdist>=3"]  # pyyaml: workflow YAML validity test (tests/test_harness.py); hypothesis: engine property tests; pytest-xdist: full-gate tests across cores (#167)
 rl = ["torch>=2.2"]  # CPU policy network (stalker/rl/policy.py); not needed for the engine or gates
 
 [tool.setuptools.packages.find]

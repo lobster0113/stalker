@@ -13,8 +13,11 @@
 - 결정당 입력 시간(내 차례 시작 → 제출)을 기록해 "내 약점" 화면에 P50/P95로 보여준다(브라우저 localStorage `stalker.itimes`, 최근 300회).
 - 사용자에게 보여줄 때: 대화 세션이 `<!doctype>`·`<html>`·`<head>`·`<body>` 태그를 뺀 사본을 Claude Artifact(비공개)로 게시한다. 현재 게시본: https://claude.ai/artifact/LpQTDzYgZgTjcY5T4BwcZb
 
-## 화면 확인 (Gate U 전까지)
-- 이 브랜치에는 Playwright E2E 잡이 아직 없다. 변경 확인은 `playwright-core` + 로컬 Chromium으로 폰(390×844)·태블릿(820×1180)·데스크톱(1440×900)에서 흐름(카드 뉴스 이전/다음, 내 차례 시계 정지, 갤러리 → 열기 → 왼쪽 목록, 족보 채점, 학습·훈련 정답 설명, 복기 단계 완주)을 돌리고 스크린샷을 눈으로 봤다(참고용, CI 근거 아님). 가로 넘침 0, 콘솔 오류 0.
-
-## 다음 (Gate U, `referee/GATES.md`)
-- Playwright E2E + 3종 화면 스크린샷 CI 잡(`web`)이 생기면 실행 명령을 여기에 적는다.
+## e2e/ (Gate U, CI 잡 `web`)
+```bash
+cd web/e2e && npm ci && npx playwright install chromium && npm test
+```
+- `gate-u.mjs`: 시작 → 테이블 → 내 차례 → TP 입력 → 제출 → 채점, 학습 섹션 1문제, 복기 입력 → 비교를 통과시키고, 화면마다 390×844·820×1180·1440×900 스크린샷(`web/e2e/screenshots/`, CI에서는 아티팩트 `web-screenshots`), 가로 스크롤, axe critical 위반을 검사한다.
+- 내 차례 대기는 테스트 전용 `?speed=30`(속도 배수)으로 줄인다. 데모 기본 진행(1.5초)은 그대로다.
+- 로컬에 Chromium이 이미 있으면 `CHROMIUM_PATH=/path/to/chrome npm test`.
+- 아직 없음: 신뢰도 라벨 검사·입력 시간 기록(#115), 성능 예산.
