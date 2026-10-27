@@ -94,10 +94,48 @@ def _eval_many(hands, SH, POP, HI, K5, K3, K2, CAT):
     return out
 
 
+def _rank_runouts(combos, ok, fulls, acc, SH, POP, HI, K5, K3, K2, CAT):
+    """For each runout (row of `fulls`, 5 board cards): every usable combo's share of the other
+    usable combos it beats (ties half), added to `acc`; combos blocked only by the runout add 0.5.
+    Mirrors `stalker.e2.abstraction.ehs_table`'s numpy loop operation for operation."""
+    n = combos.shape[0]
+    hand = np.empty(7, dtype=np.int64)
+    score = np.empty(n, dtype=np.int64)
+    which = np.empty(n, dtype=np.int64)
+    cnt = np.zeros(13, dtype=np.int64)
+    smask = np.zeros(4, dtype=np.int64)
+    for r in range(fulls.shape[0]):
+        for j in range(5):
+            hand[2 + j] = fulls[r, j]
+        m = 0
+        for i in range(n):
+            if not ok[i]:
+                continue
+            a, b = combos[i, 0], combos[i, 1]
+            blocked = False
+            for j in range(5):
+                if fulls[r, j] == a or fulls[r, j] == b:
+                    blocked = True
+            if blocked:
+                acc[i] += 0.5
+                continue
+            hand[0], hand[1] = a, b
+            score[m] = _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask)
+            which[m] = i
+            m += 1
+        srt = np.sort(score[:m])
+        den = max(m - 1, 1)
+        for t in range(m):
+            lo = np.searchsorted(srt, score[t], side="left")
+            hi = np.searchsorted(srt, score[t], side="right")
+            acc[which[t]] += (lo + (hi - lo - 1) / 2) / den
+
+
 if HAVE_NUMBA:
     _clear = njit(cache=True)(_clear)
     _eval_one = njit(cache=True)(_eval_one)
     _eval_many = njit(cache=True)(_eval_many)
+    _rank_runouts = njit(cache=True)(_rank_runouts)
 
 
 def evaluate_batch(hands: np.ndarray) -> np.ndarray:
@@ -106,3 +144,8 @@ def evaluate_batch(hands: np.ndarray) -> np.ndarray:
     if not HAVE_NUMBA:
         return _ref.evaluate_batch(hands)
     return _eval_many(hands, _SH, _POP, _HI, _KICK5, _KICK3, _KICK2, _CAT)
+
+
+def rank_runouts(combos: np.ndarray, ok: np.ndarray, fulls: np.ndarray, acc: np.ndarray) -> None:
+    """Compiled strength-rank accumulation for board tables (#201); requires numba."""
+    _rank_runouts(combos, ok, fulls, acc, _SH, _POP, _HI, _KICK5, _KICK3, _KICK2, _CAT)
