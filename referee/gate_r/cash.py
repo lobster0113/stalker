@@ -1,10 +1,10 @@
 """Gate R, cash-game skeleton (SIM-c0): rules and invariants checked on a mock event stream.
 
 No engine exists yet (`CashSession` is SIM-b); this fixes the rule table and the five check names so that the
-engine is written against them. Rules (v1, see `referee/GATES.md`): fixed blinds, no straddle, no rake, fixed
-seat count, a seat that is out of chips may re-buy between hands, a seat below the cap may top up between hands
-(stack + top-up <= `max_buyin`), the session ends after exactly `hands` hands, the button moves one occupied seat
-clockwise per hand.
+engine is written against them. Rules (v1, see `referee/GATES.md`): fixed blinds, no straddle, no rake, a fixed
+set of `seats` seats for the whole session (nobody joins or leaves, so the button visits every seat in order), a
+seat with no chips must re-buy before the next hand (a hand never starts with an empty stack), a seat below the cap
+may top up between hands (stack + top-up <= `max_buyin`), the session ends after exactly `hands` hands.
 
 Stream (list of dicts, in order):
   SEAT      {seat, amount}                         initial buy-in
@@ -42,6 +42,7 @@ def check_cash_session(rules: CashRules, events: list[dict], tally: Tally, where
     stack: dict[int, int] = {}
     bought: dict[int, int] = {}
     in_hand, hands, prev_button = False, 0, None
+    seated_closed = False  # set by the first HAND: the table is fixed from then on
     hand_start: dict[int, int] = {}
 
     def buy(seat: int, amount: int) -> None:
@@ -51,6 +52,7 @@ def check_cash_session(rules: CashRules, events: list[dict], tally: Tally, where
     for i, ev in enumerate(events):
         t, at = ev["type"], f"{where} event {i}"
         if t == "SEAT":
+            tally.check("session_length", not seated_closed, f"{at}: seat added after the first hand (seat count is fixed)")
             tally.check("cash_rebuy", rules.min_buyin <= ev["amount"] <= rules.max_buyin,
                         f"{at}: initial buy-in {ev['amount']} outside [{rules.min_buyin}, {rules.max_buyin}]")
             buy(ev["seat"], ev["amount"])
@@ -68,7 +70,12 @@ def check_cash_session(rules: CashRules, events: list[dict], tally: Tally, where
             buy(s, ev["amount"])
         elif t == "HAND":
             hands += 1
+            seated_closed = True
             seats = sorted(ev["stacks"])
+            tally.check("session_length", len(seats) == rules.seats,
+                        f"{at}: {len(seats)} seats in the hand, rules fix {rules.seats}")
+            tally.check("cash_rebuy", min(ev["stacks"].values()) > 0,
+                        f"{at}: a hand started with an empty stack (re-buy first)")
             tally.check("chip_conservation", ev["stacks"] == {s: c for s, c in stack.items()},
                         f"{at}: hand stacks differ from tracked stacks")
             nxt = seats[0] if prev_button is None else next((s for s in seats if s > prev_button), seats[0])
@@ -77,7 +84,9 @@ def check_cash_session(rules: CashRules, events: list[dict], tally: Tally, where
             prev_button, in_hand, hand_start = ev["button"], True, dict(ev["stacks"])
         elif t == "HAND_END":
             end = ev["stacks"]
-            tally.check("chip_conservation", sum(end.values()) == sum(hand_start.values()) and set(end) == set(hand_start),
+            tally.check("chip_conservation",
+                        sum(end.values()) == sum(hand_start.values()) and set(end) == set(hand_start)
+                        and min(end.values(), default=0) >= 0,
                         f"{at}: table chips changed in a hand ({sum(hand_start.values())} -> {sum(end.values())})")
             stack, in_hand = dict(end), False
     tally.check("session_length", hands == rules.hands and not in_hand,

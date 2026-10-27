@@ -58,8 +58,14 @@ def _button_skips_seat(e):
     e[9]["button"] = 0
 
 
+def _rebuy_with_chips(e):  # seat 0 holds 250 after hand 2 and re-buys anyway; later stacks follow the chips
+    e.insert(8, {"type": "REBUY", "seat": 0, "amount": 100, "stack": 250})
+    e[10]["stacks"][0] = 350
+    e[11]["stacks"][0] = 350
+
+
 VIOLATIONS = {
-    "cash_rebuy": lambda e: e[8].update(stack=5),                    # re-buy with chips left
+    "cash_rebuy": _rebuy_with_chips,
     "cash_topup": _topup_over_cap,
     "button": _button_skips_seat,
     "chip_conservation": lambda e: e[4]["stacks"].update({1: 300}),  # chips appear from nowhere
@@ -77,3 +83,28 @@ def test_topup_during_a_hand_fails():
     ev = good()
     ev.insert(4, {"type": "TOPUP", "seat": 1, "amount": 50, "stack": 150})
     assert "cash_topup" in failed(run(ev))
+
+
+def test_seat_added_after_first_hand_fails_session_length():
+    ev = good()
+    ev.insert(5, {"type": "SEAT", "seat": 3, "amount": 100})
+    assert "session_length" in failed(run(ev))
+
+
+def test_seat_count_must_match_rules():
+    t = run(good(), CashRules(seats=4, sb=1, bb=2, min_buyin=100, max_buyin=200, hands=3))
+    assert "session_length" in failed(t)
+
+
+def test_hand_with_empty_stack_fails_rebuy():
+    ev = good()
+    del ev[8]  # seat 2 busts and does not re-buy
+    ev[8]["stacks"][2] = 0
+    ev[9]["stacks"][2] = 0
+    assert "cash_rebuy" in failed(run(ev))
+
+
+def test_negative_stack_fails_conservation():
+    ev = good()
+    ev[4]["stacks"] = {0: -50, 1: 300, 2: 200}  # sums to the hand total (450) but one seat is below zero
+    assert "chip_conservation" in failed(run(ev))
