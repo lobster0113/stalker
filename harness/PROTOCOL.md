@@ -73,6 +73,7 @@ CHANGES가 2회 누적된 PR이 또 미달이면 CLOSE하고, 이슈에 `needs-s
 
 **실행 잠금.** `should_run.py`가 RUN을 내면 `ops:locks/<role>.json`(role·run_id·시작 시각)을 커밋해 같은 role을 잠근다. 잠금이 `lock_hours`(schedule.json, 기본 3시간) 안이면 같은 role의 다른 실행은 `SKIP (running ...)`으로 끝난다.
 journal 줄을 push한 **직후** 반드시 잠금을 푼다: `python harness/should_run.py <role> --release` (자기 run_id의 잠금만 지운다). 비정상 종료로 남은 잠금은 `lock_hours` 뒤 만료된다. 로컬에서 판정만 보려면 `--no-lock`.
+`--sweep` 실행(reviewer 정시 스윕)의 간격은 **이전 스윕끼리만** 비교한다: RUN이 잠금과 같은 커밋으로 `ops:locks/<role>.sweep.json`(시작 시각)을 남기고, 다음 `--sweep`은 그 시각에서 `sweep_min_interval_hours`가 지났는지 본다. 웹훅 실행의 journal은 스윕 간격에 영향을 주지 않는다(#205, 실험 017).
 
 ## 7. 잡기(claim)와 동시성
 - 이슈를 잡을 때 `in-progress` 라벨 + 코멘트 `CLAIM <role> <UTC시각>`.

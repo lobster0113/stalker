@@ -1,0 +1,174 @@
+{
+  "tp_version": "0.1",
+  "note": "Hand-calculated cases for TP v0.1 definitions (Stage 0 Go/No-Go, ADR 0010). Each case's rationale is the hand calculation; tests/test_tp_examples.py checks stalker/tp/reference.py reproduces every expected value within tolerance.",
+  "assumptions": {
+    "A-explicit-range": "Opponent range given explicitly as weighted combos (TeacherContext stand-in); hidden cards never used",
+    "A-uniform-prior": "Uniform prior over live combos; posterior from the stated opponent line frequencies",
+    "A-calling-range": "My representative calling range given explicitly (TeacherContext: my policy)",
+    "A-fold-policy": "Opponent fold probability per combo for the presented size given explicitly",
+    "A-icm-malmuth-harville": "ICM = Malmuth-Harville; a player busted by this hand takes the next payout down; no blinds in the pot"
+  },
+  "cases": [
+    {
+      "id": "equity-river-set-vs-overpair",
+      "item": "hand.equity", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "AhAd", "board": "Kc7d2s9h3c", "ranges": [[["KsKd", 1], ["QsQd", 1]]]},
+      "expected": {"win": 0.5, "tie": 0.0, "equity": 0.5}, "tolerance": 1e-9,
+      "rationale": "River. KK makes a set of kings and beats AA; QQ loses to AA. Equal weights: win 1/2, no ties."
+    },
+    {
+      "id": "equity-board-plays-split",
+      "item": "hand.equity", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "2c3d", "board": "AsKsQsJsTs", "ranges": [[["4c5d", 1]]]},
+      "expected": {"win": 0.0, "tie": 1.0, "equity": 0.5}, "tolerance": 1e-9,
+      "rationale": "Royal flush on the board: everyone plays the board, the pot splits two ways. win 0, tie 1, equity = 1/2 (split share)."
+    },
+    {
+      "id": "equity-turn-flush-draw-plus-overcards",
+      "item": "hand.equity", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "AhKh", "board": "2h7hTc3d", "ranges": [[["QcQd", 1]]]},
+      "expected": {"win": 0.3409090909090909, "tie": 0.0, "equity": 0.3409090909090909}, "tolerance": 1e-9,
+      "rationale": "44 unseen rivers (52-2-4-2). Hero wins with 9 hearts + 3 aces (As Ac Ad) + 3 kings (Ks Kc Kd) = 15 -> 15/44. No straight is possible for hero with one card."
+    },
+    {
+      "id": "equity-multiway-three-way-split",
+      "item": "hand.equity", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "2c3d", "board": "AsKsQsJsTs", "ranges": [[["4c5d", 1]], [["6c7d", 1]]]},
+      "expected": {"win": 0.0, "tie": 1.0, "equity": 0.3333333333333333}, "tolerance": 1e-9,
+      "rationale": "Multiway (2 opponents), all play the board: three-way split, hero share 1/3."
+    },
+    {
+      "id": "range-pairs-only-blocked-aces",
+      "item": "opp.range", "assumptions": ["A-uniform-prior"],
+      "inputs": {"hero": "AsKd", "board": "", "policy": [{"classes": ["pairs"], "freq": 1}]},
+      "expected": {"cells": {"AA": {"value": 100, "live": 3}, "KK": {"value": 100, "live": 3}, "AKo": {"value": 0, "live": 7}, "AKs": {"value": 0, "live": 2}},
+                   "posterior": {"AA": 0.041666666666666664}},
+      "tolerance": 1e-9,
+      "rationale": "Opponent takes the line with pairs only. As blocks 3 of 6 AA combos, Kd 3 of 6 KK. Live pair combos 13*6-3-3 = 72, so P(AA) = 3/72. AKo: 12 combos minus 3 with As minus 3 with Kd plus AsKd counted twice -> 7 live; AKs: AsKs, AdKd blocked -> 2 live."
+    },
+    {
+      "id": "range-same-cell-different-live-combos",
+      "item": "opp.range", "assumptions": ["A-uniform-prior"],
+      "inputs": {"hero": "AsQd", "board": "", "policy": [{"classes": ["AKs", "pairs"], "freq": 1}, {"classes": ["AKo"], "freq": 0.5}]},
+      "expected": {"cells": {"AKs": {"value": 100, "live": 3}, "AKo": {"value": 50, "live": 9}}},
+      "tolerance": 1e-9,
+      "rationale": "Blocker case: AKs shows 100 but As leaves only 3 live AKs combos (AsKs gone) and 9 live AKo (AsKc AsKd AsKh gone). Mixed AKo at 50% shows 50."
+    },
+    {
+      "id": "range-same-cell-no-blockers",
+      "item": "opp.range", "assumptions": ["A-uniform-prior"],
+      "inputs": {"hero": "7c2d", "board": "", "policy": [{"classes": ["AKs", "pairs"], "freq": 1}, {"classes": ["AKo"], "freq": 0.5}]},
+      "expected": {"cells": {"AKs": {"value": 100, "live": 4}, "AKo": {"value": 50, "live": 12}}},
+      "tolerance": 1e-9,
+      "rationale": "Same 169 display as the previous case (AKs 100, AKo 50) but no blockers: 4 and 12 live combos. The UI must show the live count."
+    },
+    {
+      "id": "board-adv-even",
+      "item": "board.adv", "assumptions": ["A-explicit-range"],
+      "inputs": {"my_range": [["AhAd", 1]], "opp_range": [["KsKd", 1], ["QsQd", 1]], "board": "Kc7d2s9h3c"},
+      "expected": {"value": 50.0}, "tolerance": 1e-9,
+      "rationale": "My range AA wins against QQ, loses to KK (set): equity 1/2, board.adv = 100*(1-1/2) = 50."
+    },
+    {
+      "id": "board-adv-favours-me",
+      "item": "board.adv", "assumptions": ["A-explicit-range"],
+      "inputs": {"my_range": [["AhAd", 1], ["8h8d", 1]], "opp_range": [["5h5d", 1], ["QsQd", 1]], "board": "Kc7d2s9h3c"},
+      "expected": {"value": 25.0}, "tolerance": 1e-9,
+      "rationale": "Pairs: AA>55, AA>QQ, 88>55, 88<QQ -> 3/4 equity, board.adv = 25."
+    },
+    {
+      "id": "outs-turn-draw",
+      "item": "hand.outs", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "AhKh", "board": "2h7hTc3d", "ranges": [[["QcQd", 1]]]},
+      "expected": {"value": 34.09090909090909}, "tolerance": 1e-9,
+      "rationale": "Equity now 15/44 = 34.1%. The 15 winning rivers move equity to 100% (+65.9pp >= +10pp). Qc Qd cannot come (opponent holds them), so 44 equally likely rivers: outs = 15/44*100."
+    },
+    {
+      "id": "outs-flop-two-outer",
+      "item": "hand.outs", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "AhAd", "board": "Kc7d2s", "ranges": [[["KsKd", 1]]]},
+      "expected": {"value": 4.444444444444445}, "tolerance": 1e-9,
+      "rationale": "AA vs a set of kings. Only As or Ac on the turn helps (set over set, then wins unless Kh: 43/44). 45 unseen turn cards -> 2/45*100 = 4.44."
+    },
+    {
+      "id": "vuln-turn-draw",
+      "item": "hand.vuln", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "AhKh", "board": "2h7hTc3d", "ranges": [[["QcQd", 1]]]},
+      "expected": {"value": 65.9090909090909}, "tolerance": 1e-9,
+      "rationale": "The other 29 rivers drop equity from 34.1% to 0 (-34.1pp <= -10pp): 29/44*100."
+    },
+    {
+      "id": "vuln-flop-nothing-to-lose",
+      "item": "hand.vuln", "assumptions": ["A-explicit-range"],
+      "inputs": {"hero": "AhAd", "board": "Kc7d2s", "ranges": [[["KsKd", 1]]]},
+      "expected": {"value": 0.0}, "tolerance": 1e-9,
+      "rationale": "Equity now = runouts with an ace and no Kh: (2*42 + 1)/990 = 8.6%. No card can drop it by 10pp, so vuln = 0. This is why hand.outs and hand.vuln are separate: an average change would hide it."
+    },
+    {
+      "id": "value-two-hand-calling-range",
+      "item": "opp.value", "assumptions": ["A-explicit-range", "A-calling-range"],
+      "inputs": {"bet_range": [["KsKd", 1], ["QsQd", 1], ["5h4h", 1]], "my_calling_range": [["AhAd", 1], ["9c8c", 1]], "board": "Kc7d2s9h3c"},
+      "expected": {"value": 33.333333333333336}, "tolerance": 1e-9,
+      "rationale": "Against my calls AA and 98 (pair of nines): KK beats both (100%, value); QQ beats 98, loses to AA (exactly 50%, not > 50% -> bluff side); 54 loses to both. Value share 1/3."
+    },
+    {
+      "id": "value-depends-on-calling-range",
+      "item": "opp.value", "assumptions": ["A-explicit-range", "A-calling-range"],
+      "inputs": {"bet_range": [["KsKd", 1], ["QsQd", 1], ["5h4h", 1]], "my_calling_range": [["9c8c", 1]], "board": "Kc7d2s9h3c"},
+      "expected": {"value": 66.66666666666667}, "tolerance": 1e-9,
+      "rationale": "Same bet range; if I only call with 98, QQ becomes value too: 2/3. opp.value is relative to my calling range, so the assumption must be shown."
+    },
+    {
+      "id": "foldeq-heads-up",
+      "item": "plan.foldeq", "assumptions": ["A-explicit-range", "A-fold-policy"],
+      "inputs": {"opponents": [[["KsKd", 1, 0.0], ["QsQd", 1, 0.5], ["5h4h", 1, 1.0]]]},
+      "expected": {"value": 50.0}, "tolerance": 1e-9,
+      "rationale": "(0 + 0.5 + 1)/3 = 0.5."
+    },
+    {
+      "id": "foldeq-multiway-everyone-folds",
+      "item": "plan.foldeq", "assumptions": ["A-explicit-range", "A-fold-policy"],
+      "inputs": {"opponents": [[["AhAd", 2, 1.0], ["KhKd", 1, 0.0]], [["QhQd", 1, 0.6]]]},
+      "expected": {"value": 40.0}, "tolerance": 1e-9,
+      "rationale": "Opponent 1 folds 2/3, opponent 2 folds 0.6, independent: all fold = 2/3 * 0.6 = 0.4."
+    },
+    {
+      "id": "icm-heads-up-no-premium",
+      "item": "plan.icm", "assumptions": ["A-icm-malmuth-harville"],
+      "inputs": {"stacks": [1000, 0], "payouts": [70, 30], "hero": 0, "villain": 1, "pot_before_call": 1000, "to_call": 1000},
+      "expected": {"value": 0.0}, "tolerance": 1e-9,
+      "rationale": "Heads-up for everything: win 70, lose 30, fold 50 -> ICM required (50-30)/(70-30) = 50% = chip-EV required 1000/2000. Premium 0."
+    },
+    {
+      "id": "icm-three-handed-call",
+      "item": "plan.icm", "assumptions": ["A-icm-malmuth-harville"],
+      "inputs": {"stacks": [1000, 0, 1000], "payouts": [50, 30, 20], "hero": 0, "villain": 1, "pot_before_call": 1000, "to_call": 1000},
+      "expected": {"value": 7.142857142857143}, "tolerance": 1e-9,
+      "rationale": "Three 1000 stacks, villain shoves. Fold: all equal -> 33.33. Win: hero 2000 vs 1000 for 50/30 -> 2/3*50 + 1/3*30 = 43.33. Lose: hero busts 3rd -> 20. ICM required (33.33-20)/(43.33-20) = 4/7 = 57.14%; chip-EV 50%. Premium 7.14pp."
+    },
+    {"id": "na-outs-river", "item": "hand.outs", "context": {"street": "river"}, "expected": {"na": true},
+     "rationale": "No next card on the river."},
+    {"id": "na-vuln-preflop", "item": "hand.vuln", "context": {"street": "preflop"}, "expected": {"na": true},
+     "rationale": "Defined on the flop and turn only."},
+    {"id": "na-value-no-bet", "item": "opp.value", "context": {"street": "turn", "opponent_bet_this_street": false}, "expected": {"na": true},
+     "rationale": "Nothing to classify when the opponent has not bet or raised this street."},
+    {"id": "na-board-adv-preflop", "item": "board.adv", "context": {"street": "preflop", "opponents": 1}, "expected": {"na": true},
+     "rationale": "No board yet."},
+    {"id": "na-board-adv-multiway", "item": "board.adv", "context": {"street": "flop", "opponents": 2}, "expected": {"na": true},
+     "rationale": "Heads-up only in v0.1."},
+    {"id": "na-foldeq-not-legal", "item": "plan.foldeq", "context": {"street": "turn", "bet_or_raise_legal": false}, "expected": {"na": true},
+     "rationale": "Facing an all-in: no bet or raise to present."},
+    {"id": "na-icm-cash", "item": "plan.icm", "context": {"game": "cash", "call_or_all_in": true}, "expected": {"na": true},
+     "rationale": "Cash games have no ICM."},
+    {"id": "na-icm-no-call", "item": "plan.icm", "context": {"game": "tournament", "call_or_all_in": false}, "expected": {"na": true},
+     "rationale": "Limited to call or all-in decisions."},
+    {"id": "na-loose-few-hands", "item": "opp.loose", "context": {"opportunities": 5}, "expected": {"na": true},
+     "rationale": "Fewer than 8 preflop opportunities."},
+    {"id": "na-range-no-opponent", "item": "opp.range", "context": {"opponents": 0}, "expected": {"na": true},
+     "rationale": "No opponent left in the hand."},
+    {"id": "applies-outs-turn", "item": "hand.outs", "context": {"street": "turn"}, "expected": {"na": false},
+     "rationale": "Control: the turn is in scope."},
+    {"id": "applies-value-after-bet", "item": "opp.value", "context": {"street": "river", "opponent_bet_this_street": true}, "expected": {"na": false},
+     "rationale": "Control: a bet this street makes it applicable."}
+  ]
+}
