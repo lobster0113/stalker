@@ -40,3 +40,14 @@ def test_unknown_part_is_rejected():
 
     with pytest.raises(SystemExit, match="part"):
         gates.full("bogus")
+
+
+def test_cli_arguments_fail_with_a_short_hint():
+    import pytest
+
+    assert gates._parse(["gates", "full", "--part", "tests"]) == ("full", "tests")
+    assert gates._parse(["gates"]) == ("quick", "all")
+    for argv, msg in ((["gates", "full", "--part"], "needs a value"), (["gates", "full", "--part", "x"], "unknown part"),
+                      (["gates", "quick", "--part", "tests"], "full only"), (["gates", "slow"], "unknown mode")):
+        with pytest.raises(SystemExit, match=msg):
+            gates._parse(argv)

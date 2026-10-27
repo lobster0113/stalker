@@ -70,9 +70,25 @@ def full(part: str = "all") -> bool:
     return ok
 
 
+def _parse(argv: list[str]) -> tuple[str, str]:
+    mode = argv[1] if len(argv) > 1 else "quick"
+    if mode not in ("quick", "full"):
+        raise SystemExit(f"unknown mode {mode!r}; use quick or full")
+    part = "all"
+    if "--part" in argv:
+        i = argv.index("--part")
+        if mode != "full":
+            raise SystemExit("--part works with full only: python -m referee.gates full --part tests|checks")
+        if i + 1 >= len(argv):
+            raise SystemExit("--part needs a value; use all, tests or checks")
+        part = argv[i + 1]
+        if part not in ("all", "tests", "checks"):
+            raise SystemExit(f"unknown part {part!r}; use all, tests or checks")
+    return mode, part
+
+
 if __name__ == "__main__":
-    mode = sys.argv[1] if len(sys.argv) > 1 else "quick"
-    part = sys.argv[sys.argv.index("--part") + 1] if "--part" in sys.argv else "all"
-    passed = quick() if mode == "quick" else full(part) if mode == "full" else sys.exit(f"unknown mode {mode!r}")
+    mode, part = _parse(sys.argv)
+    passed = quick() if mode == "quick" else full(part)
     print(summary(mode if part == "all" else f"{mode}:{part}", passed))
     sys.exit(0 if passed else 1)
