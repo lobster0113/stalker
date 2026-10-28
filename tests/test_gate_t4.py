@@ -68,11 +68,15 @@ def test_each_pair_changes_exactly_its_declared_fields():
 
 
 def _no_opponent_count(agent, spot):
-    """Forgets only the opponent count and who they are; everything else stays."""
+    """Forgets only the opponent count and who they are; everything else stays.
+
+    `hand.equity` is against every opponent in the hand (docs/TP.md §3, enforced by Gate T2), so it
+    carries the count too and is forgotten with it.
+    """
     obs, builder = t4.observation(spot)
     po = builder.build(obs)
     dc = dataclasses.replace(decision_context(po), opponents_to_act=0, opponent_positions=())
-    return repr((sorted(agent.tp(po).items()), dc))
+    return repr((sorted((k, v) for k, v in agent.tp(po).items() if k != "hand.equity"), dc))
 
 
 def test_t4_catches_an_input_without_the_opponent_count():
