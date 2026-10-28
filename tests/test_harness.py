@@ -1,7 +1,10 @@
 import importlib.util
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 from referee.guard import load_rules, violations
 
@@ -53,7 +56,7 @@ def test_bash_guard_checks_each_command_separately():
 
 def test_schedule_covers_all_routines():
     import json
-    sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
+    sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))
     roles = {p.stem for p in (ROOT / "harness" / "routines").glob("*.md")}
     assert roles == {cfg["instructions"] for cfg in sched.values()}
 
@@ -65,13 +68,13 @@ def _run_pytest(tmp_path, body, require_torch):
     import sys
 
     shutil.copy(ROOT / "tests" / "conftest.py", tmp_path / "conftest.py")
-    (tmp_path / "test_case.py").write_text(body)
+    (tmp_path / "test_case.py").write_text(body, encoding="utf-8")
     env = {k: v for k, v in os.environ.items() if k != "STALKER_REQUIRE_TORCH"}
     if require_torch:
         env["STALKER_REQUIRE_TORCH"] = "1"
     return subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(tmp_path)],
-        cwd=tmp_path, env=env, capture_output=True, text=True,
+        cwd=tmp_path, env=env, capture_output=True, text=True, encoding="utf-8",
     )
 
 
@@ -97,7 +100,7 @@ def test_require_torch_catches_in_test_skip_and_keeps_other_skips(tmp_path):
 
 
 def test_ci_rl_job_runs_torch_tests_without_skips():
-    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     jobs = {}
     name = None
     for line in ci.splitlines():
@@ -122,19 +125,19 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
 
 
 def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
-    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     web = ci.split("\n  web:\n", 1)[1].split("\n\n", 1)[0]
     minutes = int(re.search(r"timeout-minutes: (\d+)", web).group(1))
     assert minutes <= 15
     assert "npm test" in web and "playwright install" in web
     assert "name: web-screenshots" in web and "if: always()" in web
-    script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text()
+    script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text(encoding="utf-8")
     assert "scrollWidth" in script and "critical" in script
     assert all(f"{w}" in script for w in ("390", "820", "1440"))
 
 
 def test_texassolver_job_is_manual_capped_and_secretless():
-    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
+    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text(encoding="utf-8")
     on = wf.split("\non:\n", 1)[1].split("\n\n", 1)[0]
     assert "workflow_dispatch:" in on
     assert not any(t in on for t in ("pull_request", "push:", "schedule:", "workflow_run"))
@@ -153,13 +156,14 @@ def test_texassolver_job_is_manual_capped_and_secretless():
     assert all("${{ inputs." not in line for line in wf.splitlines() if "run:" in line or "python -m" in line)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="runs the workflow's GNU sed command on a POSIX path (#191)")
 def test_texassolver_job_cache_key_tracks_install_commit():
-    script = (ROOT / "scripts" / "install_texassolver.sh").read_text()
+    script = (ROOT / "scripts" / "install_texassolver.sh").read_text(encoding="utf-8")
     (commit,) = re.findall(r'^COMMIT="([0-9a-f]{40})"', script, re.M)
-    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
+    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text(encoding="utf-8")
     sed = re.search(r"sha=\$\(sed -n '([^']+)' scripts/install_texassolver.sh\)", wf).group(1)
     out = subprocess.run(["sed", "-n", sed, str(ROOT / "scripts" / "install_texassolver.sh")],
-                         capture_output=True, text=True, check=True).stdout.strip()
+                         capture_output=True, text=True, check=True, encoding="utf-8").stdout.strip()
     assert out == commit
 
 
@@ -350,7 +354,7 @@ def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
 
 def test_two_reviewers_split_prs_by_parity():
     import json
-    sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
+    sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))
     assert sched["reviewer-b"]["instructions"] == sched["reviewer"]["instructions"] == "reviewer"
     assert {k: v for k, v in sched["reviewer-b"].items()} == {k: v for k, v in sched["reviewer"].items()}
     text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")

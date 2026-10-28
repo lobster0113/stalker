@@ -20,6 +20,7 @@ from stalker.records.schema import (
     RecordError,
     ensure_valid,
     from_dict,
+    migrate,
     to_dict,
 )
 
@@ -52,9 +53,9 @@ def current_git_sha() -> str:
     root = Path(__file__).resolve().parent
     try:
         sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True,
-                             check=True).stdout.strip()
+                             check=True, encoding="utf-8").stdout.strip()
         dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=root,
-                               capture_output=True, text=True, check=True).stdout.strip()
+                               capture_output=True, text=True, check=True, encoding="utf-8").stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
     return sha + ("-dirty" if dirty else "")
@@ -80,8 +81,18 @@ def _loads(text: str, where: str) -> Any:
 
 def read_manifest(run_dir: str | Path) -> RunManifest:
     data = _loads((Path(run_dir) / MANIFEST).read_text(encoding="utf-8"), MANIFEST)
+    if isinstance(data, dict) and data.get("schema_version") == 1:
+        data = dict(data, schema_version=SCHEMA_VERSION)  # the manifest itself did not change in v2
     _check_version(data, MANIFEST)
     return from_dict(RunManifest, data, "manifest")
+
+
+def run_env_id(run_dir: str | Path) -> str:
+    """env_id of a run, from its manifest config (how v1 records get their env_id on read)."""
+    from stalker.env.spec import from_tournament
+    from stalker.tournament.config import TournamentConfig
+
+    return from_tournament(TournamentConfig.from_dict(dict(read_manifest(run_dir).config))).env_id
 
 
 def _type_name(record: Record) -> str:
@@ -122,7 +133,9 @@ class RecordWriter:
 
 
 def iter_records(run_dir: str | Path, validate: bool = True) -> Iterator[Record]:
+    """Records of a run, migrated to the current schema (v1 files get env_id from the manifest)."""
     path = Path(run_dir) / RECORDS
+    env_id: str | None = None
     with path.open(encoding="utf-8") as f:
         for lineno, line in enumerate(f, 1):
             if not line.strip():
@@ -131,6 +144,9 @@ def iter_records(run_dir: str | Path, validate: bool = True) -> Iterator[Record]
             obj = _loads(line, where)
             if not isinstance(obj, dict) or obj.get("type") not in RECORD_TYPES or "record" not in obj:
                 raise RecordError(f"{where}: expected {{\"type\": one of {sorted(RECORD_TYPES)}, \"record\": {{...}}}}.")
+            if isinstance(obj["record"], dict) and obj["record"].get("schema_version") == 1:
+                env_id = env_id or run_env_id(run_dir)
+                obj["record"] = migrate(obj["type"], obj["record"], env_id)
             _check_version(obj["record"], where)
             record = from_dict(RECORD_TYPES[obj["type"]], obj["record"], where)
             if validate:
