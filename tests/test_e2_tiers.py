@@ -54,3 +54,16 @@ def test_tier_table_rows_are_reproducible():
     b = table([10], 2, 3, ("beginner",))
     strip = [{k: v for k, v in r.items() if k != "train_s"} for r in a]
     assert strip == [{k: v for k, v in r.items() if k != "train_s"} for r in b]
+
+
+def test_checkpoint_keeps_the_tier(tmp_path):
+    from stalker.e2.abstraction import TIERS
+    from stalker.e2.mccfr import MCCFR
+    m = MCCFR(3, TIERS["beginner"])
+    m.iterate(5)
+    m.save(tmp_path / "ck.json")
+    r = MCCFR.load(tmp_path / "ck.json")
+    assert r.abstraction == TIERS["beginner"] and r.seed == 3
+    m.iterate(5)
+    r.iterate(5)
+    assert m.policy() == r.policy()

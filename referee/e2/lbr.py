@@ -95,14 +95,17 @@ class LBRResult:
     stderr_bb: float
 
 
-def lbr(policy: dict[str, list[float]], player: int, hands: int, seed: int = 0,
-        abstraction: Abstraction = BASELINE, view=None) -> LBRResult:
+def lbr_samples(policy, player: int, hands: int, seed: int = 0, abstraction: Abstraction = BASELINE,
+                view=None) -> np.ndarray:
+    """LBR player's winnings per hand (bb). Deals come from their own stream (`seed`), play from another,
+    so two policies measured with the same seed face the same deals (common random numbers)."""
     view = view or StaticView(abstraction)
-    rng = np.random.default_rng(seed)
+    deal_rng = np.random.default_rng([seed, 0])
+    rng = np.random.default_rng([seed, 1])
     opp = 1 - player
     wins = []
     for _ in range(hands):
-        s = G.deal(rng)
+        s = G.deal(deal_rng)
         w = np.ones(len(COMBOS))
         w[np.isin(COMBO_ARR, list(s.hole[player])).any(axis=1)] = 0
         pub = [np.ones(len(COMBOS)), np.ones(len(COMBOS))]  # the policy's public ranges for both seats
@@ -129,7 +132,12 @@ def lbr(policy: dict[str, list[float]], player: int, hands: int, seed: int = 0,
             s = G.apply(s, best)
         v = G.payoff(s) / G.BB
         wins.append(v if player == 0 else -v)
-    arr = np.array(wins)
+    return np.array(wins)
+
+
+def lbr(policy: dict[str, list[float]], player: int, hands: int, seed: int = 0,
+        abstraction: Abstraction = BASELINE, view=None) -> LBRResult:
+    arr = lbr_samples(policy, player, hands, seed, abstraction, view)
     return LBRResult(player, hands, float(arr.mean()), float(arr.std(ddof=1) / np.sqrt(len(arr))) if hands > 1 else 0.0)
 
 
