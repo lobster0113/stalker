@@ -1,0 +1,14 @@
+# E2 MCCFR throughput on a small RunPod CPU pod, once (#264). Same training path as train_jobs
+# (stalker/tools/pod_bench.py), numba kernel (#201) via the fast extra. Source is main's tarball;
+# its commit comes from the tarball's pax header and lands in the result as "sha".
+# Worst case = hourly_usd * max_minutes / 60 = $0.12. 100k iterations at the CI's ~190 it/s is ~9 min,
+# so 60 min also covers a pod three times slower.
+name: e2-throughput-cpu
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_bench --marks 20000,100000 --sha-file /src/SHA --out /result/e2-throughput.json
+cpu_flavor: cpu3c
+vcpu: 2
+disk_gb: 10
+max_minutes: 60
+hourly_usd: 0.12
+result_path: /result/e2-throughput.json

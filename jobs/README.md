@@ -1,6 +1,6 @@
 # 클라우드 작업 명세
 
-에이전트가 돈을 쓰는 유일한 경로(ADR 0004 §5, #20). **CPU 학습은 여기가 아니라 무료인 `train.yml`(GitHub Actions, #184)에서 돌린다. RunPod은 GPU가 필요한 작업에만 쓴다.** 작업은 `jobs/<name>.yaml`을 PR로 올리고, 머지 후
+에이전트가 돈을 쓰는 유일한 경로(ADR 0004 §5, #20). **CPU 학습은 여기가 아니라 무료인 `train.yml`(GitHub Actions, #184)에서 돌린다. RunPod은 GPU가 필요한 작업에만 쓴다.** 예외는 CI 러너 기반 예산 추정을 검증하는 1회 측정 `e2-throughput-cpu.yaml`(#264, 최악 $0.12)뿐이다. 작업은 `jobs/<name>.yaml`을 PR로 올리고, 머지 후
 `cloud.yml`을 dispatch해서만 실행된다. 키(`RUNPOD_API_KEY`)는 Secret에만 있다.
 
 ## 형식 (평면 `key: value`만 — 중첩·목록·여러 줄 없음, ` #` 뒤는 주석)
