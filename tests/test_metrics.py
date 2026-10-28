@@ -43,3 +43,16 @@ def test_snapshot_has_no_retired_keys(monkeypatch):
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
     assert not retired, retired
     assert not any(hasattr(metrics, f) for f in ("gate_a", "gate_b_pilot", "sufficiency"))
+
+
+def test_training_metrics_are_exact_and_deterministic():
+    import time
+
+    t0 = time.monotonic()
+    a = {**metrics.e0(), **metrics.e1()}
+    elapsed = time.monotonic() - t0
+    assert a == {**metrics.e0(), **metrics.e1()}
+    assert a["e0_kuhn_cfr_exploitability"] < 1e-3 and a["e0_leduc_cfr_exploitability"] < 1e-2
+    assert a["e1_tp_pro_exploitability"] <= a["e1_tp_mid_exploitability"] <= a["e1_tp_beginner_exploitability"]
+    assert a["e1_tp_beginner_exploitability"] < a["e1_tp_uniform_beginner_exploitability"]
+    assert elapsed < 120, elapsed  # snapshot budget (#170): about a minute on CI

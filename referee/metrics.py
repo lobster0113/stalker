@@ -57,6 +57,46 @@ def gate_l(report=None) -> dict:
             "gate_l_items": items}
 
 
+# Fixed E0/E1 training runs for the Gate Q4 record; changing them breaks the trend, so bump deliberately.
+E0_KUHN_ITERS = 1000
+E0_LEDUC_ITERS = 300
+E1_STACKS = (5.0, 10.0, 15.0)
+E1_ITERS = 1500
+
+
+def e0() -> dict:
+    """Exact exploitability of unconstrained CFR+ on Kuhn and Leduc (Gate Q4, E0)."""
+    from referee.anchors.toy import exploitability, kuhn, leduc
+    from stalker.toy.cfr import CFRPlus
+
+    out = {"e0_kuhn_iters": E0_KUHN_ITERS, "e0_leduc_iters": E0_LEDUC_ITERS}
+    for name, game, iters in (("kuhn", kuhn.game(), E0_KUHN_ITERS), ("leduc", leduc.game(), E0_LEDUC_ITERS)):
+        solver = CFRPlus(game)
+        solver.iterate(iters)
+        out[f"e0_{name}_cfr_exploitability"] = round(float(exploitability(game, solver.average_strategy())), 7)
+    return out
+
+
+def e1() -> dict:
+    """Exact exploitability of the E1 push/fold TP bottleneck policies (Gate Q4, E1), chip EV, no ante.
+
+    Policies see `hand.eq_call` (SB) / equity vs the shoving range (BB) on rank (quantile) scales;
+    the uniform beginner scale is kept as the TP v0.1 contrast.
+    """
+    from stalker.e1 import tp_pushfold as tp
+
+    def mean(tier, scale):
+        vals = [tp.train(s, 0.0, tier, E1_ITERS, "called", scale) for s in E1_STACKS]
+        return vals, round(sum(r.exploitability for r in vals) / len(vals), 6)
+
+    out = {"e1_stacks": list(E1_STACKS), "e1_iters": E1_ITERS}
+    for tier in ("beginner", "mid", "pro"):
+        vals, out[f"e1_tp_{tier}_exploitability"] = mean(tier, "quantile")
+    out["e1_nash_fp_exploitability"] = round(sum(r.nash_exploitability for r in vals) / len(vals), 6)
+    _, out["e1_tp_uniform_beginner_exploitability"] = mean("beginner", "uniform")
+    return out
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
@@ -65,6 +105,8 @@ def snapshot() -> dict:
     snap.update(code_size())
     snap.update(gate_r())
     snap.update(gate_l())
+    snap.update(e0())
+    snap.update(e1())
     return snap
 
 
