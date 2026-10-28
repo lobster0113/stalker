@@ -53,9 +53,9 @@ def current_git_sha() -> str:
     root = Path(__file__).resolve().parent
     try:
         sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True,
-                             check=True).stdout.strip()
+                             check=True, encoding="utf-8").stdout.strip()
         dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=root,
-                               capture_output=True, text=True, check=True).stdout.strip()
+                               capture_output=True, text=True, check=True, encoding="utf-8").stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
     return sha + ("-dirty" if dirty else "")

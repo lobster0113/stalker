@@ -33,7 +33,7 @@ def test_json_round_trip_and_registry(tmp_path):
     assert S.lookup(env_id, tmp_path) == a
     with pytest.raises(S.EnvSpecError, match="not registered"):
         S.lookup("0" * 16, tmp_path)
-    (tmp_path / f"{env_id}.json").write_text(_spec(rake=5).to_json())
+    (tmp_path / f"{env_id}.json").write_text(_spec(rake=5).to_json(), encoding="utf-8")
     with pytest.raises(S.EnvSpecError, match="edited"):
         S.lookup(env_id, tmp_path)
 
@@ -99,7 +99,7 @@ def test_v1_records_migrate_with_the_run_env_id(tmp_path):
     game = GameRecord("ep", "g", "t", 1.0, (1, 2), (2.0, 0.0), (1.0, -1.0), 10, env_id)
     v1 = {k: v for k, v in to_dict(game).items() if k != "env_id"}
     v1["schema_version"] = 1
-    (tmp_path / RECORDS).write_text(json.dumps({"type": "game", "record": v1}) + "\n")
+    (tmp_path / RECORDS).write_text(json.dumps({"type": "game", "record": v1}) + "\n", encoding="utf-8")
     (rec,) = list(iter_records(tmp_path))
     assert rec == game and rec.schema_version == SCHEMA_VERSION == 2
     assert run_env_id(tmp_path) == env_id
