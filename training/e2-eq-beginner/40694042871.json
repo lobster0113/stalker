@@ -1,0 +1,28 @@
+{
+ "job": "e2-eq-beginner",
+ "runs": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "ref": "main",
+ "sha": "6b7e91ec3a523dea68f9010a104ca401023d940e",
+ "run_id": "40694042871",
+ "iters": 300000,
+ "iters_per_s_mean": 23.05,
+ "lbr_bb_mean": -0.1987,
+ "lbr_bb_by_seed": [
+  -0.2583,
+  -0.3753,
+  -0.1293,
+  -0.0319
+ ],
+ "lbr_stderr_by_seed": [
+  0.1208,
+  0.1211,
+  0.1201,
+  0.1225
+ ]
+}
