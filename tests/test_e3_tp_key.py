@@ -62,7 +62,7 @@ def test_mccfr_is_reproducible_and_policies_are_distributions():
     assert pa == b.policy() and pa
     assert all(abs(sum(v) - 1) < 1e-9 for v in pa.values())
     assert all(k.split("|")[-1].startswith("e") for k in a.regret)
-    assert len(a.regret) <= K.theoretical_keys(6, 5) * 8  # legal-set suffix aside, bounded by the TP grid
+    assert len(a.regret) <= K.theoretical_keys(6, a.k, a.depth)  # the tier's own bound, call keys included
 
 
 def test_call_or_fold_spots_share_a_short_key_across_seats():
@@ -80,3 +80,59 @@ def test_beginner_keys_drop_the_items_a_beginner_is_not_asked():
     a = _play(G.deal(np.random.default_rng(9)), "r", "f")
     assert K.public_key(a, 2, "basic") == b
     assert K.position_group(6, 0) == K.position_group(6, 1) == "early" and K.position_group(9, 6) == "late"
+
+
+def test_theoretical_bound_is_per_tier_and_holds_for_the_beginner_table():
+    from stalker.e3.mccfr import E3MCCFR
+
+    assert K.theoretical_keys(6, 5, "basic") < K.theoretical_keys(6, 5, "full")
+    m = E3MCCFR(3, K.TIER_K["beginner"], 6, K.TIER_DEPTH["beginner"])
+    m.iterate(40)
+    assert 0 < len(m.regret) <= K.theoretical_keys(6, m.k, m.depth)
+
+
+def _to_flop(seed: int = 4, n: int = 6):
+    import numpy as np
+
+    from stalker.e3 import game as G
+
+    s = G.deal(np.random.default_rng(seed), n)
+    while s.street == 0:
+        s = G.apply(s, "c")
+    return s
+
+
+def test_range_update_narrows_the_acting_seat_only():
+    # #253 review: the Bayes update `r[p] = ranges[p] * P(action | combo)`.
+    import numpy as np
+
+    from stalker.e3 import game as G
+    from stalker.e3.mccfr import E3MCCFR
+
+    s = _to_flop()
+    k = 5
+    m = E3MCCFR(0, k, s.n, "full")
+    ranges = K.initial_ranges(s.n)
+    p = s.to_act
+    acts = G.legal(s)
+    steps = K.equity_steps(s, p, ranges, k)
+    public = K.public_key(s, p, "full")
+    bet, check = acts.index("b75"), acts.index("k")
+    for v in range(k):            # top step bets, everything else checks
+        r = np.zeros(len(acts))
+        r[bet if v >= k - 1 else check] = 1.0
+        m.regret[K.key(public, v)] = r
+    probs = m._seat_probs(public, steps, len(acts))
+    after = K.update_range(ranges, p, probs[:, bet])
+    # (a) only the actor's range changes; the others are the same objects (the equity cache relies on it)
+    assert all(after[q] is ranges[q] for q in range(s.n) if q != p) and after[p] is not ranges[p]
+    # (b) low steps are cut to exactly 0, top-step combos keep their weight
+    assert (after[p][(steps >= 0) & (steps < k - 1)] == 0).all()
+    assert np.array_equal(after[p][steps >= k - 1], ranges[p][steps >= k - 1])
+    # (c) combos that collide with the board (step -1) are 0
+    assert (steps == -1).any() and (after[p][steps == -1] == 0).all()
+    # (d) an opponent's equity drops against the narrowed (stronger) range
+    q = next(q for q in s.live() if q != p)
+    before_eq = np.nanmean(K.multi_equity(s, q, ranges))
+    after_eq = np.nanmean(K.multi_equity(s, q, after))
+    assert after_eq < before_eq

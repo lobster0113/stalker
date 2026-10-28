@@ -1,8 +1,11 @@
 """E3-1: TP keys for N-handed play — the policy table is keyed by the TP vector, not the history (#196).
 
-Design note #192 §3. A decision's key is
+Design note #192 §3. A decision's key (full depth, `public_key` + `key`) is
 
-    pos | street | n_opp | raise level | initiative | hand.equity step | pot-odds step | SPR step
+    seat | street | n_opp | raise level | initiative | pot-odds step | SPR step | legal actions | e<hand.equity step>
+
+The beginner tier (`depth="basic"`) keeps only `b | position group | street | min(n_opp, 2) |
+min(raise level, 2) | pot-odds step | legal actions | e<step>`.
 
 - n_opp: opponents still in the hand, capped at 3 ("3+").
 - raise level: raises on this street (preflop the big blind does not count), capped at 3.
@@ -16,7 +19,7 @@ Design note #192 §3. A decision's key is
 - SPR: effective stack / pot, steps <1, <3, <6, >=6 (preflop: one value).
 
 Call-or-fold-only spots (facing an all-in or a capped raise) use the short key
-`call | street | n_opp | pot-odds step | legal | hand.equity step`: the TP for a call is equity
+`call | street | n_opp | pot-odds step | legal | e<step>`: the TP for a call is equity
 against the required equity.
 
 Every feature except hand.equity is public, so one key covers the same TP situation reached by
@@ -97,7 +100,7 @@ def _equity_cached(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
     hit = _EQ_CACHE.get(key)
     if hit is not None and hit[0] is w:
         return hit[1]
-    if len(_EQ_CACHE) > 20_000:
+    if len(_EQ_CACHE) > 4_000:  # ~21 KB each (range + equity): ~84 MB, not ~420 MB (#253 review)
         _EQ_CACHE.clear()
     eq = equity_vs(board, w)
     _EQ_CACHE[key] = (w, eq)
@@ -147,10 +150,42 @@ def key(public: str, step: int) -> str:
     return f"{public}|e{step}"
 
 
-def theoretical_keys(n: int, k: int) -> int:
-    """Upper bound on keys per tier (legal-action sets aside): pos x street x n_opp x raise level x
-    initiative x pot odds x SPR x equity steps."""
-    return n * 4 * 3 * 4 * 3 * (1 + len(POT_ODDS_EDGES) + 1) * (len(SPR_EDGES) + 1) * k
+# Legal-action strings a non-call key can carry (from `G.legal`): preflop the big blind's option uses
+# "c" for check, postflop "k"; call-or-fold spots ("fc", "c") use the short call key instead.
+LEGAL_PREFLOP = ("fcra", "fca", "cra", "ca")
+LEGAL_POSTFLOP = ("fcra", "fca", "kb33b75a", "kb33a", "ka", "k")
+LEGAL_CALL = ("fc", "c")
+
+
+def theoretical_keys(n: int, k: int, depth: str = "full") -> int:
+    """Upper bound on the keys of one tier's table, call keys included (#253 review).
+
+    full:  seat x n_opp(3) x raise(4) x initiative(3) x pot odds(5) x SPR(4) x legal, per street;
+           preflop has one initiative and one SPR value.
+    basic: position group(3) x n_opp(2) x raise(3) x pot odds(5) x legal, per street.
+    call:  n_opp(3) x pot odds(5) x legal(2), per street.
+    Every key also carries one of k equity steps.
+    """
+    po = len(POT_ODDS_EDGES) + 2
+    total = 0
+    for street in range(4):
+        legal = len(LEGAL_PREFLOP if street == 0 else LEGAL_POSTFLOP)
+        if depth == "basic":
+            total += 3 * 2 * 3 * po * legal
+        elif street == 0:
+            total += n * 3 * 4 * po * legal
+        else:
+            total += n * 3 * 4 * 3 * po * (len(SPR_EDGES) + 1) * legal
+        total += 3 * po * len(LEGAL_CALL)
+    return total * k
+
+
+def update_range(ranges: list[np.ndarray], seat: int, action_probs: np.ndarray) -> list[np.ndarray]:
+    """Bayes update after `seat` acts: its range times its probability of that action per combo.
+    The other seats keep the same array objects (the equity cache keys on them)."""
+    out = list(ranges)
+    out[seat] = ranges[seat] * action_probs
+    return out
 
 
 def my_step(steps: np.ndarray, s: G.State, seat: int) -> int:

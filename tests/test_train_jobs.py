@@ -139,3 +139,19 @@ def test_eq_jobs_train_with_the_equity_view(tmp_path, monkeypatch):
     r = json.loads((tmp_path / "e2-eq-beginner-seed1.json").read_text(encoding="utf-8"))
     assert r["view"] == {"view": "equity", "k": 5} and seen["view"].k == 5
     assert seen["seed"] == 10_001 and seen["hands"] == T.LBR_HANDS
+
+
+def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "LEAGUE_GENERATIONS", 2)
+    import stalker.e2.league as lg
+    from stalker.e2 import personas
+
+    monkeypatch.setattr(lg, "persona_field", lambda names=None: personas.field(("tag",)))
+    T.run("e2-league-beginner", 40, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-league-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert r["tier"] == "beginner" and len(r["generations"]) == 2 and r["iters"] == 40
+    assert r["generations"][0]["worst_persona"] == "tag"
+    s = T.summarize("e2-league-beginner", tmp_path)
+    assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1
+
+
