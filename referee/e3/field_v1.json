@@ -1,0 +1,16 @@
+{
+ "version": 1,
+ "players": 6,
+ "note": "Pre-registered opponent configurations for the E3 6-max 'max loss vs opponent set' (referee/GATES.md Gate Q, ADR 0014). The sha256 of this file is recorded with every result; add a new version instead of editing.",
+ "configs": [
+  {"name": "tag5", "opponents": ["tag", "tag", "tag", "tag", "tag"]},
+  {"name": "lag5", "opponents": ["lag", "lag", "lag", "lag", "lag"]},
+  {"name": "nit5", "opponents": ["nit", "nit", "nit", "nit", "nit"]},
+  {"name": "station5", "opponents": ["calling_station", "calling_station", "calling_station", "calling_station", "calling_station"]},
+  {"name": "maniac5", "opponents": ["maniac", "maniac", "maniac", "maniac", "maniac"]},
+  {"name": "mixed_styles", "opponents": ["tag", "lag", "nit", "calling_station", "maniac"]},
+  {"name": "mixed_regs", "opponents": ["high_stakes_pro", "tag", "lag", "weak_tight", "loose_passive"]},
+  {"name": "uniform5", "opponents": ["uniform", "uniform", "uniform", "uniform", "uniform"]},
+  {"name": "self5", "opponents": ["self", "self", "self", "self", "self"]}
+ ]
+}

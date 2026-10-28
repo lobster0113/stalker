@@ -24,6 +24,11 @@ from pathlib import Path
 LBR_HANDS = 4000
 # E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
 E3_LBR_HANDS = 1000
+# E3 field deals per configuration (each played in all 6 seat rotations): 500 locally gave a 95% CI of
+# about +-150 bb/100 (#295); about 0.08 s per deal per configuration, so 9 configs x 1000 is ~12 min.
+E3_FIELD_HANDS = 1000
+# Noisy-learner hands per (form, level): 4000 gave CI ~±0.1-0.15 bb/hand per seed (#261 note).
+NOISE_SIM_HANDS = 4000
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
 ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
 # Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
@@ -52,6 +57,49 @@ def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: st
 
 
 LEAGUE_GENERATIONS = 10
+# #299: the league exploiter trains 0.5x the policy and never won (#276), so its lower bound was 0.
+# Per seat the long exploiter trains this multiple of the policy's iterations.
+EXPLOIT_RATIO = 1.5
+EXPLOIT_HANDS = 2000
+EXPLOIT_CHECKPOINTS = 3
+
+
+def _e2_exploit(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
+    """#299: train a tier policy, freeze it, then a baseline-abstraction exploiter per seat for
+    EXPLOIT_RATIO x iters, recording its gain at evenly spaced checkpoints (is it still rising?)."""
+    import numpy as np
+
+    from referee.e2.exploiter import BASELINE, Exploiter, play
+    from stalker.e2.abstraction import TIERS
+    from stalker.e2.mccfr import MCCFR
+
+    t0 = time.monotonic()
+    m = MCCFR(seed, TIERS[tier])
+    m.iterate(iters)
+    train_s = time.monotonic() - t0
+    policy = m.policy()
+    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    total = max(EXPLOIT_CHECKPOINTS, int(EXPLOIT_RATIO * iters))
+    exs = {seat: Exploiter(policy, TIERS[tier], seat, seed + 17 * seat, BASELINE) for seat in (0, 1)}
+    curve, done, ex_s = [], 0, 0.0
+    for c in range(1, EXPLOIT_CHECKPOINTS + 1):
+        step = total * c // EXPLOIT_CHECKPOINTS - done
+        t1 = time.monotonic()
+        for ex in exs.values():
+            ex.iterate(step)
+        ex_s += time.monotonic() - t1
+        done += step
+        # Same deals at every checkpoint, so the curve moves only with the exploiter's training.
+        w0, w1 = (np.array(w) for w in play({s: e.policy("current") for s, e in exs.items()}, policy, TIERS[tier],
+                                             EXPLOIT_HANDS, 20_000 + seed))
+        se = float(np.hypot(w0.std(ddof=1) / np.sqrt(len(w0)), w1.std(ddof=1) / np.sqrt(len(w1))) / 2)
+        curve.append({"exploiter_iters": done, "gain_bb": round(float((w0.mean() + w1.mean()) / 2), 4),
+                      "stderr_bb": round(se, 4)})
+    return {"iters": iters, "tier": tier, "exploiter": {"tier": "baseline", "ratio": EXPLOIT_RATIO, "strategy": "current"},
+            "curve": curve, "gain_bb": curve[-1]["gain_bb"], "stderr_bb": curve[-1]["stderr_bb"],
+            "policy_iters_per_s": round(iters / max(train_s, 1e-6), 2),
+            "exploiter_iters_per_s": round(2 * done / max(ex_s, 1e-6), 2), "wall_seconds": round(time.monotonic() - t0, 1),
+            "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
 def _e2_league(tier: str, exploiter_tier: str | None = None, name: str | None = None):
@@ -100,6 +148,7 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6) -> dict:
+    from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3.mccfr import E3MCCFR, coverage
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
@@ -115,10 +164,22 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=players, depth=m.depth)
            for k, pol in (("average", avg), ("current", cur))}
     cov = coverage(m)
+    t2 = time.monotonic()
+    field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if players == 6 else None
     return {"iters": iters, "tier": tier, "depth": m.depth, "players": players, "train_seconds": round(train_s, 1),
+            "field": field, "field_seconds": round(time.monotonic() - t2, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "coverage": cov,
             "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
+
+
+def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
+    """#261: decision loss of a noisy TP learner, form (equity / rank) x level, on the E2 beginner policy."""
+    from stalker.tp.noise_sim import table
+
+    t0 = time.monotonic()
+    rows = table(iters, NOISE_SIM_HANDS, seed, levels=("exact", "expert", "mid", "beginner"))
+    return {"iters": iters, "hands": NOISE_SIM_HANDS, "rows": rows, "wall_sim_seconds": round(time.monotonic() - t0, 1)}
 
 
 JOBS = {"e2-mccfr": _e2_mccfr,
@@ -130,7 +191,9 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #276: does a finer exploiter find what a same-tier one cannot?
         "e2-league-beginner-xbase": _e2_league("beginner", "baseline", "e2-league-beginner-xbase"),
         "e3-tp-beginner": partial(_e3_tp, tier="beginner", name="e3-tp-beginner"),     # #196/#197, 6-max
-        "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid")}
+        "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid"),
+        "tp-noise-sim": _tp_noise_sim,                                                  # #261
+        "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner")}  # #299
 
 
 def run(job: str, iters: int, seed: int, out: Path) -> Path:
@@ -183,11 +246,15 @@ def summarize(job: str, folder: Path) -> dict:
     out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs],
            "ref": os.environ.get("GITHUB_REF_NAME"), "sha": os.environ.get("GITHUB_SHA"),
            "run_id": os.environ.get("GITHUB_RUN_ID")}
-    if job.startswith(("e2-", "e3-")) and not job.startswith("e2-league-") and runs:  # league runs report champions, not LBR
+    if job.startswith(("e2-", "e3-")) and not job.startswith(("e2-league-", "e2-exploit-")) and runs:  # league runs report champions, not LBR
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
+    if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set
+        out.update({"field_sha256": runs[0]["field"]["sha256"], "field_deals": runs[0]["field"]["deals"],
+                    "field_worst_by_seed": [r["field"]["worst"] for r in runs],
+                    "field_bb100_by_seed": [{c["name"]: c["bb100"] for c in r["field"]["configs"]} for r in runs]})
     if job.startswith("e2-league-") and runs:
         champs = [r["champion"] or {} for r in runs]  # one entry per seed (null without a champion), aligned with seeds
         out.update({"iters": runs[0]["iters"], "exploiter": runs[0].get("exploiter"),
@@ -198,6 +265,15 @@ def summarize(job: str, folder: Path) -> dict:
                     "champion_field_bb_by_seed": [c.get("field_bb") for c in champs],
                     "champion_field_ci95_low_bb_by_seed": [c.get("field_ci95_low_bb") for c in champs],
                     "champion_worst_persona_by_seed": [c.get("worst_persona") for c in champs]})
+    if job.startswith("e2-exploit-") and runs:
+        out.update({"iters": runs[0]["iters"], "exploiter": runs[0]["exploiter"],
+                    "gain_bb_by_seed": [r["gain_bb"] for r in runs], "stderr_bb_by_seed": [r["stderr_bb"] for r in runs],
+                    "curve_by_seed": [[(c["exploiter_iters"], c["gain_bb"]) for c in r["curve"]] for r in runs],
+                    "policy_iters_per_s_mean": round(sum(r["policy_iters_per_s"] for r in runs) / len(runs), 2),
+                    "exploiter_iters_per_s_mean": round(sum(r["exploiter_iters_per_s"] for r in runs) / len(runs), 2),
+                    "wall_seconds_max": max(r["wall_seconds"] for r in runs)})
+    if job == "tp-noise-sim" and runs:
+        out.update({"iters": runs[0]["iters"], "hands": runs[0]["hands"], "rows_by_seed": [r["rows"] for r in runs]})
     return out
 
 

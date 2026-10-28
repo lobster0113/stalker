@@ -3,6 +3,7 @@
 T1 (bottleneck compliance): with the TP vector and DecisionContext held fixed, randomizing every
 other part of the observation must leave the action distribution exactly unchanged. Agents under
 test expose `action_distribution(po, tp=None)` and `tp(po)` (see `stalker.tp.bottleneck`).
+T2 (computed items match their definitions): `referee/gate_t/t2.py`. T4 (sufficiency): `t4.py`.
 """
 from __future__ import annotations
 
@@ -50,6 +51,23 @@ def _observations(preset: str = "6max_sng_wta", n: int = T1_DECISIONS) -> list[P
     return [builder.build(o) for o in pre + post]
 
 
+def _decisions_with(agent, items: list[str], n: int, preset: str = "6max_sng_wta") -> list[PublicObservation]:
+    """The first n recorded decisions where the agent emits at least one of `items`."""
+    from referee.gate_l import record_game
+
+    cfg = load_preset(preset)
+    builder = ObservationBuilder(cfg)
+    out = []
+    for o, _ in record_game(cfg, 91, "t2").decisions:
+        po = builder.build(o)
+        tp = agent.tp(po)
+        if any(tp[i] is not None for i in items):
+            out.append(po)
+            if len(out) == n:
+                break
+    return out
+
+
 def check_t1(agent, perturbations: int = T1_PERTURBATIONS, seed: int = 0) -> tuple[int, int, list[str]]:
     """Returns (passed, total, failures). One check per base observation."""
     rng = np.random.default_rng(seed)
@@ -81,14 +99,17 @@ REGISTRY: dict[str, Callable[[], object]] = {"linear_bottleneck_v0": default_age
 def main() -> int:
     spec = load()
     print(f"tp_spec {spec.version} sha256 {spec.sha256}")
+    from referee.gate_t.t2 import check_t2
+    from referee.gate_t.t3 import check_t3
     from referee.gate_t.t4 import check_t4, load as load_t4
 
     ok = True
     print(f"t4_spots v1 sha256 {load_t4()[1]}")
     for name, make in REGISTRY.items():
-        for label, check in (("T1", check_t1), ("T4", check_t4)):
+        for label, check in (("T1", check_t1), ("T2", check_t2), ("T3", check_t3), ("T4", check_t4)):
             p, t, fails = check(make())
-            print(f"{label} [{name}] {p}/{t}")
+            rate = f" ({100 * p / t:.0f}%)" if t else " (no decisions emitted a checked item)"
+            print(f"{label} [{name}] {p}/{t}{rate}")
             for f in fails:
                 print("  " + f)
             ok &= p == t
