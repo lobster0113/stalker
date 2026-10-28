@@ -472,3 +472,4 @@
 {"ts":"2026-10-28T08:01:00Z","role":"planner","outcome":"planned","issue":null,"pr":251,"notes":"#251 머지 후 정리: #201 라벨 제거, #247 in-progress(PR #266), #179 ready 제거, #265 계약화 ready P1; ready 7; main CI 10h 무완료(804 취소, 810 queued)","friction":"main CI가 머지마다 취소돼 여전히 지표 갱신 없음"}
 {"ts":"2026-10-28T08:07:36Z","role":"reviewer-b","outcome":"changes","issue":247,"pr":266,"notes":"CI green; AC3 unmet: summary JSON lacks actual exploiter iterations and train_jobs test does not assert exploiter_iters","friction":"issue AC named ex_abs/per-gen ratio but scope was changed by a later comment; had to reconcile body vs comment"}
 {"ts":"2026-10-28T08:08:55Z","role":"reviewer","outcome":"skipped","issue":247,"pr":266,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T08:09:38Z","role":"reviewer","outcome":"skipped","issue":247,"pr":266,"notes":"not my parity","friction":""}
