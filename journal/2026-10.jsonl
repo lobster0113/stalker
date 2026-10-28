@@ -496,3 +496,4 @@
 {"ts":"2026-10-28T10:22:45Z","role":"reviewer","outcome":"skipped","issue":265,"pr":270,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T10:39:16Z","role":"reviewer-b","outcome":"changes","issue":114,"pr":268,"notes":"2nd CHANGES: slow test asserts Q4 on flagged inconsistent 15bb pro/called; new test silently skips; doc table cell blank. CI green.","friction":"gates (tests) took ~20min; waited in foreground"}
 {"ts":"2026-10-28T10:41:59Z","role":"reviewer","outcome":"skipped","issue":114,"pr":268,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T10:42:51Z","role":"reviewer","outcome":"no_work","issue":184,"pr":269,"notes":"sweep: only odd PR #269 already has CHANGES verdict on head da5b3b8; awaiting builder push","friction":"gh CLI token invalid in routine env; used GitHub MCP tools instead"}
