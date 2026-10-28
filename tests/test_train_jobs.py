@@ -91,6 +91,18 @@ def test_summarize_step_validates_before_touching_ops():
     assert step.index("^[a-z0-9-]+$") < step.index("train_jobs summarize") < step.index('mkdir -p "ops/training/$JOB"')
 
 
+def test_summary_records_the_ref_and_sha_it_ran_on(tmp_path, monkeypatch):
+    _fake_run(tmp_path, 1)
+    for k in ("GITHUB_REF_NAME", "GITHUB_SHA", "GITHUB_RUN_ID"):
+        monkeypatch.delenv(k, raising=False)
+    assert {k: T.summarize("e2-mccfr", tmp_path)[k] for k in ("ref", "sha", "run_id")} == {"ref": None, "sha": None, "run_id": None}
+    monkeypatch.setenv("GITHUB_REF_NAME", "claude/187-tiers-train")
+    monkeypatch.setenv("GITHUB_SHA", "a" * 40)
+    monkeypatch.setenv("GITHUB_RUN_ID", "40624661667")
+    s = T.summarize("e2-mccfr", tmp_path)
+    assert (s["ref"], s["sha"], s["run_id"]) == ("claude/187-tiers-train", "a" * 40, "40624661667")
+
+
 @pytest.mark.parametrize("tier,k", [("beginner", 5), ("mid", 11)])
 def test_tier_jobs_train_and_are_measured_at_their_tp_resolution(tmp_path, monkeypatch, tier, k):
     import referee.e2.lbr as lbr
