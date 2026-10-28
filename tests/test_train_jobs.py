@@ -12,10 +12,12 @@ ROOT = Path(__file__).resolve().parent.parent
 def test_run_and_summarize_e2_mccfr(tmp_path, monkeypatch):
     import referee.e2.lbr as lbr
 
-    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed: {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed: {"lbr_bb": 1.0, "stderr_bb": 0.1, "hands": hands})
     for seed in (1, 2):
         T.run("e2-mccfr", 20, seed, tmp_path)
     s = T.summarize("e2-mccfr", tmp_path)
+    assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text())["lbr"]["hands"] == T.LBR_HANDS == 4000
+    assert s["lbr_stderr_by_seed"] == [0.1, 0.1]
     assert s["runs"] == 2 and s["seeds"] == [1, 2] and s["lbr_bb_mean"] == 1.0 and s["iters"] == 20
     assert (tmp_path / "e2-mccfr-seed1.policy.json").exists()
     assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text())["infosets"] > 0
