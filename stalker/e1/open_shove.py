@@ -97,9 +97,9 @@ class Game:
             k = 1.0 / (t + 1)
             new_open = st.open + k * (root[:, 1] - st.open)
             # Average call3 by open reach so the delivered node strategy matches the average opener.
-            w_old, w_new = reach_open, k * root[:, 1]
+            w_old, w_new = reach_open * (1 - k), k * root[:, 1]
             st.call3 = np.where(w_old + w_new > 0, (st.call3 * w_old + call3 * w_new) / np.maximum(w_old + w_new, 1e-300), call3)
-            reach_open = w_old * (1 - k) + w_new
+            reach_open = w_old + w_new
             st.fold += k * (root[:, 0] - st.fold)
             st.open = new_open
             st.shove += k * (root[:, 2] - st.shove)
