@@ -1,15 +1,15 @@
-# STATE (2026-10-28 13:05Z, planner)
+# STATE (2026-10-28 13:35Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력).** D1 종료(마일스톤 열린 이슈 0), 체험 피드백 NH-3 open(비차단), FEEDBACK.md 없음.
 D2 종료 조건 대비: Gate R 100%(캐시·토너먼트·E3) 유지 / TP v1 확정 진행(#261·#262 → #263) / 게이트 판별력: T1·T4·Q4(E0·E1) 있음, **T2·T3·S·F 미구현 → 이번 실행에서 #279~#282 생성** / 설계 ADR 0009·0011 진행.
-09:15Z 이후 머지: #267(E3 CI 잡), #132(PR #229, 2deeb03), #114(PR #268, adeb3b2), #265(PR #270, 53e2cda; 이슈 닫음, 브라우저 수치는 #189로 이관), #169(PR #271, 4b34126: 분위 눈금 초보 손실 0.244→0.018, 노트 수치), #254(PR #278, 65d06fe: T4 로더 프리플랍 금액 불일치 거부; 이슈 닫힘·in-progress 라벨 정리), #184(PR #269, c37cff3) → #264 ready P2, **#276(PR #277: league xbase 착취자 잡), #170(PR #275, 6b7e91e: E0/E1 정확 착취도 CI 스냅숏, Q4 기록)** 13:02Z — 둘 다 이슈 자동 닫힘.
+09:15Z 이후 머지: #267(E3 CI 잡), #132(PR #229, 2deeb03), #114(PR #268, adeb3b2), #265(PR #270, 53e2cda; 이슈 닫음, 브라우저 수치는 #189로 이관), #169(PR #271, 4b34126: 분위 눈금 초보 손실 0.244→0.018, 노트 수치), #254(PR #278, 65d06fe: T4 로더 프리플랍 금액 불일치 거부; 이슈 닫힘·in-progress 라벨 정리), #184(PR #269, c37cff3) → #264 ready P2, **#276(PR #277: league xbase 착취자 잡), #170(PR #275, 6b7e91e: E0/E1 정확 착취도 CI 스냅숏, Q4 기록)** 13:02Z — 둘 다 이슈 자동 닫힘. **#280(PR #286, e24cfa0: Gate S v0 E1, 내시 앵커는 민감 예외 적용 시 통과)** 13:33Z → in-progress 라벨 정리, 후속 #287(Gate S CI 기록·gates full 등록) ready P2.
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. **D2 게이트 구현(#279 T3·#280 S P1, #281 F·#282 T2 P2)**: "심판 능력 부족이 최우선" 규칙. E1(정확 앵커)에서 먼저 판별력을 확인한다.
+1. **D2 게이트 구현(#279 T3 P1 PR #285, S v0 머지·#287 CI 기록 P2, #281 F·#282 T2 P2)**: "심판 능력 부족이 최우선" 규칙. E1(정확 앵커)에서 먼저 판별력을 확인한다.
 2. **TP v1 hand.equity 형태(#261 PR #274, #262)**: TP v1 확정의 남은 핵심 질문. #169(순위 눈금 우세)와 #274(rank beats equity)가 같은 방향 — #263 ADR 결정 준비.
-3. **열린 PR 판정 소화**: #272(#174 CHANGES)·#273(#181 CHANGES)·#274(#261 CHANGES)·#284(#283 CHANGES)·#285(#279). #275·#277 머지.
+3. **열린 PR 판정 소화**: #272(#174 CHANGES)·#273(#181 CHANGES)·#274(#261 CHANGES)·#284(#283 CHANGES)·#285(#279). #275·#277·#286 머지.
 ## 큐
-ready 6: #281 P2, #282 P2, #262 P2, #264 P2, #240 P3, #143 P3.
-in-progress: #261(#274), #174(#272), #181(#273), #279(#285), #280(브랜치, gates 진행), #283(#284). 13:05Z 라벨 정리: #279·#280 ready 제거(ready+in-progress 중복), #283 in-progress 부여.
+ready 7: #281 P2, #282 P2, #287 P2, #262 P2, #264 P2, #240 P3, #143 P3.
+in-progress: #261(#274), #174(#272), #181(#273), #279(#285), #283(#284). 13:05Z 라벨 정리: #279·#280 ready 제거(ready+in-progress 중복), #283 in-progress 부여.
 blocked: #263(#261·#262), #105.
 상태 라벨 없음: #189(GTO 브라우저 P1, D3; E2 수치는 #259 이후 값 사용 코멘트).
 후보(이슈화 보류): 페르소나 AI 1~19 규칙 기반(D2 항목, Gate Q1·F 대상 필드에 필요 — 다음 실행 후보 1순위), ADR 0004 비용 재산정(D2 항목, E2 처리량 확정 뒤), Gate S·F 포스트플랍 확장, 커리큘럼 후속(#173 §7).
@@ -17,13 +17,13 @@ blocked: #263(#261·#262), #105.
 - main CI 최신 완료 2deeb03(10:03Z, success): tests 971(+374 vs 90aa808), failed 0, gate_r 1.0(224,269), gate_r_cash 1.0, **gate_r_e3 1.0(37,462, 신규)**, gate_l 1.0(32, L7 18 신규), stalker_loc 8975. 4b34126 run 진행 중(11:38Z~).
 - E2 LBR(#259 수정 후 CI, 4시드×100만): baseline −0.159, beginner −0.244, mid −0.234 bb/hand — LBR이 착취를 찾지 못함(하한일 뿐).
 - E1 분위 눈금(#169): 초보 손실 0.244 → 0.018 bb/hand(ante 0, 노트 기준). Q4(E0·E1) CI 기록 경로 머지(6b7e91e) — 다음 main CI 완료 시 history에 값 생김.
-- TP-GTO 축: T1·T4 CI, S·F·T2·T3 미구현(이슈 생성).
+- TP-GTO 축: T1·T4 CI, S v0(E1) 머지(CLI만, CI 기록 #287), F·T2·T3 미구현(이슈 있음).
 ## 경보
 - **main CI 완료 간격**: 10:03Z(2deeb03)에 12h 만에 완료. 그 뒤 adeb3b2·53e2cda는 다시 cancelled. 머지 간격 < CI 시간 문제 지속(하네스 후보, Auditor 판단: main push cancel-in-progress 끄기 또는 머지 직렬화).
 - **gh CLI 무효(GraphQL 403·토큰 무효)·guard 훅** → 모든 역할이 MCP로 우회(오늘 journal friction 8회+). harness 후보: 지침의 `gh` 예시를 MCP 기준으로.
 - 취소된 첫 run이 같은 sha에 gates=failure를 남김(friction 5회+). 후보 유지.
 - builder가 harness-change PR에 experiments 기록을 빠뜨림(#269 CHANGES). 후보: builder.md에 명시.
-- 머지된 브랜치 삭제 도구 없음(friction 3회) — #105 관련.
+- 머지된 브랜치 삭제 도구 없음(friction 4회, claude/280-gate-s-e1 남음) — #105 관련.
 - 이전 후보 유지: ARCHITECTURE.md 단일 줄 충돌, f) builder PR 소유 구분, h) CHANGES 2회 규칙 예외, k) 동시 webhook 잠금, gates quick 210~261초(목표 90초), gates tests 20~25분(reviewer 대기).
 - NEEDS_HUMAN: NH-3 open. 리포 상호작용 제한 2027-04-23 만료.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
