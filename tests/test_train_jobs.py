@@ -18,7 +18,7 @@ def test_run_and_summarize_e2_mccfr(tmp_path, monkeypatch):
     s = T.summarize("e2-mccfr", tmp_path)
     assert s["runs"] == 2 and s["seeds"] == [1, 2] and s["lbr_bb_mean"] == 1.0 and s["iters"] == 20
     assert (tmp_path / "e2-mccfr-seed1.policy.json").exists()
-    assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text())["infosets"] > 0
+    assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text(encoding="utf-8"))["infosets"] > 0
     monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed: {"lbr_bb": 1.0, "stderr_bb": 0.1, "hands": hands})
     for seed in (1, 2):
         T.run("e2-mccfr", 20, seed, tmp_path)
@@ -52,16 +52,16 @@ def test_tier_jobs_train_at_their_tp_resolution(tmp_path, monkeypatch):
 
     monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, **kw: {"lbr_bb": 2.0, "hands": hands})
     T.run("e2-tier-beginner", 20, 1, tmp_path)
-    r = json.loads((tmp_path / "e2-tier-beginner-seed1.json").read_text())
+    r = json.loads((tmp_path / "e2-tier-beginner-seed1.json").read_text(encoding="utf-8"))
     assert r["tier"] == "beginner" and r["abstraction"] == {"pre_k": 5, "post_k": 5}
-    pol = json.loads((tmp_path / "e2-tier-beginner-seed1.policy.json").read_text())
+    pol = json.loads((tmp_path / "e2-tier-beginner-seed1.policy.json").read_text(encoding="utf-8"))
     assert {int(k.split("|")[2]) for k in pol} <= set(range(5))
     assert T.summarize("e2-tier-beginner", tmp_path)["lbr_bb_mean"] == 2.0
 
 
 def _fake_run(folder, seed, **extra):
     (folder / f"e2-mccfr-seed{seed}.json").write_text(json.dumps(
-        {"job": "e2-mccfr", "seed": seed, "iters": 10, "iters_per_s": 1.0, "lbr": {"lbr_bb": 0.5}, **extra}))
+        {"job": "e2-mccfr", "seed": seed, "iters": 10, "iters_per_s": 1.0, "lbr": {"lbr_bb": 0.5}, **extra}), encoding="utf-8")
 def _fake_run(folder, seed, **extra):
     (folder / f"e2-mccfr-seed{seed}.json").write_text(json.dumps(
         {"job": "e2-mccfr", "seed": seed, "iters": 10, "iters_per_s": 1.0, "lbr": {"lbr_bb": 0.5}, **extra}), encoding="utf-8")
