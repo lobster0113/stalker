@@ -514,3 +514,4 @@
 {"ts":"2026-10-28T12:46:23Z","role":"reviewer","outcome":"merged","issue":184,"pr":269,"notes":"2차 리뷰: 실험 021 기록·선택 지적 반영 확인, CI 전부 success(run 40688283278) → squash 머지","friction":"CI 대기 루프의 tail 파이프가 timeout 종료 시 출력을 삼켜 한 번 헛돌았다"}
 {"ts":"2026-10-28T12:50:00Z","role":"planner","outcome":"planned","issue":264,"pr":269,"notes":"PR #269 머지(#184) 반영: #184 in-progress 라벨 제거, #264 blocked→ready P2(ready 8), STATE 갱신","friction":""}
 {"ts": "2026-10-28T13:30:00Z", "role": "session", "outcome": "handoff", "notes": "restart handoff in PLAN_DAY_2026-10-28.md; #280 Gate S branch pushed, gates full running; PR #284 ADR 0014"}
+{"ts":"2026-10-28T12:57:39Z","role":"reviewer-b","outcome":"changes","issue":283,"pr":284,"notes":"ADR 0014/CHARTER 강도 목표: CI green, 권한 OK; Q1 통과기준 문구(필드 평균>0)가 GATES.md(최상위 필드 95% CI 하한>0)와 불일치, 새 지표 정의가 referee/에 없음","friction":"CI 첫 run이 취소돼 gates 집계 잡이 failure로 남아 체크 목록이 헷갈림"}
