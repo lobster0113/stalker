@@ -44,9 +44,12 @@ class TournamentConfig:
     ante_mode: str = "none"
     length_unit: str = "hands"
     # all_in: a player who cannot cover a blind/ante posts the remainder and is all-in.
-    # skip: a player who cannot cover the big blind is skipped for the blind that orbit.
+    # skip: a seat starting the hand below bb + ante posts no blind; the next covering seats post them
+    # (rule text: referee/GATES.md Gate R).
     short_stack_rule: str = "all_in"
     buy_in: int = 0
+    # length_unit='minutes' only: virtual seconds one seated player adds to the global clock per round.
+    seconds_per_seat: int = 7
     schema_version: int = field(default=SCHEMA_VERSION)
 
     def __post_init__(self) -> None:
@@ -60,12 +63,19 @@ class TournamentConfig:
         _require_int("table_size", self.table_size)
         _require_int("starting_stack", self.starting_stack)
         _require_int("buy_in", self.buy_in)
+        _require_int("seconds_per_seat", self.seconds_per_seat)
         if self.players < 2:
             raise ConfigError(f"players={self.players}: need at least 2 players.")
         if not 2 <= self.table_size <= 10:
             raise ConfigError(f"table_size={self.table_size}: must be between 2 and 10.")
+        # Odd survivor counts would leave a 1-player table (ceil(n/2) tables, spread <= 1), which cannot deal.
+        if self.table_size == 2 and self.players > 2:
+            raise ConfigError(f"table_size=2 with players={self.players}: heads-up tables cannot be balanced "
+                              "(an odd field leaves a lone player); use table_size >= 3 or players=2.")
         if self.starting_stack <= 0:
             raise ConfigError(f"starting_stack={self.starting_stack}: must be a positive integer.")
+        if self.seconds_per_seat < 1:
+            raise ConfigError(f"seconds_per_seat={self.seconds_per_seat}: must be >= 1.")
         if self.buy_in < 0:
             raise ConfigError(f"buy_in={self.buy_in}: must be >= 0.")
         for attr, allowed in (("ante_mode", ANTE_MODES), ("length_unit", LENGTH_UNITS),

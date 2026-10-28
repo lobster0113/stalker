@@ -5,6 +5,9 @@ alone (no PokerKit, no `stalker.tournament.hand`) and compares every engine-repo
 Rules not obvious from a textbook (they follow ADR 0005, which records the engine's tournament rules):
 - Antes are posted before blinds; a blind is capped by the stack left after the ante. Heads-up the button
   posts the SB and the other seat the BB (and the BB ante). Short stacks post what they have and are all-in.
+- short_stack_rule='skip' (3+ seats): seats starting the hand with fewer than bb + ante chips post no blind;
+  SB and BB go to the first two seats, clockwise from left of the button, that have at least that many
+  (fewer than two such seats: the all-in postings above).
 - Preflop the seat left of the BB acts first; later streets start left of the button.
 - When betting opens on a street, a seat that no opponent can bet beyond (every other live seat's bet + stack
   <= its bet) does not act on that street unless someone raises.
@@ -84,8 +87,11 @@ class _HandModel:
         occupied = set(d["seat_players"])
         self.order = [(d["button"] + k) % t for k in range(1, t + 1) if (d["button"] + k) % t in occupied]
         n = len(self.order)
+        able = [s for s in self.order if d["stacks"][s] >= d["bb"] + d["ante"]]
         if n == 2:
             self.sb_seat, self.bb_seat = d["button"], self.order[0]
+        elif getattr(cfg, "short_stack_rule", "all_in") == "skip" and len(able) >= 2:
+            self.sb_seat, self.bb_seat = able[0], able[1]
         else:
             self.sb_seat, self.bb_seat = self.order[0], self.order[1]
         self.stack = dict(d["stacks"])
@@ -209,6 +215,16 @@ class _Desync(Exception):
     """The engine took an action the model cannot follow; the rest of the hand is not checkable."""
 
 
+def _level_for_minutes(levels, minutes: int):
+    """Level in force after `minutes` of tournament time (the last level repeats). Independent of the director."""
+    end = 0
+    for lv in levels:
+        end += lv.length
+        if minutes < end:
+            return lv
+    return levels[-1]
+
+
 def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label: str = "") -> Tally:
     """Replay one game's events (as emitted to `run_game`'s observer) and its `GameResult` into `tally`."""
     tally = tally or Tally()
@@ -219,11 +235,17 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
     round_chips: dict[int, dict[int, int]] = {}
     hand = d = None
     showdown = None
+    clock_s, round_no, round_max = 0, None, 0  # virtual clock (length_unit='minutes'): see GATES.md Gate R
     for e in events:
         if e.type == "NEW_HAND":
             d = e.data
             where = f"{label} hand {e.hand_id} (round {d['hand_no']}, table {e.table_id})"
-            lv = cfg.level_at(d["hand_no"])
+            if d["hand_no"] != round_no:
+                clock_s += round_max * cfg.seconds_per_seat
+                round_no, round_max = d["hand_no"], 0
+            round_max = max(round_max, len(d["seat_players"]))
+            lv = (_level_for_minutes(cfg.levels, clock_s // 60) if cfg.length_unit == "minutes"
+                  else cfg.level_at(d["hand_no"]))
             tally.check("antes_blinds", (d["sb"], d["bb"], d["ante"]) == (lv.sb, lv.bb, lv.ante),
                         f"{where}: blinds {d['sb']}/{d['bb']}/{d['ante']}, schedule says {lv.sb}/{lv.bb}/{lv.ante}")
             ok = all(stacks.get(p) == d["stacks"][s] and d["stacks"][s] > 0 for s, p in d["seat_players"].items())
@@ -236,6 +258,9 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
                 tally.check("button", d["button"] == want, f"{where}: button {d['button']}, expected {want}")
             buttons[e.table_id] = d["button"]
             hand = _HandModel(cfg, d, tally, where)
+            tally.check("antes_blinds", tuple(d.get("blind_seats", ())) == (hand.sb_seat, hand.bb_seat),
+                        f"{where}: blind seats {d.get('blind_seats')}, rules say SB {hand.sb_seat} BB {hand.bb_seat} "
+                        f"(short_stack_rule={cfg.short_stack_rule!r}, stacks {d['stacks']})")
             first_action = True
             showdown = None
         elif e.type == "ACTION" and hand is not None:

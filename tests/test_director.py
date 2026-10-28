@@ -218,10 +218,6 @@ def test_input_validation():
     cfg = load_preset("6max_sng_wta")
     with pytest.raises(ValueError, match="need 6 agents"):
         run_game(cfg, _agents(Passive, 5), np.random.default_rng(0))
-    for field, value in (("length_unit", "minutes"), ("short_stack_rule", "skip")):
-        bad = dataclasses.replace(cfg, **{field: value})
-        with pytest.raises(ConfigError, match="not implemented"):
-            run_game(bad, _agents(Passive, 6), np.random.default_rng(0))
 
 
 def test_folded_seats_leave_the_hand_and_are_never_shown():
@@ -293,3 +289,64 @@ def test_observation_ante_mode_and_action_order(preset, mode):
         heads_up += len(obs.stacks) == 2
         prev = obs
     assert street_starts and heads_up, "probe game never reached a street start / heads-up"
+
+
+def test_heads_up_tables_rejected_for_larger_fields():
+    cfg = load_preset("6max_sng_wta")
+    with pytest.raises(ConfigError, match="table_size >= 3"):
+        dataclasses.replace(cfg, players=5, table_size=2, payouts=(1.0,))
+
+
+def test_heads_up_two_player_game_still_runs():
+    cfg = dataclasses.replace(load_preset("6max_sng_wta"), players=2, table_size=2, payouts=(1.0,))
+    res = run_game(cfg, _agents(Passive, 2), np.random.default_rng(0))
+    assert sorted(res.ranks) == [1, 2]
+
+
+@pytest.mark.parametrize("players,table_size", [(p, t) for t in range(3, 11) for p in (2, t, t + 1, 2 * t + 1, 30)
+                                                if 2 <= p <= 30])
+def test_every_table_seats_two_and_spread_at_most_one(players, table_size):
+    cfg = dataclasses.replace(load_preset("6max_sng_wta"), players=players, table_size=table_size, payouts=(1.0,))
+    for seed in range(3):
+        events = []
+        res = run_game(cfg, _agents(RandomLegalAgent, players, seed), np.random.default_rng(seed),
+                       observer=events.append)
+        per_round = defaultdict(list)
+        for e in events:
+            if e.type == "NEW_HAND":
+                per_round[e.data["hand_no"]].append(len(e.data["seat_players"]))
+        assert all(min(s) >= 2 and max(s) - min(s) <= 1 for s in per_round.values())
+        assert sorted(res.ranks) == list(range(1, players + 1))
+
+
+def _minutes_cfg(seconds_per_seat):
+    from stalker.tournament.config import BlindLevel
+    lv = tuple(BlindLevel(25 * 2 ** i, 50 * 2 ** i, 0, 1) for i in range(12))  # every level lasts 1 minute
+    return load_preset("9max_sng_flat").__class__(
+        name="t", players=9, table_size=9, starting_stack=1500, levels=lv, payouts=(1.0,),
+        length_unit="minutes", seconds_per_seat=seconds_per_seat, buy_in=100)
+
+
+def _round_levels(cfg, seed=0):
+    events = []
+    run_game(cfg, _agents(Passive, cfg.players, seed), np.random.default_rng(seed), observer=events.append)
+    seated = {e.data["hand_no"]: len(e.data["seat_players"]) for e in events if e.type == "NEW_HAND"}
+    return {e.data["hand_no"]: e.data["level_index"] for e in events if e.type == "NEW_HAND"}, seated
+
+
+def test_minutes_clock_advances_by_largest_table_times_seconds_per_seat():
+    # 9 seated x 7 s = 63 s per round: after round 1 the clock reads 63 s (minute 1), so round 2 is level 1;
+    # after round 2 it reads 126 s (minute 2), so round 3 is level 2. Rounds 1-3 keep all 9 seated (no bust).
+    levels, seated = _round_levels(_minutes_cfg(7))
+    assert [seated[r] for r in (1, 2, 3)] == [9, 9, 9]
+    assert [levels[r] for r in (1, 2, 3)] == [0, 1, 2]
+    # 9 x 6 s = 54 s per round: round 2 starts at 54 s (still minute 0); round 3 at 108 s (minute 1); round 4 at 162 s.
+    levels, _ = _round_levels(_minutes_cfg(6))
+    assert [levels[r] for r in (1, 2, 3, 4)] == [0, 0, 1, 2]
+
+
+def test_minutes_game_runs_to_the_end_and_is_reproducible():
+    cfg = _minutes_cfg(7)
+    a = run_game(cfg, _agents(Passive, 9), np.random.default_rng(3))
+    b = run_game(cfg, _agents(Passive, 9), np.random.default_rng(3))
+    assert a == b and sorted(a.ranks) == list(range(1, 10))

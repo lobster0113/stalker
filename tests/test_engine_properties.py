@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, example, given, settings, strategies as st
 
 from stalker.tournament.fast_hand import FastHand
 from stalker.tournament.hand import Hand
@@ -126,6 +126,10 @@ def _max_posted_blind(spec):
 
 @pytest.mark.parametrize("engine", ENGINES)
 @given(spec=hands())
+# #204: short BB posts 1 all in, UTG goes all in for 2 (not a full raise), BTN raises to 4. The full raise
+# is measured from 2, so the next minimum is 6 — the old oracle measured it from the posted 1 and said 7.
+@example(spec={"stacks": [0, 0, 2, 5, 7, 1], "button": 3, "small_blind": 1, "big_blind": 2, "ante": 0,
+               "ante_mode": "none", "seed": 0, "choices": [(4, 0.0), (4, 0.0)]})
 def test_min_raise_rule(engine, spec):
     """Min raise-to = current level + largest full raise so far (or all-in), tracked from the actions applied.
 
@@ -134,7 +138,9 @@ def test_min_raise_rule(engine, spec):
     """
     bb = spec["big_blind"]
     posted = _max_posted_blind(spec)
-    state = {"street": 0, "level": bb if posted >= bb else None, "inc": bb}
+    # `cur` is the bet to match so far: a short all-in that is not a full raise still raises it, and the
+    # first full raise is measured from it (both engines and PokerKit agree; #204).
+    state = {"street": 0, "level": bb if posted >= bb else None, "inc": bb, "cur": max(posted, 0)}
     seen = 0
 
     def step(h, la):
@@ -146,8 +152,9 @@ def test_min_raise_rule(engine, spec):
             if kind != "cbr":
                 continue
             if state["level"] is None:
-                if amount - posted >= bb:  # first preflop raise that is certainly a full one
-                    state.update(level=amount, inc=amount - posted)
+                if amount - state["cur"] >= bb:  # first preflop raise that is certainly a full one
+                    state.update(level=amount, inc=amount - state["cur"])
+                state["cur"] = max(state["cur"], amount)
                 continue
             if amount - state["level"] >= state["inc"]:
                 state["inc"] = amount - state["level"]
