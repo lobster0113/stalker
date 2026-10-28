@@ -120,6 +120,20 @@ def e1() -> dict:
     return out
 
 
+def gate_f_e1() -> dict:
+    """Gate F v0 (#281) on the same E1 spots: the tier's follower bot (synthetic error, the tier's sigma)
+    on rank scales, bb/hand vs the Nash anchor's opponent and its increase over the noiseless policy."""
+    from referee import gate_f
+    from stalker.e1.tp_pushfold import gate_f_policy
+
+    out = {}
+    for tier in gate_f.SIGMA:
+        m = gate_f.evaluate(gate_f_policy(tier, "quantile", iters=E1_ITERS), [(s, 0.0) for s in E1_STACKS], tier)["mean"]
+        out[f"gate_f_e1_{tier}_nash_loss"] = m["nash_loss"]
+        out[f"gate_f_e1_{tier}_nash_loss_added"] = m["nash_loss_added"]
+    return out
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
@@ -131,6 +145,7 @@ def snapshot() -> dict:
     snap.update(gate_s_e1())
     snap.update(e0())
     snap.update(e1())
+    snap.update(gate_f_e1())
     return snap
 
 

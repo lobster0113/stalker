@@ -71,3 +71,12 @@ def test_gate_s_record_has_types_ranges_and_is_reproducible():
         assert 0 <= r["tv_p95_sb"] <= 1 and 0 <= r["tv_p95_bb"] <= 1, name
         assert r["golden_total"] >= 5 and 0 <= r["golden_ok"] <= r["golden_total"], name
         assert isinstance(r["passed"], bool) and r["stab_regret_p99_pct"] >= 0, name
+
+
+def test_gate_f_metrics_are_deterministic_and_ordered():
+    a = metrics.gate_f_e1()
+    assert a == metrics.gate_f_e1()
+    for tier in ("beginner", "mid", "pro"):
+        assert a[f"gate_f_e1_{tier}_nash_loss"] >= a[f"gate_f_e1_{tier}_nash_loss_added"] >= 0
+    # Larger human error costs more: the tiers' sigmas are 20 > 12 > 6.
+    assert a["gate_f_e1_pro_nash_loss_added"] <= a["gate_f_e1_mid_nash_loss_added"] <= a["gate_f_e1_beginner_nash_loss_added"]

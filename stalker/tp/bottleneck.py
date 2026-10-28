@@ -150,12 +150,17 @@ class LinearBottleneck:
 
 
 def public_head(spec: Spec) -> TPHead:
-    """Minimal TP head: preflop `hand.equity` from the class-equity table (vs one random hand), rest N/A."""
+    """Minimal TP head: preflop `hand.equity` from the class-equity table, rest N/A.
+
+    Equity is against every opponent still in the hand (docs/TP.md §3, `opp.range` absent = random
+    hands); the table covers up to five opponents.
+    """
     def head(po: PublicObservation) -> TPVector:
         vals: dict[str, float | None] = {}
         if not po.board:
             a, b = (card(c) for c in po.hole_cards)
-            vals["hand.equity"] = 100.0 * class_equity(hand_class(a, b))
+            n = sum(1 for k, s in enumerate(po.seats) if k != 0 and s.used and s.in_hand)
+            vals["hand.equity"] = 100.0 * class_equity(hand_class(a, b), n)
         return TPVector(vals, spec)
     return head
 
