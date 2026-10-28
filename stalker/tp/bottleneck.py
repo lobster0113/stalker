@@ -160,7 +160,7 @@ def public_head(spec: Spec) -> TPHead:
         if not po.board:
             a, b = (card(c) for c in po.hole_cards)
             n = sum(1 for k, s in enumerate(po.seats) if k != 0 and s.used and s.in_hand)
-            vals["hand.equity"] = 100.0 * class_equity(hand_class(a, b), n)
+            vals["hand.equity"] = float(round(100.0 * class_equity(hand_class(a, b), n)))
         return TPVector(vals, spec)
     return head
 
