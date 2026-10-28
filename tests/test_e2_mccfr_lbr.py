@@ -101,3 +101,27 @@ def test_progress_log_rows(tmp_path):
     rows = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines()]
     assert [r["iteration"] for r in rows] == [10, 20, 30]
     assert all(set(r) == {"iteration", "seed", "infosets", "seconds"} and r["seed"] == 4 for r in rows)
+
+
+def test_lbr_never_reads_cards_that_are_not_dealt_yet():
+    # #259: facing an all-in, a call ends the hand and the engine deals the runout; LBR must value
+    # the call from the dealt board only, so shuffling the undealt deck cannot change it.
+    import numpy as np
+
+    from referee.e2.lbr import StaticView, _value
+    from stalker.core.cards import COMBOS
+    from stalker.e2 import game as G
+    from stalker.e2.abstraction import BASELINE
+
+    rng = np.random.default_rng(259)
+    s = G.apply(G.deal(rng), "a")              # SB shoves preflop; the BB (seat 1) must call or fold
+    assert s.to_act == 1 and "c" in G.legal(s)
+    w = np.ones(len(COMBOS))
+    pub = [np.ones(len(COMBOS)), np.ones(len(COMBOS))]
+    values = set()
+    for k in range(4):
+        deck = list(s.deck)
+        np.random.default_rng(k).shuffle(deck)
+        sk = s._replace(deck=tuple(deck)) if hasattr(s, "_replace") else s
+        values.add(round(_value({}, sk, "c", w, 1, np.random.default_rng(7), StaticView(BASELINE), pub), 9))
+    assert len(values) == 1, values
