@@ -7,7 +7,7 @@ import pytest
 
 from stalker.agents.base import Action, Agent, Observation
 from stalker.agents.random_agent import RandomLegalAgent
-from stalker.tournament.config import ConfigError, load_preset, preset_names
+from stalker.tournament.config import load_preset, preset_names
 from stalker.tournament.director import rank_busts, run_game
 
 
@@ -218,9 +218,6 @@ def test_input_validation():
     cfg = load_preset("6max_sng_wta")
     with pytest.raises(ValueError, match="need 6 agents"):
         run_game(cfg, _agents(Passive, 5), np.random.default_rng(0))
-    bad = dataclasses.replace(cfg, short_stack_rule="skip")
-    with pytest.raises(ConfigError, match="not implemented"):
-        run_game(bad, _agents(Passive, 6), np.random.default_rng(0))
 
 
 def test_folded_seats_leave_the_hand_and_are_never_shown():

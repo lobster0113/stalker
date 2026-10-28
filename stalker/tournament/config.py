@@ -44,7 +44,8 @@ class TournamentConfig:
     ante_mode: str = "none"
     length_unit: str = "hands"
     # all_in: a player who cannot cover a blind/ante posts the remainder and is all-in.
-    # skip: a player who cannot cover the big blind is skipped for the blind that orbit.
+    # skip: a seat starting the hand below bb + ante posts no blind; the next covering seats post them
+    # (rule text: referee/GATES.md Gate R).
     short_stack_rule: str = "all_in"
     buy_in: int = 0
     # length_unit='minutes' only: virtual seconds one seated player adds to the global clock per round.
