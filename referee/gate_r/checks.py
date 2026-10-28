@@ -5,6 +5,9 @@ alone (no PokerKit, no `stalker.tournament.hand`) and compares every engine-repo
 Rules not obvious from a textbook (they follow ADR 0005, which records the engine's tournament rules):
 - Antes are posted before blinds; a blind is capped by the stack left after the ante. Heads-up the button
   posts the SB and the other seat the BB (and the BB ante). Short stacks post what they have and are all-in.
+- short_stack_rule='skip' (3+ seats): seats starting the hand with fewer than bb + ante chips post no blind;
+  SB and BB go to the first two seats, clockwise from left of the button, that have at least that many
+  (fewer than two such seats: the all-in postings above).
 - Preflop the seat left of the BB acts first; later streets start left of the button.
 - When betting opens on a street, a seat that no opponent can bet beyond (every other live seat's bet + stack
   <= its bet) does not act on that street unless someone raises.
@@ -84,8 +87,11 @@ class _HandModel:
         occupied = set(d["seat_players"])
         self.order = [(d["button"] + k) % t for k in range(1, t + 1) if (d["button"] + k) % t in occupied]
         n = len(self.order)
+        able = [s for s in self.order if d["stacks"][s] >= d["bb"] + d["ante"]]
         if n == 2:
             self.sb_seat, self.bb_seat = d["button"], self.order[0]
+        elif getattr(cfg, "short_stack_rule", "all_in") == "skip" and len(able) >= 2:
+            self.sb_seat, self.bb_seat = able[0], able[1]
         else:
             self.sb_seat, self.bb_seat = self.order[0], self.order[1]
         self.stack = dict(d["stacks"])
@@ -252,6 +258,9 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
                 tally.check("button", d["button"] == want, f"{where}: button {d['button']}, expected {want}")
             buttons[e.table_id] = d["button"]
             hand = _HandModel(cfg, d, tally, where)
+            tally.check("antes_blinds", tuple(d.get("blind_seats", ())) == (hand.sb_seat, hand.bb_seat),
+                        f"{where}: blind seats {d.get('blind_seats')}, rules say SB {hand.sb_seat} BB {hand.bb_seat} "
+                        f"(short_stack_rule={cfg.short_stack_rule!r}, stacks {d['stacks']})")
             first_action = True
             showdown = None
         elif e.type == "ACTION" and hand is not None:
