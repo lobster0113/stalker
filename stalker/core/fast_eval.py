@@ -132,6 +132,29 @@ def _rank_runouts(combos, ok, fulls, acc, SH, POP, HI, K5, K3, K2, CAT):
 
 
 
+def _equity_segments(w, idx, order, lo, hi, off, acc, cnt):
+    """Equity against range weights `w`, runout by runout (segment r = off[r]:off[r+1]): the same
+    operations, in the same order, as the numpy loop in `stalker.e2.eq_view.equity_vs`."""
+    cw = np.empty(idx.shape[0] + 1)
+    for r in range(off.shape[0] - 1):
+        a, b = off[r], off[r + 1]
+        m = b - a
+        cw[0] = 0.0
+        for t in range(m):
+            cw[t + 1] = cw[t] + w[idx[a + order[a + t]]]
+        for t in range(m):
+            i = idx[a + t]
+            ww = w[i]
+            below = cw[lo[a + t]]
+            upto = cw[hi[a + t]]
+            tot = cw[m] - ww
+            tie = upto - below - ww
+            if tot > 0:
+                acc[i] += (below + 0.5 * tie) / tot
+                cnt[i] += 1
+
+
+
 def _quantile_steps(xl, wl, k, total, out):
     """Quantile steps of the live values `xl` (weights `wl`, sum `total`): groups of equal values
     in sorted order; per group mass = weights added in original order (stable sort), as numpy's
@@ -161,6 +184,7 @@ if HAVE_NUMBA:
     _eval_one = njit(cache=True)(_eval_one)
     _eval_many = njit(cache=True)(_eval_many)
     _rank_runouts = njit(cache=True)(_rank_runouts)
+    _equity_segments = njit(cache=True)(_equity_segments)
     _quantile_steps = njit(cache=True)(_quantile_steps)
 
 
@@ -177,6 +201,11 @@ def rank_runouts(combos: np.ndarray, ok: np.ndarray, fulls: np.ndarray, acc: np.
     usefully fast compiled; tests call it either way to check the kernel logic."""
     _rank_runouts(combos, ok, fulls, acc, _SH, _POP, _HI, _KICK5, _KICK3, _KICK2, _CAT)
 
+
+
+def equity_segments(w, idx, order, lo, hi, off, acc, cnt) -> None:
+    """Compiled range-equity accumulation (#201); plain Python without numba (slow but exact); used by the equity view (#188)."""
+    _equity_segments(w, idx, order, lo, hi, off, acc, cnt)
 
 
 def quantile_steps(xl: np.ndarray, wl: np.ndarray, k: int, total: float) -> np.ndarray:
