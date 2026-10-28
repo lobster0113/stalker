@@ -1,3 +1,5 @@
+import pytest
+
 from referee import metrics
 from referee.gate_l import Report
 
@@ -32,6 +34,7 @@ def test_gate_l_empty_report_is_not_a_pass():
 def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
+    monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
@@ -39,6 +42,7 @@ def test_snapshot_includes_gate_l(monkeypatch):
 def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
+    monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     snap = metrics.snapshot()
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
     assert not retired, retired
@@ -56,3 +60,14 @@ def test_training_metrics_are_exact_and_deterministic():
     assert a["e1_tp_pro_exploitability"] <= a["e1_tp_mid_exploitability"] <= a["e1_tp_beginner_exploitability"]
     assert a["e1_tp_beginner_exploitability"] < a["e1_tp_uniform_beginner_exploitability"]
     assert elapsed < 120, elapsed  # snapshot budget (#170): about a minute on CI
+
+
+@pytest.mark.slow
+def test_gate_s_record_has_types_ranges_and_is_reproducible():
+    a = metrics.gate_s_e1()["gate_s_e1"]
+    assert a == metrics.gate_s_e1()["gate_s_e1"]
+    assert len(a["spots_sha256"]) == 64 and a["policies"]["nash_anchor"]["passed"] is True
+    for name, r in a["policies"].items():
+        assert 0 <= r["tv_p95_sb"] <= 1 and 0 <= r["tv_p95_bb"] <= 1, name
+        assert r["golden_total"] >= 5 and 0 <= r["golden_ok"] <= r["golden_total"], name
+        assert isinstance(r["passed"], bool) and r["stab_regret_p99_pct"] >= 0, name

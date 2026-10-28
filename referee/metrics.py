@@ -57,6 +57,29 @@ def gate_l(report=None) -> dict:
             "gate_l_items": items}
 
 
+def gate_s_e1() -> dict:
+    """Gate S v0 (#280/#287) on E1: the Nash anchor and the TP bottleneck policies on rank scales.
+
+    Record-only for the TP policies (GATES.md Gate S): the trend is kept here, `gates full` only
+    checks the anchor and the discrimination policies.
+    """
+    from referee import gate_s
+    from stalker.e1.tp_pushfold import gate_s_policy
+
+    spec, sha = gate_s.load()
+
+    def row(r):
+        return {"passed": r["passed"], "tv_p95_sb": r["tv_p95_by_seat"]["sb"], "tv_p95_bb": r["tv_p95_by_seat"]["bb"],
+                "tp_change_p95": r["tp_change_p95"], "stab_regret_mean_pct": r["stab_regret_mean_pct"],
+                "stab_regret_p99_pct": r["stab_regret_p99_pct"], "cliff_ratio": r["cliff_ratio"],
+                "golden_ok": sum(g["ok"] for g in r["golden"]), "golden_total": len(r["golden"])}
+
+    pols = {"nash_anchor": row(gate_s.evaluate(gate_s.nash_policy, spec))}
+    for tier in ("beginner", "mid", "pro"):
+        pols[f"e1_tp_{tier}_quantile"] = row(gate_s.evaluate(gate_s_policy(tier, "quantile", iters=E1_ITERS), spec))
+    return {"gate_s_e1": {"spots_sha256": sha, "policies": pols}}
+
+
 # Fixed E0/E1 training runs for the Gate Q4 record; changing them breaks the trend, so bump deliberately.
 E0_KUHN_ITERS = 1000
 E0_LEDUC_ITERS = 300
@@ -105,6 +128,7 @@ def snapshot() -> dict:
     snap.update(code_size())
     snap.update(gate_r())
     snap.update(gate_l())
+    snap.update(gate_s_e1())
     snap.update(e0())
     snap.update(e1())
     return snap
