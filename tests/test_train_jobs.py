@@ -87,3 +87,17 @@ def test_summarize_step_validates_before_touching_ops():
     text = (ROOT / ".github" / "workflows" / "train.yml").read_text(encoding="utf-8")
     step = text[text.index("- name: summary to ops"):]
     assert step.index("^[a-z0-9-]+$") < step.index("train_jobs summarize") < step.index('mkdir -p "ops/training/$JOB"')
+
+
+def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "LEAGUE_GENERATIONS", 2)
+    import stalker.e2.league as lg
+    from stalker.e2 import personas
+
+    monkeypatch.setattr(lg, "persona_field", lambda names=None: personas.field(("tag",)))
+    T.run("e2-league-beginner", 40, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-league-beginner-seed1.json").read_text())
+    assert r["tier"] == "beginner" and len(r["generations"]) == 2 and r["iters"] == 40
+    assert r["generations"][0]["worst_persona"] == "tag"
+    s = T.summarize("e2-league-beginner", tmp_path)
+    assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1

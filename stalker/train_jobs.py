@@ -42,7 +42,31 @@ def _e2_mccfr(iters: int, seed: int, out: Path) -> dict:
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
-JOBS = {"e2-mccfr": _e2_mccfr}
+LEAGUE_GENERATIONS = 10
+
+
+def _e2_league(tier: str):
+    """League v1 (#202, #226) at a TP tier: `iters` main self-play iterations over LEAGUE_GENERATIONS
+    generations, each gated by a fresh exploiter, the snapshot pool and the persona field."""
+    def job(iters: int, seed: int, out: Path) -> dict:
+        from dataclasses import asdict
+
+        from stalker.e2.league import League
+
+        per_gen = max(1, iters // LEAGUE_GENERATIONS)
+        t0 = time.monotonic()
+        lg = League(tier, seed=seed)
+        hist = lg.run(LEAGUE_GENERATIONS, per_gen, exploiter_iters=min(20_000, per_gen), hands=1000)
+        if lg.champion is not None:
+            (out / f"e2-league-{tier}-seed{seed}.policy.json").write_text(json.dumps(lg.champion), encoding="utf-8")
+        champ = [g for g in hist if g.promoted]
+        return {"iters": per_gen * LEAGUE_GENERATIONS, "tier": tier, "generations": [asdict(g) for g in hist],
+                "promoted": len(champ), "champion": asdict(champ[-1]) if champ else None,
+                "wall_train_seconds": round(time.monotonic() - t0, 1)}
+    return job
+
+
+JOBS = {"e2-mccfr": _e2_mccfr, "e2-league-beginner": _e2_league("beginner"), "e2-league-mid": _e2_league("mid")}
 
 
 def run(job: str, iters: int, seed: int, out: Path) -> Path:
@@ -96,6 +120,12 @@ def summarize(job: str, folder: Path) -> dict:
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb})
+    if job.startswith("e2-league-") and runs:
+        champs = [r["champion"] for r in runs if r["champion"]]
+        out.update({"iters": runs[0]["iters"], "promoted_by_seed": [r["promoted"] for r in runs],
+                    "champion_gain_bb_by_seed": [c["gain_bb"] for c in champs],
+                    "champion_field_bb_by_seed": [c["field_bb"] for c in champs],
+                    "champion_worst_persona_by_seed": [c["worst_persona"] for c in champs]})
     return out
 
 
