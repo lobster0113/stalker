@@ -151,8 +151,12 @@ def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
     r = json.loads((tmp_path / "e2-league-beginner-seed1.json").read_text(encoding="utf-8"))
     assert r["tier"] == "beginner" and len(r["generations"]) == 2 and r["iters"] == 40
     assert r["generations"][0]["worst_persona"] == "tag"
+    assert r["exploiter"] == {"tier": "beginner", "ratio": 0.5, "strategy": "current"}
+    # per_gen = 40 // 2 = 20: max(min(20000, 20), int(0.5 x total)) = max(20, 10), max(20, 20)
+    assert [g["exploiter_iters"] for g in r["generations"]] == [20, 20]
     s = T.summarize("e2-league-beginner", tmp_path)
-    assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1
+    assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1 and s["exploiter"]["tier"] == "beginner"
+    assert s["exploiter_iters_by_seed"] == [[20, 20]]
 
 
 
