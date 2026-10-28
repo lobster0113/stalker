@@ -126,7 +126,7 @@ def summarize(job: str, folder: Path) -> dict:
     runs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(folder.rglob(f"{job}-seed*.json"))
             if not p.name.endswith(".policy.json")]
     out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs]}
-    if job.startswith("e2-") and runs:
+    if job.startswith("e2-") and not job.startswith("e2-league-") and runs:  # league runs report champions, not LBR
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
