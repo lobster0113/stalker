@@ -58,3 +58,54 @@ def test_eq_jobs_train_with_the_equity_view(tmp_path, monkeypatch):
     T.run("e2-eq-beginner", 3, 1, tmp_path)
     r = json.loads((tmp_path / "e2-eq-beginner-seed1.json").read_text())
     assert r["view"] == {"view": "equity", "k": 5} and seen["view"].k == 5
+
+
+def _fake_run(folder, seed, **extra):
+    (folder / f"e2-mccfr-seed{seed}.json").write_text(json.dumps(
+        {"job": "e2-mccfr", "seed": seed, "iters": 10, "iters_per_s": 1.0, "lbr": {"lbr_bb": 0.5}, **extra}))
+
+
+def test_summary_refuses_unknown_jobs_and_empty_results(tmp_path):
+    with pytest.raises(SystemExit, match="unknown job"):
+        T.summary_text("../../etc", tmp_path)
+    with pytest.raises(SystemExit, match="no successful"):
+        T.summary_text("e2-mccfr", tmp_path)
+    _fake_run(tmp_path, 1)
+    assert json.loads(T.summary_text("e2-mccfr", tmp_path))["runs"] == 1
+
+
+def test_summary_size_cap(tmp_path, monkeypatch):
+    _fake_run(tmp_path, 1)
+    monkeypatch.setattr(T, "SUMMARY_MAX_BYTES", 50)
+    with pytest.raises(SystemExit, match="bytes >"):
+        T.summary_text("e2-mccfr", tmp_path)
+
+
+@pytest.mark.parametrize("leak", ["ghp_" + "a" * 36, "github_pat_" + "b" * 30, "rpa_" + "C" * 30,
+                                  "-----BEGIN RSA PRIVATE KEY-----"])
+def test_summary_refuses_credentials(tmp_path, monkeypatch, leak):
+    monkeypatch.setattr(T, "summarize", lambda job, folder: {"job": job, "runs": 1, "note": leak})
+    with pytest.raises(SystemExit, match="credential"):
+        T.summary_text("e2-mccfr", tmp_path)
+
+
+def test_summary_refuses_secret_env_values(tmp_path, monkeypatch):
+    monkeypatch.setenv("RUNPOD_API_KEY", "not-a-real-value-123")
+    monkeypatch.setattr(T, "summarize", lambda job, folder: {"job": job, "runs": 1, "note": "not-a-real-value-123"})
+    with pytest.raises(SystemExit, match="RUNPOD_API_KEY"):
+        T.summary_text("e2-mccfr", tmp_path)
+
+
+def test_run_output_size_cap(tmp_path, monkeypatch):
+    import referee.e2.lbr as lbr
+
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, **kw: {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(T, "ARTIFACT_MAX_BYTES", 100)
+    with pytest.raises(SystemExit, match="bytes >"):
+        T.run("e2-mccfr", 5, 1, tmp_path)
+
+
+def test_summarize_step_validates_before_touching_ops():
+    text = (ROOT / ".github" / "workflows" / "train.yml").read_text(encoding="utf-8")
+    step = text[text.index("- name: summary to ops"):]
+    assert step.index("^[a-z0-9-]+$") < step.index("train_jobs summarize") < step.index('mkdir -p "ops/training/$JOB"')
