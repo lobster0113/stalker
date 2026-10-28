@@ -17,7 +17,7 @@ rl = ["torch>=2.2"]  # CPU policy network (stalker/rl/policy.py); not needed for
 include = ["stalker*", "referee*"]
 
 [tool.setuptools.package-data]
-stalker = ["data/*.json", "tournament/presets/*.json", "tp/spec/*.json"]
+stalker = ["data/*.json", "tournament/presets/*.json", "env/registry/*.json", "tp/spec/*.json"]
 referee = ["anchors/data/*.json"]
 
 [tool.pytest.ini_options]
