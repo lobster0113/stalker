@@ -1,0 +1,19 @@
+{
+ "job": "e2-mccfr",
+ "runs": 2,
+ "seeds": [
+  1,
+  2
+ ],
+ "iters": 20000,
+ "iters_per_s_mean": 177.69,
+ "lbr_bb_mean": 1.6104,
+ "lbr_bb_by_seed": [
+  1.428,
+  1.7928
+ ],
+ "lbr_stderr_by_seed": [
+  0.1628,
+  0.1592
+ ]
+}
