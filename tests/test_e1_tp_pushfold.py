@@ -40,27 +40,30 @@ def test_finer_tp_scale_costs_less():
 @pytest.mark.slow
 def test_e1_pro_tier_with_equity_when_called_is_near_nash():
     # Exact Gate Q4 numbers on a stack spread; the draft target (plan §4.6) is pro <= 0.03 bb/hand.
-    for stack in (3.0, 8.0, 15.0):
+    # Only consistent pairs are bottleneck policies (#268 review): 15bb pro/called cycles, 14.5bb does not.
+    for stack in (3.0, 8.0, 14.5):
         r = T.train(stack, 0.0, "pro", iters=3000, sb_view="called")
+        assert r.consistent, stack
         assert r.exploitability <= 0.03
         assert r.exploitability <= 3 * r.nash_exploitability + 0.002
-    # The TP v0.1 definition (equity vs a random hand) leaves a measurable gap at 15bb.
-    v01 = T.train(15.0, 0.0, "pro", iters=3000, sb_view="random").exploitability
-    assert v01 > 2 * T.train(15.0, 0.0, "pro", iters=3000, sb_view="called").exploitability
+    # The TP v0.1 definition (equity vs a random hand) leaves a measurable gap at 14.5bb.
+    v01, called = (T.train(14.5, 0.0, "pro", iters=3000, sb_view=v) for v in ("random", "called"))
+    assert v01.consistent and called.consistent
+    assert v01.exploitability > 2 * called.exploitability
 
 
 def test_delivered_pairs_are_bottleneck_policies_or_flagged():
     # #268 review: with sb_view="called" the final passes can cycle; such a pair is not a function of
-    # its own TP values and must be marked, never reported as a bottleneck policy.
-    import numpy as np
-
+    # its own TP values and must be marked, never reported as a bottleneck policy. Each case pins its
+    # expected consistency so a change in either direction is reported.
     from stalker.e1 import tp_pushfold as T
 
-    flagged = T.train(13.0, 0.0, "pro", iters=3000, sb_view="called")
-    assert flagged.consistent is False
-    for stack, ante, tier, view in [(9.0, 0.0, "pro", "called"), (11.0, 0.0, "mid", "called"), (8.0, 1.0, "beginner", "random"),
-                                    (13.0, 0.0, "pro", "random")]:
+    assert T.train(13.0, 0.0, "pro", iters=3000, sb_view="called").consistent is False
+    cases = {(9.0, 0.0, "pro", "called"): True, (14.5, 0.0, "pro", "called"): True, (3.0, 0.0, "mid", "called"): True,
+             (11.0, 0.0, "mid", "called"): False, (8.0, 1.0, "beginner", "random"): True, (13.0, 0.0, "pro", "random"): True}
+    for (stack, ante, tier, view), expected in cases.items():
         r = T.train(stack, ante, tier, iters=600, sb_view=view)
+        assert r.consistent is expected, (stack, ante, tier, view)
         if not r.consistent:
             continue
         step = T.TIER_STEP[tier]
