@@ -32,19 +32,8 @@ def _clear(mask, r):
     return mask & ~(1 << r) if r >= 0 else mask
 
 
-def _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask):
-    cnt[:] = 0
-    smask[:] = 0
-    for i in range(7):
-        c = hand[i]
-        r = c >> 2
-        cnt[r] += 1
-        smask[c & 3] |= 1 << r
-    best, fl = -1, 0
-    for k in range(4):
-        if POP[smask[k]] > best:
-            best, fl = POP[smask[k]], smask[k]
-    has_fl = POP[fl] >= 5
+def _eval_ranks(cnt, SH, HI, K5, K3, K2, CAT):
+    """Score of a 7-card hand with no flush; depends on the rank counts only."""
     m4 = m3 = m2 = m1 = 0
     for r in range(13):
         if cnt[r] == 4:
@@ -55,11 +44,6 @@ def _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask):
             m2 |= 1 << r
         elif cnt[r] == 1:
             m1 |= 1 << r
-    # Same order as the reference's np.select: straight flush, flush, quads, full house, straight, ...
-    if has_fl and SH[fl] >= 0:
-        return (CAT[8] << 20) | (SH[fl] << 16)
-    if has_fl:
-        return (CAT[5] << 20) | K5[fl]
     rank_mask = m4 | m3 | m2 | m1
     quads = HI[m4]
     if quads >= 0:
@@ -85,6 +69,26 @@ def _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask):
     return (CAT[0] << 20) | K5[m1]
 
 
+def _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask):
+    cnt[:] = 0
+    smask[:] = 0
+    for i in range(7):
+        c = hand[i]
+        r = c >> 2
+        cnt[r] += 1
+        smask[c & 3] |= 1 << r
+    best, fl = -1, 0
+    for k in range(4):
+        if POP[smask[k]] > best:
+            best, fl = POP[smask[k]], smask[k]
+    # Same order as the reference's np.select: straight flush, flush, quads, full house, straight, ...
+    if POP[fl] >= 5:
+        if SH[fl] >= 0:
+            return (CAT[8] << 20) | (SH[fl] << 16)
+        return (CAT[5] << 20) | K5[fl]
+    return _eval_ranks(cnt, SH, HI, K5, K3, K2, CAT)
+
+
 def _eval_many(hands, SH, POP, HI, K5, K3, K2, CAT):
     out = np.empty(hands.shape[0], dtype=np.int64)
     cnt = np.zeros(13, dtype=np.int64)    # scratch, reused for every hand
@@ -97,39 +101,97 @@ def _eval_many(hands, SH, POP, HI, K5, K3, K2, CAT):
 def _rank_runouts(combos, ok, fulls, acc, SH, POP, HI, K5, K3, K2, CAT):
     """For each runout (row of `fulls`, 5 board cards): every usable combo's share of the other
     usable combos it beats (ties half), added to `acc`; combos blocked only by the runout add 0.5.
-    Mirrors `stalker.e2.abstraction.ehs_table`'s numpy loop operation for operation."""
+    Same integers (beaten, tied) and the same float expression as `stalker.e2.abstraction.ehs_table`'s
+    numpy loop, so the tables are bit-identical. Faster because without a flush a combo's score depends
+    only on its two ranks: each runout scores at most 91 rank pairs plus the flush combos one by one,
+    and ranks (value, count) entries instead of sorting 1326 scores (#201)."""
     n = combos.shape[0]
     hand = np.empty(7, dtype=np.int64)
-    score = np.empty(n, dtype=np.int64)
-    which = np.empty(n, dtype=np.int64)
     cnt = np.zeros(13, dtype=np.int64)
     smask = np.zeros(4, dtype=np.int64)
+    bcnt = np.zeros(13, dtype=np.int64)
+    bsuit = np.zeros(4, dtype=np.int64)
+    # Entries 0..168: rank pair lo*13+hi; from 169: one per flush combo.
+    val = np.empty(169 + n, dtype=np.int64)
+    num = np.zeros(169 + n, dtype=np.int64)
+    below = np.empty(169 + n, dtype=np.int64)
+    upto = np.empty(169 + n, dtype=np.int64)
+    slot = np.empty(n, dtype=np.int64)
     for r in range(fulls.shape[0]):
+        bcnt[:] = 0
+        bsuit[:] = 0
+        dealt = 0  # bit c set: card c is on this runout's board
         for j in range(5):
-            hand[2 + j] = fulls[r, j]
+            c = fulls[r, j]
+            dealt |= 1 << c
+            bcnt[c >> 2] += 1
+            bsuit[c & 3] += 1
+            hand[2 + j] = c
+        fs = -1  # the one suit that can make a flush (3+ of 5 board cards), if any
+        for k in range(4):
+            if bsuit[k] >= 3:
+                fs = k
+        num[:169] = 0
+        nf = 0
         m = 0
         for i in range(n):
+            slot[i] = -1
             if not ok[i]:
                 continue
             a, b = combos[i, 0], combos[i, 1]
-            blocked = False
-            for j in range(5):
-                if fulls[r, j] == a or fulls[r, j] == b:
-                    blocked = True
-            if blocked:
+            if (dealt >> a) & 1 or (dealt >> b) & 1:
                 acc[i] += 0.5
                 continue
-            hand[0], hand[1] = a, b
-            score[m] = _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask)
-            which[m] = i
             m += 1
-        srt = np.sort(score[:m])
+            if fs >= 0 and bsuit[fs] + ((a & 3) == fs) + ((b & 3) == fs) >= 5:
+                hand[0], hand[1] = a, b
+                e = 169 + nf
+                nf += 1
+                val[e] = _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask)
+                num[e] = 1
+                slot[i] = e
+                continue
+            ra, rb = a >> 2, b >> 2
+            e = min(ra, rb) * 13 + max(ra, rb)
+            if num[e] == 0:
+                for t in range(13):
+                    cnt[t] = bcnt[t]
+                cnt[ra] += 1
+                cnt[rb] += 1
+                val[e] = _eval_ranks(cnt, SH, HI, K5, K3, K2, CAT)
+            num[e] += 1
+            slot[i] = e
+        # Entries in score order; equal scores (from different entries too) form one group.
+        live = np.empty(169 + nf, dtype=np.int64)
+        k = 0
+        for e in range(169 + nf):
+            if num[e] > 0:
+                live[k] = e
+                k += 1
+        live = live[:k]
+        order = live[np.argsort(val[live])]
+        g = 0
+        cum = 0
+        while g < k:
+            h = g
+            tot = 0
+            while h < k and val[order[h]] == val[order[g]]:
+                tot += num[order[h]]
+                h += 1
+            for t in range(g, h):
+                below[order[t]] = cum
+                upto[order[t]] = cum + tot
+            cum += tot
+            g = h
+        for e in range(169, 169 + nf):
+            num[e] = 0
         den = max(m - 1, 1)
-        for t in range(m):
-            lo = np.searchsorted(srt, score[t], side="left")
-            hi = np.searchsorted(srt, score[t], side="right")
-            acc[which[t]] += (lo + (hi - lo - 1) / 2) / den
-
+        for i in range(n):
+            e = slot[i]
+            if e >= 0:
+                lo = below[e]
+                hi = upto[e]
+                acc[i] += (lo + (hi - lo - 1) / 2) / den
 
 
 def _equity_segments(w, idx, order, lo, hi, off, acc, cnt):
@@ -181,6 +243,7 @@ def _quantile_steps(xl, wl, k, total, out):
 
 if HAVE_NUMBA:
     _clear = njit(cache=True)(_clear)
+    _eval_ranks = njit(cache=True)(_eval_ranks)
     _eval_one = njit(cache=True)(_eval_one)
     _eval_many = njit(cache=True)(_eval_many)
     _rank_runouts = njit(cache=True)(_rank_runouts)

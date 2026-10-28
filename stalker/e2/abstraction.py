@@ -34,16 +34,22 @@ def preflop_bucket(a: int, b: int) -> int:
 def ehs_table(board: tuple[int, ...]) -> np.ndarray:
     """EHS of every combo on `board` (nan for combos that collide with the board)."""
     rng = np.random.default_rng([20261027, *board])  # seeded by the cards themselves, process-independent
-    live = np.array([c for c in range(52) if c not in board])
-    ok = ~np.isin(COMBO_ARR, list(board)).any(axis=1)
+    on_board = np.zeros(52, dtype=bool)
+    on_board[list(board)] = True
+    live = np.flatnonzero(~on_board)
+    ok = ~(on_board[COMBO_ARR[:, 0]] | on_board[COMBO_ARR[:, 1]])
     acc = np.zeros(len(COMBOS))
     need = 5 - len(board)
     runs = RUNOUTS if need else 1  # the river has nothing left to deal: evaluate it once (see below)
-    extras = [rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)
-              for _ in range(runs)]  # same draws in the same order as before, compiled or not
+    # Same draws in the same order as before, compiled or not (choice by index = choice of `live`).
+    extras = [live[rng.choice(len(live), size=need, replace=False)] if need else np.array([], dtype=np.int64)
+              for _ in range(runs)]
     one = acc if need else np.zeros(len(COMBOS))
     if fast_eval.HAVE_NUMBA:
-        fulls = np.array([np.concatenate([np.array(board, dtype=np.int64), x]) for x in extras], dtype=np.int64)
+        fulls = np.empty((runs, 5), dtype=np.int64)
+        fulls[:, :len(board)] = board
+        for r, x in enumerate(extras):
+            fulls[r, len(board):] = x
         fast_eval.rank_runouts(COMBO_ARR, ok, fulls, one)
     else:
         for extra in extras:
