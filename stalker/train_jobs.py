@@ -18,6 +18,8 @@ import sys
 import time
 from pathlib import Path
 
+# LBR hands per seat: 400 gave SE ~0.4-0.5 bb/hand, too wide to separate TP tiers (#234); 4000 gives ~0.15.
+LBR_HANDS = 4000
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
 ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
 # Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
@@ -36,7 +38,7 @@ def _e2_mccfr(iters: int, seed: int, out: Path) -> dict:
     policy = m.policy()
     (out / f"e2-mccfr-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
     t1 = time.monotonic()
-    lbr = exploitability_lb(policy, hands=400, seed=10_000 + seed)
+    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed)
     return {"iters": iters, "train_seconds": round(train_s, 1), "iters_per_s": round(iters / max(train_s, 1e-6), 2),  # tiny runs can read 0 s on coarse clocks
             "infosets": len(m.regret), "lbr": lbr, "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
@@ -119,7 +121,8 @@ def summarize(job: str, folder: Path) -> dict:
     if job == "e2-mccfr" and runs:
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
-                    "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb})
+                    "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
+                    "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
     if job.startswith("e2-league-") and runs:
         champs = [r["champion"] for r in runs if r["champion"]]
         out.update({"iters": runs[0]["iters"], "promoted_by_seed": [r["promoted"] for r in runs],

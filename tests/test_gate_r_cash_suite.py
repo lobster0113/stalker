@@ -105,6 +105,12 @@ def test_metrics_record_cash_keys(monkeypatch):
     c.check("settlement", False, "x")
     monkeypatch.setattr("referee.gate_r.suite.run_suite", lambda: t)
     monkeypatch.setattr(cash_suite, "run_cash_suite", lambda: (c, 0))
+    from referee.gate_r import e3_suite
+
+    e = e3_suite.tally_for_e3()
+    e.check("e3_result", True)
+    monkeypatch.setattr(e3_suite, "run_e3_suite", lambda: e)
     snap = metrics.gate_r()
+    assert snap["gate_r_e3_pass_rate"] == 1.0 and snap["gate_r_e3_checks"] == 1
     assert snap["gate_r_cash_pass_rate"] == 0.5 and snap["gate_r_cash_checks"] == 2
     assert snap["gate_r_pass_rate"] == 1.0
