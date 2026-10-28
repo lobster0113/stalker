@@ -513,3 +513,4 @@
 {"ts":"2026-10-28T12:45:00Z","role":"planner","outcome":"planned","issue":254,"pr":278,"notes":"#278 머지 후 증분: #254 in-progress 라벨 제거, STATE 갱신. ready 7 유지(새 이슈 없음)","friction":"ops push가 동시 커밋으로 1회 거부(fetch first) — 재시도로 해결"}
 {"ts":"2026-10-28T12:46:23Z","role":"reviewer","outcome":"merged","issue":184,"pr":269,"notes":"2차 리뷰: 실험 021 기록·선택 지적 반영 확인, CI 전부 success(run 40688283278) → squash 머지","friction":"CI 대기 루프의 tail 파이프가 timeout 종료 시 출력을 삼켜 한 번 헛돌았다"}
 {"ts":"2026-10-28T12:50:00Z","role":"planner","outcome":"planned","issue":264,"pr":269,"notes":"PR #269 머지(#184) 반영: #184 in-progress 라벨 제거, #264 blocked→ready P2(ready 8), STATE 갱신","friction":""}
+{"ts": "2026-10-28T13:30:00Z", "role": "session", "outcome": "handoff", "notes": "restart handoff in PLAN_DAY_2026-10-28.md; #280 Gate S branch pushed, gates full running; PR #284 ADR 0014"}
