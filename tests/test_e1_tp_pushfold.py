@@ -71,3 +71,30 @@ def test_delivered_pairs_are_bottleneck_policies_or_flagged():
         bb_b = T._quantize(T.bb_equity(r.push), step)
         assert T._is_function_of(r.push, sb_b) and T._is_function_of(r.call, bb_b), (stack, ante, tier, view)
     assert all(T.train(s, 0.0, "mid", iters=300, sb_view="random").consistent for s in (3.0, 8.0, 14.0))
+
+
+def test_quantile_bins_hold_equal_mass():
+    _, p = __import__("referee.anchors.pushfold", fromlist=["_tables"])._tables()
+    w = p.sum(axis=1)
+    b = T._quantile_bins(T.sb_equity(), w, 5)
+    mass = np.bincount(b, w, 5) / w.sum()
+    assert set(b) == set(range(5)) and np.all(np.abs(mass - 0.2) < 0.05), mass
+    # Monotone: a better hand never lands in a lower bucket.
+    order = np.argsort(T.sb_equity())
+    assert np.all(np.diff(b[order]) >= 0)
+
+
+def test_unknown_scale_is_rejected():
+    with pytest.raises(ValueError, match="scale"):
+        T.train(8.0, 0.0, "beginner", iters=10, scale="log")
+
+
+@pytest.mark.slow
+def test_quantile_beginner_scale_beats_uniform_and_meets_target():
+    # Draft E1 target for beginners (plan §4.6): <= 0.10 bb/hand.
+    for stack in (10.0, 15.0):
+        u = T.train(stack, 0.0, "beginner", iters=2000, sb_view="called", scale="uniform")
+        q = T.train(stack, 0.0, "beginner", iters=2000, sb_view="called", scale="quantile")
+        assert u.consistent and q.consistent, stack          # only bottleneck policies count (#268)
+        uni, qua = u.exploitability, q.exploitability
+        assert qua < uni and qua <= 0.10, (stack, uni, qua)
