@@ -515,3 +515,4 @@
 {"ts":"2026-10-28T12:50:00Z","role":"planner","outcome":"planned","issue":264,"pr":269,"notes":"PR #269 머지(#184) 반영: #184 in-progress 라벨 제거, #264 blocked→ready P2(ready 8), STATE 갱신","friction":""}
 {"ts": "2026-10-28T13:30:00Z", "role": "session", "outcome": "handoff", "notes": "restart handoff in PLAN_DAY_2026-10-28.md; #280 Gate S branch pushed, gates full running; PR #284 ADR 0014"}
 {"ts":"2026-10-28T12:57:39Z","role":"reviewer-b","outcome":"changes","issue":283,"pr":284,"notes":"ADR 0014/CHARTER 강도 목표: CI green, 권한 OK; Q1 통과기준 문구(필드 평균>0)가 GATES.md(최상위 필드 95% CI 하한>0)와 불일치, 새 지표 정의가 referee/에 없음","friction":"CI 첫 run이 취소돼 gates 집계 잡이 failure로 남아 체크 목록이 헷갈림"}
+{"ts":"2026-10-28T12:58:46Z","role":"builder-b","outcome":"pr_opened","issue":279,"pr":285,"notes":"Gate T3 값 형식 검사(t3.py, 등급 3종×150건, 결함 9종 판별 테스트); gates full PASS 로컬","friction":"로컬 origin/main이 오래돼 stale 기준으로 읽다 브랜치 재생성; builder/builder-b PR 소유를 GitHub만으로 구분 불가; quick 266s"}
