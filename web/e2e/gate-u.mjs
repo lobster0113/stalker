@@ -161,6 +161,9 @@ await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
 must((await page.textContent("#tp-body .result-top .ring")).trim() !== "", "채점 점수가 비어 있음");
 await inspect("train-result", "#tp-body .result-top");
+must(await page.locator("#tp-body [data-drivers]").count() > 0 || !(await page.locator("#tp-body .rrow:not(.ref)").count()),
+     "결과 화면: 판단 Top 3(모의) 블록이 없음");
+if (await page.locator("#tp-body [data-drivers]").count()) await inspect("train-drivers", "#tp-body [data-drivers]");
 
 // 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
