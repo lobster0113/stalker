@@ -28,6 +28,8 @@ def stacks(**kw):
     return s
 
 
+# Seat 3 raises to 30BB instead of 2.5BB; the history amount must match bets_bb (#254).
+SHOVE_30 = [[1, "f", 0], [2, "f", 0], [3, "cbr", 30], [4, "f", 0], [5, "f", 0]]
 FLOP_HU = dict(board="Kc7d2s", history=[[3, "cbr", 2.5], [0, "cc", 2.5], [0, "cc", 0], [3, "cbr", 3]], bets_bb={"3": 3}, pot_bb=8)
 pairs = [
     ("heads_up_vs_multiway", "두 명 남은 팟과 셋이 남은 팟은 필요한 핸드 강도가 다르다",
@@ -44,7 +46,7 @@ pairs = [
     ("short_vs_deep_stack", "8BB는 올인/폴드 영역, 40BB는 포스트플랍을 고려한다",
      v(stacks_bb=stacks(s0=8)), v(stacks_bb=stacks(s0=40))),
     ("small_raise_vs_all_in", "작은 레이즈와 올인에 대한 대응은 다르다",
-     v(), v(bets_bb={"3": 30}, stacks_bb=stacks(s3=0))),
+     v(), v(bets_bb={"3": 30}, stacks_bb=stacks(s3=0), history=SHOVE_30)),
     ("preflop_vs_flop", "보드가 깔리면 판단 재료가 바뀐다",
      v(), v(**FLOP_HU)),
     ("call_leaves_under_one_bb", "콜하면 1BB도 안 남는 스택은 사실상 올인 결정이다",
@@ -60,7 +62,8 @@ pairs = [
     ("turn_vs_river", "리버에는 다음 카드가 없다",
      v(**{**FLOP_HU, "board": "Kc7d2s9h"}), v(**{**FLOP_HU, "board": "Kc7d2s9h3c"})),
     ("opponent_all_in_vs_not", "상대가 올인이면 이후 베팅이 없다",
-     v(stacks_bb=stacks(s3=0), bets_bb={"3": 30}), v(stacks_bb=stacks(s3=27.5), bets_bb={"3": 30})),
+     v(stacks_bb=stacks(s3=0), bets_bb={"3": 30}, history=SHOVE_30),
+     v(stacks_bb=stacks(s3=27.5), bets_bb={"3": 30}, history=SHOVE_30)),
     ("strong_vs_weak_hand", "같은 상황에서 AK와 72o는 다르게 둔다",
      v(hole="AhKd"), v(hole="7c2d")),
     ("three_vs_four_way", "인원 버킷(3인 vs 4인+)이 다르다",
@@ -117,5 +120,7 @@ DIFFERS = {
     "small_blind_vs_big_blind": ["position_vs_button", "opponent_positions", "street_aggressor", "preflop_aggressor"],
 }
 out = {"version": 1, "pairs": [{"id": i, "why": w, "differs": DIFFERS[i], "a": a, "b": b} for i, w, a, b in pairs]}
-(Path(__file__).resolve().parent / "t4_spots_v1.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+# LF on every OS: the loader hashes the raw bytes.
+(Path(__file__).resolve().parent / "t4_spots_v1.json").write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n",
+                                                                  encoding="utf-8", newline="\n")
 print(len(pairs))

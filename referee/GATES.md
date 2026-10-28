@@ -64,7 +64,7 @@
 - T1 병목: 같은 TP 판단 값 + 같은 DecisionContext(`docs/TP.md` §1.1)이면, 그 밖의 관측을 무작위로 바꿔도 `act.choice` 분포가 완전히 같다. 구현: `referee/gate_t` `check_t1` — 기록된 게임의 결정 8개(프리플랍 4·포스트플랍 4)마다 TP 벡터와 DecisionContext를 고정하고 상대 식별자·통계·메모리·게임 ID를 N=100회 무작위로 바꾼다. 등록 정책은 `referee/gate_t` `REGISTRY`.
 - T2 계산 항목 일관성: `docs/TP.md`의 "계산" 항목은 정의식으로 다시 계산한 값과 허용 오차(명세 상수) 안에서 일치한다.
 - T3 형식: 모든 TP 값이 명세의 척도·눈금·형식 안에 있고, N/A 항목은 값이 없으며, 해당 등급에서 묻지 않는 항목에 의존하지 않는다.
-- T4 충분성(판별): 반드시 구분돼야 할 스팟 쌍 20종 이상(예: BTN 대 BB 단독 팟 vs BTN 대 BB·SB 멀티웨이, 버블 직전 vs 머니인 확정, 같은 에퀴티·다른 포지션)에서 액션 헤드 입력(TP + DecisionContext)이 서로 다르다. 스팟 목록은 버전 관리한다. T1~T3은 병목 **준수**를, T4는 병목이 **충분한 정보**를 담는지를 본다. 구현: `referee/gate_t/t4.py` `check_t4` + 스팟 쌍 목록 `t4_spots_v1.json`(21쌍, 쌍마다 이유 한 줄, sha256 출력). 각 스팟을 엔진 `Observation` → `PublicObservation`으로 만들어 액션 헤드 입력(TP 벡터 + DecisionContext)이 다른지 본다. 판별: 포지션·상대 수를 지운 입력은 실패한다(테스트).
+- T4 충분성(판별): 반드시 구분돼야 할 스팟 쌍 20종 이상(예: BTN 대 BB 단독 팟 vs BTN 대 BB·SB 멀티웨이, 버블 직전 vs 머니인 확정, 같은 에퀴티·다른 포지션)에서 액션 헤드 입력(TP + DecisionContext)이 서로 다르다. 스팟 목록은 버전 관리한다. T1~T3은 병목 **준수**를, T4는 병목이 **충분한 정보**를 담는지를 본다. 구현: `referee/gate_t/t4.py` `check_t4` + 스팟 쌍 목록 `t4_spots_v1.json`(21쌍, 쌍마다 이유 한 줄, sha256 출력). 각 스팟을 엔진 `Observation` → `PublicObservation`으로 만들어 액션 헤드 입력(TP 벡터 + DecisionContext)이 다른지 본다. 판별: 포지션·상대 수를 지운 입력은 실패한다(테스트). 로더(`inconsistency`)는 실제 핸드가 도달할 수 없는 스팟(폴드한 좌석이 핸드에 남음, 핸드 밖 좌석의 베팅, 프리플랍 좌석별 마지막 콜·레이즈 금액 ≠ `bets_bb` — #254)을 거부한다.
 - 통과율 100%. 기계 판독 TP 명세(`stalker/tp/spec/`)의 버전과 해시를 결과에 기록한다.
 
 ## Gate S — 둔감성, regret 기반 (D3부터)
@@ -83,6 +83,7 @@
 | Q4 | 균형 인증: 정확한 최선 응답 계산(E1 헤즈업 푸시/폴드, Kuhn·Leduc 같은 장난감 게임) | 그 환경에서 착취 가능성 상한 | 다른 환경 |
 
 - 공식 통과 기준(Q1): 같은 환경의 **최상위 등급 페르소나 필드** 대비 95% CI 하한 > 0. 난이도별 전 필드 결과는 보고 지표다.
+- Q4 기록(CI, `referee/metrics.py` `e0()`·`e1()`, #170): `e0_kuhn_cfr_exploitability`·`e0_leduc_cfr_exploitability`(무제약 CFR+), `e1_tp_<등급>_exploitability`(E1 TP 병목 정책, 콜당했을 때 에퀴티·분위 눈금, 스택 5·10·15bb 평균), `e1_tp_uniform_beginner_exploitability`(v0.1 눈금 대조), `e1_nash_fp_exploitability`(무제약 기준). 단위는 E0 칩/핸드, E1 bb/핸드.
 - Q4가 없는 환경의 보고서·모델 카드·서비스 문구에 "착취 불가", "GTO 인증", "착취 가능성 ≤ X"를 쓰지 않는다. Q3은 "발견된 착취 이득"으로만 쓴다.
 - **복잡성 비용**: 같은 환경에서 TP 병목 없는 기준 정책 대비 Q1·Q2·Q3(·Q4) 차이. 게이트가 아니라 보고 지표(등급별).
 - **적응 가치**: 게임 내 기억(성향 통계)을 끈 같은 모델 대비, 성향이 뚜렷한 페르소나 상대 이득(95% CI). 기억 사용 여부(L2)와 별도로 EV 이득을 본다.

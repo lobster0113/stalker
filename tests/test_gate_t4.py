@@ -93,6 +93,7 @@ def test_impossible_spots_are_rejected(tmp_path):
     for bad_side, problem in (
         ({**p["a"], "in_hand": [0, 3, 1]}, "folded"),                     # seat 1 folded in the history
         ({**p["a"], "in_hand": [0], "bets_bb": {"3": 2.5}}, "have bets"),  # a bettor outside the hand
+        ({**p["a"], "bets_bb": {"3": 30}}, "bets_bb says"),           # #254: history raises 2.5, bets_bb 30
     ):
         f = tmp_path / "bad.json"
         f.write_text(json.dumps({"pairs": [dict(p, a=bad_side)] + pairs[1:]}), encoding="utf-8")

@@ -170,6 +170,19 @@ def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
     assert s["exploiter_iters_by_seed"] == [[20, 20]]
 
 
+def test_league_xbase_job_trains_the_exploiter_on_the_baseline_abstraction(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "LEAGUE_GENERATIONS", 1)
+    import stalker.e2.league as lg
+    from stalker.e2 import personas
+
+    monkeypatch.setattr(lg, "persona_field", lambda names=None: personas.field(("tag",)))
+    T.run("e2-league-beginner-xbase", 10, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-league-beginner-xbase-seed1.json").read_text(encoding="utf-8"))
+    assert r["tier"] == "beginner" and r["exploiter"]["tier"] == "baseline"
+    assert not (tmp_path / "e2-league-beginner-seed1.policy.json").exists()
+    assert T.summarize("e2-league-beginner-xbase", tmp_path)["exploiter"]["tier"] == "baseline"
+
+
 
 
 def test_league_summary_keeps_one_entry_per_seed(tmp_path):
