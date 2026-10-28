@@ -155,7 +155,7 @@ def public_head(spec: Spec) -> TPHead:
         vals: dict[str, float | None] = {}
         if not po.board:
             a, b = (card(c) for c in po.hole_cards)
-            vals["hand.equity"] = 100.0 * class_equity(hand_class(a, b))
+            vals["hand.equity"] = float(round(100.0 * class_equity(hand_class(a, b))))
         return TPVector(vals, spec)
     return head
 
