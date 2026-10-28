@@ -92,10 +92,11 @@ def test_range_equity_kernel_path_equals_the_numpy_path(monkeypatch):
         assert np.array_equal(kernel, numpy_path, equal_nan=True)
 
 
-# #244 review: the static view must keep the pre-PR LBR numbers. Golden values from main ae8b068
-# (`exploitability_lb({}, 20, seed=3)` and the 30-iteration MCCFR(5) policy below).
-GOLDEN_UNIFORM = {"lbr_bb": 0.3887, "stderr_bb": 2.0384, "seat0_bb": -1.1475, "seat1_bb": 1.925, "hands": 20}
-GOLDEN_TRAINED = {"lbr_bb": 0.095, "stderr_bb": 2.1127, "seat0_bb": -2.4225, "seat1_bb": 2.6125, "hands": 20}
+# #244 review: the static view must equal the default LBR path. Golden values re-derived after the #259
+# fix (LBR no longer reads an undealt runout; the ae8b068 values included that clairvoyance):
+# `exploitability_lb({}, 20, seed=3)` and the 30-iteration MCCFR(5) policy below.
+GOLDEN_UNIFORM = {"lbr_bb": -1.9975, "stderr_bb": 2.7668, "seat0_bb": -6.57, "seat1_bb": 2.575, "hands": 20}
+GOLDEN_TRAINED = {"lbr_bb": -2.0125, "stderr_bb": 2.9444, "seat0_bb": -5.575, "seat1_bb": 1.55, "hands": 20}
 
 
 def test_static_view_reproduces_the_pre_pr_lbr_exactly():
