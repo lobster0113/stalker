@@ -4,7 +4,7 @@ Game and exact evaluation come from `referee.anchors.icm_reference` (seats in pr
 last two are SB and BB; first all-in, then callers in order, the first caller ends the action).
 The TP bottleneck policy sees only quantised TP values plus position (DecisionContext):
 
-- pusher (first in): one of three multiway summaries of "how strong am I", on a rank scale —
+- pusher (first in): one of four multiway summaries of "how strong am I", on a rank scale —
     "rank"       hand.pct: quantile of the hand against a random hand (no opponent model)
     "strongest"  equity against the calling range of the opponent most likely to call
     "per_opp"    a pair of quantised equities, one per opponent behind (2-D bucket)
@@ -13,7 +13,8 @@ The TP bottleneck policy sees only quantised TP values plus position (DecisionCo
 
 Training is fictitious play between the bottleneck policies (each seat best-responds in bucket
 space to the others' average), so ranges, bluffs and counters co-evolve. The result is judged by
-the reference's exact per-seat best-response gains.
+the reference's exact per-seat best-response gains, next to unconstrained fictitious play run for
+the same number of iterations (no early stop), so the gap is the cost of the bottleneck alone.
 """
 from __future__ import annotations
 
@@ -49,7 +50,12 @@ class Result:
     value_model: str
     gains: np.ndarray          # per-seat exact best-response gain (share of prize pool / chips)
     exploitability: float      # sum of gains, as a share of the scale
-    nash_gains: np.ndarray
+    nash_gains: np.ndarray     # unconstrained fictitious play, same iteration count
+
+    @property
+    def loss(self) -> float:
+        """Exploitability above the unconstrained baseline (negative: the bottleneck converged faster)."""
+        return self.exploitability - float(self.nash_gains.sum())
 
 
 def _buckets(tree, st: R.Strategy, n: int, view: str, k: int):
@@ -102,8 +108,14 @@ def _project(st: R.Strategy, push_b, call_b) -> R.Strategy:
     return out
 
 
+def baseline(spot: R.Spot, value_model: str, iters: int) -> np.ndarray:
+    """Per-seat gains of unconstrained fictitious play after exactly `iters` iterations (tol=0)."""
+    tree = R._Tree(spot, R._value_fn(spot, value_model, 0, R.BASELINE_TOL, iters))
+    return R._solve_tree(tree, R._scale(spot, value_model), 0.0, iters).gains / R._scale(spot, value_model)
+
+
 def train(spot: R.Spot, view: str = "rank", tier: str = "pro", value_model: str = "icm",
-          iters: int = 2000) -> Result:
+          iters: int = 2000, nash_gains: np.ndarray | None = None) -> Result:
     if view not in VIEWS:
         raise ValueError(f"view {view!r}; use one of {VIEWS}")
     tree = R._Tree(spot, R._value_fn(spot, value_model, 0, R.BASELINE_TOL, iters))
@@ -121,25 +133,30 @@ def train(spot: R.Spot, view: str = "rank", tier: str = "pro", value_model: str 
         st = _project(st, push_b, call_b)
     scale = R._scale(spot, value_model)
     gains = tree.evaluate(st).gains(st, n) / scale
-    nash = R._solve_tree(tree, scale, R.BASELINE_TOL, iters)
-    return Result(view, tier, value_model, gains, float(gains.sum()), nash.gains / scale)
+    if nash_gains is None:
+        nash_gains = baseline(spot, value_model, iters)
+    return Result(view, tier, value_model, gains, float(gains.sum()), nash_gains)
 
 
-def table(stacks_bb=(8, 10, 15), payouts=(0.5, 0.3, 0.2), iters: int = 1500) -> list[dict]:
-    rows = []
-    for s in stacks_bb:
-        spot = R.Spot((s * 100, s * 100, s * 100), 50, 100, payouts)
+# The spots behind docs/research/data/2026-10-e1m-multiway.jsonl (BTN, SB, BB; blinds 50/100).
+SPOTS = {"eq10": (1000, 1000, 1000), "eq15": (1500, 1500, 1500), "eq20": (2000, 2000, 2000),
+         "short_btn": (500, 1500, 1500), "big_btn": (2500, 1000, 800), "short_bb": (1500, 1500, 500)}
+
+
+def table(spots=SPOTS, payouts=(0.5, 0.3, 0.2), iters: int = 1500):
+    """Rows of the research note's raw data: `python -m stalker.e1.multiway_pushfold` reproduces it."""
+    for name, stacks in spots.items():
+        spot = R.Spot(stacks, 50, 100, payouts)
         for vm in ("icm", "chipev"):
+            nash = baseline(spot, vm, iters)
             for view in VIEWS:
                 for tier in ("beginner", "mid", "pro"):
                     if view == "per_opp" and tier == "pro":
                         continue  # 101 x 101 codes: effectively no bottleneck
-                    r = train(spot, view, tier, vm, iters)
-                    rows.append({"stack_bb": s, "value_model": vm, "view": view, "tier": tier,
-                                 "exploitability": round(r.exploitability, 6),
-                                 "nash_exploitability": round(float(r.nash_gains.sum()), 6),
-                                 "gains": [round(float(g), 6) for g in r.gains]})
-    return rows
+                    r = train(spot, view, tier, vm, iters, nash)
+                    yield {"spot": name, "stacks": list(stacks), "vm": vm, "view": view, "tier": tier,
+                           "expl": round(r.exploitability, 6), "nash": round(float(nash.sum()), 6),
+                           "loss": round(r.loss, 6)}
 
 
 if __name__ == "__main__":

@@ -1,132 +1,132 @@
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.001054, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.00036, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "rank", "tier": "pro", "expl": 5.4e-05, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000974, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000428, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 4.6e-05, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000989, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000513, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.00094, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000531, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "composite", "tier": "pro", "expl": 4.9e-05, "nash": 0.001794}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.002218, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.001021, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000303, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.00141, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000369, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 8.5e-05, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001137, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000331, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.0012, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000382, "nash": 0.002508}
-{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 8.4e-05, "nash": 0.002508}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.001312, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000349, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "pro", "expl": 4.4e-05, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.001181, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000475, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 4.1e-05, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.001322, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000437, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.001185, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000433, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "pro", "expl": 4.5e-05, "nash": 0.001767}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.002066, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000844, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000244, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001761, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000445, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 8.3e-05, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.00176, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.0004, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.00176, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000334, "nash": 0.002311}
-{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 0.000125, "nash": 0.002311}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.001293, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.00033, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "rank", "tier": "pro", "expl": 3.4e-05, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.001301, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000487, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 6.2e-05, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.001411, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000437, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.001298, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000467, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "composite", "tier": "pro", "expl": 6e-05, "nash": 0.001715}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.001726, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.00081, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000209, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001447, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000661, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 8.8e-05, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001447, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000677, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.001447, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000565, "nash": 0.002224}
-{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 8.3e-05, "nash": 0.002224}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.000793, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000206, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "pro", "expl": 4e-05, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000912, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000173, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 2.9e-05, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000898, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000143, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.000908, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000149, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "pro", "expl": 2.8e-05, "nash": 0.002125}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.00125, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000696, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000185, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001367, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.0002, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 6.1e-05, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001313, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000111, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.001277, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000156, "nash": 0.002511}
-{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 5.3e-05, "nash": 0.002511}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.000691, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000217, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "rank", "tier": "pro", "expl": 4.1e-05, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000616, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000103, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 2.4e-05, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000622, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000113, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.000617, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000102, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "composite", "tier": "pro", "expl": 1.9e-05, "nash": 0.00208}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.001573, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000697, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000199, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001853, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000257, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 5.3e-05, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001917, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.00019, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.001693, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000263, "nash": 0.002366}
-{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 5.4e-05, "nash": 0.002366}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.000726, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000299, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "rank", "tier": "pro", "expl": 3.4e-05, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000761, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000256, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 2.6e-05, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000655, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000237, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.000761, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000247, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "composite", "tier": "pro", "expl": 2.5e-05, "nash": 0.001896}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.001444, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000524, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000158, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001387, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.00035, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 9.1e-05, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001279, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000344, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.002608, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.00044, "nash": 0.001728}
-{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 7.2e-05, "nash": 0.001728}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.001054, "nash": 1.7e-05, "loss": 0.001038}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.00036, "nash": 1.7e-05, "loss": 0.000343}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "rank", "tier": "pro", "expl": 5.4e-05, "nash": 1.7e-05, "loss": 3.7e-05}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000974, "nash": 1.7e-05, "loss": 0.000958}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000428, "nash": 1.7e-05, "loss": 0.000411}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 4.6e-05, "nash": 1.7e-05, "loss": 3e-05}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000989, "nash": 1.7e-05, "loss": 0.000973}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000513, "nash": 1.7e-05, "loss": 0.000496}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.00094, "nash": 1.7e-05, "loss": 0.000923}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000531, "nash": 1.7e-05, "loss": 0.000514}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "icm", "view": "composite", "tier": "pro", "expl": 4.9e-05, "nash": 1.7e-05, "loss": 3.2e-05}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.002218, "nash": 7.4e-05, "loss": 0.002144}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.001021, "nash": 7.4e-05, "loss": 0.000948}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000303, "nash": 7.4e-05, "loss": 0.000229}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.00141, "nash": 7.4e-05, "loss": 0.001336}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000369, "nash": 7.4e-05, "loss": 0.000296}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 8.5e-05, "nash": 7.4e-05, "loss": 1.1e-05}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001137, "nash": 7.4e-05, "loss": 0.001063}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000331, "nash": 7.4e-05, "loss": 0.000257}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.0012, "nash": 7.4e-05, "loss": 0.001127}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000382, "nash": 7.4e-05, "loss": 0.000308}
+{"spot": "eq10", "stacks": [1000, 1000, 1000], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 8.4e-05, "nash": 7.4e-05, "loss": 1.1e-05}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.001312, "nash": 1.7e-05, "loss": 0.001295}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000349, "nash": 1.7e-05, "loss": 0.000332}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "pro", "expl": 4.4e-05, "nash": 1.7e-05, "loss": 2.7e-05}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.001181, "nash": 1.7e-05, "loss": 0.001164}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000475, "nash": 1.7e-05, "loss": 0.000458}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 4.1e-05, "nash": 1.7e-05, "loss": 2.4e-05}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.001322, "nash": 1.7e-05, "loss": 0.001305}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000437, "nash": 1.7e-05, "loss": 0.00042}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.001185, "nash": 1.7e-05, "loss": 0.001168}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000433, "nash": 1.7e-05, "loss": 0.000416}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "pro", "expl": 4.5e-05, "nash": 1.7e-05, "loss": 2.8e-05}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.002066, "nash": 7.3e-05, "loss": 0.001993}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000844, "nash": 7.3e-05, "loss": 0.000772}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000244, "nash": 7.3e-05, "loss": 0.000172}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001761, "nash": 7.3e-05, "loss": 0.001688}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000445, "nash": 7.3e-05, "loss": 0.000373}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 8.3e-05, "nash": 7.3e-05, "loss": 1e-05}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.00176, "nash": 7.3e-05, "loss": 0.001687}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.0004, "nash": 7.3e-05, "loss": 0.000327}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.00176, "nash": 7.3e-05, "loss": 0.001687}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000334, "nash": 7.3e-05, "loss": 0.000261}
+{"spot": "eq15", "stacks": [1500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 0.000125, "nash": 7.3e-05, "loss": 5.2e-05}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.001293, "nash": 1.5e-05, "loss": 0.001277}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.00033, "nash": 1.5e-05, "loss": 0.000315}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "rank", "tier": "pro", "expl": 3.4e-05, "nash": 1.5e-05, "loss": 1.8e-05}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.001301, "nash": 1.5e-05, "loss": 0.001285}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000487, "nash": 1.5e-05, "loss": 0.000471}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 6.2e-05, "nash": 1.5e-05, "loss": 4.6e-05}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.001411, "nash": 1.5e-05, "loss": 0.001395}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000437, "nash": 1.5e-05, "loss": 0.000421}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.001298, "nash": 1.5e-05, "loss": 0.001283}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000467, "nash": 1.5e-05, "loss": 0.000452}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "icm", "view": "composite", "tier": "pro", "expl": 6e-05, "nash": 1.5e-05, "loss": 4.5e-05}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.001726, "nash": 7.4e-05, "loss": 0.001652}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.00081, "nash": 7.4e-05, "loss": 0.000737}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000209, "nash": 7.4e-05, "loss": 0.000136}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001447, "nash": 7.4e-05, "loss": 0.001374}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000661, "nash": 7.4e-05, "loss": 0.000587}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 8.8e-05, "nash": 7.4e-05, "loss": 1.4e-05}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001447, "nash": 7.4e-05, "loss": 0.001374}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000677, "nash": 7.4e-05, "loss": 0.000604}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.001447, "nash": 7.4e-05, "loss": 0.001373}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000565, "nash": 7.4e-05, "loss": 0.000491}
+{"spot": "eq20", "stacks": [2000, 2000, 2000], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 8.3e-05, "nash": 7.4e-05, "loss": 9e-06}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.000793, "nash": 1.7e-05, "loss": 0.000777}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000206, "nash": 1.7e-05, "loss": 0.000189}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "rank", "tier": "pro", "expl": 4e-05, "nash": 1.7e-05, "loss": 2.4e-05}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000912, "nash": 1.7e-05, "loss": 0.000895}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000173, "nash": 1.7e-05, "loss": 0.000156}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 2.9e-05, "nash": 1.7e-05, "loss": 1.2e-05}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000898, "nash": 1.7e-05, "loss": 0.000881}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000143, "nash": 1.7e-05, "loss": 0.000126}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.000908, "nash": 1.7e-05, "loss": 0.000892}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000149, "nash": 1.7e-05, "loss": 0.000133}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "icm", "view": "composite", "tier": "pro", "expl": 2.8e-05, "nash": 1.7e-05, "loss": 1.2e-05}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.00125, "nash": 5.1e-05, "loss": 0.001199}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000696, "nash": 5.1e-05, "loss": 0.000646}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000185, "nash": 5.1e-05, "loss": 0.000134}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001367, "nash": 5.1e-05, "loss": 0.001316}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.0002, "nash": 5.1e-05, "loss": 0.00015}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 6.1e-05, "nash": 5.1e-05, "loss": 1e-05}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001313, "nash": 5.1e-05, "loss": 0.001262}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000111, "nash": 5.1e-05, "loss": 6.1e-05}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.001277, "nash": 5.1e-05, "loss": 0.001226}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000156, "nash": 5.1e-05, "loss": 0.000106}
+{"spot": "short_btn", "stacks": [500, 1500, 1500], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 5.3e-05, "nash": 5.1e-05, "loss": 3e-06}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.000691, "nash": 1.4e-05, "loss": 0.000678}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000217, "nash": 1.4e-05, "loss": 0.000203}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "rank", "tier": "pro", "expl": 4.1e-05, "nash": 1.4e-05, "loss": 2.7e-05}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000616, "nash": 1.4e-05, "loss": 0.000602}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000103, "nash": 1.4e-05, "loss": 8.9e-05}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 2.4e-05, "nash": 1.4e-05, "loss": 1e-05}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000622, "nash": 1.4e-05, "loss": 0.000608}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000113, "nash": 1.4e-05, "loss": 9.9e-05}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.000617, "nash": 1.4e-05, "loss": 0.000603}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000102, "nash": 1.4e-05, "loss": 8.8e-05}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "icm", "view": "composite", "tier": "pro", "expl": 1.9e-05, "nash": 1.4e-05, "loss": 5e-06}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.001573, "nash": 4.7e-05, "loss": 0.001526}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000697, "nash": 4.7e-05, "loss": 0.000651}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000199, "nash": 4.7e-05, "loss": 0.000152}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001853, "nash": 4.7e-05, "loss": 0.001806}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.000257, "nash": 4.7e-05, "loss": 0.000211}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 5.3e-05, "nash": 4.7e-05, "loss": 6e-06}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001917, "nash": 4.7e-05, "loss": 0.00187}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.00019, "nash": 4.7e-05, "loss": 0.000144}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.001693, "nash": 4.7e-05, "loss": 0.001647}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.000263, "nash": 4.7e-05, "loss": 0.000217}
+{"spot": "big_btn", "stacks": [2500, 1000, 800], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 5.4e-05, "nash": 4.7e-05, "loss": 7e-06}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "rank", "tier": "beginner", "expl": 0.000726, "nash": 1.6e-05, "loss": 0.00071}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "rank", "tier": "mid", "expl": 0.000299, "nash": 1.6e-05, "loss": 0.000283}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "rank", "tier": "pro", "expl": 3.4e-05, "nash": 1.6e-05, "loss": 1.8e-05}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "strongest", "tier": "beginner", "expl": 0.000761, "nash": 1.6e-05, "loss": 0.000746}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "strongest", "tier": "mid", "expl": 0.000256, "nash": 1.6e-05, "loss": 0.000241}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "strongest", "tier": "pro", "expl": 2.6e-05, "nash": 1.6e-05, "loss": 1e-05}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "per_opp", "tier": "beginner", "expl": 0.000655, "nash": 1.6e-05, "loss": 0.00064}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "per_opp", "tier": "mid", "expl": 0.000237, "nash": 1.6e-05, "loss": 0.000221}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "composite", "tier": "beginner", "expl": 0.000761, "nash": 1.6e-05, "loss": 0.000746}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "composite", "tier": "mid", "expl": 0.000247, "nash": 1.6e-05, "loss": 0.000231}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "icm", "view": "composite", "tier": "pro", "expl": 2.5e-05, "nash": 1.6e-05, "loss": 9e-06}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "rank", "tier": "beginner", "expl": 0.001444, "nash": 6e-05, "loss": 0.001384}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "rank", "tier": "mid", "expl": 0.000524, "nash": 6e-05, "loss": 0.000464}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "rank", "tier": "pro", "expl": 0.000158, "nash": 6e-05, "loss": 9.7e-05}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "strongest", "tier": "beginner", "expl": 0.001387, "nash": 6e-05, "loss": 0.001327}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "strongest", "tier": "mid", "expl": 0.00035, "nash": 6e-05, "loss": 0.00029}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "strongest", "tier": "pro", "expl": 9.1e-05, "nash": 6e-05, "loss": 3e-05}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "per_opp", "tier": "beginner", "expl": 0.001279, "nash": 6e-05, "loss": 0.001218}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "per_opp", "tier": "mid", "expl": 0.000344, "nash": 6e-05, "loss": 0.000284}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "composite", "tier": "beginner", "expl": 0.002608, "nash": 6e-05, "loss": 0.002548}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "composite", "tier": "mid", "expl": 0.00044, "nash": 6e-05, "loss": 0.00038}
+{"spot": "short_bb", "stacks": [1500, 1500, 500], "vm": "chipev", "view": "composite", "tier": "pro", "expl": 7.2e-05, "nash": 6e-05, "loss": 1.1e-05}
