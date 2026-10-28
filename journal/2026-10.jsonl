@@ -401,3 +401,4 @@
 {"ts":"2026-10-28T02:21:26Z","role":"reviewer","outcome":"skipped","issue":117,"pr":238,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T02:25:04Z","role":"reviewer","outcome":"skipped","issue":179,"pr":218,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T02:27:04Z","role":"reviewer","outcome":"skipped","issue":null,"pr":232,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T02:32:45Z","role":"builder","outcome":"pr_opened","issue":159,"pr":239,"notes":"opp.range 모양 판별력: 리버 스팟 600개, 모양-선형 템플릿 차 폴라 8.4·응축 17.9 > 입력 오차 1.4/3.7(로컬), 폴라는 최적 너비 답과 2.9로 약함; 입력 시간은 KLM 추정만(실측 P50 분리 제안, Refs #159); gates full PASS 로컬(tests 848s)","friction":"로컬 origin/main 참조가 낡아 처음 브랜치를 32커밋 뒤에서 만들 뻔함(fetch 필요); 이슈 기준 (3) P50 실측은 사람 체험이 필요해 builder가 Closes 할 수 없는 기준이 ready 이슈에 섞여 있음; gates full 약 21분"}
