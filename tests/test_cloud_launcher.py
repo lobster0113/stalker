@@ -561,7 +561,7 @@ def test_push_ledger_commits_published_results(tmp_path):
     subprocess.run(["bash", str(ROOT / "harness" / "cloud" / "push_ledger.sh"), str(wt), "cloud: collect 9"],
                    check=True, capture_output=True)
     files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
-                           capture_output=True, text=True).stdout.split()
+                           capture_output=True, text=True, encoding="utf-8").stdout.split()
     assert files == ["cloud/results/9.json"]
 
 
