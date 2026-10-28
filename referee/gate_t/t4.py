@@ -1,7 +1,9 @@
 """Gate T4 (sufficiency): spot pairs the action head's input must tell apart (referee/GATES.md Gate T).
 
 T1-T3 check that the bottleneck is obeyed; T4 checks that it carries enough. Each pair in
-`t4_spots_v1.json` differs in one decision-relevant public fact. Both spots are turned into real
+`t4_spots_v1.json` differs in one decision-relevant public fact; its `differs` lists the DecisionContext
+fields that fact changes (the fact plus its rule consequences), and tests check the actual difference is
+exactly that set. Both spots are turned into real
 engine `Observation`s, built into `PublicObservation`s, and the action-head input
 (TP vector from the agent's head + DecisionContext) must differ between the two.
 
@@ -45,6 +47,8 @@ def load(path: Path = SPOTS_V1) -> tuple[list[dict], str]:
     for p in pairs:
         if not p.get("why"):
             raise SpotError(f"{path.name}: pair {p.get('id')!r} needs a one-line 'why'")
+        if not p.get("differs"):
+            raise SpotError(f"{path.name}: pair {p.get('id')!r} needs 'differs' (the DecisionContext fields it changes)")
         for side in ("a", "b"):
             unknown = set(p[side]) - SPOT_KEYS
             if unknown:

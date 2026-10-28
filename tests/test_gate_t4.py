@@ -52,3 +52,35 @@ def test_bad_spot_files_are_rejected(tmp_path):
     bad.write_text(json.dumps({"pairs": [dict(pairs[0], a={**pairs[0]["a"], "typo": 1})] + pairs[1:]}), encoding="utf-8")
     with pytest.raises(t4.SpotError, match="unknown keys"):
         t4.load(bad)
+
+
+def _dc(spot):
+    obs, builder = t4.observation(spot)
+    return decision_context(builder.build(obs))
+
+
+def test_each_pair_changes_exactly_its_declared_fields():
+    # #248 review: a pair that also changes, say, the pot is not a test of the fact it names.
+    for p in t4.load()[0]:
+        a, b = _dc(p["a"]), _dc(p["b"])
+        changed = {f.name for f in dataclasses.fields(a) if getattr(a, f.name) != getattr(b, f.name)}
+        assert changed == set(p["differs"]), (p["id"], sorted(changed ^ set(p["differs"])))
+
+
+def _no_opponent_count(agent, spot):
+    """Forgets only the opponent count and who they are; everything else stays."""
+    obs, builder = t4.observation(spot)
+    po = builder.build(obs)
+    dc = dataclasses.replace(decision_context(po), opponents_to_act=0, opponent_positions=())
+    return repr((sorted(agent.tp(po).items()), dc))
+
+
+def test_t4_catches_an_input_without_the_opponent_count():
+    _, _, fails = t4.check_t4(default_agent(), _no_opponent_count)
+    failed = {f.split(":")[1].strip().split(" ")[1] for f in fails}
+    assert {"heads_up_vs_multiway", "three_vs_four_way"} <= failed
+
+
+def test_opener_pair_differs_in_the_preflop_aggressor():
+    p = next(p for p in t4.load()[0] if p["id"] == "early_vs_button_opener")
+    assert _dc(p["a"]).preflop_aggressor != _dc(p["b"]).preflop_aggressor
