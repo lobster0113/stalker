@@ -362,3 +362,4 @@
 {"ts": "2026-10-28T00:16:30Z", "role": "reviewer-b", "outcome": "merged", "issue": 159, "pr": 214, "notes": "sweep: width_default 선형성 해결(LOOSE 수정, 격자 테스트), guard green → squash 178d3ed", "friction": ""}
 {"ts": "2026-10-28T00:16:30Z", "role": "reviewer-b", "outcome": "merged", "issue": 161, "pr": 212, "notes": "sweep: ADR 0011 내용 불변, main merge로 guard green → squash 6fe940b. #142는 같은 sha에 기존 CHANGES 있어 대상 아님", "friction": "gh CLI 토큰 무효로 MCP·공개 REST 사용; 세 PR 모두 3회차였고 2회차 CHANGES 중 2건은 guard 거짓 실패(인프라) 원인 — STATE 경보 h와 같은 문제"}
 {"ts":"2026-10-28T00:16:47Z","role":"reviewer","outcome":"skipped","issue":179,"pr":218,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T00:17:19Z","role":"reviewer","outcome":"skipped","issue":184,"pr":222,"notes":"not my parity","friction":""}
