@@ -7,7 +7,8 @@ Chips are integers with BB = 100. Player 0 is the button/SB (acts first preflop)
   postflop, facing a bet: f, c, r (raise to 3x the bet), a
 At most RAISE_CAP raises per street; after that only call/fold/all-in. A size that would put a
 player within one BB of all in is not offered (the all-in covers it). The state is immutable;
-`apply` returns a new state.
+`apply` returns a new state. `State` is a NamedTuple (#201, speed), so it also compares equal to a
+plain tuple of the same fields; compare states with each other, not with tuples.
 """
 from __future__ import annotations
 

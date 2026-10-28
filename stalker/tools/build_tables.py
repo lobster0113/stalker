@@ -76,7 +76,7 @@ def main(argv=None) -> int:
         return 2
     table = build(a.classes, a.seed, a.nsim, a.workers)
     a.out.parent.mkdir(parents=True, exist_ok=True)
-    a.out.write_text(dumps(table))
+    a.out.write_text(dumps(table), encoding="utf-8")
     return 0
 
 
