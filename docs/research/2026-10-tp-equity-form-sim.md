@@ -1,7 +1,7 @@
 # 질문 형태별 입력 오차의 결정 손실: `hand.equity`(상대 레인지 대비) vs `hand.pct`(순위) (#261, #216 분해 1/3)
 
 - 질문: 사람이 (A) "상대가 이렇게 플레이할 때 내가 이길 확률"(5단계) 또는 (B) "내 핸드는 상위 몇 %"(5단계)로 답할 때 생기는 추정 오차가, 같은 정책을 참값 칩으로 쓸 때에 비해 얼마나 손실을 내는가. ADR 0011 `hand.equity` vs `hand.pct` 행(#216-3)의 입력.
-- 구현: `stalker/tp/noise_learner.py`(노이즈 모델), `stalker/tp/noise_sim.py`(학습·대국·표). 재현: `python -m stalker.tp.noise_sim --iters 10000 --hands 4000 --seed 1 --levels exact expert mid beginner` (시드 1·2·3).
+- 구현: `stalker/tp/noise_learner.py`(노이즈 모델), `stalker/tp/noise_sim.py`(학습·대국·표). 재현: `python -m stalker.tp.noise_sim --iters 10000 --hands 4000 --seed 1 --levels exact expert mid beginner` (시드 1·2·3). CI 재현: `gh workflow run train.yml --ref main -f job=tp-noise-sim -f iters=10000 -f seeds=3` (`stalker/train_jobs.py`의 `tp-noise-sim`, 형태 × 등급 표를 시드별로 ops `training/tp-noise-sim/`에 남긴다).
 - 정책: E2 초보 5단계. A는 `EqMCCFR`(상대 레인지 대비 에퀴티 단계), B는 `hand.pct` 초보 티어(`TIERS["beginner"]`)를 각각 1만 회 학습. **수렴 전**이다.
 - **LBR은 쓰지 않았다**(#259 투시 버그로 부풀려짐). 손실은 대국 결과의 차이다.
 
@@ -32,6 +32,9 @@
 1. 초보 등급에서 **A의 손실(0.36)이 B(0.11)의 약 3배**이고, 시드마다 같은 방향이다(0.53/0.38/0.15 vs 0.23/0.04/0.06). 초보 A만 CI가 0을 뚜렷이 벗어난다.
 2. 고수·중수는 두 형태 모두 CI가 0을 포함한다. 이 표본으로는 차이를 가릴 수 없다.
 3. 시사점(ADR 0011 입력): 입력 오차에 강한 쪽은 순위(B)이고, 에퀴티(A)는 학습 효율·정확 해 쪽 근거(E1·E1m)와 입력 오차 쪽 근거가 엇갈린다. 단 이 결론은 "두 형태가 같은 σ를 가진다"는 가정 위에 있다. 사람이 에퀴티를 순위보다 더 정확히 추정한다면(또는 그 반대) 뒤집힌다. #216-2의 입력 시간·정답률 기록이 이 가정을 검증한다.
+
+## 보조 근거: E1 정확 계산
+같은 질문을 E1 헤즈업 푸시/폴드에서 표본 없이 정확 BR로 잰 결과는 `docs/research/2026-10-tp-form-noise.md`(`stalker/e1/answer_noise.py`)에 있다. 초보는 순위 형태가 오차와 무관하게 우세하고(순위 σ=30 손실 0.217 < 오차 없는 에퀴티 0.302 bb/핸드), 중수는 사람의 순위 오차가 에퀴티 오차의 약 3–6배일 때만 에퀴티가 이긴다. 이 노트의 E2 결과와 방향이 같다.
 
 ## 한계
 - σ·앵커링은 가정이다. 형태별로 다르게 둔 민감도 분석은 하지 않았다.

@@ -34,3 +34,15 @@ def test_exact_learner_has_the_taught_loss_and_error_costs(form):
     r = T.train(8, 1, "beginner", 600, "random", N.FORMS[form])
     assert N.noisy_loss(r, form, 0) == pytest.approx(r.exploitability, abs=1e-9)
     assert N.noisy_loss(r, form, 20) > N.noisy_loss(r, form, 0)
+
+
+@pytest.mark.slow
+def test_default_grid_regenerates_the_committed_rows():
+    # #261 review: the committed jsonl must come back from the module defaults (one stack/ante slice here).
+    import json
+    from pathlib import Path
+
+    data = Path(__file__).resolve().parent.parent / "docs/research/data/2026-10-tp-form-noise.jsonl"
+    want = [r for r in map(json.loads, data.read_text(encoding="utf-8").splitlines())
+            if r["stack"] == 1.0 and r["ante"] == 0.0]
+    assert N.table(stacks=[1.0], antes=[0.0]) == want

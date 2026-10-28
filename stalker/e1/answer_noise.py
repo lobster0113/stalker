@@ -96,8 +96,13 @@ def noisy_loss(r: T.Result, form: str, sigma: float, shrink: float = 0.0) -> flo
     return P.exploitability(r.stack, r.ante, push, call)
 
 
-def table(stacks=None, antes=None, tiers=("beginner", "mid"), sigmas=(0, 2.5, 5, 10, 15, 20),
-          shrinks=(0.0, 0.2), iters: int = 4000) -> list[dict]:
+# The grid behind docs/research/data/2026-10-tp-form-noise.jsonl (#261 review: defaults must regenerate it).
+SIGMAS = (0, 1, 2, 3, 5, 7.5, 10, 15, 20, 30)
+SHRINKS = (0.0, 0.2)
+
+
+def table(stacks=None, antes=None, tiers=("beginner", "mid"), sigmas=SIGMAS,
+          shrinks=SHRINKS, iters: int = 4000) -> list[dict]:
     rows = []
     for ante in antes or T.E1_ANTES:
         for stack in stacks or T.E1_STACKS:
@@ -128,8 +133,11 @@ if __name__ == "__main__":
     ap.add_argument("--stacks", type=float, nargs="*")
     ap.add_argument("--antes", type=float, nargs="*")
     ap.add_argument("--iters", type=int, default=4000)
+    num = lambda x: int(float(x)) if float(x).is_integer() else float(x)  # 5 stays 5, as in the committed jsonl
+    ap.add_argument("--sigmas", type=num, nargs="+", default=list(SIGMAS))
+    ap.add_argument("--shrinks", type=float, nargs="+", default=list(SHRINKS))
     ap.add_argument("--summary", action="store_true", help="print grid means instead of every row")
     a = ap.parse_args()
-    out = table(a.stacks, a.antes, iters=a.iters)
+    out = table(a.stacks, a.antes, sigmas=a.sigmas, shrinks=a.shrinks, iters=a.iters)
     for row in summary(out) if a.summary else out:
         print(json.dumps(row), flush=True)
