@@ -22,6 +22,8 @@ from pathlib import Path
 
 # LBR hands per seat: 400 gave SE ~0.4-0.5 bb/hand, too wide to separate TP tiers (#234); 4000 gives ~0.15.
 LBR_HANDS = 4000
+# E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
+E3_LBR_HANDS = 1000
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
 ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
 # Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
@@ -94,12 +96,36 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
+def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6) -> dict:
+    from referee.e3.lbr import exploitability_lb
+    from stalker.e3.mccfr import E3MCCFR, coverage
+    from stalker.e3.tp_key import TIER_DEPTH, TIER_K
+
+    t0 = time.monotonic()
+    m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier])
+    m.iterate(iters)
+    train_s = time.monotonic() - t0
+    avg, cur = m.policy(), m.current_policy()
+    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
+    t1 = time.monotonic()
+    # Same LBR deals for both policies.
+    lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=players, depth=m.depth)
+           for k, pol in (("average", avg), ("current", cur))}
+    cov = coverage(m)
+    return {"iters": iters, "tier": tier, "depth": m.depth, "players": players, "train_seconds": round(train_s, 1),
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "coverage": cov,
+            "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_seconds": round(time.monotonic() - t1, 1),
+            "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
+
+
 JOBS = {"e2-mccfr": _e2_mccfr,
         "e2-tier-beginner": partial(_e2_mccfr, tier="beginner", name="e2-tier-beginner"),
         "e2-tier-mid": partial(_e2_mccfr, tier="mid", name="e2-tier-mid"),
         "e2-eq-beginner": partial(_e2_eq, tier="beginner", name="e2-eq-beginner"),   # #188
         "e2-eq-mid": partial(_e2_eq, tier="mid", name="e2-eq-mid"),
-        "e2-league-beginner": _e2_league("beginner"), "e2-league-mid": _e2_league("mid")}
+        "e2-league-beginner": _e2_league("beginner"), "e2-league-mid": _e2_league("mid"),
+        "e3-tp-beginner": partial(_e3_tp, tier="beginner", name="e3-tp-beginner"),     # #196/#197, 6-max
+        "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid")}
 
 
 def run(job: str, iters: int, seed: int, out: Path) -> Path:
@@ -152,7 +178,7 @@ def summarize(job: str, folder: Path) -> dict:
     out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs],
            "ref": os.environ.get("GITHUB_REF_NAME"), "sha": os.environ.get("GITHUB_SHA"),
            "run_id": os.environ.get("GITHUB_RUN_ID")}
-    if job.startswith("e2-") and not job.startswith("e2-league-") and runs:  # league runs report champions, not LBR
+    if job.startswith(("e2-", "e3-")) and not job.startswith("e2-league-") and runs:  # league runs report champions, not LBR
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
