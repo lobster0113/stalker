@@ -132,21 +132,22 @@ def step(s: State, a: str) -> State:
     p, o = s.to_act, 1 - s.to_act
     if a == "f":
         return s._replace(folded=p, done=True, history=s.history + ("f",))
+    bet0, bet1 = s.bet
+    cur = bet0 if bet0 > bet1 else bet1
     to = s.bet[p] if a == "k" else _amount_to(s, a)
     add = to - s.bet[p]
-    stack, bet, total = list(s.stack), list(s.bet), list(s.total)
-    stack[p] -= add
-    bet[p] = to
-    total[p] += add
-    raised = to > max(s.bet)
-    acted = [False, False] if raised else list(s.acted)
-    acted[p] = True
-    # Built field by field (State's order), not with `_replace`: this is the hottest line of MCCFR (#201).
-    ns = State(s.hole, s.deck, tuple(stack), tuple(bet), tuple(total), s.street, s.board, o,
-               s.raises + int(raised), max(s.last_raise, to - max(s.bet)) if raised else s.last_raise,
-               (acted[0], acted[1]), s.history + (a,), s.folded, s.done)
+    raised = to > cur
+    # Built field by field (State's order), not with `_replace`: this is the hottest code of MCCFR (#201).
+    if p == 0:
+        stack, bet, total = (s.stack[0] - add, s.stack[1]), (to, bet1), (s.total[0] + add, s.total[1])
+        acted = (True, False if raised else s.acted[1])
+    else:
+        stack, bet, total = (s.stack[0], s.stack[1] - add), (bet0, to), (s.total[0], s.total[1] + add)
+        acted = (False if raised else s.acted[0], True)
+    ns = State(s.hole, s.deck, stack, bet, total, s.street, s.board, o, s.raises + int(raised),
+               max(s.last_raise, to - cur) if raised else s.last_raise, acted, s.history + (a,), s.folded, s.done)
     # Closed: both acted with equal bets, or this player called all in for less than the bet.
-    if (all(ns.acted) and bet[0] == bet[1]) or (stack[p] == 0 and bet[p] <= bet[o]):
+    if (acted[0] and acted[1] and bet[0] == bet[1]) or (stack[p] == 0 and bet[p] <= bet[o]):
         return _close_street(ns)
     return ns
 

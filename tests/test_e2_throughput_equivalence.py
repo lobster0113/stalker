@@ -11,7 +11,7 @@ from stalker.e2.mccfr import MCCFR, _sample, infoset
 
 
 class _Reference(MCCFR):
-    """The walk as it was before #201: keys from `infoset`, `G.apply`, `G.payoff`, `rng.choice`."""
+    """The walk as it was before #201: keys from `infoset`, `G.apply`, `G.payoff`, `rng.choice`, no caches."""
 
     def _walk(self, s, trav, hk=""):
         if s.done:
@@ -19,7 +19,7 @@ class _Reference(MCCFR):
             return v if trav == 0 else -v
         acts = G.legal(s)
         key = infoset(s, self.abstraction)
-        sigma = self._sigma(key, len(acts))
+        sigma = self._regret_matching(key, len(acts))  # no strategy cache
         if s.to_act == trav:
             vals = np.array([self._walk(G.apply(s, a), trav) for a in acts])
             v = float(sigma @ vals)

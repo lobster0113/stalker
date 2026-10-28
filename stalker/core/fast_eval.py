@@ -120,8 +120,10 @@ def _rank_runouts(combos, ok, fulls, acc, SH, POP, HI, K5, K3, K2, CAT):
     for r in range(fulls.shape[0]):
         bcnt[:] = 0
         bsuit[:] = 0
+        dealt = 0  # bit c set: card c is on this runout's board
         for j in range(5):
             c = fulls[r, j]
+            dealt |= 1 << c
             bcnt[c >> 2] += 1
             bsuit[c & 3] += 1
             hand[2 + j] = c
@@ -137,11 +139,7 @@ def _rank_runouts(combos, ok, fulls, acc, SH, POP, HI, K5, K3, K2, CAT):
             if not ok[i]:
                 continue
             a, b = combos[i, 0], combos[i, 1]
-            blocked = False
-            for j in range(5):
-                if fulls[r, j] == a or fulls[r, j] == b:
-                    blocked = True
-            if blocked:
+            if (dealt >> a) & 1 or (dealt >> b) & 1:
                 acc[i] += 0.5
                 continue
             m += 1

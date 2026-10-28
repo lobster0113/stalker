@@ -27,6 +27,9 @@ def _short(h: str) -> str:
     return h if len(h) == 1 else h[1:]
 
 
+_SHORT = {h: _short(h) for h in ("f", "c", "k", "r", "a", "b33", "b75", "/")}  # every history entry of E2
+
+
 def infoset(s: G.State, abstraction: Abstraction = BASELINE) -> str:
     p = s.to_act
     return f"{p}|{s.street}|{abstraction.bucket(s.hole[p], s.board)}|{''.join(_short(h) for h in s.history)}"
@@ -66,8 +69,17 @@ class MCCFR:
         self.regret: dict[str, np.ndarray] = {}
         self.avg: dict[str, np.ndarray] = defaultdict(lambda: None)
         self.iterations = 0
+        self._sig: dict[str, np.ndarray] = {}  # current strategy per key; derived from `regret`, not saved
+        self._legal: dict[str, list[str]] = {}  # legal actions per history key (#201)
 
     def _sigma(self, key: str, n: int) -> np.ndarray:
+        # Cached until the key's regrets change (#201): opponent nodes reread the same strategies.
+        sig = self._sig.get(key)
+        if sig is None:
+            sig = self._sig[key] = self._regret_matching(key, n)
+        return sig
+
+    def _regret_matching(self, key: str, n: int) -> np.ndarray:
         r = self.regret.get(key)
         if r is None:
             return _uniform(n)
@@ -82,28 +94,36 @@ class MCCFR:
         if s.done:
             v = G.payoff(s, self._sd) / G.BB
             return v if trav == 0 else -v
-        acts = G.legal(s)
+        acts = self._legal.get(hk)
+        if acts is None:  # the menu depends only on the betting history, never on the cards
+            acts = self._legal[hk] = G.legal(s)
         p, st = s.to_act, s.street
         b = self._bk[p][st]
         if b is None:
             b = self._bk[p][st] = self.abstraction.bucket(s.hole[p], s.board)
         key = f"{p}|{st}|{b}|{hk}"
         sigma = self._sigma(key, len(acts))
+        n = len(s.history)
         if p == trav:
-            vals = np.array([self._child(s, a, trav, hk) for a in acts])
+            vals = []
+            for a in acts:
+                ns = G.step(s, a)
+                add = _SHORT[a] if len(ns.history) == n + 1 else "".join(_SHORT[h] for h in ns.history[n:])
+                vals.append(self._walk(ns, trav, hk + add))
+            vals = np.array(vals)
             v = float(sigma @ vals)
             r = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(r + (vals - v), 0, out=r)
+            self._sig.pop(key, None)
             return v
-        a = _sample(self.rng, sigma)
+        a = acts[_sample(self.rng, sigma)]
         avg = self.avg[key]
-        self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
-        return self._child(s, acts[a], trav, hk)
-
-    def _child(self, s: G.State, a: str, trav: int, hk: str) -> float:
+        if avg is None:
+            self.avg[key] = self.iterations * sigma
+        else:
+            avg += self.iterations * sigma
         ns = G.step(s, a)
-        n = len(s.history)
-        add = _short(a) if len(ns.history) == n + 1 else "".join(_short(h) for h in ns.history[n:])
+        add = _SHORT[a] if len(ns.history) == n + 1 else "".join(_SHORT[h] for h in ns.history[n:])
         return self._walk(ns, trav, hk + add)
 
     def iterate(self, n: int = 1, log=None, every: int = 1) -> None:
