@@ -59,7 +59,7 @@ def test_runouts_do_not_depend_on_the_process_hash_seed():
 
     code = ("from stalker.e2.eq_view import equity_vs, N; import numpy as np; from stalker.core.cards import cards;"
             "print(repr(float(np.nansum(equity_vs(tuple(cards('Kc7d2s')), np.ones(N))))))")
-    outs = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+    outs = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8",
                            env={**__import__("os").environ, "PYTHONHASHSEED": str(h)}).stdout for h in (1, 2)}
     assert len(outs) == 1 and outs != {""}
 
@@ -90,3 +90,60 @@ def test_range_equity_kernel_path_equals_the_numpy_path(monkeypatch):
         monkeypatch.setattr(F, "HAVE_NUMBA", False)
         numpy_path = equity_vs(board, w)
         assert np.array_equal(kernel, numpy_path, equal_nan=True)
+
+
+# #244 review: the static view must keep the pre-PR LBR numbers. Golden values from main ae8b068
+# (`exploitability_lb({}, 20, seed=3)` and the 30-iteration MCCFR(5) policy below).
+GOLDEN_UNIFORM = {"lbr_bb": 0.3887, "stderr_bb": 2.0384, "seat0_bb": -1.1475, "seat1_bb": 1.925, "hands": 20}
+GOLDEN_TRAINED = {"lbr_bb": 0.095, "stderr_bb": 2.1127, "seat0_bb": -2.4225, "seat1_bb": 2.6125, "hands": 20}
+
+
+def test_static_view_reproduces_the_pre_pr_lbr_exactly():
+    from referee.e2.lbr import StaticView, exploitability_lb
+    from stalker.e2.abstraction import BASELINE
+    from stalker.e2.mccfr import MCCFR
+
+    m = MCCFR(5)
+    m.iterate(30)
+    pol = m.policy()
+    for policy, golden in (({}, GOLDEN_UNIFORM), (pol, GOLDEN_TRAINED)):
+        assert exploitability_lb(policy, 20, seed=3) == golden
+        assert exploitability_lb(policy, 20, seed=3, view=StaticView(BASELINE)) == golden
+
+
+class _Recorder:
+    """Wraps EqMCCFR._walk_r to keep every node's (state, ranges)."""
+
+    def __init__(self, m):
+        self.nodes, orig = [], m._walk_r
+
+        def walk(s, ranges, trav):
+            self.nodes.append((s, ranges[0].copy(), ranges[1].copy()))
+            return orig(s, ranges, trav)
+
+        m._walk_r = walk
+
+
+def test_public_ranges_stay_valid_and_reproducible():
+    import numpy as np
+
+    from stalker.e2.eq_view import EqMCCFR, _board_dead
+
+    runs = []
+    for _ in range(2):
+        m = EqMCCFR(7, 5)
+        rec = _Recorder(m)
+        m.iterate(6)
+        runs.append(rec.nodes)
+    a, b = runs
+    assert len(a) == len(b) and all(np.array_equal(x[1], y[1]) and np.array_equal(x[2], y[2]) for x, y in zip(a, b))
+    checked = 0
+    for s, r0, r1 in a:
+        for r in (r0, r1):
+            assert np.isfinite(r).all() and (r >= 0).all() and r.sum() > 0
+            assert np.isclose((r / r.sum()).sum(), 1.0)
+        if s.board and s.history and s.history[-1] != "/" and not s.done:
+            q = 1 - s.to_act                                  # acted last, on this street
+            assert ((r0, r1)[q][_board_dead(tuple(s.board))] == 0).all()
+            checked += 1
+    assert checked > 0
