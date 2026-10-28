@@ -225,17 +225,27 @@ def _level_for_minutes(levels, minutes: int):
     return levels[-1]
 
 
-def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label: str = "") -> Tally:
-    """Replay one game's events (as emitted to `run_game`'s observer) and its `GameResult` into `tally`."""
+def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label: str = "",
+               start_state=None) -> Tally:
+    """Replay one game's events (as emitted to `run_game`'s observer) and its `GameResult` into `tally`.
+
+    `start_state` (a mid-tournament start): survivors begin with its stacks, the level clock begins at its level,
+    and the already-eliminated players must hold the places below the survivors.
+    """
     tally = tally or Tally()
     total = cfg.starting_stack * cfg.players
     stacks = {p: cfg.starting_stack for p in range(cfg.players)}
+    clock_s = 0
+    if start_state is not None:
+        stacks = dict(start_state.stacks)
+        if cfg.length_unit == "minutes":
+            clock_s = 60 * sum(lv.length for lv in cfg.levels[:start_state.level_index])
     buttons: dict[int, int] = {}
     busted_by_round: dict[int, list[tuple[int, int]]] = defaultdict(list)
     round_chips: dict[int, dict[int, int]] = {}
     hand = d = None
     showdown = None
-    clock_s, round_no, round_max = 0, None, 0  # virtual clock (length_unit='minutes'): see GATES.md Gate R
+    round_no, round_max = None, 0  # virtual clock (length_unit='minutes'): see GATES.md Gate R
     for e in events:
         if e.type == "NEW_HAND":
             d = e.data
@@ -297,7 +307,7 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
     for rnd, chips in round_chips.items():  # stacks after the round's last hand
         tally.check("chip_conservation", sum(chips.values()) == total,
                     f"{label} round {rnd}: {sum(chips.values())} chips in play, expected {total}")
-    _check_ranks(cfg, result, busted_by_round, stacks, tally, label)
+    _check_ranks(cfg, result, busted_by_round, stacks, tally, label, start_state)
     return tally
 
 
@@ -323,11 +333,16 @@ def _check_settlement(hand: _HandModel, showdown, final: dict, tally: Tally, whe
                 f"{where}: engine final stacks {dict(final)}, independent settlement {want}")
 
 
-def _check_ranks(cfg, result, busted_by_round, survivors: dict, tally: Tally, label: str) -> None:
+def _check_ranks(cfg, result, busted_by_round, survivors: dict, tally: Tally, label: str,
+                 start_state=None) -> None:
     ranks = result.ranks
     ok = sorted(ranks) == list(range(1, cfg.players + 1)) and len(survivors) == 1
     ok &= all(ranks[p] == 1 for p in survivors)
     remaining = cfg.players
+    if start_state is not None:
+        remaining = start_state.remaining
+        out = sorted(p for p in range(cfg.players) if p not in start_state.stacks)
+        ok &= [ranks[p] for p in out] == list(range(remaining + 1, cfg.players + 1))
     for rnd in sorted(busted_by_round):
         group = busted_by_round[rnd]
         places = sorted(ranks[p] for p, _ in group)
