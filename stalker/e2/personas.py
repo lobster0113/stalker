@@ -47,12 +47,14 @@ def _to_probs(weights: dict[str, float], acts: list[str]) -> np.ndarray:
 
 
 class Persona:
+    legal = staticmethod(G.legal)   # E3 reuses these rules with its own menu (stalker/e3/personas.py)
+
     def __init__(self, name: str, params: PersonaParams | None = None):
         self.name = name
         self.p = params or PRESETS[name]
 
     def __call__(self, s: G.State) -> np.ndarray:
-        acts = G.legal(s)
+        acts = self.legal(s)
         hole = s.hole[s.to_act]
         call = s.to_call()
         if s.street == 0:
