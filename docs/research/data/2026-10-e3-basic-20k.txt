@@ -1,0 +1,2 @@
+{"iters": 20000, "train_s": 7019, "lbr_bb": 2.4732, "stderr_bb": 0.7036, "by_seat": {"UTG": 0.0, "HJ": 1.5092, "CO": 1.2355, "BTN": 0.6279, "SB": 10.5423, "BB": 0.9243}, "hands": 150}
+chart nodes 260

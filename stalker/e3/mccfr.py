@@ -87,6 +87,10 @@ class E3MCCFR:
     def policy(self) -> dict[str, list[float]]:
         return {k: (v / v.sum()).tolist() for k, v in self.avg.items() if v is not None and v.sum() > 0}
 
+    def current_policy(self) -> dict[str, list[float]]:
+        """The regret-matching strategy of the last iteration (no early-iteration residue in it)."""
+        return {k: self._sigma(k, len(r)).tolist() for k, r in self.regret.items()}
+
 
 def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     """Per value of one key field (default: the legal-action set), how many keys and how many had
