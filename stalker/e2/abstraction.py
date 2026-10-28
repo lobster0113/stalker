@@ -33,7 +33,7 @@ def preflop_bucket(a: int, b: int) -> int:
 @lru_cache(maxsize=20_000)  # boards rarely repeat across hands; bounds memory on long runs (~10 KB each)
 def ehs_table(board: tuple[int, ...]) -> np.ndarray:
     """EHS of every combo on `board` (nan for combos that collide with the board)."""
-    rng = np.random.default_rng(abs(hash(board)) % (2 ** 32))
+    rng = np.random.default_rng([20261027, *board])  # seeded by the cards themselves, process-independent
     live = np.array([c for c in range(52) if c not in board])
     ok = ~np.isin(COMBO_ARR, list(board)).any(axis=1)
     acc = np.zeros(len(COMBOS))
