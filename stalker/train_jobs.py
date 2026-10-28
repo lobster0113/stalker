@@ -12,9 +12,17 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import re
 import sys
 import time
 from pathlib import Path
+
+SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
+ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
+# Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
+SECRET_PATTERNS = re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|rpa_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}"
+                             r"|-----BEGIN [A-Z ]*PRIVATE KEY-----")
 
 
 def _e2_mccfr(iters: int, seed: int, out: Path) -> dict:
@@ -48,7 +56,36 @@ def run(job: str, iters: int, seed: int, out: Path) -> Path:
     path = out / f"{job}-seed{seed}.json"
     path.write_text(json.dumps({"job": job, "seed": seed, "wall_seconds": round(time.monotonic() - t0, 1),
                                 **res}, indent=1), encoding="utf-8")
+    size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
+    if size > ARTIFACT_MAX_BYTES:
+        raise SystemExit(f"{out}: {size} bytes > {ARTIFACT_MAX_BYTES}; write a smaller policy (prune or quantize) "
+                         "or raise ARTIFACT_MAX_BYTES with a reason in the PR")
+    check_clean(path.read_text(encoding="utf-8"), str(path))
     return path
+
+
+def check_clean(text: str, where: str) -> None:
+    """Refuse text that carries a token shape or the value of a secret-looking environment variable."""
+    if SECRET_PATTERNS.search(text):
+        raise SystemExit(f"{where}: looks like it contains a credential; results must hold numbers only")
+    for k, v in os.environ.items():
+        if re.search(r"TOKEN|SECRET|KEY|PASSWORD", k) and len(v) >= 8 and v in text:
+            raise SystemExit(f"{where}: contains the value of ${k}; results must hold numbers only")
+
+
+def summary_text(job: str, folder: Path) -> str:
+    """The JSON pushed to ops: refuses unknown jobs, zero successful runs, oversize or secret-bearing output."""
+    if job not in JOBS:
+        raise SystemExit(f"unknown job {job!r}; allowed: {sorted(JOBS)}")
+    s = summarize(job, folder)
+    if not s["runs"]:
+        raise SystemExit(f"no successful {job} runs under {folder}; nothing to push (see the run jobs' logs)")
+    text = json.dumps(s, indent=1)
+    if len(text.encode("utf-8")) > SUMMARY_MAX_BYTES:
+        raise SystemExit(f"summary is {len(text.encode())} bytes > {SUMMARY_MAX_BYTES}; keep per-seed detail in the "
+                         "artifacts and only aggregates in the summary")
+    check_clean(text, "summary")
+    return text
 
 
 def summarize(job: str, folder: Path) -> dict:
@@ -77,7 +114,7 @@ def main(argv=None) -> int:
     if a.cmd == "run":
         print(run(a.job, a.iters, a.seed, a.out))
     else:
-        print(json.dumps(summarize(a.job, a.folder), indent=1))
+        print(summary_text(a.job, a.folder))
     return 0
 
 
