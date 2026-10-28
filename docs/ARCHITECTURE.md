@@ -32,7 +32,6 @@
   - `toy/` — E0 무제약 기준 학습. `cfr.py`(`CFRPlus`: 전체 순회·교대 갱신·RM+·선형 가중 평균, 결정적), `train.py`(`python -m stalker.toy.train --game kuhn|leduc --iters N --every K --seed S --out f.jsonl`: 반복별 정확한 착취 가능성·게임 가치·시드 JSONL + 최종 전략 `f.strategy.json`(시드 포함). 전체 순회 CFR+는 시드와 무관하게 같은 결과).
   - `e2/game.py` — E2(ADR 0012) 헤즈업 25BB NLHE 추상화 게임: 칩 정수(BB=100), 고정 액션 메뉴(프리플랍 f/c/r/a — 오픈 2.5BB·3배·2.2배, 포스트플랍 k/b33/b75/a, 벳에 f/c/r(3배)/a, 스트리트당 레이즈 3회), 불변 `State`·`legal`·`apply`·`payoff`(칩 EV), 시드 딜, `public_tree_size()`(베팅 트리 결정 노드 3,308개).
   - `e2/abstraction.py`·`e2/mccfr.py` — 무제약 기준: 카드 버킷(프리플랍 169 클래스, 포스트플랍 EHS 10구간 — 보드마다 런아웃 6개로 1326 콤보를 벡터 평가해 한 번에 계산·캐시), 외부 표본 MCCFR(RM+, 선형 평균, 시드), `python -m stalker.e2.mccfr --iters N --seed S --out f.json`(로컬 약 50회/초). 강도 평가는 `referee/e2/lbr.py`(LBR: 정책의 행동 확률로 상대 레인지를 추적하는 한 단계 최선 응답, 착취 하한 — Gate Q3 '발견된 착취 이득').
-  - `core/fast_eval.py` — 학습 루프용 컴파일 커널(ADR 0013, 선택 의존성 numba `[fast]`): 7장 평가, 강도표 랭킹, 분위 단계(레인지 에퀴티 커널은 #188과 함께). numba가 없으면 numpy 경로로 같은 결과(테스트로 강제). 심판은 쓰지 않는다.
   - `e2/abstraction.py` TP 티어(#187) — `Abstraction(pre_k, post_k)`가 `hand.pct`를 조합 가중 분위 k단계로 나눈다(초보 5·중수 11, `TIERS`). MCCFR·LBR이 같은 추상화로 정보 집합을 읽는다. 티어 표 `python -m stalker.e2.tiers`.
   - `core/fast_eval.py` — 학습 루프용 컴파일 커널(ADR 0013, 선택 의존성 numba `[fast]`): 7장 평가, 강도표 랭킹, 분위 단계, 레인지 에퀴티(#188 에퀴티 view). numba가 없으면 numpy 경로로 같은 결과(테스트로 강제). 심판은 쓰지 않는다.
   - `e2/eq_view.py` — `hand.equity` view(#188): 두 좌석의 공개 레인지(1326 도달 확률)를 걸음 내내 각 좌석 전략으로 Bayes 갱신하고, 상대 레인지 대비 에퀴티의 분위 단계로 정보 집합을 만든다(`EqMCCFR`). LBR의 동적 view가 정책의 믿음을 재현해 같은 버킷으로 읽는다.
