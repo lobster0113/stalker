@@ -49,8 +49,8 @@ def _numpy_quantile_steps(xl, wl, k):
     return np.minimum((mid * k).astype(int), k - 1)[inv]
 
 
-@pytest.mark.skipif(not F.HAVE_NUMBA, reason="numba not installed (optional [fast] extra)")
-def test_compiled_quantile_steps_equal_the_numpy_path():
+def test_quantile_kernel_equals_the_numpy_path():
+    # Runs compiled where numba is installed and as plain Python in CI: the kernel logic is checked either way.
     rng = np.random.default_rng(13)
     for _ in range(40):
         x = np.round(rng.random(1326), int(rng.integers(1, 4)))      # many ties
@@ -59,3 +59,26 @@ def test_compiled_quantile_steps_equal_the_numpy_path():
         k = int(rng.choice([5, 11]))
         got = F.quantile_steps(x[live], w[live], k, float(w[live].sum()))
         assert np.array_equal(got, _numpy_quantile_steps(x[live], w[live], k))
+
+
+def test_eval_kernel_equals_the_reference_without_numba_too():
+    # #237 review: CI has no numba, so call the kernel function itself (plain Python there) on a small batch.
+    rng = np.random.default_rng(237)
+    hands = np.array([rng.permutation(52)[:7] for _ in range(1000)], dtype=np.int64)
+    got = F._eval_many(hands, F._SH, F._POP, F._HI, F._KICK5, F._KICK3, F._KICK2, F._CAT)
+    assert np.array_equal(got, reference(hands))
+
+
+@pytest.mark.parametrize("board", [(0, 17, 34), (5, 22, 47, 12), (8, 9, 30, 31, 51)])
+def test_board_table_kernel_path_equals_the_numpy_path(monkeypatch, board):
+    # Forces the kernel path (compiled, or plain Python without numba) and compares with the numpy path.
+    from stalker.e2 import abstraction as A
+
+    monkeypatch.setattr(F, "HAVE_NUMBA", True)
+    A.ehs_table.cache_clear()
+    kernel = A.ehs_table(board)
+    monkeypatch.setattr(F, "HAVE_NUMBA", False)
+    A.ehs_table.cache_clear()
+    numpy_path = A.ehs_table(board)
+    A.ehs_table.cache_clear()
+    assert np.array_equal(kernel, numpy_path, equal_nan=True)
