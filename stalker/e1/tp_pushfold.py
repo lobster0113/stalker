@@ -185,6 +185,54 @@ def table(stacks=None, antes=None, tiers=("beginner", "mid", "pro"), views=("ran
     return rows
 
 
+def tp_values(tier: str, scale: str, equity_pct: np.ndarray, weight: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """(TP value 0-100 per class, ascending bin edges) such that searchsorted(edges, value, "right")
+    is this tier's bucket: `hand.equity` itself on the uniform scale, the mid-rank percentile
+    `hand.pct` on the quantile scale."""
+    if scale == "uniform":
+        step = TIER_STEP[tier]
+        return equity_pct.astype(float), step * (np.arange(100 // step) + 0.5)
+    if scale == "quantile":
+        levels = TIER_LEVELS[tier]
+        order = np.argsort(equity_pct, kind="stable")
+        w = weight[order] / weight.sum()
+        v = np.empty(len(order))
+        v[order] = 100.0 * (np.cumsum(w) - w / 2)
+        return v, 100.0 * np.arange(1, levels) / levels
+    raise ValueError(f"scale {scale!r}; use one of {SCALES}")
+
+
+def gate_f_policy(tier: str = "beginner", scale: str = "quantile", sb_view: str = "called", iters: int = 1500):
+    """The trained policies as a Gate F policy (#281): (seat, stack, ante) -> FollowSpec.
+
+    Bins no hand reads were never trained (their best response defaulted to fold). A follower can
+    still perceive them, so they take the nearest occupied bin's action (the lower one on a tie)
+    rather than an artefact.
+    """
+    from referee.gate_f import FollowSpec
+
+    cache: dict[tuple[float, float], Result] = {}
+
+    def policy(seat: str, stack: float, ante: float) -> FollowSpec:
+        if (stack, ante) not in cache:
+            cache[stack, ante] = train(stack, ante, tier, iters, sb_view, scale)
+        r = cache[stack, ante]
+        p, _, _ = P._payoffs(stack, ante)
+        if seat == "sb":
+            eq = sb_equity_when_called(r.call) if sb_view == "called" else sb_equity()
+            probs, weight = r.push, p.sum(axis=1)
+        else:
+            eq, probs, weight = bb_equity(r.push), r.call, p.sum(axis=0)
+        values, edges = tp_values(tier, scale, eq, weight)
+        bins = np.searchsorted(edges, values, side="right")
+        occupied = np.unique(bins)
+        nearest = occupied[np.abs(np.arange(len(edges) + 1)[:, None] - occupied[None, :]).argmin(axis=1)]
+        bin_probs = np.zeros(len(edges) + 1)
+        bin_probs[bins] = probs
+        return FollowSpec(bin_probs[nearest], values, edges)
+    return policy
+
+
 if __name__ == "__main__":
     import argparse
     import json

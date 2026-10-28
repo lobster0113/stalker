@@ -56,3 +56,12 @@ def test_training_metrics_are_exact_and_deterministic():
     assert a["e1_tp_pro_exploitability"] <= a["e1_tp_mid_exploitability"] <= a["e1_tp_beginner_exploitability"]
     assert a["e1_tp_beginner_exploitability"] < a["e1_tp_uniform_beginner_exploitability"]
     assert elapsed < 120, elapsed  # snapshot budget (#170): about a minute on CI
+
+
+def test_gate_f_metrics_are_deterministic_and_ordered():
+    a = metrics.gate_f_e1()
+    assert a == metrics.gate_f_e1()
+    for tier in ("beginner", "mid", "pro"):
+        assert a[f"gate_f_e1_{tier}_nash_loss"] >= a[f"gate_f_e1_{tier}_nash_loss_added"] >= 0
+    # Larger human error costs more: the tiers' sigmas are 20 > 12 > 6.
+    assert a["gate_f_e1_pro_nash_loss_added"] <= a["gate_f_e1_mid_nash_loss_added"] <= a["gate_f_e1_beginner_nash_loss_added"]
