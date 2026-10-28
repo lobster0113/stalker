@@ -67,3 +67,23 @@ def test_checkpoint_keeps_the_tier(tmp_path):
     m.iterate(5)
     r.iterate(5)
     assert m.policy() == r.policy()
+
+
+def test_river_table_is_bit_identical_to_repeated_runouts():
+    # #223 review: one river evaluation must not change baseline buckets through float rounding.
+    from referee.anchors.hu_equity import evaluate_batch
+    from stalker.e2 import abstraction as A
+
+    board = (3, 17, 29, 40, 51)
+    ok = ~np.isin(A.COMBO_ARR, list(board)).any(axis=1)
+    idx = np.flatnonzero(ok)
+    score = evaluate_batch(np.concatenate([A.COMBO_ARR[idx], np.broadcast_to(np.array(board), (len(idx), 5))], axis=1))
+    s = np.sort(score)
+    lo, hi = np.searchsorted(s, score, side="left"), np.searchsorted(s, score, side="right")
+    acc = np.zeros(len(A.COMBOS))
+    for _ in range(A.RUNOUTS):
+        acc[idx] += (lo + (hi - lo - 1) / 2) / max(len(idx) - 1, 1)
+    ref = acc / A.RUNOUTS
+    ref[~ok] = np.nan
+    A.ehs_table.cache_clear()
+    assert np.array_equal(A.ehs_table(board), ref, equal_nan=True)
