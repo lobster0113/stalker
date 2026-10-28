@@ -183,6 +183,7 @@ def gate_s_policy(tier: str = "beginner", scale: str = "quantile", sb_view: str 
             eq = sb_equity_when_called(r.call) if sb_view == "called" else sb_equity()
             return r.push, _bucketer(tier, scale, p.sum(axis=1))(eq)
         return r.call, _bucketer(tier, scale, p.sum(axis=0))(bb_equity(r.push))
+    policy.tp_step_points = TIER_STEP[tier]     # both scales have TIER_LEVELS bins over 0-100
     return policy
 
 

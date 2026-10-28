@@ -70,7 +70,7 @@ def gate_s_e1() -> dict:
 
     def row(r):
         return {"passed": r["passed"], "tv_p95_sb": r["tv_p95_by_seat"]["sb"], "tv_p95_bb": r["tv_p95_by_seat"]["bb"],
-                "tp_change_p95": r["tp_change_p95"], "stab_regret_mean_pct": r["stab_regret_mean_pct"],
+                "tp_change_p95": r["tp_change_p95"], "tp_change_p95_points": r["tp_change_p95_points"], "stab_regret_mean_pct": r["stab_regret_mean_pct"],
                 "stab_regret_p99_pct": r["stab_regret_p99_pct"], "cliff_ratio": r["cliff_ratio"],
                 "golden_ok": sum(g["ok"] for g in r["golden"]), "golden_total": len(r["golden"])}
 

@@ -59,6 +59,33 @@ def test_tp_change_is_measured_in_scale_steps(spec):
     assert r["tp_change_p95"] > 1 and any(f.startswith("tp change") for f in r["fails"])
 
 
+def _nash_with_bins(step_points, jump):
+    def policy(seat, stack, ante):
+        return S.nash_policy(seat, stack, ante)[0], np.full(169, int(stack * jump))
+    if step_points is not None:
+        policy.tp_step_points = step_points
+    return policy
+
+
+def test_tp_change_tolerance_is_the_larger_of_one_step_and_the_fixed_point_width(spec):
+    # moves ~one bin per BB of stack: p95 well above one step, so a coarse scale (25 points) is judged
+    # in steps and fails, while a fine scale (1 point) is judged in points: p95 steps * 1 <= 10 passes
+    assert any(f.startswith("tp change") for f in S.evaluate(_nash_with_bins(None, 1), spec)["fails"])
+    assert any(f.startswith("tp change") for f in S.evaluate(_nash_with_bins(25, 1), spec)["fails"])
+    fine = S.evaluate(_nash_with_bins(1, 1), spec)
+    assert fine["tp_change_p95_points"] == fine["tp_change_p95"] and fine["tp_change_p95"] <= 10
+    assert not any(f.startswith("tp change") for f in fine["fails"])
+    wide = S.evaluate(_nash_with_bins(1, 6), spec)      # the same policy jumping 6x as far on the fine scale
+    assert wide["tp_change_p95_points"] > 10 and any(f.startswith("tp change") for f in wide["fails"])
+
+
+def test_the_point_width_keeps_the_discrimination_policies_failing(spec):
+    # the tolerance only touches the TP-change criterion; tv and golden keep failing the bad policies
+    assert S.evaluate(S.nash_policy, spec)["passed"]
+    assert not S.evaluate(S.oversensitive_policy, spec)["passed"]
+    assert not S.evaluate(S.flat_policy, spec)["passed"]
+
+
 def test_policy_output_is_validated(spec):
     with pytest.raises(ValueError, match="169 probabilities"):
         S.evaluate(lambda seat, stack, ante: (np.full(10, 0.5), None), spec)

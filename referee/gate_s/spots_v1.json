@@ -11,6 +11,7 @@
  "thresholds": {
   "tv_p95": 0.15,
   "tp_change_steps": 1,
+  "tp_change_points": 10,
   "stab_regret_p99_pct": 2.0,
   "golden_moved": 0.5
  },
