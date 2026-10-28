@@ -98,7 +98,7 @@ def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
 
     monkeypatch.setattr(lg, "persona_field", lambda names=None: personas.field(("tag",)))
     T.run("e2-league-beginner", 40, 1, tmp_path)
-    r = json.loads((tmp_path / "e2-league-beginner-seed1.json").read_text())
+    r = json.loads((tmp_path / "e2-league-beginner-seed1.json").read_text(encoding="utf-8"))
     assert r["tier"] == "beginner" and len(r["generations"]) == 2 and r["iters"] == 40
     assert r["generations"][0]["worst_persona"] == "tag"
     s = T.summarize("e2-league-beginner", tmp_path)
