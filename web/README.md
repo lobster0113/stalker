@@ -12,14 +12,15 @@
 - TP 항목 ID·등급·눈금·적용 조건은 TP v0.1(`docs/TP.md`, `stalker/tp/spec/tp_v0_1.json`)을 따른다. `TP` 키와 `TIERS[*].items`는 JSON과 정확히 같아야 하며 `tests/test_tp_spec.py::test_demo_matches_spec`이 검사한다. 명세가 바뀌면 이 파일의 `TP`·`TIERS`도 같은 PR에서 고친다.
 - 모든 정답 화면(훈련 게임 채점·학습 섹션·복기)에 신뢰도 라벨 `모의`를 붙인다. 액션은 Q값이 없으므로 "모의 참고: TP-GTO(모의) 혼합 전략"으로만 보여주고 점수·약점에 넣지 않으며 EV 손실 수치도 내지 않는다(TP §5). `plan.pot`은 채점하지 않는 성찰 질문(중수·고수)이고, `opp.*`는 기회 수(N/A 기준은 JSON `na.min_opportunities`)가 모자라면 묻지 않는다.
 - 결정당 입력 시간(내 차례 시작 → 제출. Quick은 액션을 확정한 `진행`·`분석 보기`까지)을 기록해 "내 약점" 화면에 P50/P95로 보여준다(브라우저 localStorage `stalker.itimes`, 최근 300회).
-- **기록 옮기기**(#117): '내 약점'의 '기록 옮기기'에서 학습 기록(`weak`·`itimes`·`rankq`)을 JSON 텍스트로 보여주고 복사한다. 다른 기기에서 붙여넣어 가져온다. 파일 다운로드나 서버 동기화는 쓰지 않는다. 스키마는 `{schema: "stalker.demo.records", schema_version: 1, ...}`이고, 잘못된 입력에는 고치는 법이 담긴 오류를 보여준다. 가져오기는 한 번 더 눌러야 덮어쓴다(뷰어에 `confirm()`이 없음). 검사: `tests/test_demo_records.py`(node로 `parseRecords`), Gate U 왕복(내보내기 → 초기화 → 가져오기 → 같은 통계).
+- **질문 형태 실험**(#262, Gate E 예비, 기본 끔): 시작 화면 토글을 켜면 훈련 게임의 `hand.equity` 질문이 결정마다 (A) "상대가 이렇게 플레이할 때 내가 이길 확률" 또는 (B) "내 핸드는 이 상황에서 상위 몇 %" 5단계 칩으로 무작위 배정된다. 배정 난수는 훈련 세션(테이블에 앉기)마다 시드를 하나 고정한다(`?abseed=N`으로 지정 가능). TP 패널 제목에 형태(`형태 A · 이길 확률`/`형태 B · 상위 %`)가 보인다. 이 답은 채점·약점에 넣지 않고, 결정마다 `{f, ms, a, t, seed}`(형태, 질문이 화면에 뜬 뒤 마지막 칩 탭까지 ms, 답 칩, 정답 칩 0–4)를 localStorage `stalker.eqab`(최근 300건)에 익명으로 남긴다. 정답 칩(모의): A = 모의 에퀴티의 20%p 구간, B = 같은 상대 레인지에 대해 내 핸드보다 에퀴티가 높은 핸드 비율(무작위 60핸드 표본, 게임 난수와 분리)의 20% 구간. 학습 섹션 아래 표에 형태별 기록 수·P50·P95 입력 시간·정답률이 보인다. 끄면 화면과 채점이 이전과 같다.
+- **기록 옮기기**(#117): '내 약점'의 '기록 옮기기'에서 학습 기록(`weak`·`itimes`·`rankq`·`eqab`)을 JSON 텍스트로 보여주고 복사한다. 다른 기기에서 붙여넣어 가져온다. 파일 다운로드나 서버 동기화는 쓰지 않는다. 스키마는 `{schema: "stalker.demo.records", schema_version: 2, ...}`이고(v2에서 `eqab` 추가, v1 텍스트도 `eqab` 없이 가져온다), 잘못된 입력에는 고치는 법이 담긴 오류를 보여준다. 가져오기는 한 번 더 눌러야 덮어쓴다(뷰어에 `confirm()`이 없음). 검사: `tests/test_demo_records.py`(node로 `parseRecords`), Gate U 왕복(내보내기 → 초기화 → 가져오기 → 같은 통계·같은 질문 형태 표).
 - 사용자에게 보여줄 때: 대화 세션이 `<!doctype>`·`<html>`·`<head>`·`<body>` 태그를 뺀 사본을 Claude Artifact(비공개)로 게시한다. 현재 게시본: https://claude.ai/artifact/LpQTDzYgZgTjcY5T4BwcZb
 
 ## e2e/ (Gate U, CI 잡 `web`)
 ```bash
 cd web/e2e && npm ci && npx playwright install chromium && npm test
 ```
-- `gate-u.mjs`: 시작(Quick 기본 확인) → 테이블 → 내 차례 Quick 한 결정이 입력 3개 이하(액션·사이즈·진행)로 끝남 → 다음 차례 Quick `분석 보기`(핵심 판단 1~3개, 액션 재질문 없음) → 비교 → 시작 화면에서 Guided로 바꿔 TP 카드(카드마다 첫 칩으로 답하고 다음, 액션은 폴드가 아닌 것 + 사이즈) → 제출 → 채점, 학습 갤러리 → 모듈 열기 → 1문제, 복기 단계(포지션 → 핸드 → 프리플랍 액션 → 비교)를 통과시키고, 화면마다 390×844·820×1180·1440×900 스크린샷(`web/e2e/screenshots/`, CI에서는 아티팩트 `web-screenshots`), 가로 스크롤, axe critical 위반을 검사한다.
+- `gate-u.mjs`: 시작(Quick 기본 확인) → 테이블 → 내 차례 Quick 한 결정이 입력 3개 이하(액션·사이즈·진행)로 끝남 → 다음 차례 Quick `분석 보기`(핵심 판단 1~3개, 액션 재질문 없음) → 비교 → 시작 화면에서 Guided로 바꿔 TP 카드(카드마다 첫 칩으로 답하고 다음, 액션은 폴드가 아닌 것 + 사이즈) → 제출 → 채점, 질문 형태 실험 켬 → Guided 결정 3회(패널 제목 형태·칩 5개·결과의 A/B 줄) → 학습 섹션 표(형태별 기록 합 3·P50·P95·정답률), 학습 갤러리 → 모듈 열기 → 1문제, 복기 단계(포지션 → 핸드 → 프리플랍 액션 → 비교)를 통과시키고, 화면마다 390×844·820×1180·1440×900 스크린샷(`web/e2e/screenshots/`, CI에서는 아티팩트 `web-screenshots`), 가로 스크롤, axe critical 위반을 검사한다.
 - 내 차례 대기는 테스트 전용 `?speed=30`(속도 배수)으로 줄인다. 데모 기본 진행(1.5초)은 그대로다.
 - 로컬에 Chromium이 이미 있으면 `CHROMIUM_PATH=/path/to/chrome npm test`.
 - 아직 없음: 성능 예산.
