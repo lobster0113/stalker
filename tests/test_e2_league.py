@@ -1,3 +1,5 @@
+import pytest
+
 from stalker.e2.league import League
 
 
@@ -43,3 +45,9 @@ def test_persona_field_is_reported_and_can_block_promotion():
     assert g.promoted == (g.vs_worst_persona_bb >= 0)
     off = League("beginner", seed=3, personas=()).run(1, 30, 40, 40)[0]
     assert off.field_bb is None and off.promoted and (off.gain_bb, off.stderr_bb) == (g.gain_bb, g.stderr_bb)
+
+
+def test_field_reports_the_gate_q1_lower_bound_from_independent_deals():
+    lg = League("beginner", seed=5, personas=("calling_station", "tag"))
+    g = lg.run(1, 20, 20, 40)[0]
+    assert g.field_ci95_low_bb == pytest.approx(g.field_bb - 1.96 * g.field_stderr_bb, abs=2e-4)

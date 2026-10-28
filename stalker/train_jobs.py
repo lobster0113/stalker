@@ -160,6 +160,7 @@ def summarize(job: str, folder: Path) -> dict:
         out.update({"iters": runs[0]["iters"], "promoted_by_seed": [r["promoted"] for r in runs],
                     "champion_gain_bb_by_seed": [c["gain_bb"] for c in champs],
                     "champion_field_bb_by_seed": [c["field_bb"] for c in champs],
+                    "champion_field_ci95_low_bb_by_seed": [c["field_ci95_low_bb"] for c in champs],
                     "champion_worst_persona_by_seed": [c["worst_persona"] for c in champs]})
     return out
 

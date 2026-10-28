@@ -39,6 +39,7 @@ class Generation:
     field_stderr_bb: float | None = None
     worst_persona: str | None = None  # the persona this snapshot does worst against
     vs_worst_persona_bb: float | None = None   # that result, mean + 1 SE
+    field_ci95_low_bb: float | None = None     # field mean - 1.96 SE: the Gate Q1 lower bound (#226)
 
 
 @dataclass
@@ -67,7 +68,7 @@ class League:
             beats_field = fld is None or fld[3] >= 0
             promoted = (best is None or r.gain_bb + r.stderr_bb < best.gain_bb) and beats_pool and beats_field
             gen = Generation(g, main.iterations, r.gain_bb, r.stderr_bb, promoted,
-                             None if worst is None else round(worst, 4), *(fld or (None,) * 4))
+                             None if worst is None else round(worst, 4), *(fld or (None,) * 5))
             self.history.append(gen)
             if promoted:
                 best, self.champion = gen, snap
@@ -75,13 +76,17 @@ class League:
         return self.history
 
     def _field(self, snap: dict, ab, hands: int, seed: int):
-        """(field mean, its SE, worst persona, that persona's mean + SE), or None without a field."""
+        """(field mean, its SE, worst persona, that persona's mean + SE, field mean - 1.96 SE), or None.
+
+        Each persona plays its own deals (seed + 31 i), so the persona results are independent and the
+        field SE is sqrt(sum se_i^2) / n (#252 review: shared deals would correlate them and shrink the SE).
+        """
         members = persona_field(self.personas) if self.personas != () else []
         if not members:
             return None
-        res = {p.name: head_to_head(snap, ab, p, ab, hands, seed) for p in members}
+        res = {p.name: head_to_head(snap, ab, p, ab, hands, seed + 31 * i) for i, p in enumerate(members)}
         means = np.array([m for m, _ in res.values()])
         ses = np.array([se for _, se in res.values()])
         name = min(res, key=lambda n: res[n][0] + res[n][1])
-        return (round(float(means.mean()), 4), round(float(np.sqrt((ses ** 2).sum()) / len(ses)), 4), name,
-                round(res[name][0] + res[name][1], 4))
+        mean, se = float(means.mean()), float(np.sqrt((ses ** 2).sum()) / len(ses))
+        return (round(mean, 4), round(se, 4), name, round(res[name][0] + res[name][1], 4), round(mean - 1.96 * se, 4))
