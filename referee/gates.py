@@ -20,6 +20,7 @@ PY = sys.executable
 FULL_CHECKS: list[tuple[str, list[str]]] = [
     ("gate_r", [PY, "-m", "referee.gate_r", "--full"]),
     ("gate_r_edge", [PY, "-m", "referee.gate_r.edge"]),
+    ("gate_r_e3", [PY, "-m", "referee.gate_r.e3_suite"]),
     ("gate_l", [PY, "-m", "referee.gate_l"]),
 ]
 

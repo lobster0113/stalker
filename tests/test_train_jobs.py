@@ -12,13 +12,15 @@ ROOT = Path(__file__).resolve().parent.parent
 def test_run_and_summarize_e2_mccfr(tmp_path, monkeypatch):
     import referee.e2.lbr as lbr
 
-    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed: {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed: {"lbr_bb": 1.0, "stderr_bb": 0.1, "hands": hands})
     for seed in (1, 2):
         T.run("e2-mccfr", 20, seed, tmp_path)
     s = T.summarize("e2-mccfr", tmp_path)
+    assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text(encoding="utf-8"))["lbr"]["hands"] == T.LBR_HANDS == 4000
+    assert s["lbr_stderr_by_seed"] == [0.1, 0.1]
     assert s["runs"] == 2 and s["seeds"] == [1, 2] and s["lbr_bb_mean"] == 1.0 and s["iters"] == 20
     assert (tmp_path / "e2-mccfr-seed1.policy.json").exists()
-    assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text())["infosets"] > 0
+    assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text(encoding="utf-8"))["infosets"] > 0
 
 
 def test_only_allow_listed_jobs_run(tmp_path):
@@ -40,7 +42,7 @@ def test_train_workflow_is_manual_and_passes_inputs_through_env():
 
 def _fake_run(folder, seed, **extra):
     (folder / f"e2-mccfr-seed{seed}.json").write_text(json.dumps(
-        {"job": "e2-mccfr", "seed": seed, "iters": 10, "iters_per_s": 1.0, "lbr": {"lbr_bb": 0.5}, **extra}))
+        {"job": "e2-mccfr", "seed": seed, "iters": 10, "iters_per_s": 1.0, "lbr": {"lbr_bb": 0.5}, **extra}), encoding="utf-8")
 
 
 def test_summary_refuses_unknown_jobs_and_empty_results(tmp_path):

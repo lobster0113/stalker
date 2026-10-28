@@ -20,17 +20,18 @@ from pathlib import Path
 import numpy as np
 
 from stalker.e2 import game as G
-from stalker.e2.abstraction import bucket
+from stalker.e2.abstraction import BASELINE, TIERS, Abstraction
 
 
-def infoset(s: G.State) -> str:
+def infoset(s: G.State, abstraction: Abstraction = BASELINE) -> str:
     p = s.to_act
-    return f"{p}|{s.street}|{bucket(s.hole[p], s.board)}|{''.join(h if len(h) == 1 else h[1:] for h in s.history)}"
+    return f"{p}|{s.street}|{abstraction.bucket(s.hole[p], s.board)}|{''.join(h if len(h) == 1 else h[1:] for h in s.history)}"
 
 
 class MCCFR:
-    def __init__(self, seed: int = 0):
+    def __init__(self, seed: int = 0, abstraction: Abstraction = BASELINE):
         self.seed = seed
+        self.abstraction = abstraction
         self.rng = np.random.default_rng(seed)
         self.regret: dict[str, np.ndarray] = {}
         self.avg: dict[str, np.ndarray] = defaultdict(lambda: None)
@@ -49,7 +50,7 @@ class MCCFR:
             v = G.payoff(s) / G.BB
             return v if trav == 0 else -v
         acts = G.legal(s)
-        key = infoset(s)
+        key = infoset(s, self.abstraction)
         sigma = self._sigma(key, len(acts))
         if s.to_act == trav:
             vals = np.array([self._walk(G.apply(s, a), trav) for a in acts])
@@ -85,13 +86,14 @@ class MCCFR:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_text(json.dumps({
             "seed": self.seed, "iterations": self.iterations, "rng": self.rng.bit_generator.state,
+            "abstraction": self.abstraction.to_json(),
             "regret": {k: v.tolist() for k, v in self.regret.items()},
             "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}}), encoding="utf-8")
 
     @classmethod
     def load(cls, path: Path) -> "MCCFR":
         d = json.loads(Path(path).read_text(encoding="utf-8"))
-        m = cls(d["seed"])
+        m = cls(d["seed"], Abstraction.from_json(d.get("abstraction")))
         m.iterations = d["iterations"]
         m.rng.bit_generator.state = d["rng"]
         m.regret = {k: np.array(v) for k, v in d["regret"].items()}
@@ -113,28 +115,29 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="E2 external-sampling MCCFR (local reference numbers)")
     ap.add_argument("--iters", type=int, default=1000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--tier", choices=sorted(TIERS), default="baseline", help="TP card resolution (#187)")
     ap.add_argument("--out", type=Path, help="average policy JSON")
     ap.add_argument("--log", type=Path, help="JSONL progress rows (iteration, seed, infosets, seconds)")
     ap.add_argument("--every", type=int, default=100, help="log every K iterations")
     ap.add_argument("--checkpoint", type=Path, help="write a resumable checkpoint at the end")
-    ap.add_argument("--resume", type=Path, help="continue from a checkpoint (its seed wins)")
+    ap.add_argument("--resume", type=Path, help="continue from a checkpoint (its seed and tier win)")
     a = ap.parse_args(argv)
     t0 = time.monotonic()
-    m = MCCFR.load(a.resume) if a.resume else MCCFR(a.seed)
+    m = MCCFR.load(a.resume) if a.resume else MCCFR(a.seed, TIERS[a.tier])
     if a.log:
         a.log.parent.mkdir(parents=True, exist_ok=True)
-    if a.log:
         with a.log.open("a", encoding="utf-8") as log:
             m.iterate(a.iters, log, a.every)
     else:
         m.iterate(a.iters)
     dt = time.monotonic() - t0
     pol = m.policy()
-    print(json.dumps({"iters": m.iterations, "seed": m.seed, "seconds": round(dt, 2), "iters_per_s": round(a.iters / dt, 1),
-                      "infosets": len(m.regret)}))
+    print(json.dumps({"iters": m.iterations, "seed": m.seed, "abstraction": m.abstraction.name, "seconds": round(dt, 2),
+                      "iters_per_s": round(a.iters / dt, 1), "infosets": len(m.regret)}))
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)
-        a.out.write_text(json.dumps({"seed": m.seed, "iters": m.iterations, "policy": pol}), encoding="utf-8")
+        a.out.write_text(json.dumps({"seed": m.seed, "iters": m.iterations, "abstraction": m.abstraction.to_json(),
+                                     "policy": pol}), encoding="utf-8")
     if a.checkpoint:
         m.save(a.checkpoint)
     return 0
