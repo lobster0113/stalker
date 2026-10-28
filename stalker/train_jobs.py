@@ -60,7 +60,7 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
     t1 = time.monotonic()
     lbr = exploitability_lb(policy, hands=400, seed=10_000 + seed, view=m.view)
     return {"iters": iters, "tier": tier, "view": m.view.to_json(), "train_seconds": round(train_s, 1),
-            "iters_per_s": round(iters / train_s, 2), "infosets": len(m.regret), "lbr": lbr,
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "lbr": lbr,
             "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
