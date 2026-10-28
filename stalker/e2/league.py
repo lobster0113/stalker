@@ -40,6 +40,7 @@ class Generation:
     worst_persona: str | None = None  # the persona this snapshot does worst against
     vs_worst_persona_bb: float | None = None   # that result, mean + 1 SE
     field_ci95_low_bb: float | None = None     # field mean - 1.96 SE: the Gate Q1 lower bound (#226)
+    exploiter_iters: int | None = None         # iterations the exploiter trained this generation (#247)
 
 
 @dataclass
@@ -50,6 +51,12 @@ class League:
     champion: dict | None = None
     pool: list[dict] = field(default_factory=list)   # earlier champions, oldest first
     personas: tuple[str, ...] | None = None          # persona field (None: all presets, (): none)
+    # The exploiter (#247): its card abstraction (None: the main policy's tier, which it learns fastest
+    # against; BASELINE lost at 2e4 iterations in the first CI league), and a floor on its iterations as
+    # a share of the policy's total iterations so a fresh exploiter is not outmatched by sheer training.
+    exploiter_tier: str | None = None
+    exploiter_ratio: float = 0.5
+    exploiter_strategy: str = "current"
 
     def run(self, generations: int, iters_per_gen: int, exploiter_iters: int, hands: int) -> list[Generation]:
         ab = TIERS[self.tier]
@@ -58,7 +65,9 @@ class League:
         for g in range(1, generations + 1):
             main.iterate(iters_per_gen)
             snap = main.policy()
-            r = exploit(snap, ab, iters=exploiter_iters, hands=hands, seed=self.seed * 1000 + g)
+            ex_iters = max(exploiter_iters, int(self.exploiter_ratio * main.iterations))
+            r = exploit(snap, ab, iters=ex_iters, hands=hands, seed=self.seed * 1000 + g,
+                        ex_abs=TIERS[self.exploiter_tier or self.tier], strategy=self.exploiter_strategy)
             worst = None
             for old in self.pool:
                 m, se = head_to_head(snap, ab, old, ab, hands, seed=self.seed * 1000 + 500 + g)
@@ -68,7 +77,7 @@ class League:
             beats_field = fld is None or fld[3] >= 0
             promoted = (best is None or r.gain_bb + r.stderr_bb < best.gain_bb) and beats_pool and beats_field
             gen = Generation(g, main.iterations, r.gain_bb, r.stderr_bb, promoted,
-                             None if worst is None else round(worst, 4), *(fld or (None,) * 5))
+                             None if worst is None else round(worst, 4), *(fld or (None,) * 5), ex_iters)
             self.history.append(gen)
             if promoted:
                 best, self.champion = gen, snap

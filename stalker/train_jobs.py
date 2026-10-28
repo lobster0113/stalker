@@ -68,6 +68,8 @@ def _e2_league(tier: str):
             (out / f"e2-league-{tier}-seed{seed}.policy.json").write_text(json.dumps(lg.champion), encoding="utf-8")
         champ = [g for g in hist if g.promoted]
         return {"iters": per_gen * LEAGUE_GENERATIONS, "tier": tier, "generations": [asdict(g) for g in hist],
+                "exploiter": {"tier": lg.exploiter_tier or tier, "ratio": lg.exploiter_ratio,
+                              "strategy": lg.exploiter_strategy},
                 "promoted": len(champ), "champion": asdict(champ[-1]) if champ else None,
                 "wall_train_seconds": round(time.monotonic() - t0, 1)}
     return job
@@ -157,7 +159,8 @@ def summarize(job: str, folder: Path) -> dict:
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
     if job.startswith("e2-league-") and runs:
         champs = [r["champion"] or {} for r in runs]  # one entry per seed (null without a champion), aligned with seeds
-        out.update({"iters": runs[0]["iters"], "promoted_by_seed": [r["promoted"] for r in runs],
+        out.update({"iters": runs[0]["iters"], "exploiter": runs[0].get("exploiter"),
+                    "promoted_by_seed": [r["promoted"] for r in runs],
                     "champion_gain_bb_by_seed": [c.get("gain_bb") for c in champs],
                     "champion_field_bb_by_seed": [c.get("field_bb") for c in champs],
                     "champion_field_ci95_low_bb_by_seed": [c.get("field_ci95_low_bb") for c in champs],

@@ -51,3 +51,27 @@ def test_field_reports_the_gate_q1_lower_bound_from_independent_deals():
     lg = League("beginner", seed=5, personas=("calling_station", "tag"))
     g = lg.run(1, 20, 20, 40)[0]
     assert g.field_ci95_low_bb == pytest.approx(g.field_bb - 1.96 * g.field_stderr_bb, abs=2e-4)
+
+
+def test_exploiter_defaults_to_the_policy_tier_and_a_share_of_its_iterations(monkeypatch):
+    # #247: the first CI league's BASELINE exploiter lost to every champion; it now learns at the policy's
+    # tier and trains at least `exploiter_ratio` x the policy's total iterations.
+    import stalker.e2.league as L
+    from stalker.e2.abstraction import TIERS
+
+    calls = []
+    real = L.exploit
+
+    def spy(fixed, fixed_abs, iters, hands, seed, ex_abs, strategy):
+        calls.append({"iters": iters, "ex_abs": ex_abs, "strategy": strategy})
+        return real(fixed, fixed_abs, iters=2, hands=hands, seed=seed, ex_abs=ex_abs, strategy=strategy)
+
+    monkeypatch.setattr(L, "exploit", spy)
+    hist = League("mid", seed=1, personas=()).run(2, 40, 10, 10)
+    assert [c["iters"] for c in calls] == [20, 40]            # max(10, 0.5 x 40), max(10, 0.5 x 80)
+    assert all(c["ex_abs"] == TIERS["mid"] and c["strategy"] == "current" for c in calls)
+    assert [g.exploiter_iters for g in hist] == [20, 40]
+    calls.clear()
+    League("mid", seed=1, personas=(), exploiter_tier="beginner", exploiter_ratio=0.0,
+           exploiter_strategy="average").run(1, 40, 10, 10)
+    assert calls == [{"iters": 10, "ex_abs": TIERS["beginner"], "strategy": "average"}]
