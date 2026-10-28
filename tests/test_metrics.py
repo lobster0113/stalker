@@ -80,3 +80,43 @@ def test_gate_f_metrics_are_deterministic_and_ordered():
         assert a[f"gate_f_e1_{tier}_nash_loss"] >= a[f"gate_f_e1_{tier}_nash_loss_added"] >= 0
     # Larger human error costs more: the tiers' sigmas are 20 > 12 > 6.
     assert a["gate_f_e1_pro_nash_loss_added"] <= a["gate_f_e1_mid_nash_loss_added"] <= a["gate_f_e1_beginner_nash_loss_added"]
+
+
+JUNIT = """<?xml version="1.0" encoding="utf-8"?>
+<testsuites><testsuite name="pytest" errors="1" failures="2" skipped="3" tests="20"></testsuite></testsuites>"""
+
+
+def test_test_counts_read_the_junit_report_of_the_tests_job(tmp_path):
+    (tmp_path / "junit.xml").write_text(JUNIT, encoding="utf-8")
+    assert metrics.test_counts(str(tmp_path / "junit.xml")) == {"tests_passed": 14, "tests_failed": 3}
+
+
+def test_test_counts_missing_junit_report_fails_loudly(tmp_path):
+    with pytest.raises(SystemExit, match="METRICS_JUNIT"):
+        metrics.test_counts(str(tmp_path / "none.xml"))
+
+
+# The keys each part contributes, as the history rows have them; a part dropped from snapshot() fails here.
+PARTS = {
+    "test_counts": {"tests_passed", "tests_failed"},
+    "gate_r": {"gate_r_pass_rate", "gate_r_checks", "gate_r_cash_pass_rate", "gate_r_cash_checks",
+               "gate_r_e3_pass_rate", "gate_r_e3_checks"},
+    "gate_l": {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"},
+    "gate_s_e1": {"gate_s_e1"},
+    "e0": {"e0_kuhn_iters", "e0_leduc_iters", "e0_kuhn_cfr_exploitability", "e0_leduc_cfr_exploitability"},
+    "e1": {"e1_stacks", "e1_iters", "e1_tp_beginner_exploitability", "e1_tp_mid_exploitability",
+           "e1_tp_pro_exploitability", "e1_nash_fp_exploitability", "e1_tp_uniform_beginner_exploitability"},
+    "gate_f_e1": {f"gate_f_e1_{t}_{k}" for t in ("beginner", "mid", "pro") for k in ("nash_loss", "nash_loss_added")},
+}
+
+
+def test_snapshot_key_set_and_stage_timings(monkeypatch, capsys):
+    for name, keys in PARTS.items():
+        stub = (lambda ks: lambda: dict.fromkeys(ks, 0))(keys)
+        stub.__name__ = name
+        monkeypatch.setattr(metrics, name, stub)
+    snap = metrics.snapshot()
+    assert set(snap) == {"ts", "sha", "source", "stalker_loc"}.union(*PARTS.values())
+    err = capsys.readouterr().err
+    for name in [*PARTS, "code_size"]:
+        assert f"metrics: {name} " in err, err
