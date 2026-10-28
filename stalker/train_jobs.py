@@ -100,7 +100,10 @@ def summary_text(job: str, folder: Path) -> str:
 def summarize(job: str, folder: Path) -> dict:
     runs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(folder.rglob(f"{job}-seed*.json"))
             if not p.name.endswith(".policy.json")]
-    out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs]}
+    # Which code produced these numbers: train.yml can run on a branch ref before merge (#245).
+    out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs],
+           "ref": os.environ.get("GITHUB_REF_NAME"), "sha": os.environ.get("GITHUB_SHA"),
+           "run_id": os.environ.get("GITHUB_RUN_ID")}
     if job.startswith("e2-") and runs:
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
