@@ -315,3 +315,12 @@ def test_http_transport_sends_a_user_agent(monkeypatch):
     launcher.http_transport("k")("GET", launcher.REST_URL + "/pods", None)
     assert seen["user-agent"].startswith("stalker-launcher/") and "python-urllib" not in seen["user-agent"].lower()
     assert seen["accept"] == "application/json"
+
+
+def test_spec_names_use_forward_slashes_on_windows_paths():
+    # #225: str() of a Windows path has backslashes, so the jobs/<name>.yaml check refused every spec there.
+    from pathlib import PureWindowsPath
+
+    root = PureWindowsPath(r"C:\repo")
+    assert L._rel_posix(PureWindowsPath(r"C:\repo\jobs\smoke-cpu.yaml"), root) == "jobs/smoke-cpu.yaml"
+    assert L._rel_posix(PureWindowsPath(r"C:\elsewhere\x.yaml"), root) == "C:/elsewhere/x.yaml"
