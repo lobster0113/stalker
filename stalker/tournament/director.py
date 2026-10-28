@@ -5,9 +5,16 @@ Conventions:
   There is no hand-for-hand mode, so bubble play is not special-cased.
 - Several players busting in the same round are ranked by chips at the start of their hand (more chips =
   better place); equal starting stacks are ordered by a draw from the injected rng (reproducible).
+- length_unit='minutes': a global virtual clock advances after each round by (largest table size at the
+  round's hand starts) * seconds_per_seat; the next round's level is the one in force at clock // 60 minutes.
 - Tables are broken as soon as fewer tables can seat everyone, then balanced to a spread of at most 1.
   A moved player takes a random empty seat. The button advances to the next occupied seat each hand
   (no dead button).
+- short_stack_rule='skip': a seat whose hand-start stack is below bb + ante (ante only when one is in force)
+  is still dealt in but posts no blind; SB and BB go to the first two seats that can cover it, counting
+  clockwise from the seat left of the button (the button last), with no dead blind. Fewer than two such
+  seats, or heads-up, falls back to the 'all_in' postings. The button still moves to the next occupied
+  seat. Rule text: referee/GATES.md Gate R.
 - A seat's hole cards become public only in SHOWDOWN (every player still in the hand when it ends with
   two or more players left); folded or won-uncontested cards are never revealed.
 """
@@ -20,7 +27,7 @@ from typing import Callable, Sequence
 import numpy as np
 
 from stalker.agents.base import Action, Agent, Event, Observation
-from stalker.tournament.config import ConfigError, TournamentConfig
+from stalker.tournament.config import TournamentConfig
 from stalker.tournament.hand import Hand
 
 MAX_ROUNDS = 100_000
@@ -73,10 +80,6 @@ class _Game:
                  observer: ObserverFn | None, game_id: str, tournament_id: str) -> None:
         if len(agents) != config.players:
             raise ValueError(f"need {config.players} agents (one per player), got {len(agents)}")
-        if config.length_unit != "hands":
-            raise ConfigError("director supports length_unit='hands' only; time-based levels are not implemented.")
-        if config.short_stack_rule != "all_in":
-            raise ConfigError("director supports short_stack_rule='all_in' only; 'skip' is not implemented.")
         self.cfg, self.agents, self.rng, self.observer = config, list(agents), rng, observer
         self.game_id, self.tournament_id = game_id, tournament_id
         self.stacks = {p: config.starting_stack for p in range(config.players)}
@@ -84,6 +87,8 @@ class _Game:
         self.hand_id = 0
         self.illegal = 0
         self.round_stacks: tuple[int, ...] = ()
+        self.clock_s = 0  # virtual seconds elapsed; only advances for length_unit='minutes'
+        self.round_max_seated = 0
         self.tables: dict[int, _Table] = {}
         self._next_table_id = 0
         self._seat_initial()
@@ -137,20 +142,27 @@ class _Game:
     def _play_hand(self, table: _Table, hand_no: int) -> list[tuple[int, int]]:
         """Play one hand; return (player_id, start stack) of players who busted."""
         cfg = self.cfg
-        level = cfg.level_at(hand_no)
-        nxt = cfg.next_level(hand_no)
+        level_idx = (cfg.level_index_at(self.clock_s // 60) if cfg.length_unit == "minutes"
+                     else cfg.level_index_for_hand(hand_no))
+        level = cfg.levels[level_idx]
+        nxt = cfg.levels[level_idx + 1] if level_idx + 1 < len(cfg.levels) else None
         self.hand_id += 1
         hand_id = self.hand_id
         table.button = table.next_button()
         seat_players = {s: p for s, p in enumerate(table.seats) if p is not None}
         start = {s: self.stacks[p] for s, p in seat_players.items()}
+        self.round_max_seated = max(self.round_max_seated, len(seat_players))
         ante_mode = cfg.ante_mode if level.ante else "none"
+        blind_seats = self._blind_seats(table, start, level.bb + level.ante)
         hand = Hand([start.get(s, 0) for s in range(len(table.seats))], table.button, level.sb, level.bb,
-                    self.rng, ante=level.ante, ante_mode=ante_mode)
+                    self.rng, ante=level.ante, ante_mode=ante_mode, blind_seats=blind_seats)
+        if blind_seats is None:
+            blind_seats = (hand.button, hand.seats[0]) if len(hand.seats) == 2 else hand.seats[:2]
         holes = {s: tuple(hand.hole_cards(s)) for s in seat_players}
         self._emit(Event("NEW_HAND", self.game_id, hand_id, table.id, {
             "hand_no": hand_no, "button": table.button, "seat_players": dict(seat_players), "stacks": dict(start),
-            "sb": level.sb, "bb": level.bb, "ante": level.ante}), table)
+            "sb": level.sb, "bb": level.bb, "ante": level.ante, "level_index": level_idx,
+            "blind_seats": tuple(blind_seats)}), table)
 
         folded: set[int] = set()
         while not hand.is_over:
@@ -170,7 +182,7 @@ class _Game:
                 players_remaining=len(self.stacks), paid_places=len(cfg.payouts), legal=la,
                 action_history=tuple(hand.actions()), all_stacks=self.round_stacks,
                 hand_start_stack=start[seat],
-                ante_mode=ante_mode, action_order=self._action_order(hand, folded, seat))
+                ante_mode=ante_mode, action_order=self._action_order(hand, folded, seat), level_index=level_idx)
             action = agent.act(obs)
             street = len(hand.board())  # 0/3/4/5 board cards = preflop/flop/turn/river
             kind = self._apply(hand, la, action)
@@ -196,6 +208,15 @@ class _Game:
                 busted.append((p, start[s]))
                 table.seats[s] = None
         return busted
+
+    def _blind_seats(self, table: _Table, start: dict[int, int], cover: int) -> tuple[int, int] | None:
+        """SB/BB seats under short_stack_rule='skip'; None means the usual postings (Hand's default)."""
+        if self.cfg.short_stack_rule != "skip" or len(start) < 3:
+            return None
+        n = len(table.seats)
+        order = [(table.button + k) % n for k in range(1, n + 1)]
+        able = [s for s in order if s in start and start[s] >= cover]
+        return (able[0], able[1]) if len(able) >= 2 else None
 
     @staticmethod
     def _action_order(hand: Hand, folded: set[int], actor: int) -> tuple[int, ...]:
@@ -239,10 +260,12 @@ class _Game:
                 raise RuntimeError(f"game exceeded {MAX_ROUNDS} rounds; agents never bust each other out")
             busted: list[tuple[int, int]] = []
             self.round_stacks = tuple(sorted(self.stacks.values(), reverse=True))
+            self.round_max_seated = 0
             for table in sorted(self.tables.values(), key=lambda t: t.id):
                 busted += self._play_hand(table, hand_no)
             if sum(self.stacks.values()) != total:
                 raise RuntimeError(f"chip conservation violated in round {hand_no}")
+            self.clock_s += self.round_max_seated * self.cfg.seconds_per_seat
             place = len(self.stacks) - len(busted) + 1  # best of the busted takes the highest remaining place
             for p in rank_busts(busted, self.rng):
                 self.ranks[p] = place

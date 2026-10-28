@@ -105,7 +105,7 @@ class ObservationBuilder:
         # rank by start-of-round chips on both sides (current stacks already lose blinds/bets); 1 = chip leader
         hero_rank = 1 + int((stacks > obs.hand_start_stack).sum())
         return {
-            "level_index": cfg.level_index_for_hand(obs.hand_no),
+            "level_index": obs.level_index if obs.level_index is not None else cfg.level_index_for_hand(obs.hand_no),
             "blinds": {"sb": obs.sb, "bb": obs.bb, "ante": obs.ante},
             "next_blinds": obs.next_blinds,
             "players_total": cfg.players,

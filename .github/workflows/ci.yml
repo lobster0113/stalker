@@ -12,9 +12,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gates:
+  # Two parts in parallel (#203): the test suite and the registered checks each take ~15 minutes.
+  gates-part:
+    name: gates (${{ matrix.part }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [tests, checks]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,7 +28,20 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e ".[dev]" -q
-      - run: python -m referee.gates full
+      - run: python -m referee.gates full --part ${{ matrix.part }}
+
+  # The required check keeps its name; it fails unless every part succeeded (a skipped or
+  # cancelled part must not pass branch protection).
+  gates:
+    needs: gates-part
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          PARTS: ${{ needs.gates-part.result }}
+        run: |
+          if [ "$PARTS" != "success" ]; then echo "gates parts result is $PARTS (every part must succeed)"; exit 1; fi
 
   guard:
     if: github.event_name == 'pull_request'
@@ -38,7 +57,12 @@ jobs:
       - name: referee-guard
         env:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-        run: python -m referee.guard --base "${{ github.event.pull_request.base.sha }}" --labels "$LABELS"
+          BASE_REF: ${{ github.base_ref }}
+        # The event's base.sha can be older than the main this PR already merged, so files that landed
+        # on main would count as PR changes (#219). Diff from the merge base with the current base tip.
+        run: |
+          git fetch -q origin "$BASE_REF"
+          python -m referee.guard --base "$(git merge-base "origin/$BASE_REF" HEAD)" --labels "$LABELS"
 
   rl:
     # gates installs [dev] only, so torch tests skip there; this job runs them for real (#51).

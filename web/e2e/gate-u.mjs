@@ -50,41 +50,143 @@ async function inspect(tag, focus) {
   must(critical.length === 0, `${tag}: axe critical ${critical.map(v => v.id + "×" + v.nodes.length).join(", ")}`);
 }
 
-// 1. 시작 → 테이블 → 내 차례 → TP 입력 → 제출 → 채점
+// 1. 시작 → 테이블 → 내 차례(Quick: 액션 먼저 → 진행 / 분석 보기 → 비교) → Guided TP 입력 → 제출 → 채점
 await page.goto(url);
+must(await page.locator("#set-play [data-v='quick'][aria-pressed='true']").count() === 1, "시작 화면: 플레이 모드 기본값이 Quick이 아님");
 await inspect("home");
 await page.click("#start-btn");
-await page.waitForSelector("#tp-submit");
-await inspect("train-input");
-await page.evaluate(() => {
-  for (const el of document.querySelectorAll("[data-slider], [data-range]")) {
-    el.value = Math.round((+el.min + +el.max) / 2);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
+const QUICK = "#tp-body [data-card='quick-act']";
+await page.waitForSelector(QUICK);
+await inspect("train-input", QUICK);
+// #163: the level clock is frozen while it is my turn (the TP panel is open).
+must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
+{
+  const before = (await page.textContent("#lv-left")).trim();
+  await page.waitForTimeout(2500);
+  must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
+}
+// #116 Quick: one decision ends in at most 3 inputs — action, size (only for a bet/raise), 진행. No judgment is required.
+{
+  let inputs = 0;
+  const raise = page.locator(`${QUICK} [data-act='raise']:not([disabled])`);
+  if (await raise.count()) {
+    await raise.click(); inputs++;
+    await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click(); inputs++;
+  } else { await page.locator(`${QUICK} [data-act]:not([disabled])`).last().click(); inputs++; }
+  must(await page.locator("#tp-go").isEnabled(), "Quick: 액션을 골랐는데 진행 버튼이 비활성");
+  await page.click("#tp-go"); inputs++;
+  await page.waitForSelector("#tp-body .waiting");
+  must(inputs <= 3, `Quick: 한 결정에 입력 ${inputs}개 (3개 이하여야 함)`);
+}
+// #116 Quick analysis: action first, then "분석 보기" asks 1–3 core judgments and shows the TP comparison.
+await page.waitForSelector(QUICK);
+await page.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+await page.click("#tp-analyze");
+await page.waitForSelector("#tp-body [data-card='quick-ask']");
+{
+  const qs = await page.locator("#tp-body [data-card='quick-ask'] .q").all();
+  must(qs.length >= 1 && qs.length <= 3, `Quick 분석: 핵심 판단 ${qs.length}개 (1~3개여야 함)`);
+  must((await page.locator("#tp-body [data-act]").count()) === 0, "Quick 분석: 액션을 다시 묻고 있음(액션이 먼저여야 함)");
+  for (const q of qs) await q.locator("[data-chip]").first().click();
+}
+await inspect("train-quick-ask", "#tp-submit");
+await page.click("#tp-submit");
+await page.waitForSelector("#tp-body .result-top");
+must((await page.textContent("#tp-body .result-top")).includes("Quick 분석"), "Quick 분석: 채점 화면에 Quick 표시 없음");
+must((await page.locator("#tp-body .rrow.ref").count()) >= 1, "Quick 분석: 액션 비교(TP-GTO 모의 혼합 전략)가 없음");
+await inspect("train-quick-result", "#tp-body .result-top");
+// Switch to Guided between decisions (hold the demo so the next turn waits), then do the full card deck.
+await page.evaluate(() => { window.__hold = true; });
+await page.click(".tab[data-view='home']");
+await page.click("#set-play [data-v='guided']");
+await page.click(".tab[data-view='train']");
+await page.evaluate(() => { window.__hold = false; });
+for (let guard = 0; guard < 6; guard++) {
+  await page.waitForSelector(`${QUICK}, #tp-body .tpc[data-card='0']:not([hidden])`);
+  if (!(await page.locator(QUICK).count())) break;
+  await page.locator(`${QUICK} [data-act]:not([disabled])`).first().click(); // a turn that began before the switch
+  await page.click("#tp-go");
+  await page.waitForSelector("#tp-body .waiting");
+}
+await inspect("train-guided", "#tp-body .tpc[data-card='0']");
+// #164: answer card 1, go next, come back with "이전": same card and the answer is kept.
+{
+  const first = page.locator("#tp-body .tpc:not([hidden])");
+  const stage = await first.getAttribute("data-card");
+  const chip = first.locator(".q:not(.na) [data-chip]").first();
+  if (await chip.count()) {
+    await chip.click();
+    for (const q of await first.locator(".q:not(.na)").all()) if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+    if (await page.locator("#tp-next").isEnabled()) {
+      await page.click("#tp-next");
+      must((await page.locator("#tp-body .tpc:not([hidden])").getAttribute("data-card")) !== stage, "다음: 카드가 바뀌지 않음");
+      await page.click("#tp-prev");
+      const back = page.locator("#tp-body .tpc:not([hidden])");
+      must((await back.getAttribute("data-card")) === stage, "이전: 처음 카드로 돌아오지 않음");
+      must((await back.locator(".q:not(.na) [data-chip][aria-pressed='true']").count()) > 0, "이전: 입력했던 답이 사라짐");
+      must((await page.locator("#tp-dots .dot.cur").count()) === 1, "이전: 진행 점 표시 없음");
+    }
   }
-});
-await page.click("[data-act]:not([disabled]):not([data-act='fold'])");
-if (await page.locator("[data-sizes]:not([hidden])").count()) await page.click("[data-size]");
-must(!(await page.locator("#tp-submit").isDisabled()), "TP 입력을 채웠는데 제출 버튼이 비활성");
+}
+// TP input is a card deck (B board → C opponent → D hand → E plan → F action → G checks): answer every
+// question on the visible card with its first chip (or a non-fold action and a size), then go next.
+for (let guard = 0; guard < 12; guard++) {
+  const card = page.locator("#tp-body .tpc:not([hidden])");
+  for (const q of await card.locator(".q:not(.na)").all()) {
+    if (await q.locator("[data-act]").count()) {
+      await q.locator("[data-act]:not([disabled]):not([data-act='fold'])").first().click();
+      if (await page.locator("[data-sizes]:not([hidden]) [data-size]").count()) await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
+    } else if (await q.locator("[data-chip]").count()) {
+      await q.locator("[data-chip]").first().click();
+    }
+  }
+  const next = page.locator("#tp-next");
+  if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
+  break;
+}
+must(await page.locator("#tp-submit").isVisible() && await page.locator("#tp-submit").isEnabled(), "TP 카드를 다 채웠는데 제출 버튼이 비활성");
 await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
 must((await page.textContent("#tp-body .result-top .ring")).trim() !== "", "채점 점수가 비어 있음");
 await inspect("train-result", "#tp-body .result-top");
 
-// 2. 학습 섹션 1문제
+// 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
+await page.waitForSelector("#mods .mod:not(.locked)");
+await inspect("learn-gallery");
+// #165: opening a module turns the gallery into a side list; "← 전체" brings the gallery back.
+await page.locator("#mods .mod[data-k='hand.rank']").click();
+await page.waitForSelector("#learn.open #drill:not([hidden])");
+must(!(await page.locator("#learn").getAttribute("class")).includes("gallery"), "모듈을 열었는데 갤러리 레이아웃 그대로");
+// Rank quiz: pick a hand rank for both hands, grade, and see the result.
+for (const who of [0, 1]) await page.locator(`.rk-opts[data-who='${who}'] button`).first().click();
+must(await page.locator("#dr-go").isEnabled(), "족보 맞히기: 둘 다 골랐는데 정답 확인 비활성");
+await page.click("#dr-go");
+must((await page.locator("#dr-res").innerHTML()).trim() !== "", "족보 맞히기: 채점 결과가 비어 있음");
+await inspect("learn-rank", "#dr-res");
+await page.click("#dr-back");
+await page.waitForSelector("#learn.gallery");
+await page.locator("#mods .mod:not(.locked)").nth(1).click();
 await page.waitForSelector("#dr-go");
+if (await page.locator("#drill [data-chip]").count()) await page.locator("#drill [data-chip]").first().click();
 await page.click("#dr-go");
 must((await page.locator("#dr-res").innerHTML()).trim() !== "", "학습 섹션: 정답 확인 후 결과가 비어 있음");
 await inspect("learn", "#dr-res");
 
-// 3. 복기: 핸드 입력 → 비교
+// 3. 복기: 단계(포지션 → 핸드 → 프리플랍 …) → 비교
 await page.click(".tab[data-view='review']");
-await page.waitForSelector("#rv-deck");
+await page.waitForSelector("#rv-next");
+await page.click("#rv-next");                                       // 포지션: 기본 자리
 for (let i = 0; i < 2; i++) await page.click("#rv-deck button:not([disabled])");
-await page.click("#rv-go");
+await page.click("#rv-next");                                       // 핸드 → 프리플랍
+for (let guard = 0; guard < 12 && await page.locator("#rv-bar [data-rv]").count(); guard++) {
+  const fold = page.locator("#rv-bar [data-rv='fold']:not([disabled])");
+  if (await fold.count()) await fold.click(); else await page.locator("#rv-bar [data-rv='check'], #rv-bar [data-rv='call']").first().click();
+}
+for (let guard = 0; guard < 8 && await page.locator("#rv-next:not([disabled])").count(); guard++) await page.click("#rv-next");
 await page.waitForSelector("#rv-out .rrow");
-must((await page.textContent("#rv-out h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
-await inspect("review", "#rv-out h2");
+must((await page.textContent("#rv-body h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
+await inspect("review", "#rv-body h2");
 
 await browser.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
