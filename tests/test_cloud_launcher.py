@@ -337,3 +337,192 @@ def test_relative_windows_spec_paths_and_nesting(tmp_path, monkeypatch):
     assert L.load_spec(tmp_path / "jobs" / "x.yaml").name
     with pytest.raises(L.LauncherError, match="jobs/"):
         L.load_spec(tmp_path / "jobs" / "sub" / "x.yaml")
+
+
+# ---------- result retrieval (#184, ADR 0014) ----------
+
+TOKEN = "t" * 32
+
+
+class FakeProxy:
+    """RunPod HTTP proxy in front of the pod's result server: status.json appears after `ready_after` polls."""
+
+    def __init__(self, status=b'{"exit": 0}', result=b'{"lbr_bb": 1.25}', ready_after=3):
+        self.status, self.result, self.ready_after, self.urls = status, result, ready_after, []
+
+    def __call__(self, url, max_bytes):
+        self.urls.append(url)
+        name = url.rsplit("/", 1)[1]
+        assert url.startswith(f"https://p1-{L.RESULT_PORT}.proxy.runpod.net/{TOKEN}/")
+        if name == "status.json":
+            if sum(u.endswith("status.json") for u in self.urls) <= self.ready_after:
+                return 0, b""  # proxy 502 while the job is still running
+            return 200, self.status[:max_bytes + 1]
+        if name == "result.json" and self.result is not None:
+            return 200, self.result[:max_bytes + 1]
+        return 404, b""
+
+
+def _result_job(**kw):
+    return _job(result_path="/work/out/result.json", **kw)
+
+
+def _run_result(tmp_path, proxy, api=None, **kw):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), api or FakeRunPod()
+    out = tmp_path / "res" / "result.json"
+    res = _run(api, ledger, clock, job=_result_job(), result_out=out, fetch=proxy, token=TOKEN, **kw)
+    return res, api, L.read_ledger(ledger), out
+
+
+def test_result_path_spec_validation():
+    job = L.parse_spec(SPEC + "result_path: /work/out/result.json\n")
+    assert job.result_path == "/work/out/result.json"
+    for bad in ("out/result.json", "/work/$(id).json", "/work/a b.json"):
+        with pytest.raises(L.LauncherError, match="result_path"):
+            L.parse_spec(SPEC + f"result_path: {bad}\n")
+
+
+def test_result_job_create_body_and_command(tmp_path):
+    res, api, entries, out = _run_result(tmp_path, FakeProxy())
+    create = next(b for m, u, b in api.calls if m == "POST")
+    assert create["ports"] == [f"{L.RESULT_PORT}/http"] and create["env"] == {L.TOKEN_ENV: TOKEN}
+    script = create["dockerStartCmd"][2]
+    assert TOKEN not in script and "python -m stalker.rl.train --steps 10" in script
+    assert script.splitlines()[-1] == "sleep infinity"
+    plain = _run(FakeRunPod(exit_after_polls=1), tmp_path / "l2.jsonl", Clock())
+    assert plain["status"] == "completed"  # jobs without result_path behave as before
+    body = []
+    L.RunPod(lambda m, u, b: body.append(b) or {"id": "x"}).create(_job(), "n")
+    assert "ports" not in body[0] and "env" not in body[0] and body[0]["dockerStartCmd"][2] == _job().command
+
+
+def test_result_is_pulled_saved_and_recorded(tmp_path):
+    proxy = FakeProxy()
+    res, api, entries, out = _run_result(tmp_path, proxy)
+    assert res["status"] == "completed" and api.terminated() == ["p1"]
+    assert json.loads(out.read_text()) == {"lbr_bb": 1.25}
+    end = entries[-1]
+    assert end["result_bytes"] == len(proxy.result) and end["exit"] == 0
+    assert end["result_sha256"] == __import__("hashlib").sha256(proxy.result).hexdigest()
+    assert TOKEN not in json.dumps(entries)  # the ledger is pushed to a public branch
+
+
+def test_result_rejected_when_oversized_non_json_or_secret(tmp_path):
+    cases = {
+        "big": b'{"x": "' + b"a" * L.RESULT_MAX_BYTES + b'"}',
+        "nonjson": b"\x00\x01 not json",
+        "ghtoken": b'{"note": "ghp_' + b"A" * 36 + b'"}',
+        "launcher": b'{"echo": "' + TOKEN.encode() + b'"}',
+        "apikey": b'{"k": "sekret-runpod-key"}',
+    }
+    for name, body in cases.items():
+        d = tmp_path / name
+        d.mkdir()
+        res, api, entries, out = _run_result(d, FakeProxy(result=body), forbidden=["sekret-runpod-key"])
+        assert res["status"] == "result_rejected", name
+        assert not out.exists() and api.terminated() == ["p1"]
+        assert "result_sha256" not in entries[-1]
+
+
+def test_result_job_failed_command_missing_result_and_early_exit(tmp_path):
+    for name, proxy, api, status in [
+        ("failed", FakeProxy(status=b'{"exit": 3}'), None, "failed"),
+        ("missing", FakeProxy(result=None), None, "no_result"),
+        ("exited", FakeProxy(ready_after=10**6), FakeRunPod(exit_after_polls=2), "no_result"),
+    ]:
+        d = tmp_path / name
+        d.mkdir()
+        res, api, entries, out = _run_result(d, proxy, api=api)
+        assert res["status"] == status and entries[-1]["status"] == status, name
+        assert not out.exists() and api.terminated() == ["p1"]
+
+
+def test_result_job_times_out_and_needs_result_out(tmp_path):
+    res, api, entries, out = _run_result(tmp_path, FakeProxy(ready_after=10**6))
+    assert res["status"] == "timeout" and api.terminated() == ["p1"]
+    api2 = FakeRunPod()
+    with pytest.raises(L.LauncherError, match="result-out"):
+        _run(api2, tmp_path / "l2.jsonl", Clock(), job=_result_job())
+    assert api2.calls == []  # refused before any pod exists
+
+
+def test_http_fetch_sends_no_credentials_and_caps_reads(monkeypatch):
+    import urllib.request
+
+    seen = {}
+
+    class Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n=-1):
+            seen["n"] = n
+            return b"{}"
+
+    def fake_urlopen(req, timeout):
+        seen["headers"] = {k.lower() for k in req.headers}
+        return Resp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert L.http_fetch("https://p-8000.proxy.runpod.net/t/status.json", 10) == (200, b"{}")
+    assert "authorization" not in seen["headers"] and "user-agent" in seen["headers"] and seen["n"] == 11
+
+    def down(req, timeout):
+        raise urllib.error.URLError("refused")
+
+    monkeypatch.setattr(urllib.request, "urlopen", down)
+    assert L.http_fetch("https://x/y", 10) == (0, b"")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the pod script is bash on Linux")
+def test_pod_command_serves_only_token_dir(tmp_path):
+    """Runs the wrapped script with bash and a real http.server, as the pod would."""
+    import socket
+    import subprocess
+    import time
+    import urllib.request
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    work = tmp_path / "work"
+    job = _job(command=f"mkdir -p {work} && echo '{{\"ok\": 1}}' > {work}/r.json", result_path=f"{work}/r.json")
+    script = L.pod_command(job, serve_dir=str(tmp_path / "srv"), port=port).replace("sleep infinity", "sleep 30")
+    proc = subprocess.Popen(["bash", "-c", script], env={"PATH": "/usr/bin:/bin:" + str(Path(sys.executable).parent),
+                                                         L.TOKEN_ENV: TOKEN}, start_new_session=True)
+    try:
+        def get(path):
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as r:
+                    return r.status, r.read()
+            except urllib.error.HTTPError as e:
+                return e.code, b""
+            except OSError:
+                return 0, b""
+
+        for _ in range(100):
+            code, body = get(f"/{TOKEN}/status.json")
+            if code == 200:
+                break
+            time.sleep(0.1)
+        assert json.loads(body) == {"exit": 0}
+        assert json.loads(get(f"/{TOKEN}/result.json")[1]) == {"ok": 1}
+        root, listing = get("/"), get(f"/{TOKEN}/")
+        assert root[0] == 200 and TOKEN.encode() not in root[1] and b"result" not in listing[1]
+    finally:
+        import os
+        import signal
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+
+
+def test_cloud_workflow_uploads_result():
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    assert '--result-out "$RUNNER_TEMP/cloud-result/result.json"' in wf
+    up = wf.split("- name: upload result", 1)[1].split("- name:", 1)[0]
+    assert "if: always()" in up and "actions/upload-artifact@v4" in up and "cloud-result/" in up

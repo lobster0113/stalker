@@ -7,6 +7,7 @@ dispatch the workflow.
 Usage:
   python harness/cloud/launcher.py check                       # balance query, costs nothing
   python harness/cloud/launcher.py run jobs/x.yaml --ledger L [--dry-run] [--run-id ID] [--sync-cmd CMD]
+                                       [--result-out PATH]
   python harness/cloud/launcher.py reap --ledger L [--job jobs/x.yaml --run-id ID --force]
 
 Budget rule: a job runs only if month_total + worst_case(job) <= monthly cap
@@ -14,13 +15,20 @@ Budget rule: a job runs only if month_total + worst_case(job) <= monthly cap
 ones (no end entry yet) at their reserved worst case, so a crashed run still counts.
 Pods are always terminated: on completion, on deadline, on error (finally), by the
 workflow's `if: always()` reap step, and by the daily orphan reap.
+
+Results (#184, ADR 0014): a job with `result_path` gets a per-run random token in its env and,
+after its command, serves only `/<token>/status.json` and `/<token>/result.json` over the RunPod
+HTTP proxy. The launcher pulls them (no RunPod key sent), checks size, JSON and secret patterns,
+writes `--result-out`, then terminates the pod. The pod needs no GitHub credential.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import hashlib
 import re
+import secrets
 import subprocess
 import sys
 import time
@@ -42,6 +50,14 @@ REST_URL = "https://rest.runpod.io/v1"
 # RunPod sits behind Cloudflare, which rejects urllib's default "Python-urllib" agent with 403/1010.
 USER_AGENT = "stalker-launcher/1 (+https://github.com/lobster0113/stalker)"
 GRAPHQL_URL = "https://api.runpod.io/graphql"
+RESULT_PORT = 8000
+RESULT_DIR = "/stalker-result"
+TOKEN_ENV = "STALKER_RESULT_TOKEN"
+# artifacts of a public repo are readable by anyone signed in; keep them small and checked
+RESULT_MAX_BYTES = 20 * 1024 * 1024
+SECRET_PATTERNS = [re.compile(p) for p in (
+    rb"gh[pousr]_[A-Za-z0-9]{30,}", rb"github_pat_[A-Za-z0-9_]{30,}", rb"rpa_[A-Za-z0-9]{20,}",
+    rb"AKIA[0-9A-Z]{16}", rb"-----BEGIN [A-Z ]*PRIVATE KEY-----", rb"xox[abpr]-[A-Za-z0-9-]{10,}")]
 
 
 class LauncherError(Exception):
@@ -55,7 +71,7 @@ class BudgetExceeded(LauncherError):
 # ---------- job spec ----------
 
 SPEC_FIELDS = {"name", "image", "command", "gpu_type", "gpu_count", "cpu_flavor", "vcpu",
-               "max_minutes", "hourly_usd", "est_cost_usd", "disk_gb", "cloud"}
+               "max_minutes", "hourly_usd", "est_cost_usd", "disk_gb", "cloud", "result_path"}
 REQUIRED = {"name", "image", "command", "max_minutes", "hourly_usd"}
 
 
@@ -73,6 +89,7 @@ class Job:
     vcpu: int = 2
     disk_gb: int = 20
     cloud: str = "COMMUNITY"
+    result_path: str | None = None
 
     @property
     def worst_case_usd(self) -> float:
@@ -125,6 +142,9 @@ def parse_spec(text: str, source: str = "job") -> Job:
                             "split the job into resumable chunks")
     if data.get("cloud", "COMMUNITY") not in ("COMMUNITY", "SECURE"):
         raise LauncherError(f"{source}: cloud must be COMMUNITY or SECURE")
+    # spliced into the pod's shell script unquoted, so only plain absolute paths
+    if "result_path" in data and not re.fullmatch(r"/[A-Za-z0-9._/-]+", str(data["result_path"])):
+        raise LauncherError(f"{source}: result_path must be an absolute path of [A-Za-z0-9._/-]")
     data["hourly_usd"] = float(data["hourly_usd"])
     data["est_cost_usd"] = float(data.get("est_cost_usd", 0.0))
     return Job(**data)
@@ -229,9 +249,12 @@ class RunPod:
         except (TypeError, KeyError) as e:
             raise LauncherError(f"RunPod balance query: unexpected response {str(r)[:300]}") from e
 
-    def create(self, job: Job, pod_name: str) -> dict:
+    def create(self, job: Job, pod_name: str, token: str | None = None) -> dict:
         body = {"name": pod_name, "imageName": job.image, "cloudType": job.cloud,
-                "containerDiskInGb": job.disk_gb, "dockerStartCmd": ["bash", "-lc", job.command]}
+                "containerDiskInGb": job.disk_gb, "dockerStartCmd": ["bash", "-lc", pod_command(job)]}
+        if job.result_path:
+            # the token goes in env, never in the command, so it stays out of logs that echo the spec
+            body |= {"ports": [f"{RESULT_PORT}/http"], "env": {TOKEN_ENV: token}}
         if job.gpu_type:
             body |= {"computeType": "GPU", "gpuTypeIds": [job.gpu_type], "gpuCount": job.gpu_count}
         else:
@@ -250,6 +273,59 @@ class RunPod:
 
     def terminate(self, pod_id: str) -> None:
         self.t("DELETE", f"{REST_URL}/pods/{pod_id}", None)
+
+
+def pod_command(job: Job, serve_dir: str = RESULT_DIR, port: int = RESULT_PORT) -> str:
+    """The job's command, wrapped to publish its result over HTTP when `result_path` is set.
+
+    Empty index.html files stop http.server from listing directories, so the token directory is
+    reachable only by name. status.json is written last (atomically), so once it is visible the
+    result copy is complete. The pod then idles until the launcher terminates it."""
+    if not job.result_path:
+        return job.command
+    d = f'{serve_dir}/"${TOKEN_ENV}"'
+    return "\n".join([
+        f'mkdir -p {d} && touch {serve_dir}/index.html {d}/index.html',
+        f'(cd {serve_dir} && exec python3 -m http.server {port} >/dev/null 2>&1) &',
+        "(", job.command, ")",
+        "rc=$?",
+        f"cp {job.result_path} {d}/result.json 2>/dev/null",
+        f'printf \'{{"exit": %d}}\' "$rc" > {d}/.status.tmp && mv {d}/.status.tmp {d}/status.json',
+        "sleep infinity",
+    ])
+
+
+def proxy_url(pod_id: str, token: str, name: str, port: int = RESULT_PORT) -> str:
+    return f"https://{pod_id}-{port}.proxy.runpod.net/{token}/{name}"
+
+
+Fetch = Callable[[str, int], tuple[int, bytes]]
+
+
+def http_fetch(url: str, max_bytes: int) -> tuple[int, bytes]:
+    """GET without credentials; reads at most max_bytes + 1 so an oversized body is detectable.
+    Unreachable (pod still booting, proxy 502) is status 0, i.e. "not yet"."""
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.status, r.read(max_bytes + 1)
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except (urllib.error.URLError, OSError):
+        return 0, b""
+
+
+def check_result(body: bytes, forbidden: list[str] = (), max_bytes: int = RESULT_MAX_BYTES) -> None:
+    if len(body) > max_bytes:
+        raise LauncherError(f"result over {max_bytes} bytes; write a summary JSON and keep checkpoints small")
+    try:
+        json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+        raise LauncherError(f"result is not UTF-8 JSON ({e.__class__.__name__}); result_path must be a JSON file") from e
+    hits = [p.pattern.decode() for p in SECRET_PATTERNS if p.search(body)]
+    hits += ["<launcher secret>" for v in forbidden if v and v.encode() in body]
+    if hits:
+        raise LauncherError(f"result rejected: looks like it contains a secret ({', '.join(hits)}); not saved")
 
 
 def _cost_per_hr(pod: dict | None) -> float | None:
@@ -277,7 +353,9 @@ def pod_name_for(job: Job, run_id: str) -> str:
 
 def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: float | None = None,
             dry_run: bool = False, sync: Callable[[], None] = lambda: None, now: Callable[[], datetime] = _now,
-            sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, log=print) -> dict:
+            sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, log=print,
+            result_out: Path | None = None, fetch: Fetch = http_fetch, token: str | None = None,
+            forbidden: list[str] = ()) -> dict:
     cap = load_cap() if cap is None else cap
     start = now()
     month = start.strftime("%Y-%m")
@@ -288,7 +366,10 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
         log(f"dry run: would create pod {pod_name} ({job.gpu_type or job.cpu_flavor}, max {job.max_minutes} min)")
         return {"status": "dry_run", "pod_name": pod_name, "worst_case_usd": job.worst_case_usd}
     assert api is not None
-    pod = api.create(job, pod_name)
+    if job.result_path and result_out is None:
+        raise LauncherError(f"{job.name}: result_path is set but no --result-out; the result would be lost")
+    token = token or secrets.token_hex(16)
+    pod = api.create(job, pod_name, token)
     pod_id = pod["id"]
     rate = _cost_per_hr(pod) or job.hourly_usd
     # reserve before anything can fail, so a crash still counts the worst case against the cap
@@ -296,6 +377,7 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
                            "pod_name": pod_name, "run_id": run_id, "max_minutes": job.max_minutes,
                            "reserved_usd": job.worst_case_usd})
     status = "error"
+    result: dict = {}
     try:
         # publish the reservation before the pod can run long: if the runner dies later, the next
         # budget check still sees it. A failed publish terminates the pod (finally) and fails the run.
@@ -310,9 +392,15 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
         while True:
             info = api.get(pod_id)
             if info is None or info.get("desiredStatus") in ("EXITED", "TERMINATED"):
-                status = "completed"
+                # a result job idles after publishing, so exiting on its own means it never did
+                status = "no_result" if job.result_path else "completed"
                 break
             rate = _cost_per_hr(info) or rate
+            if job.result_path:
+                code, raw = fetch(proxy_url(pod_id, token, "status.json"), 1024)
+                if code == 200:
+                    status, result = _collect(job, pod_id, token, raw, result_out, fetch, [token, *forbidden], log)
+                    break
             if now() >= deadline:
                 status = "timeout"
                 log(f"max_minutes {job.max_minutes} reached; terminating {pod_id}")
@@ -327,9 +415,34 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             actual = round(min(rate * hours, job.worst_case_usd) if status != "rate_exceeded" else rate * hours, 4)
             append_ledger(ledger, {"event": "end", "ts": _iso(end), "month": month, "job": job.name, "pod_id": pod_id,
                                    "status": status, "minutes": round(hours * 60, 2), "cost_per_hr": rate,
-                                   "actual_usd": actual})
+                                   "actual_usd": actual, **result})
             log(f"pod {pod_id} {status}: {hours * 60:.1f} min, ${actual:.4f}")
-    return {"status": status, "pod_id": pod_id, "actual_usd": actual}
+    return {"status": status, "pod_id": pod_id, "actual_usd": actual, **result}
+
+
+def _collect(job: Job, pod_id: str, token: str, raw_status: bytes, out: Path, fetch: Fetch,
+             forbidden: list[str], log) -> tuple[str, dict]:
+    try:
+        rc = int(json.loads(raw_status)["exit"])
+    except (ValueError, KeyError, TypeError):
+        return "result_rejected", {}
+    if rc != 0:
+        log(f"job command exited {rc}; result not collected")
+        return "failed", {"exit": rc}
+    code, body = fetch(proxy_url(pod_id, token, "result.json"), RESULT_MAX_BYTES)
+    if code != 200:
+        log(f"job exited 0 but {job.result_path} was not written (HTTP {code})")
+        return "no_result", {"exit": 0}
+    try:
+        check_result(body, forbidden)
+    except LauncherError as e:
+        log(str(e))
+        return "result_rejected", {"exit": 0}
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(body)
+    meta = {"exit": 0, "result_bytes": len(body), "result_sha256": hashlib.sha256(body).hexdigest()}
+    log(f"result saved: {out} ({len(body)} bytes, sha256 {meta['result_sha256'][:12]})")
+    return "completed", meta
 
 
 def reap(api: RunPod, ledger: Path, *, name_prefix: str = POD_PREFIX, pod_name: str | None = None,
@@ -393,6 +506,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--run-id", default=os.environ.get("GITHUB_RUN_ID", "local"))
     r.add_argument("--dry-run", action="store_true")
     r.add_argument("--sync-cmd", help="command run after the start entry is written; nonzero → terminate, fail")
+    r.add_argument("--result-out", type=Path, help="where to write the job's result_path JSON (required if set)")
     g = sub.add_parser("reap")
     g.add_argument("--ledger", type=Path, required=True)
     g.add_argument("--job", type=Path, help="with --run-id: reap only this run's pod (name from the parsed spec)")
@@ -412,7 +526,8 @@ def main(argv: list[str] | None = None) -> int:
         elif a.cmd == "run":
             job = load_spec(a.spec)
             sync = (lambda: subprocess.run(a.sync_cmd, shell=True, check=True)) if a.sync_cmd else (lambda: None)
-            res = run_job(job, None if a.dry_run else api(), a.ledger, a.run_id, dry_run=a.dry_run, sync=sync)
+            res = run_job(job, None if a.dry_run else api(), a.ledger, a.run_id, dry_run=a.dry_run, sync=sync,
+                          result_out=a.result_out, forbidden=[os.environ.get("RUNPOD_API_KEY", "")])
             if res["status"] not in ("completed", "dry_run"):
                 print(f"job {job.name}: {res['status']}", file=sys.stderr)
                 return 1
