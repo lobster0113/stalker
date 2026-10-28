@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def test_run_and_summarize_e2_mccfr(tmp_path, monkeypatch):
     import referee.e2.lbr as lbr
 
-    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed: {"lbr_bb": 1.0, "stderr_bb": 0.1, "hands": hands})
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, abstraction: {"lbr_bb": 1.0, "stderr_bb": 0.1, "hands": hands})
     for seed in (1, 2):
         T.run("e2-mccfr", 20, seed, tmp_path)
     s = T.summarize("e2-mccfr", tmp_path)
@@ -79,7 +79,7 @@ def test_summary_refuses_secret_env_values(tmp_path, monkeypatch):
 def test_run_output_size_cap(tmp_path, monkeypatch):
     import referee.e2.lbr as lbr
 
-    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed: {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, abstraction: {"lbr_bb": 1.0, "hands": hands})
     monkeypatch.setattr(T, "ARTIFACT_MAX_BYTES", 100)
     with pytest.raises(SystemExit, match="bytes >"):
         T.run("e2-mccfr", 5, 1, tmp_path)
@@ -89,6 +89,28 @@ def test_summarize_step_validates_before_touching_ops():
     text = (ROOT / ".github" / "workflows" / "train.yml").read_text(encoding="utf-8")
     step = text[text.index("- name: summary to ops"):]
     assert step.index("^[a-z0-9-]+$") < step.index("train_jobs summarize") < step.index('mkdir -p "ops/training/$JOB"')
+
+
+@pytest.mark.parametrize("tier,k", [("beginner", 5), ("mid", 11)])
+def test_tier_jobs_train_and_are_measured_at_their_tp_resolution(tmp_path, monkeypatch, tier, k):
+    import referee.e2.lbr as lbr
+    from stalker.e2.abstraction import TIERS
+
+    seen = {}
+
+    def fake_lbr(pol, hands, seed, abstraction):
+        seen.update(abstraction=abstraction, seed=seed, hands=hands)
+        return {"lbr_bb": 2.0, "stderr_bb": 0.1, "hands": hands}
+
+    monkeypatch.setattr(lbr, "exploitability_lb", fake_lbr)
+    T.run(f"e2-tier-{tier}", 20, 3, tmp_path)
+    # LBR reads the policy through the tier's own abstraction, on the same deals for every tier.
+    assert seen == {"abstraction": TIERS[tier], "seed": 10_000 + 3, "hands": T.LBR_HANDS}
+    r = json.loads((tmp_path / f"e2-tier-{tier}-seed3.json").read_text(encoding="utf-8"))
+    assert r["tier"] == tier and r["abstraction"] == {"pre_k": k, "post_k": k}
+    pol = json.loads((tmp_path / f"e2-tier-{tier}-seed3.policy.json").read_text(encoding="utf-8"))
+    assert {int(key.split("|")[2]) for key in pol} <= set(range(k))
+    assert T.summarize(f"e2-tier-{tier}", tmp_path)["lbr_bb_mean"] == 2.0
 
 
 def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
@@ -103,3 +125,4 @@ def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
     assert r["generations"][0]["worst_persona"] == "tag"
     s = T.summarize("e2-league-beginner", tmp_path)
     assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1
+
