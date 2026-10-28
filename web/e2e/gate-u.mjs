@@ -191,6 +191,7 @@ await inspect("review", "#rv-body h2");
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
 await page.click(".tab[data-view='home']");
 await page.click("#move summary");
+await page.waitForFunction(() => document.querySelector("#move-out").value.length > 0);
 const exported = await page.inputValue("#move-out");
 const weakBefore = await page.textContent("#weak-home");
 must(JSON.parse(exported).schema_version === 1 && Object.keys(JSON.parse(exported).weak).length > 0, "기록 옮기기: 내보낸 JSON에 schema_version·weak가 없음");
@@ -198,6 +199,7 @@ await page.evaluate(() => localStorage.clear());
 await page.reload();
 must((await page.textContent("#weak-home")).includes("아직 기록이 없어요"), "기록 옮기기: 초기화 뒤에도 기록이 남음");
 await page.click("#move summary");
+await page.waitForFunction(() => document.querySelector("#move-out").value.length > 0);
 await page.fill("#move-in", "{not json");
 await page.click("#move-import");
 must((await page.textContent("#move-msg")).includes("JSON으로 읽을 수 없어요"), "기록 옮기기: 잘못된 입력에 고치는 법이 없음");

@@ -35,6 +35,13 @@ def test_valid_export_parses_and_bad_input_says_how_to_fix():
     assert "weak" in res[4]["error"] and "itimes" in res[5]["error"]
 
 
+def test_weak_items_need_at_least_one_answer():
+    base = {"schema": "stalker.demo.records", "schema_version": 1}
+    zero, ok_rankq = _parse([json.dumps(dict(base, weak={"hand.equity": {"n": 0, "sum": 0}})),
+                             json.dumps(dict(base, rankq={"n": 0, "sum": 0}))])
+    assert "n ≥ 1" in zero["error"] and "data" in ok_rankq
+
+
 def test_missing_fields_default_to_empty_records():
     (r,) = _parse([json.dumps({"schema": "stalker.demo.records", "schema_version": 1})])
     assert r["data"] == {"weak": {}, "itimes": [], "rankq": {"n": 0, "sum": 0}}

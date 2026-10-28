@@ -1034,9 +1034,10 @@ function parseRecords(text) {
   if (!d || typeof d !== "object" || d.schema !== RECORDS_SCHEMA) return { error: "STALKER 데모 기록이 아니에요(schema가 다름). '기록 옮기기'의 내보내기 텍스트를 붙여넣으세요." };
   if (!Number.isInteger(d.schema_version)) return { error: "schema_version이 없어요. 내보내기 텍스트를 다시 복사해 붙여넣으세요." };
   if (d.schema_version > RECORDS_VERSION) return { error: `이 데모(v${RECORDS_VERSION})보다 새 기록(v${d.schema_version})이에요. 데모를 새로 고친 뒤 다시 가져오세요.` };
-  const isStat = v => v && typeof v === "object" && Number.isFinite(v.n) && Number.isFinite(v.sum) && v.n >= 0;
+  const isStat = v => v && typeof v === "object" && Number.isInteger(v.n) && Number.isFinite(v.sum) && v.n >= 0;
   const weak = d.weak ?? {}, itimes = d.itimes ?? [], rankq = d.rankq ?? { n: 0, sum: 0 };
-  if (typeof weak !== "object" || Array.isArray(weak) || !Object.values(weak).every(isStat)) return { error: "weak 항목이 {n, sum} 숫자 쌍이 아니에요. 내보낸 텍스트를 고치지 말고 그대로 붙여넣으세요." };
+  // A weak item averages sum / n, so it needs at least one answer (n >= 1); rankq may be empty.
+  if (typeof weak !== "object" || Array.isArray(weak) || !Object.values(weak).every(v => isStat(v) && v.n >= 1)) return { error: "weak 항목이 {n ≥ 1, sum} 숫자 쌍이 아니에요. 내보낸 텍스트를 고치지 말고 그대로 붙여넣으세요." };
   if (!Array.isArray(itimes) || !itimes.every(x => Number.isFinite(x) && x >= 0)) return { error: "itimes가 0 이상 숫자 목록이 아니에요. 내보낸 텍스트를 그대로 붙여넣으세요." };
   if (!isStat(rankq)) return { error: "rankq가 {n, sum} 숫자 쌍이 아니에요. 내보낸 텍스트를 그대로 붙여넣으세요." };
   return { data: { weak, itimes: itimes.slice(-300), rankq } };
@@ -1053,6 +1054,8 @@ window.STALKER_RECORDS = { exportRecords, parseRecords, importRecords };
 (function wireMove() {
   const out = $("#move-out"), inp = $("#move-in"), msg = $("#move-msg"), imp = $("#move-import");
   const say = (el, t, cls) => { el.textContent = t; el.className = "msg" + (cls ? " " + cls : ""); };
+  // Fill on the summary click itself (synchronous), not on <details> "toggle", which fires later as a separate task.
+  $("#move summary").addEventListener("click", () => { out.value = exportRecords(); });
   $("#move").addEventListener("toggle", () => { out.value = exportRecords(); });
   $("#move-copy").onclick = async () => {
     out.value = exportRecords();
