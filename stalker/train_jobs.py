@@ -37,7 +37,7 @@ def _e2_mccfr(iters: int, seed: int, out: Path) -> dict:
     (out / f"e2-mccfr-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
     t1 = time.monotonic()
     lbr = exploitability_lb(policy, hands=400, seed=10_000 + seed)
-    return {"iters": iters, "train_seconds": round(train_s, 1), "iters_per_s": round(iters / train_s, 2),
+    return {"iters": iters, "train_seconds": round(train_s, 1), "iters_per_s": round(iters / max(train_s, 1e-6), 2),  # tiny runs can read 0 s on coarse clocks
             "infosets": len(m.regret), "lbr": lbr, "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
