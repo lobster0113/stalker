@@ -467,7 +467,7 @@ def is_heads_up_transition(game) -> bool:
 
 def gen_multi_bust(rng):
     players = int(rng.integers(4, 13))
-    # table_size >= 3: with 2-seat tables the director can leave one player alone at a table (follow-up issue)
+    # table_size >= 3: TournamentConfig.validate rejects table_size=2 with players > 2 (#152), so 2-seat tables never occur here
     table_size = int(rng.integers(max(3, (players + 1) // 2), 10))
     return _run_game_case(rng, _quick_config(rng, players, min(table_size, players), deep=int(rng.integers(3, 12))))
 

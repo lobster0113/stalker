@@ -29,6 +29,7 @@ import numpy as np
 from stalker.agents.base import Action, Agent, Event, Observation
 from stalker.tournament.config import TournamentConfig
 from stalker.tournament.hand import Hand
+from stalker.tournament.start_state import StartState, level_start, validate_start_state
 
 MAX_ROUNDS = 100_000
 
@@ -77,17 +78,30 @@ class _Table:
 
 class _Game:
     def __init__(self, config: TournamentConfig, agents: Sequence[Agent], rng: np.random.Generator,
-                 observer: ObserverFn | None, game_id: str, tournament_id: str) -> None:
+                 observer: ObserverFn | None, game_id: str, tournament_id: str,
+                 start_state: StartState | None = None) -> None:
         if len(agents) != config.players:
             raise ValueError(f"need {config.players} agents (one per player), got {len(agents)}")
         self.cfg, self.agents, self.rng, self.observer = config, list(agents), rng, observer
         self.game_id, self.tournament_id = game_id, tournament_id
-        self.stacks = {p: config.starting_stack for p in range(config.players)}
+        self.start_state = start_state
         self.ranks: dict[int, int] = {}
+        self.hand_offset = 0  # hands already played ('hands' unit); the level clock starts here
+        if start_state is None:
+            self.stacks = {p: config.starting_stack for p in range(config.players)}
+        else:
+            validate_start_state(config, start_state)
+            self.stacks = dict(start_state.stacks)
+            out = [p for p in range(config.players) if p not in self.stacks]
+            self.ranks = {p: len(self.stacks) + 1 + i for i, p in enumerate(out)}
+            if config.length_unit == "hands":
+                self.hand_offset = level_start(config, start_state.level_index)
         self.hand_id = 0
         self.illegal = 0
         self.round_stacks: tuple[int, ...] = ()
-        self.clock_s = 0  # virtual seconds elapsed; only advances for length_unit='minutes'
+        # virtual seconds elapsed; only advances for length_unit='minutes'
+        self.clock_s = 60 * level_start(config, start_state.level_index) if (
+            start_state and config.length_unit == "minutes") else 0
         self.round_max_seated = 0
         self.tables: dict[int, _Table] = {}
         self._next_table_id = 0
@@ -105,10 +119,13 @@ class _Game:
         table.seats[free[int(self.rng.integers(len(free)))]] = player
 
     def _seat_initial(self) -> None:
-        order = [int(p) for p in self.rng.permutation(self.cfg.players)]
-        n_tables = math.ceil(self.cfg.players / self.cfg.table_size)
+        alive = sorted(self.stacks)
+        order = [alive[int(i)] for i in self.rng.permutation(len(alive))]
+        n_tables = math.ceil(len(alive) / self.cfg.table_size)
         for i in range(n_tables):
             table = self._new_table()
+            if i == 0 and self.start_state is not None and self.start_state.button is not None:
+                table.button = self.start_state.button
             for p in order[i::n_tables]:
                 self._sit(table, p)
 
@@ -253,10 +270,10 @@ class _Game:
             a.on_game_start(self.game_id)
         self._emit(Event("START_GAME", self.game_id, data={
             "tournament_id": self.tournament_id, "players": self.cfg.players, "table_size": self.cfg.table_size}), None)
-        hand_no = 0
+        hand_no = self.hand_offset
         while len(self.stacks) > 1:
             hand_no += 1
-            if hand_no > MAX_ROUNDS:
+            if hand_no - self.hand_offset > MAX_ROUNDS:
                 raise RuntimeError(f"game exceeded {MAX_ROUNDS} rounds; agents never bust each other out")
             busted: list[tuple[int, int]] = []
             self.round_stacks = tuple(sorted(self.stacks.values(), reverse=True))
@@ -283,11 +300,12 @@ class _Game:
         for a in self.agents:
             a.on_game_end(self.game_id)
         return GameResult(self.game_id, self.tournament_id, tuple(self.ranks[p] for p in range(self.cfg.players)),
-                          prizes, self.hand_id, hand_no, self.illegal)
+                          prizes, self.hand_id, hand_no - self.hand_offset, self.illegal)
 
 
 def run_game(config: TournamentConfig, agents: Sequence[Agent], rng: np.random.Generator,
              observer: ObserverFn | None = None, game_id: str = "game-0",
-             tournament_id: str | None = None) -> GameResult:
-    """Play one full tournament. `agents[i]` is player_id i. `observer` sees every public event."""
-    return _Game(config, agents, rng, observer, game_id, tournament_id or config.name).run()
+             tournament_id: str | None = None, start_state: StartState | None = None) -> GameResult:
+    """Play one full tournament. `agents[i]` is player_id i. `observer` sees every public event.
+    `start_state` resumes from a mid-tournament state (see `stalker.tournament.start_state`)."""
+    return _Game(config, agents, rng, observer, game_id, tournament_id or config.name, start_state).run()

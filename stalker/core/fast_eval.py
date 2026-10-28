@@ -131,6 +131,7 @@ def _rank_runouts(combos, ok, fulls, acc, SH, POP, HI, K5, K3, K2, CAT):
             acc[which[t]] += (lo + (hi - lo - 1) / 2) / den
 
 
+
 def _equity_segments(w, idx, order, lo, hi, off, acc, cnt):
     """Equity against range weights `w`, runout by runout (segment r = off[r]:off[r+1]): the same
     operations, in the same order, as the numpy loop in `stalker.e2.eq_view.equity_vs`."""
@@ -153,10 +154,11 @@ def _equity_segments(w, idx, order, lo, hi, off, acc, cnt):
                 cnt[i] += 1
 
 
+
 def _quantile_steps(xl, wl, k, total, out):
     """Quantile steps of the live values `xl` (weights `wl`, sum `total`): groups of equal values
     in sorted order; per group mass = weights added in original order (stable sort), as numpy's
-    unique + bincount + cumsum in `stalker.e2.abstraction.quantile_buckets`."""
+    unique + bincount + cumsum of the TP-tier quantile scale (`quantile_buckets`, #187)."""
     order = np.argsort(xl, kind="mergesort")
     n = xl.shape[0]
     cum = 0.0
@@ -195,17 +197,19 @@ def evaluate_batch(hands: np.ndarray) -> np.ndarray:
 
 
 def rank_runouts(combos: np.ndarray, ok: np.ndarray, fulls: np.ndarray, acc: np.ndarray) -> None:
-    """Compiled strength-rank accumulation for board tables (#201); requires numba."""
+    """Strength-rank accumulation for board tables (#201). Runs without numba as plain Python, but only
+    usefully fast compiled; tests call it either way to check the kernel logic."""
     _rank_runouts(combos, ok, fulls, acc, _SH, _POP, _HI, _KICK5, _KICK3, _KICK2, _CAT)
 
 
+
 def equity_segments(w, idx, order, lo, hi, off, acc, cnt) -> None:
-    """Compiled range-equity accumulation (#201); requires numba."""
+    """Compiled range-equity accumulation (#201); plain Python without numba (slow but exact); used by the equity view (#188)."""
     _equity_segments(w, idx, order, lo, hi, off, acc, cnt)
 
 
 def quantile_steps(xl: np.ndarray, wl: np.ndarray, k: int, total: float) -> np.ndarray:
-    """Compiled quantile steps for live values (#201); requires numba."""
+    """Quantile steps for live values (#201, the TP tiers of #187). Plain Python without numba (slow but exact)."""
     out = np.empty(len(xl), dtype=np.int64)
     _quantile_steps(np.ascontiguousarray(xl, dtype=np.float64), np.ascontiguousarray(wl, dtype=np.float64), k, total, out)
     return out

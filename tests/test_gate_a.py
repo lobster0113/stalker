@@ -14,13 +14,13 @@ SUBSET_IDS = ("6n-push-btn-10bb", "6n-call-bb-vs-sb-15bb")
 
 @pytest.fixture
 def subset(tmp_path):
-    spots = [s for s in json.loads(SPOTS_V1.read_text())["spots"] if s["id"] in SUBSET_IDS]
+    spots = [s for s in json.loads(SPOTS_V1.read_text(encoding="utf-8"))["spots"] if s["id"] in SUBSET_IDS]
     sp = tmp_path / "spots.json"
-    sp.write_text(json.dumps({"spots": spots}))
-    spec = {**json.loads(SPEC_V1.read_text()), "spot_set_sha256": hashlib.sha256(sp.read_bytes()).hexdigest(),
+    sp.write_text(json.dumps({"spots": spots}), encoding="utf-8")
+    spec = {**json.loads(SPEC_V1.read_text(encoding="utf-8")), "spot_set_sha256": hashlib.sha256(sp.read_bytes()).hexdigest(),
             "baseline_tol": 1e-3, "n_boot": 500}
     pp = tmp_path / "spec.json"
-    pp.write_text(json.dumps(spec))
+    pp.write_text(json.dumps(spec), encoding="utf-8")
     return sp, pp
 
 
@@ -35,7 +35,7 @@ def test_default_spec_pins_v1_spot_set_and_gates_md_deltas():
 
 def test_spec_errors(tmp_path, subset):
     bad = tmp_path / "bad.json"
-    bad.write_text("{}")
+    bad.write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="lacks"):
         load_spec(bad)
     spec, sha = load_spec(SPEC_V1)

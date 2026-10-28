@@ -94,7 +94,7 @@ def test_ten_thousand_random_hands_finish_and_conserve_chips():
             assert s.done and G.payoff(s).sum() == 0
 
 
-def test_tie_split_gives_odd_chips_to_the_first_winners_in_postflop_order():
+def test_tie_split_gives_all_odd_chips_to_the_first_winner_in_postflop_order():
     from stalker.core.cards import cards
 
     s = G.deal(np.random.default_rng(0), 4)               # UTG, BTN, SB, BB
@@ -106,5 +106,6 @@ def test_tie_split_gives_odd_chips_to_the_first_winners_in_postflop_order():
     while not s.done:
         s = G.apply(s, "k")
     assert s.pot == 350 and sorted(s.live()) == [0, 1, 3]
-    # 350 / 3 = 116 rest 2: postflop order is BB, UTG, BTN, so BB and UTG get the odd chips.
-    assert list(G.payoff(s)) == [17, 16, -50, 17]
+    # 350 / 3 = 116 rest 2: postflop order is BB, UTG, BTN, so both odd chips go to the BB (TDA rule, the
+    # same as Gate R's settlement and PokerKit; #203 changed this from one chip each).
+    assert list(G.payoff(s)) == [16, 16, -50, 18]
