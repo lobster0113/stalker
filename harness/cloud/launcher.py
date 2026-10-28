@@ -145,7 +145,7 @@ def load_spec(path: Path) -> Job:
 # ---------- budget ledger ----------
 
 def load_cap(path: Path = BUDGET_FILE) -> float:
-    cap = json.loads(path.read_text())["monthly_cap_usd"]
+    cap = json.loads(path.read_text(encoding="utf-8"))["monthly_cap_usd"]
     if not isinstance(cap, (int, float)) or cap < 0:
         raise LauncherError(f"{path}: monthly_cap_usd must be a non-negative number")
     return float(cap)
@@ -154,12 +154,12 @@ def load_cap(path: Path = BUDGET_FILE) -> float:
 def read_ledger(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 def append_ledger(path: Path, entry: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a") as f:
+    with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
