@@ -239,7 +239,7 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
     if start_state is not None:
         stacks = dict(start_state.stacks)
         if cfg.length_unit == "minutes":
-            clock_s = 60 * sum(lv.length for lv in cfg.levels[:start_state.level_index])
+            clock_s = 60 * sum(lv.length for lv in cfg.levels[:start_state.level_index])  # independent of the engine's level_start on purpose
     buttons: dict[int, int] = {}
     busted_by_round: dict[int, list[tuple[int, int]]] = defaultdict(list)
     round_chips: dict[int, dict[int, int]] = {}

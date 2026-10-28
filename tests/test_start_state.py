@@ -69,6 +69,18 @@ def test_run_game_from_start_state_ranks_and_pays_by_hand():
     assert tally.pass_rate == 1.0 and not tally.failures
 
 
+@pytest.mark.parametrize("button", range(9))
+def test_button_is_the_seat_before_hand_one(button):
+    cfg = load_preset("9max_sng_flat")
+    ss = make_start_state(cfg, np.random.default_rng(3), 4, "random", 0)
+    ss = dataclasses.replace(ss, button=button)
+    _, events = _play(cfg, ss)
+    d = next(e for e in events if e.type == "NEW_HAND").data
+    occupied = set(d["seat_players"])
+    want = next(s for s in ((button + k) % 9 for k in range(1, 10)) if s in occupied)
+    assert d["button"] == want
+
+
 def test_level_index_sets_blinds_hands_and_minutes():
     cfg = load_preset("9max_sng_flat")
     ss = make_start_state(cfg, np.random.default_rng(1), 3, "random", 3)
@@ -109,7 +121,7 @@ def test_gate_r_fails_when_start_stacks_are_one_chip_off():
 
 
 @pytest.mark.parametrize("remaining,want", [
-    (9, "final_table"), (6, "final_table"), (5, "bubble_near"), (4, "bubble_near"), (3, "in_the_money"), (1, "in_the_money"),
+    (9, "early"), (7, "early"), (6, "middle"), (5, "bubble_near"), (4, "bubble_near"), (3, "in_the_money"), (1, "in_the_money"),
 ])
 def test_stage_9max_sng_three_paid(remaining, want):
     assert tournament_stage(remaining, 3, 9, 9) == want
@@ -121,6 +133,12 @@ def test_stage_9max_sng_three_paid(remaining, want):
 ])
 def test_stage_mtt_180_players_18_paid(remaining, want):
     assert tournament_stage(remaining, 18, 9, 180) == want
+
+
+def test_stage_single_table_has_no_final_table():
+    # 9 of 9 -> early; 7*4=28 >= 27 -> early; 6*4=24 < 27 -> middle
+    assert [tournament_stage(n, 3, 9, 9) for n in (9, 8, 7, 6)] == ["early", "early", "early", "middle"]
+    assert tournament_stage(6, 2, 6, 6) == "early" and tournament_stage(4, 2, 6, 6) == "middle"
 
 
 def test_stage_final_table_when_unpaid_tail_is_short():

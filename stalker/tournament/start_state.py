@@ -23,7 +23,9 @@ class StartState:
     stacks: dict[int, int]  # surviving player_id -> chips
     eliminated: int  # players already out (they hold places remaining+1..players)
     level_index: int
-    button: int | None = None  # seat of the first table's button; None = drawn from the game rng
+    # seat of the first table's button *before* the first hand: the director advances the button at every hand
+    # start, so hand 1's button is the next occupied seat after it. None = drawn from the game rng.
+    button: int | None = None
 
     @property
     def remaining(self) -> int:
@@ -83,7 +85,8 @@ def tournament_stage(remaining: int, paid_places: int, table_size: int, players:
     """Stage of a tournament with `remaining` of `players` left. Checked in this order:
     in_the_money: remaining <= paid_places;
     bubble_near: remaining <= paid_places + max(1, ceil(paid_places / 2));
-    final_table: remaining <= table_size;
+    final_table: remaining <= table_size, only when the field started on more than one table (a single-table
+    SNG has no final table, so its early/middle stay reachable);
     early: at least 75% of the field left; middle: otherwise.
     """
     if remaining < 1 or remaining > players or paid_places < 1 or table_size < 2:
@@ -93,6 +96,6 @@ def tournament_stage(remaining: int, paid_places: int, table_size: int, players:
         return "in_the_money"
     if remaining <= paid_places + max(1, -(-paid_places // 2)):
         return "bubble_near"
-    if remaining <= table_size:
+    if players > table_size and remaining <= table_size:
         return "final_table"
     return "early" if remaining * 4 >= players * 3 else "middle"
