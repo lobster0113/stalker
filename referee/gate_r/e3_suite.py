@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import warnings
 
 import numpy as np
 from pokerkit import Automation as A
@@ -55,6 +56,13 @@ def _deal_boards(st, board: list[int], dealt: int) -> int:
 
 
 def replay_hand(rng: np.random.Generator, n: int, tally: Tally, where: str) -> None:
+    # PokerKit warns on every card we choose ourselves; replaying fixed cards is the point (success is quiet).
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="A card being dealt", category=UserWarning)
+        _replay(rng, n, tally, where)
+
+
+def _replay(rng: np.random.Generator, n: int, tally: Tally, where: str) -> None:
     s = G.deal(rng, n)
     board = list(s.deck[:5])
     pk = pk_index(n)
