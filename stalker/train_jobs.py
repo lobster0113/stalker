@@ -24,6 +24,9 @@ from pathlib import Path
 LBR_HANDS = 4000
 # E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
 E3_LBR_HANDS = 1000
+# E3 field deals per configuration (each played in all 6 seat rotations): 500 locally gave a 95% CI of
+# about +-150 bb/100 (#295); about 0.08 s per deal per configuration, so 9 configs x 1000 is ~12 min.
+E3_FIELD_HANDS = 1000
 # Noisy-learner hands per (form, level): 4000 gave CI ~±0.1-0.15 bb/hand per seed (#261 note).
 NOISE_SIM_HANDS = 4000
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
@@ -102,6 +105,7 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6) -> dict:
+    from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3.mccfr import E3MCCFR, coverage
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
@@ -117,7 +121,10 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=players, depth=m.depth)
            for k, pol in (("average", avg), ("current", cur))}
     cov = coverage(m)
+    t2 = time.monotonic()
+    field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if players == 6 else None
     return {"iters": iters, "tier": tier, "depth": m.depth, "players": players, "train_seconds": round(train_s, 1),
+            "field": field, "field_seconds": round(time.monotonic() - t2, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "coverage": cov,
             "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
@@ -200,6 +207,10 @@ def summarize(job: str, folder: Path) -> dict:
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
+    if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set
+        out.update({"field_sha256": runs[0]["field"]["sha256"], "field_deals": runs[0]["field"]["deals"],
+                    "field_worst_by_seed": [r["field"]["worst"] for r in runs],
+                    "field_bb100_by_seed": [{c["name"]: c["bb100"] for c in r["field"]["configs"]} for r in runs]})
     if job.startswith("e2-league-") and runs:
         champs = [r["champion"] or {} for r in runs]  # one entry per seed (null without a champion), aligned with seeds
         out.update({"iters": runs[0]["iters"], "exploiter": runs[0].get("exploiter"),
