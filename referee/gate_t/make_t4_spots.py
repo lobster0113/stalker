@@ -31,8 +31,11 @@ def stacks(**kw):
 FLOP_HU = dict(board="Kc7d2s", history=[[3, "cbr", 2.5], [0, "cc", 2.5], [0, "cc", 0], [3, "cbr", 3]], bets_bb={"3": 3}, pot_bb=8)
 pairs = [
     ("heads_up_vs_multiway", "두 명 남은 팟과 셋이 남은 팟은 필요한 핸드 강도가 다르다",
-     # Same pot, price and stacks; only the number of opponents in the hand changes (#248 review).
-     v(pot_bb=6.5), v(in_hand=[0, 3, 4], bets_bb={"3": 2.5, "4": 2.5}, history=BASE["history"][:4] + [[4, "cc", 2.5], [5, "f", 0]], pot_bb=6.5)),
+     # Same pot, price and stacks; only the number of opponents in the hand changes (#248 review). Side a
+     # carries 2.5BB of dead chips so its pot equals side b's (where seat 4 called the 2.5BB open).
+     v(pot_bb=6.5),
+     v(in_hand=[0, 3, 4], bets_bb={"3": 2.5, "4": 2.5}, pot_bb=6.5,
+       history=[[1, "f", 0], [2, "f", 0], [3, "cbr", 2.5], [4, "cc", 2.5], [5, "f", 0]])),
     ("bubble_vs_in_the_money", "버블 직전의 콜은 머니인 확정 뒤보다 칩 손실이 무겁다",
      # The same table; only the field changes: 7 left with 6 paid (bubble) vs 6 left (in the money).
      v(players_remaining=7, paid_places=6), v(players_remaining=6, paid_places=6)),
@@ -61,8 +64,11 @@ pairs = [
     ("strong_vs_weak_hand", "같은 상황에서 AK와 72o는 다르게 둔다",
      v(hole="AhKd"), v(hole="7c2d")),
     ("three_vs_four_way", "인원 버킷(3인 vs 4인+)이 다르다",
-     v(in_hand=[0, 3, 4], bets_bb={"3": 2.5, "4": 2.5}, pot_bb=9.0),
-     v(in_hand=[0, 3, 4, 5], bets_bb={"3": 2.5, "4": 2.5, "5": 2.5}, pot_bb=9.0)),
+     # Same pot and price; side a carries 2.5BB of dead chips to match side b's extra caller.
+     v(in_hand=[0, 3, 4], bets_bb={"3": 2.5, "4": 2.5}, pot_bb=9.0,
+       history=[[1, "f", 0], [2, "f", 0], [3, "cbr", 2.5], [4, "cc", 2.5], [5, "f", 0]]),
+     v(in_hand=[0, 3, 4, 5], bets_bb={"3": 2.5, "4": 2.5, "5": 2.5}, pot_bb=9.0,
+       history=[[1, "f", 0], [2, "f", 0], [3, "cbr", 2.5], [4, "cc", 2.5], [5, "cc", 2.5]])),
     ("final_table_vs_early", "파이널 테이블과 초반은 상금 압박이 다르다",
      v(players_remaining=6, paid_places=2), v(players_remaining=40, paid_places=6)),
     ("winner_take_all_vs_flat", "승자독식과 플랫 페이아웃은 생존 가치가 다르다",
@@ -73,7 +79,7 @@ pairs = [
      # Same price and stacks; only the opener's seat (aggressor position) changes. "Hero vs villain as preflop
      # aggressor" needs postflop street markers in the DecisionContext (preflop the hero cannot be the last
      # aggressor and still act), so it waits for that (#248 review).
-     v(), v(bets_bb={"5": 2.5}, stacks_bb=stacks(s3=30, s5=27.5),
+     v(), v(bets_bb={"5": 2.5}, stacks_bb=stacks(s3=30, s5=27.5), in_hand=[0, 5],
             history=[[1, "f", 0], [2, "f", 0], [3, "f", 0], [4, "f", 0], [5, "cbr", 2.5]])),
     ("deep_vs_short_opponent", "상대 스택이 짧으면 유효 스택이 줄어든다",
      v(stacks_bb=stacks(s3=4)), v(stacks_bb=stacks(s3=50))),
@@ -106,7 +112,7 @@ DIFFERS = {
     "final_table_vs_early": ["tournament_public_summary"],
     "winner_take_all_vs_flat": ["tournament_public_summary"],
     "check_option_vs_facing_bet": ["legal_actions", "to_call", "min_raise", "effective_stack_bb", "spr", "required_equity"],
-    "early_vs_button_opener": ["street_aggressor", "preflop_aggressor"],
+    "early_vs_button_opener": ["opponent_positions", "street_aggressor", "preflop_aggressor"],
     "deep_vs_short_opponent": ["effective_stack_bb", "spr", "tournament_public_summary"],
     "small_blind_vs_big_blind": ["position_vs_button", "opponent_positions", "street_aggressor", "preflop_aggressor"],
 }

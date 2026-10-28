@@ -84,3 +84,17 @@ def test_t4_catches_an_input_without_the_opponent_count():
 def test_opener_pair_differs_in_the_preflop_aggressor():
     p = next(p for p in t4.load()[0] if p["id"] == "early_vs_button_opener")
     assert _dc(p["a"]).preflop_aggressor != _dc(p["b"]).preflop_aggressor
+
+
+def test_impossible_spots_are_rejected(tmp_path):
+    # #248 review: T4 spots are referee data built as engine observations; no unreachable states.
+    pairs, _ = t4.load()
+    p = pairs[0]
+    for bad_side, problem in (
+        ({**p["a"], "in_hand": [0, 3, 1]}, "folded"),                     # seat 1 folded in the history
+        ({**p["a"], "in_hand": [0], "bets_bb": {"3": 2.5}}, "have bets"),  # a bettor outside the hand
+    ):
+        f = tmp_path / "bad.json"
+        f.write_text(json.dumps({"pairs": [dict(p, a=bad_side)] + pairs[1:]}), encoding="utf-8")
+        with pytest.raises(t4.SpotError, match=problem):
+            t4.load(f)

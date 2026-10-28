@@ -53,7 +53,28 @@ def load(path: Path = SPOTS_V1) -> tuple[list[dict], str]:
             unknown = set(p[side]) - SPOT_KEYS
             if unknown:
                 raise SpotError(f"{path.name}: pair {p['id']!r} side {side} has unknown keys {sorted(unknown)}")
+            problem = inconsistency(p[side])
+            if problem:
+                raise SpotError(f"{path.name}: pair {p['id']!r} side {side}: {problem}; fix make_t4_spots.py")
     return pairs, hashlib.sha256(raw).hexdigest()
+
+
+def inconsistency(spot: dict) -> str | None:
+    """A state no real hand can reach (#248 review): spots claim to be engine observations."""
+    stacks = {int(k) for k in spot["stacks_bb"]}
+    in_hand = set(spot.get("in_hand", stacks))
+    folded = {s for s, a, _ in spot.get("history", []) if a == "f"}
+    if spot["hero_seat"] not in in_hand:
+        return "the hero is not in the hand"
+    if folded & in_hand:
+        return f"seats {sorted(folded & in_hand)} folded in the history but are in in_hand"
+    betting = {int(k) for k, x in spot.get("bets_bb", {}).items() if x > 0}
+    if betting - in_hand:
+        return f"seats {sorted(betting - in_hand)} have bets but are not in in_hand"
+    acted = {s for s, a, _ in spot.get("history", []) if a in ("cc", "cbr")}
+    if (acted - folded) - in_hand:
+        return f"seats {sorted((acted - folded) - in_hand)} called or raised, never folded, yet are not in in_hand"
+    return None
 
 
 def _cards(s: str) -> tuple[str, ...]:
