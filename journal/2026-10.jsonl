@@ -429,3 +429,4 @@
 {"ts": "2026-10-28T04:16:04Z", "role": "reviewer-b", "outcome": "changes", "issue": 128, "pr": 232, "notes": "MERGE verdict on e44b2ca (prior CHANGES fixed, CI green) but merge refused: docs/ARCHITECTURE.md conflict with main", "friction": "frequent ARCHITECTURE.md single-line conflicts block merges of approved PRs"}
 {"ts": "2026-10-28T04:16:04Z", "role": "reviewer-b", "outcome": "changes", "issue": 179, "pr": 218, "notes": "2nd CHANGES: doc ignores existing CI results in ops:training/e2-mccfr, states merged #187/#237 as future, PR body describes deleted RunPod spec", "friction": ""}
 {"ts":"2026-10-28T04:17:00Z","role":"reviewer","outcome":"skipped","pr":232,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T04:17:25Z","role":"reviewer","outcome":"skipped","issue":245,"pr":246,"notes":"not my parity","friction":""}
