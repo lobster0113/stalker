@@ -166,6 +166,26 @@ def train(stack: float, ante: float, tier: str, iters: int = 4000, sb_view: str 
                   consistent)
 
 
+def gate_s_policy(tier: str = "beginner", scale: str = "quantile", sb_view: str = "called", iters: int = 1500):
+    """The trained policies as a Gate S policy (#280): (seat, stack, ante) -> (169 probs, TP bins).
+
+    Each spot trains its own (stack, ante) policy. The bins are the TP value each hand reads on the
+    tier's scale against the other delivered policy, the same bucketing `train` checks for consistency.
+    """
+    cache: dict[tuple[float, float], Result] = {}
+
+    def policy(seat: str, stack: float, ante: float):
+        if (stack, ante) not in cache:
+            cache[stack, ante] = train(stack, ante, tier, iters, sb_view, scale)
+        r = cache[stack, ante]
+        p, _, _ = P._payoffs(stack, ante)
+        if seat == "sb":
+            eq = sb_equity_when_called(r.call) if sb_view == "called" else sb_equity()
+            return r.push, _bucketer(tier, scale, p.sum(axis=1))(eq)
+        return r.call, _bucketer(tier, scale, p.sum(axis=0))(bb_equity(r.push))
+    return policy
+
+
 def table(stacks=None, antes=None, tiers=("beginner", "mid", "pro"), views=("random", "called"),
           iters: int = 4000, scales=("uniform",)) -> list[dict]:
     rows = []
