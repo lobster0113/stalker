@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import hashlib
+import os
 import re
 import secrets
 import subprocess
@@ -37,7 +37,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePath
-from typing import Callable
+from typing import Callable, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BUDGET_FILE = ROOT / "harness" / "budget.json"
@@ -315,7 +315,7 @@ def http_fetch(url: str, max_bytes: int) -> tuple[int, bytes]:
         return 0, b""
 
 
-def check_result(body: bytes, forbidden: list[str] = (), max_bytes: int = RESULT_MAX_BYTES) -> None:
+def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int = RESULT_MAX_BYTES) -> None:
     if len(body) > max_bytes:
         raise LauncherError(f"result over {max_bytes} bytes; write a summary JSON and keep checkpoints small")
     try:
@@ -355,7 +355,7 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             dry_run: bool = False, sync: Callable[[], None] = lambda: None, now: Callable[[], datetime] = _now,
             sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, log=print,
             result_out: Path | None = None, fetch: Fetch = http_fetch, token: str | None = None,
-            forbidden: list[str] = ()) -> dict:
+            forbidden: Sequence[str] = ()) -> dict:
     cap = load_cap() if cap is None else cap
     start = now()
     month = start.strftime("%Y-%m")
