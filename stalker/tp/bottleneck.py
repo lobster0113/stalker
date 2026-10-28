@@ -81,6 +81,7 @@ class TPVector(Mapping):
                 raise ValueError(f"{i} has a value outside {lo:g}..{hi:g} (scale {spec.item(i)['scale']})")
             self._v[i] = xs
         self.spec_version = spec.version
+        self._spec = spec
 
     def __getitem__(self, k):
         """A float for one-value scales, a tuple for range_169, None when N/A."""
