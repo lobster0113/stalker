@@ -27,6 +27,9 @@ E3_LBR_HANDS = 1000
 # E3 field deals per configuration (each played in all 6 seat rotations): 500 locally gave a 95% CI of
 # about +-150 bb/100 (#295); about 0.08 s per deal per configuration, so 9 configs x 1000 is ~12 min.
 E3_FIELD_HANDS = 1000
+# Iterations per worker between syncs (#318): ~1 min of E3 work at CI speed, so pickling the regrets
+# (tens of thousands of keys) stays small next to the work.
+E3_SYNC_BATCH = 500
 # Noisy-learner hands per (form, level): 4000 gave CI ~±0.1-0.15 bb/hand per seed (#261 note).
 NOISE_SIM_HANDS = 4000
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
@@ -160,10 +163,13 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
-def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None) -> dict:
-    """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more."""
+def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
+           workers: int = 1) -> dict:
+    """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
+    `workers` > 1 trains one chain on that many processes, batch-synchronously (#318)."""
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
+    from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR, coverage
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
@@ -177,7 +183,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
                          "(its train-<seed> artifact holds the checkpoint); leave resume_run empty to start fresh")
     prev = m.iterations
     t0 = time.monotonic()
-    m.iterate(iters)
+    parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
     train_s = time.monotonic() - t0
     (out / ckpt).write_text(json.dumps(m.state()), encoding="utf-8")
     avg, cur = m.policy(), m.current_policy()
@@ -190,7 +196,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     t2 = time.monotonic()
     field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if players == 6 else None
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
-            "players": players, "train_seconds": round(train_s, 1),
+            "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "field": field, "field_seconds": round(time.monotonic() - t2, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "coverage": cov,
             "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_seconds": round(time.monotonic() - t1, 1),
@@ -216,13 +222,16 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e2-league-beginner-xbase": _e2_league("beginner", "baseline", "e2-league-beginner-xbase"),
         "e3-tp-beginner": partial(_e3_tp, tier="beginner", name="e3-tp-beginner"),     # #196/#197, 6-max
         "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid"),
+        # #318: one chain on the runner's 4 vCPUs
+        "e3-tp-beginner-w4": partial(_e3_tp, tier="beginner", name="e3-tp-beginner-w4", workers=4),
+        "e3-tp-mid-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-w4", workers=4),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
         "e2-exploit-field-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-field-beginner", field=True)}
 
 
-RESUMABLE = {"e3-tp-beginner", "e3-tp-mid"}   # #301
+RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
