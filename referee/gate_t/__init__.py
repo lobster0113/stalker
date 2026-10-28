@@ -81,13 +81,17 @@ REGISTRY: dict[str, Callable[[], object]] = {"linear_bottleneck_v0": default_age
 def main() -> int:
     spec = load()
     print(f"tp_spec {spec.version} sha256 {spec.sha256}")
+    from referee.gate_t.t4 import check_t4, load as load_t4
+
     ok = True
+    print(f"t4_spots v1 sha256 {load_t4()[1]}")
     for name, make in REGISTRY.items():
-        p, t, fails = check_t1(make())
-        print(f"T1 [{name}] {p}/{t}")
-        for f in fails:
-            print("  " + f)
-        ok &= p == t
+        for label, check in (("T1", check_t1), ("T4", check_t4)):
+            p, t, fails = check(make())
+            print(f"{label} [{name}] {p}/{t}")
+            for f in fails:
+                print("  " + f)
+            ok &= p == t
     return 0 if ok else 1
 
 
