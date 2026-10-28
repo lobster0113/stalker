@@ -83,6 +83,10 @@ class TPVector(Mapping):
         self.spec_version = spec.version
         self._spec = spec
 
+    @property
+    def spec(self) -> Spec:
+        return self._spec
+
     def __getitem__(self, k):
         """A float for one-value scales, a tuple for range_169, None when N/A."""
         v = self._v[k]

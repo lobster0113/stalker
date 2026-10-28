@@ -330,6 +330,10 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .rrow.ref .cap { flex-wrap: wrap; gap: 2px 10px; }
 .itime { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; font-size: 12px; color: var(--muted); }
 .itime b { color: var(--text); font: 600 13px/1 var(--font-display); }
+.drivers { display: grid; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); font-size: 13px; }
+.drivers .hd { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.drivers ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.drivers .cap { font-size: 11.5px; color: var(--faint); }
 .reco { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(214,171,85,.14), rgba(214,171,85,.03)); border: 1px solid rgba(214,171,85,.3); font-size: 13px; }
 .mix { display: flex; height: 18px; border-radius: 6px; overflow: hidden; font: 600 10.5px/18px var(--font-display); }
 .mix span { text-align: center; color: #0b1013; white-space: nowrap; overflow: hidden; }
@@ -1673,8 +1677,26 @@ function resultHTML(gr, compact) {
     if (r.kind === "action") html += mixRefHTML(r.mix, r.you, SHORT[r.k]);
     else html += `<div class="rrow ref"><div class="t"><span>${SHORT[r.k]} · 내 답 <b class="num">${r.you}</b></span><span style="font-size:11px;color:var(--faint)">채점 안 함</span></div><div class="cap"><span>정의가 확정되지 않은 성찰 질문이라 정답·점수가 없어요.</span></div></div>`;
   }
+  html += driversHTML(gr);
   if (gr.worst && gr.worst.score < 80) html += `<div class="reco"><div><b>${SHORT[gr.worst.k]}</b>에서 가장 크게 갈렸어요. 약점으로 기록했습니다.</div><button class="cta small" data-learn="${LEARN_FOR[gr.worst.k]}">학습 섹션에서 연습하기</button></div>`;
   return html;
+}
+// #134 mockup: "which judgments drove this decision" in the shape stalker/tp/attribution.py will fill
+// (Top 3 by contribution, each with the nearest answerable value that flips the action). Until the
+// TP-GTO is connected the numbers are mock: contribution ~ distance of the TP-GTO(mock) answer from the
+// middle, threshold = the next answer on the tier's grid toward the middle.
+function driversHTML(gr) {
+  const step = TIERS[S.tier].step === 1 ? 5 : TIERS[S.tier].step;
+  const top = gr.rows.filter(r => r.kind !== "range").map(r => ({ r, c: Math.abs(r.gto - 50) }))
+    .sort((a, b) => b.c - a.c).slice(0, 3);
+  if (!top.length) return "";
+  const line = ({ r }) => {
+    const hi = r.gto >= 50, thr = hi ? Math.floor((r.gto - 1) / step) * step : Math.ceil((r.gto + 1) / step) * step;
+    return `<li><b>${SHORT[r.k]}</b>: ${thr} ${hi ? "이하이면 덜 공격적인 액션" : "이상이면 더 공격적인 액션"}으로 바뀌어요</li>`;
+  };
+  return `<div class="drivers" data-drivers><div class="hd"><span>이 결정을 이끈 판단 Top ${top.length}</span>${CONF}</div>
+    <ol>${top.map(line).join("")}</ol>
+    <div class="cap">모의 표시: 실제 기여도·문턱은 TP-GTO를 연결한 뒤 등급 눈금(초보 25 · 중수 10 단위)으로 계산합니다.</div></div>`;
 }
 function bindResult() { const b = $("#tp-body [data-learn]"); if (b) b.onclick = () => { showView("learn"); selectModule(b.dataset.learn); }; }
 function renderLog() { const el = $("#hand-log"); if (!el || !G) return; let last = ""; el.innerHTML = G.log.map(l => { const s = l.st !== last ? `<div class="st">${l.st}</div>` : ""; last = l.st; return s + `<div>${l.t}</div>`; }).join(""); }

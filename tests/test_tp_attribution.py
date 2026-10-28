@@ -22,16 +22,26 @@ def _facing_bet_dc():
     return decision_context(po)
 
 
-def test_rule_head_threshold_is_the_pot_odds():
+@pytest.mark.parametrize("tier,contribution,threshold", [("pro", 0.0, 37.0), ("mid", 1.0, 30.0), ("beginner", 1.0, 25.0)])
+def test_rule_head_threshold_follows_the_tier_grid(tier, contribution, threshold):
+    # #249 review: one step and the threshold come from the tier's answer grid (pro 1, mid 10,
+    # beginner 25): 45 -> 44 does not cross the 38% price, 45 -> 35 or 20 does; a beginner cannot
+    # answer 37, so the nearest answerable flip is 25.
     dc = dataclasses.replace(_facing_bet_dc(), required_equity=0.38)
     tp = TPVector({"hand.equity": 45.0, "board.adv": 70.0}, load())
-    attrs = A.attribute(PotOddsHead(), tp, dc)
-    top = attrs[0]
-    assert top.item == "hand.equity" and top.contribution == pytest.approx(1.0)
-    assert top.threshold == pytest.approx(37.0) and top.flips_to == "fold" and top.below
+    attrs = A.attribute(PotOddsHead(), tp, dc, tier=tier)
+    eq = next(a for a in attrs if a.item == "hand.equity")
+    assert eq.contribution == pytest.approx(contribution)
+    assert eq.threshold == pytest.approx(threshold) and eq.flips_to == "fold" and eq.below
     # An item the head does not read gets zero and no threshold.
     adv = next(a for a in attrs if a.item == "board.adv")
     assert adv.contribution == 0 and adv.threshold is None
+
+
+def test_beginner_step_is_25():
+    assert A.tier_step(load(), "beginner") == 25 and A.tier_step(load(), "mid") == 10 and A.tier_step(load(), "pro") == 1
+    assert A.answer_grid(load(), "beginner", "hand.equity") == [0, 25, 50, 75, 100]
+    assert A.answer_grid(load(), "mid", "plan.icm")[:3] == [-100, -90, -80]
 
 
 def test_explain_sentences():
