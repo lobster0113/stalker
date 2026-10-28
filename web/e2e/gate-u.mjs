@@ -33,9 +33,21 @@ async function inspect(tag, focus) {
   for (const [name, width, height] of VIEWPORTS) {
     await page.setViewportSize({ width, height });
     if (focus) {
-      const el = page.locator(focus).first();
-      await el.scrollIntoViewIfNeeded();
-      must(await el.isVisible(), `${tag} ${width}x${height}: ${focus}가 화면에 없음`);
+      // A re-render (e.g. 복기 비교 결과) can detach the element between lookup and scroll: look it up
+      // again and retry instead of failing on a timing race.
+      let visible = false;
+      for (let attempt = 0; attempt < 3 && !visible; attempt++) {
+        try {
+          const el = page.locator(focus).first();
+          await el.waitFor({ state: "visible", timeout: 5000 });
+          await el.scrollIntoViewIfNeeded({ timeout: 5000 });
+          visible = await el.isVisible();
+        } catch (e) {
+          if (attempt === 2) console.error(`${tag} ${width}x${height}: ${focus} 재시도 실패 — ${e.message.split("\n")[0]}`);
+          await page.waitForTimeout(200);
+        }
+      }
+      must(visible, `${tag} ${width}x${height}: ${focus}가 화면에 없음`);
     }
     await page.screenshot({ path: `${shots}/${tag}-${name}.png` });
     const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
