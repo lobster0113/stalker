@@ -1,0 +1,101 @@
+name: train
+
+# CPU training on GitHub-hosted runners (#184): free for this public repo, so CPU self-play
+# (MCCFR etc.) runs here and only GPU work goes to RunPod (cloud.yml). Results come back as
+# artifacts and a summary JSON on ops (training/<job>/<run id>.json).
+# Trigger: MCP `actions_run_trigger` (workflow_id train.yml, ref main) with the inputs below.
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "allow-listed job name (stalker/train_jobs.py JOBS)"
+        default: e2-mccfr
+      iters:
+        description: "iterations per seed"
+        default: "20000"
+      seeds:
+        description: "number of seeds (parallel runners, 1..8)"
+        default: "4"
+
+permissions:
+  contents: write  # push the summary to ops
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      seeds: ${{ steps.s.outputs.seeds }}
+    env:
+      SEEDS: ${{ inputs.seeds }}
+    steps:
+      - id: s
+        run: |
+          [[ "$SEEDS" =~ ^[1-8]$ ]] || { echo "seeds must be 1..8, got '$SEEDS'"; exit 1; }
+          echo "seeds=$(python3 -c "import json,os;print(json.dumps(list(range(1,int(os.environ['SEEDS'])+1))))")" >> "$GITHUB_OUTPUT"
+
+  run:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: ${{ fromJSON(needs.plan.outputs.seeds) }}
+    env:
+      # inputs go through env, never ${{ }} inside scripts, so they cannot inject shell
+      JOB: ${{ inputs.job }}
+      ITERS: ${{ inputs.iters }}
+      SEED: ${{ matrix.seed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -q -e ".[fast]"  # numba evaluator when the extra exists (ADR 0013, #201); same results without it
+      - name: train
+        run: |
+          [[ "$ITERS" =~ ^[0-9]+$ ]] || { echo "iters must be an integer"; exit 1; }
+          python -m stalker.train_jobs run "$JOB" --iters "$ITERS" --seed "$SEED" --out out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: train-${{ matrix.seed }}
+          path: out/
+          retention-days: 30
+
+  summarize:
+    needs: run
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      JOB: ${{ inputs.job }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -q -e .
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+      - name: summary to ops
+        run: |
+          # `if: always()` keeps partial matrices; so validate here too: an allow-listed job name (no path
+          # tricks) and at least one successful seed, size cap and credential check (summary_text).
+          [[ "$JOB" =~ ^[a-z0-9-]+$ ]] || { echo "job name must match ^[a-z0-9-]+$"; exit 1; }
+          python -m stalker.train_jobs summarize "$JOB" results > summary.json
+          cat summary.json
+          git fetch -q origin ops
+          git worktree add ops origin/ops -B ops
+          mkdir -p "ops/training/$JOB"
+          mv summary.json "ops/training/$JOB/$GITHUB_RUN_ID.json"
+          cd ops
+          git config user.name "stalker-ci"
+          git config user.email "stalker-ci@users.noreply.github.com"
+          git add training
+          git commit -qm "train: $JOB summary (run $GITHUB_RUN_ID)"
+          for _ in 1 2 3; do git push -q origin ops && exit 0; git pull -q --rebase origin ops || true; done
+          exit 1
