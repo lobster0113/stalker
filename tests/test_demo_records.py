@@ -24,7 +24,7 @@ def _parse(texts: list[str]) -> list[dict]:
 def test_valid_export_parses_and_bad_input_says_how_to_fix():
     good = {"schema": "stalker.demo.records", "schema_version": 1, "weak": {"hand.equity": {"n": 3, "sum": 210}},
             "itimes": [4.2, 7.0], "rankq": {"n": 1, "sum": 80}}
-    newer = dict(good, schema_version=2)
+    newer = dict(good, schema_version=3)
     bad_weak = dict(good, weak={"hand.equity": {"n": "x"}})
     res = _parse([json.dumps(good), "{oops", json.dumps({"schema": "other"}), json.dumps(newer), json.dumps(bad_weak),
                   json.dumps(dict(good, itimes=[-1]))])
@@ -44,4 +44,20 @@ def test_weak_items_need_at_least_one_answer():
 
 def test_missing_fields_default_to_empty_records():
     (r,) = _parse([json.dumps({"schema": "stalker.demo.records", "schema_version": 1})])
-    assert r["data"] == {"weak": {}, "itimes": [], "rankq": {"n": 0, "sum": 0}}
+    assert r["data"] == {"weak": {}, "itimes": [], "rankq": {"n": 0, "sum": 0}, "eqab": []}
+
+
+def test_v2_question_form_records_round_trip_and_v1_still_imports():
+    # #262: v2 adds the hand.equity A/B log; a v1 text (no eqab) must still import.
+    rec = [{"f": "A", "ms": 2310, "a": 2, "t": 3, "seed": 7}, {"f": "B", "ms": 980, "a": 0, "t": 0, "seed": 7}]
+    v2 = {"schema": "stalker.demo.records", "schema_version": 2, "weak": {}, "itimes": [], "rankq": {"n": 0, "sum": 0}, "eqab": rec}
+    v1 = {"schema": "stalker.demo.records", "schema_version": 1, "itimes": [3.0]}
+    bad = [dict(v2, eqab=[dict(rec[0], f="C")]), dict(v2, eqab=[dict(rec[0], a=5)]), dict(v2, eqab=[dict(rec[0], ms=-1)]), dict(v2, eqab={})]
+    res = _parse([json.dumps(v2), json.dumps(v1)] + [json.dumps(b) for b in bad])
+    assert res[0]["data"]["eqab"] == rec
+    assert res[1]["data"]["eqab"] == [] and res[1]["data"]["itimes"] == [3.0]
+    assert all("eqab" in r["error"] and "그대로 붙여넣으세요" in r["error"] for r in res[2:])
+
+
+def test_demo_records_version_is_2():
+    assert re.search(r'RECORDS_VERSION = 2;', DEMO)

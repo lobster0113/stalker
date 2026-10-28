@@ -6,7 +6,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const url = pathToFileURL(resolve(here, "../demo/index.html")).href + "?speed=30";
+// abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass.
+const url = pathToFileURL(resolve(here, "../demo/index.html")).href + "?speed=30&abseed=1";
 const shots = resolve(process.env.SCREENSHOT_DIR || resolve(here, "screenshots"));
 const axeSource = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const VIEWPORTS = [["phone", 390, 844], ["tablet", 820, 1180], ["laptop", 1440, 900]];
@@ -142,20 +143,23 @@ await inspect("train-guided", "#tp-body .tpc[data-card='0']");
 }
 // TP input is a card deck (B board → C opponent → D hand → E plan → F action → G checks): answer every
 // question on the visible card with its first chip (or a non-fold action and a size), then go next.
-for (let guard = 0; guard < 12; guard++) {
-  const card = page.locator("#tp-body .tpc:not([hidden])");
-  for (const q of await card.locator(".q:not(.na)").all()) {
-    if (await q.locator("[data-act]").count()) {
-      await q.locator("[data-act]:not([disabled]):not([data-act='fold'])").first().click();
-      if (await page.locator("[data-sizes]:not([hidden]) [data-size]").count()) await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
-    } else if (await q.locator("[data-chip]").count()) {
-      await q.locator("[data-chip]").first().click();
+async function answerDeck() {
+  for (let guard = 0; guard < 12; guard++) {
+    const card = page.locator("#tp-body .tpc:not([hidden])");
+    for (const q of await card.locator(".q:not(.na)").all()) {
+      if (await q.locator("[data-act]").count()) {
+        await q.locator("[data-act]:not([disabled]):not([data-act='fold'])").first().click();
+        if (await page.locator("[data-sizes]:not([hidden]) [data-size]").count()) await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
+      } else if (await q.locator("[data-chip]").count()) {
+        await q.locator("[data-chip]").first().click();
+      }
     }
+    const next = page.locator("#tp-next");
+    if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
+    break;
   }
-  const next = page.locator("#tp-next");
-  if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
-  break;
 }
+await answerDeck();
 must(await page.locator("#tp-submit").isVisible() && await page.locator("#tp-submit").isEnabled(), "TP 카드를 다 채웠는데 제출 버튼이 비활성");
 await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
@@ -164,11 +168,57 @@ await inspect("train-result", "#tp-body .result-top");
 must(await page.locator("#tp-body [data-drivers]").count() > 0 || !(await page.locator("#tp-body .rrow:not(.ref)").count()),
      "결과 화면: 판단 Top 3(모의) 블록이 없음");
 if (await page.locator("#tp-body [data-drivers]").count()) await inspect("train-drivers", "#tp-body [data-drivers]");
+must(!(await page.locator("#tp-body [data-ab]").count()), "질문 형태 실험이 꺼져 있는데 A/B 기록이 보임");
+
+// #262 질문 형태 실험: 토글 켬 → Guided 결정 3회(에퀴티 질문이 A 또는 B, 패널 제목에 형태) → 학습 섹션 표
+await page.evaluate(() => { window.__hold = true; });
+await page.click(".tab[data-view='home']");
+must(await page.locator("#set-eqab [data-v='off'][aria-pressed='true']").count() === 1, "질문 형태 실험: 기본값이 끔이 아님");
+await page.click("#set-eqab [data-v='on']");
+await page.click(".tab[data-view='train']");
+await page.evaluate(() => { window.__hold = false; });
+{
+  const forms = [];
+  for (let d = 0; d < 3; d++) {
+    await page.waitForSelector("#tp-body .tpc[data-card='0']:not([hidden])");
+    const title = (await page.textContent("#tp-form")).trim();
+    must(await page.locator("#tp-form").isVisible() && /^형태 [AB] · (이길 확률|상위 %)$/.test(title), `질문 형태 실험: 패널 제목에 형태가 없음 (${title})`);
+    forms.push(title[3]);
+    const q = page.locator("#tp-body .q[data-k='hand.equity'] [data-chip]");
+    must(await q.count() === 5, `질문 형태 실험: 에퀴티 질문 칩이 5개가 아님 (${await q.count()})`);
+    if (title[3] === "B") {
+      // B's truth chip samples with its own random state; the game's deal stream must come back untouched.
+      const r = await page.evaluate(() => { const s = rngState, t = eqabTruth("B", CUR.g); return { same: s === rngState, t }; });
+      must(r.same, "질문 형태 실험: eqabTruth(\"B\")가 게임 난수 상태(rngState)를 되돌리지 않음 — 켬/끔 사이에 딜이 달라진다");
+      must(Number.isInteger(r.t) && r.t >= 0 && r.t <= 4, `질문 형태 실험: B 정답 칩이 0–4 정수가 아님 (${r.t})`);
+    }
+    if (d === 0) await inspect("train-eqab", "#tp-form");
+    await answerDeck();
+    await page.click("#tp-submit");
+    await page.waitForSelector("#tp-body .result-top");
+    must(await page.locator("#tp-body [data-ab]").count() === 1, "질문 형태 실험: 결과에 A/B 기록 줄이 없음");
+  }
+  const n = await page.evaluate(() => JSON.parse(localStorage.getItem("stalker.eqab") || "[]").length);
+  must(n === 3, `질문 형태 실험: 결정 3회에 기록 ${n}건`);
+  must(forms.includes("A") && forms.includes("B"), `질문 형태 실험: abseed=1인데 A·B가 모두 나오지 않음 (${forms.join("")}) — abNext나 시드 처리가 바뀌었으면 두 형태가 다 나오는 시드로 url을 고친다`);
+  const bRecs = await page.evaluate(() => JSON.parse(localStorage.getItem("stalker.eqab") || "[]").filter(r => r.f === "B"));
+  must(bRecs.length > 0 && bRecs.every(r => Number.isInteger(r.t) && r.t >= 0 && r.t <= 4), `질문 형태 실험: B 기록이 없거나 정답 칩 t가 0–4 정수가 아님 (${JSON.stringify(bRecs)})`);
+  console.log(`질문 형태 실험: 배정 ${forms.join("")}`);
+}
 
 // 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
 await inspect("learn-gallery");
+{
+  const cells = async f => (await page.locator(`#ab-box tr[data-form='${f}'] td`).allTextContents()).map(t => t.trim());
+  const a = await cells("A"), b = await cells("B");
+  must(a.length === 5 && b.length === 5, "학습 섹션: 질문 형태 실험 표(A·B 행)가 없음");
+  must(+a[1] + +b[1] === 3, `학습 섹션: 형태별 기록 합이 3이 아님 (${a[1]}+${b[1]})`);
+  must(+b[1] > 0, `학습 섹션: 질문 형태 표 B 행 기록 수가 0 (${b.join(" | ")})`);
+  for (const r of [a, b]) if (+r[1] > 0) must(/초$/.test(r[2]) && /초$/.test(r[3]) && /%$/.test(r[4]), `학습 섹션: P50·P95·정답률 칸이 비어 있음 (${r.join(" | ")})`);
+  await inspect("learn-eqab", "#ab-box");
+}
 // #165: opening a module turns the gallery into a side list; "← 전체" brings the gallery back.
 await page.locator("#mods .mod[data-k='hand.rank']").click();
 await page.waitForSelector("#learn.open #drill:not([hidden])");
@@ -209,7 +259,9 @@ await page.click("#move summary");
 await page.waitForFunction(() => document.querySelector("#move-out").value.length > 0);
 const exported = await page.inputValue("#move-out");
 const weakBefore = await page.textContent("#weak-home");
-must(JSON.parse(exported).schema_version === 1 && Object.keys(JSON.parse(exported).weak).length > 0, "기록 옮기기: 내보낸 JSON에 schema_version·weak가 없음");
+must(JSON.parse(exported).schema_version === 2 && Object.keys(JSON.parse(exported).weak).length > 0, "기록 옮기기: 내보낸 JSON에 schema_version 2·weak가 없음");
+must(JSON.parse(exported).eqab.length === 3, "기록 옮기기: 내보낸 JSON에 질문 형태 실험 기록(eqab) 3건이 없음");
+const abBefore = await page.evaluate(() => { renderEqab(); return document.querySelector("#ab-box").innerHTML; });
 await page.evaluate(() => localStorage.clear());
 await page.reload();
 must((await page.textContent("#weak-home")).includes("아직 기록이 없어요"), "기록 옮기기: 초기화 뒤에도 기록이 남음");
@@ -223,6 +275,7 @@ await page.click("#move-import");                                    // 첫 클�
 await page.click("#move-import");                                    // 두 번째: 가져오기
 must(await page.textContent("#weak-home") === weakBefore, "기록 옮기기: 가져온 뒤 통계가 내보내기 전과 다름");
 must(await page.evaluate(() => window.STALKER_RECORDS.exportRecords()) === exported, "기록 옮기기: 왕복 뒤 내보내기 텍스트가 다름");
+must(await page.evaluate(() => { renderEqab(); return document.querySelector("#ab-box").innerHTML; }) === abBefore, "기록 옮기기: 왕복 뒤 질문 형태 실험 표가 다름");
 await inspect("home-move", "#move");
 
 await browser.close();

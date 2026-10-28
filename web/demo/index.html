@@ -330,6 +330,12 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .rrow.ref .cap { flex-wrap: wrap; gap: 2px 10px; }
 .itime { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; font-size: 12px; color: var(--muted); }
 .itime b { color: var(--text); font: 600 13px/1 var(--font-display); }
+.ab-box { margin-top: 20px; }
+.ab-wrap { overflow-x: auto; }
+.ab-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ab-table th, .ab-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.ab-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.ab-table th:first-child, .ab-table td:first-child { text-align: left; }
 .drivers { display: grid; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); font-size: 13px; }
 .drivers .hd { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
 .drivers ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
@@ -658,6 +664,14 @@ details.why[open] > summary { margin-bottom: 8px; }
           </div>
           <div id="play-desc" style="margin-top:8px;font-size:12px;color:var(--faint)"></div>
         </div>
+        <div class="setting">
+          <div class="lab">질문 형태 실험 · 기본 끔</div>
+          <div class="seg" id="set-eqab">
+            <button data-v="off" aria-pressed="true">끔</button>
+            <button data-v="on" aria-pressed="false">켬 · 에퀴티 질문 A/B</button>
+          </div>
+          <div id="eqab-desc" style="margin-top:8px;font-size:12px;color:var(--faint)"></div>
+        </div>
         <div class="start-row">
           <button class="cta" id="start-btn">테이블에 앉기 <span aria-hidden="true">→</span></button>
           <span class="note">다른 플레이어는 약 1.5초 간격으로 행동합니다.</span>
@@ -710,7 +724,7 @@ details.why[open] > summary { margin-bottom: 8px; }
     <aside class="tp" id="tp" aria-label="Thinking Process">
       <div class="tp-head">
         <button class="handle" id="tp-handle" aria-label="패널 펼치기"></button>
-        <div class="row"><h2>Thinking Process</h2><span class="tier" id="tp-tier">중수</span></div>
+        <div class="row"><h2>Thinking Process</h2><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="tier" id="tp-form" hidden></span><span class="tier" id="tp-tier">중수</span></span></div>
         <div class="ctx" id="tp-ctx"></div>
       </div>
       <div class="tp-body" id="tp-body"></div>
@@ -731,6 +745,7 @@ details.why[open] > summary { margin-bottom: 8px; }
       <div class="mods" id="mods"></div>
       <div class="box drill" id="drill" hidden></div>
     </div>
+    <div class="box ab-box" id="ab-box" hidden></div>
   </div>
 </section>
 
@@ -980,7 +995,7 @@ const DIFF_DESC = d => d >= 20 ? "최고 난이도 · TP-GTO 테이블" : d >= 1
 const NAMES = ["민준", "서연", "Viktor", "하루", "Maya", "도윤", "Kenji", "지아", "Lena", "Rafael", "윤서", "Theo", "은우", "Ines", "태오", "Sora"];
 
 /* ================= settings ================= */
-const S = { mode: "tournament", tier: "mid", diff: 9, play: "quick" };
+const S = { mode: "tournament", tier: "mid", diff: 9, play: "quick", eqab: "off" };
 function segBind(id, key, after) {
   $$(`#${id} button`).forEach(b => b.addEventListener("click", () => {
     $$(`#${id} button`).forEach(x => x.setAttribute("aria-pressed", x === b)); S[key] = b.dataset.v; after && after();
@@ -991,6 +1006,8 @@ segBind("set-tier", "tier");
 const PLAY_DESC = { quick: "실전용. 내 차례에 액션부터 고르고 바로 진행해요. 원하면 '분석 보기'로 핵심 판단 1~3개를 답하고 TP-GTO와 비교해요.", guided: "집중 훈련용. 등급의 판단을 카드마다 전부 답한 뒤 액션을 고르고 채점해요." };
 const renderPlay = () => { $("#play-desc").textContent = PLAY_DESC[S.play]; };
 segBind("set-play", "play", renderPlay); renderPlay();
+const renderEqabDesc = () => { $("#eqab-desc").textContent = S.eqab === "on" ? "훈련 게임의 에퀴티 질문을 결정마다 A(이길 확률) 또는 B(상위 %) 형태로 무작위로 묻고, 입력 시간과 맞힌 칩을 이 기기에만 기록해요. 이 답은 채점하지 않아요." : "끄면 에퀴티 질문은 지금처럼 0–100 칩으로 묻고 채점해요."; };
+segBind("set-eqab", "eqab", renderEqabDesc); renderEqabDesc();
 function renderDiff() {
   const d = +$("#set-diff").value; S.diff = d;
   $("#diff-num").textContent = d; $("#diff-desc").textContent = DIFF_DESC(d);
@@ -1008,6 +1025,18 @@ const LEARN_FOR = { "board.adv": "board.adv", "board.nut": "board.adv", "hand.eq
 // Per-decision input time (TP §4.2 Quick: P50/P95), training game only.
 let ITIMES = store.get("itimes", []);
 function recordInputTime(sec) { ITIMES.push(Math.round(sec * 10) / 10); if (ITIMES.length > 300) ITIMES = ITIMES.slice(-300); store.set("itimes", ITIMES); }
+// hand.equity question-form A/B (#262, Gate E pilot): which wording do people answer faster and more accurately?
+// Each form has 5 chips; the truth chip comes from the mock teacher, and answers are logged, not graded.
+const EQAB_FORMS = {
+  A: { title: "이길 확률", q: "상대가 이렇게 플레이할 때 내가 이길 확률", chips: ["0–20%", "20–40%", "40–60%", "60–80%", "80–100%"] },
+  B: { title: "상위 %", q: "내 핸드는 이 상황에서 상위 몇 %", chips: ["상위 20%", "20–40%", "40–60%", "60–80%", "하위 20%"] },
+};
+let EQAB = store.get("eqab", []);
+// One seed per training session so a session's A/B sequence can be replayed; ?abseed=N pins it (tests).
+let AB = null;
+function abStart() { const p = new URLSearchParams(location.search).get("abseed"); const seed = (p != null && /^\d+$/.test(p) ? +p : Date.now()) >>> 0; return { seed, state: seed }; }
+function abNext() { let t = AB.state = AB.state + 0x6D2B79F5 | 0; t = Math.imul(t ^ t >>> 15, 1 | t); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+function recordEqab(rec) { EQAB.push(rec); if (EQAB.length > 300) EQAB = EQAB.slice(-300); store.set("eqab", EQAB); }
 const pctl = (xs, p) => { const s = xs.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.max(0, Math.ceil(p / 100 * s.length) - 1))]; };
 function itimeHTML() {
   if (!ITIMES.length) return `<div class="itime"><span>결정당 입력 시간 · 아직 기록 없음</span></div>`;
@@ -1028,9 +1057,10 @@ renderWeakHome();
 
 /* ================= moving records between devices (#117) ================= */
 // No server sync yet (ADR 0010 P1-11): records travel as JSON text the learner copies and pastes.
-const RECORDS_SCHEMA = "stalker.demo.records", RECORDS_VERSION = 1;
+// v2 (#262) adds eqab; v1 texts still import with an empty eqab.
+const RECORDS_SCHEMA = "stalker.demo.records", RECORDS_VERSION = 2;
 function exportRecords() {
-  return JSON.stringify({ schema: RECORDS_SCHEMA, schema_version: RECORDS_VERSION, weak: WEAK, itimes: ITIMES, rankq: RANKQ });
+  return JSON.stringify({ schema: RECORDS_SCHEMA, schema_version: RECORDS_VERSION, weak: WEAK, itimes: ITIMES, rankq: RANKQ, eqab: EQAB });
 }
 function parseRecords(text) {
   let d;
@@ -1039,18 +1069,21 @@ function parseRecords(text) {
   if (!Number.isInteger(d.schema_version)) return { error: "schema_version이 없어요. 내보내기 텍스트를 다시 복사해 붙여넣으세요." };
   if (d.schema_version > RECORDS_VERSION) return { error: `이 데모(v${RECORDS_VERSION})보다 새 기록(v${d.schema_version})이에요. 데모를 새로 고친 뒤 다시 가져오세요.` };
   const isStat = v => v && typeof v === "object" && Number.isInteger(v.n) && Number.isFinite(v.sum) && v.n >= 0;
-  const weak = d.weak ?? {}, itimes = d.itimes ?? [], rankq = d.rankq ?? { n: 0, sum: 0 };
+  const weak = d.weak ?? {}, itimes = d.itimes ?? [], rankq = d.rankq ?? { n: 0, sum: 0 }, eqab = d.eqab ?? [];
+  const chip = x => Number.isInteger(x) && x >= 0 && x <= 4;
+  const isAb = r => r && typeof r === "object" && (r.f === "A" || r.f === "B") && Number.isFinite(r.ms) && r.ms >= 0 && chip(r.a) && chip(r.t);
   // A weak item averages sum / n, so it needs at least one answer (n >= 1); rankq may be empty.
   if (typeof weak !== "object" || Array.isArray(weak) || !Object.values(weak).every(v => isStat(v) && v.n >= 1)) return { error: "weak 항목이 {n ≥ 1, sum} 숫자 쌍이 아니에요. 내보낸 텍스트를 고치지 말고 그대로 붙여넣으세요." };
   if (!Array.isArray(itimes) || !itimes.every(x => Number.isFinite(x) && x >= 0)) return { error: "itimes가 0 이상 숫자 목록이 아니에요. 내보낸 텍스트를 그대로 붙여넣으세요." };
   if (!isStat(rankq)) return { error: "rankq가 {n, sum} 숫자 쌍이 아니에요. 내보낸 텍스트를 그대로 붙여넣으세요." };
-  return { data: { weak, itimes: itimes.slice(-300), rankq } };
+  if (!Array.isArray(eqab) || !eqab.every(isAb)) return { error: "eqab 기록이 {f: A|B, ms ≥ 0, a·t 0–4} 목록이 아니에요. 내보낸 텍스트를 그대로 붙여넣으세요." };
+  return { data: { weak, itimes: itimes.slice(-300), rankq, eqab: eqab.slice(-300) } };
 }
 function importRecords(text) {
   const r = parseRecords(text);
   if (r.error) return r;
-  WEAK = r.data.weak; ITIMES = r.data.itimes; RANKQ = r.data.rankq;
-  store.set("weak", WEAK); store.set("itimes", ITIMES); store.set("rankq", RANKQ);
+  WEAK = r.data.weak; ITIMES = r.data.itimes; RANKQ = r.data.rankq; EQAB = r.data.eqab;
+  store.set("weak", WEAK); store.set("itimes", ITIMES); store.set("rankq", RANKQ); store.set("eqab", EQAB);
   renderWeakHome();
   return r;
 }
@@ -1073,7 +1106,7 @@ window.STALKER_RECORDS = { exportRecords, parseRecords, importRecords };
     if (r.error) { say(msg, r.error, "bad"); return; }
     if (!armed) { armed = true; imp.textContent = "덮어쓰기"; say(msg, "지금 기기의 기록을 이 기록으로 바꿉니다. 한 번 더 누르면 덮어써요."); return; }
     importRecords(inp.value); armed = false; imp.textContent = "가져오기"; out.value = exportRecords();
-    say(msg, `가져왔어요: TP 항목 ${Object.keys(r.data.weak).length}개, 입력 시간 ${r.data.itimes.length}회.`, "good");
+    say(msg, `가져왔어요: TP 항목 ${Object.keys(r.data.weak).length}개, 입력 시간 ${r.data.itimes.length}회, 질문 형태 실험 ${r.data.eqab.length}회.`, "good");
   };
 })();
 
@@ -1101,6 +1134,7 @@ function newSeat(i, isHero, stackBB) {
     stats: { hands: 0, vpip: 0, raises: 0, calls: 0, faced: 0, foldsFaced: 0, preOpp: 0, aggOpp: 0 }, out: false };
 }
 function startGame() {
+  AB = null;
   const tour = S.mode === "tournament";
   const n = tour ? ($("#t-format").value === "9" ? 9 : 6) : +$("#c-seats").value;
   const avg = tour ? +$("#t-stack").value : +$("#c-stack").value;
@@ -1423,9 +1457,23 @@ function computeGTO(hero) {
   else if (L.toCall > 0) { const edge = eq - odds - icmTax; mix = edge > .22 && L.canRaise ? { raise: .55, call: .4, fold: .05 } : edge > .02 ? { call: .78, raise: L.canRaise ? .1 : 0, fold: .12 } : edge > -.06 ? { call: .4, fold: .6 } : { fold: .88, call: .12 }; }
   else { mix = eq > .62 && L.canRaise ? { raise: .72, check: .28 } : eq > .45 ? { check: .62, raise: L.canRaise ? .38 : 0 } : { check: .8, raise: L.canRaise ? .2 : 0 }; }
   v["act.choice"] = mix;
-  return { v, note, opp, L, pot, pct, rep, ov, vp, ag, fd, icm, foldeqAt };
+  return { v, note, opp, L, pot, pct, rep, ov, vp, ag, fd, icm, foldeqAt, eqPcts: [pct, ...others] };
 }
 
+// Truth chip for the A/B question. A = win chance (hand.equity, 20%p bands); B = share of possible hands
+// that do better than mine against the same opponent ranges (sampled). The sampling swaps in its own
+// random state so the game's deal sequence is the same with the experiment on or off.
+function eqabTruth(form, g) {
+  const eq = g.v["hand.equity"];
+  if (form === "A") return Math.min(4, Math.floor(eq / 20));
+  const hero = CUR.hero.cards, board = G.board, dead = new Set([...hero, ...board]), pool = ALL_COMBOS.filter(([a, b]) => !dead.has(a) && !dead.has(b));
+  const saved = rngState; rngState = (AB.seed ^ Math.round(AB.state)) | 0;
+  let better = 0;
+  const N = 60;
+  for (let i = 0; i < N; i++) { const [a, b] = pool[Math.floor(rand() * pool.length)], e = Math.round(eqVsMulti([a, b], board, g.eqPcts, 120) * 100); better += e > eq ? 1 : e === eq ? .5 : 0; }
+  rngState = saved;
+  return Math.min(4, Math.floor(better / N * 5));
+}
 /* ---------- hero turn & TP console ---------- */
 let heroResolve = null, CUR = null;
 function heroTurn(hero) {
@@ -1434,6 +1482,7 @@ function heroTurn(hero) {
     $("#seat-" + hero.i).classList.add("acting");
     const g = computeGTO(hero);
     CUR = { hero, g, answers: {}, action: null, size: null };
+    if (S.eqab === "on") { AB ||= abStart(); CUR.ab = abNext() < .5 ? "A" : "B"; }
     setTP("ask"); renderInfo();
     CUR.t0 = performance.now(); // input time = hero's turn shown -> submit
   });
@@ -1463,13 +1512,14 @@ const naNow = k => { const d = TP[k]; return !!d.na && CUR.g.opp.stats[d.na.stat
 function setTP(mode) {
   const body = $("#tp-body"), foot = $("#tp-foot"), tp = $("#tp");
   if (mode === "waiting") {
-    $("#tp-ctx").innerHTML = "";
+    $("#tp-ctx").innerHTML = ""; $("#tp-form").hidden = true;
     foot.hidden = true; tp.classList.remove("open");
     body.innerHTML = `<div class="waiting"><span><span class="spin"><i></i><i></i><i></i></span>&nbsp; 다른 플레이어가 행동하는 중이에요. 내 차례가 오면 여기서 판단을 입력합니다.</span></div>${G.lastGrade ? resultHTML(G.lastGrade, true) : ""}<details ${G.log.length ? "" : ""}><summary>이번 핸드 기록</summary><div class="log" id="hand-log"></div></details>`;
     renderLog(); bindResult(); return;
   }
   // ask: card news — one card per TP stage (B → F), 이전/다음, last card submits.
   $("#tp-ctx").innerHTML = ctxChips();
+  $("#tp-form").hidden = !CUR.ab; $("#tp-form").textContent = CUR.ab ? `형태 ${CUR.ab} · ${EQAB_FORMS[CUR.ab].title}` : "";
   tp.classList.add("open");
   if (S.play === "quick") { setQuick(); return; }
   const opp = CUR.g.opp, items = itemsNow().filter(k => !isFollow(k)), cards = [];
@@ -1532,6 +1582,7 @@ function quickAnalyze() {
   $("#tp-foot").innerHTML = `<div class="tpc-nav"><span></span><span></span><button class="cta small" id="tp-submit" disabled>비교 보기</button></div>
     <span class="tpc-note">비교하면 채점하고 고른 액션으로 진행해요(정답 ${CONF}).</span>`;
   bindInputs($("#tp-body"));
+  if (CUR.qkeys.includes("hand.equity")) CUR.abShown = performance.now();
   $("#tp-submit").onclick = () => finishHero([...CUR.qkeys, "act.choice"]);
   $("#tp-body").scrollTop = 0; quickNav();
 }
@@ -1581,6 +1632,7 @@ function goCard(i, first) {
   const dir = i >= CUR.card ? "r" : "l";
   $$("#tp-body .tpc").forEach(c => { const idx = c.dataset.card === "follow" ? CUR.base : +c.dataset.card, on = idx === i; c.hidden = !on; c.classList.remove("in-r", "in-l"); if (on && !first) { void c.offsetWidth; c.classList.add("in-" + dir); } });
   CUR.card = i; $("#tp-body").scrollTop = 0; navState();
+  if (CUR.abShown == null && CUR.cards[i].keys.includes("hand.equity")) CUR.abShown = performance.now(); // A/B input time starts when the question is on screen
 }
 // Tap inputs on the tier scale (TP v0.1 §4.1): chips on the tier grid; the 0–100 tier adds a ±1/±5 stepper instead of a slider.
 function scaleChips(step) { const s = Math.max(step, 10), out = []; for (let v = 0; v <= 100; v += s) out.push(v); return out; }
@@ -1602,6 +1654,8 @@ function qInput(k, na) {
   if (k === "plan.icm" && CUR.g.icm) return `<div class="hint">칩만 보면 필요한 승률(팟 오즈)은 <b>${CUR.g.icm.chip}%</b>예요. 토너먼트에서는 지면 탈락 위험 때문에 이보다 더 필요해요.</div><div class="t"><span>${d.q}</span><span class="val num" data-val>—</span></div>
     <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
   const nOpp = live().length - 1;
+  if (k === "hand.equity" && CUR.ab) { const f = EQAB_FORMS[CUR.ab]; return `<div class="hint">질문 형태 실험 · 형태 ${CUR.ab}. 답은 기록만 하고 채점하지 않아요.</div><div class="t"><span>${f.q}${nOpp > 1 ? ` (${nOpp}명 상대)` : ""}</span><span class="val num" data-val>—</span></div>
+    ${chipRow([0, 1, 2, 3, 4], i => f.chips[i])}`; }
   if (k === "hand.equity" && nOpp > 1) return `<div class="hint">멀티웨이 · 남은 ${nOpp}명을 <b>모두</b> 이겨 팟 전체를 가져갈 확률(+분할 몫)이에요. 헤즈업보다 낮게 나오고, 콜에 필요한 에퀴티와 바로 비교할 수 있어요.</div><div class="t"><span>${d.q} (${nOpp}명 상대)</span><span class="val num" data-val>—</span></div>
     <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
   const q = k === "plan.foldeq" && CUR.g.rep ? `고른 사이즈 ${CUR.g.rep.label}(${bbf(CUR.g.rep.to)}BB)로 ${G.street === 0 || CUR.g.L.toCall ? "레이즈" : "벳"}하면 상대가 ${live().length > 2 ? "모두 " : ""}접을 확률` : d.q;
@@ -1642,7 +1696,8 @@ function bindInputs(root) {
     if (TP[k].type === "range") {
       if (!fromGrid) { CUR.rangeKeys = classesInTop(v); CUR.rangeEdited = false; paintGrid($("[data-grid]", q), CUR.rangeKeys); }
       $("[data-val]", q).textContent = fromGrid ? `약 ${v}% (편집)` : `상위 ${v}%`;
-    } else $("[data-val]", q).textContent = v;
+    } else if (k === "hand.equity" && CUR.ab) { $("[data-val]", q).textContent = EQAB_FORMS[CUR.ab].chips[v]; CUR.abAt = performance.now(); }
+    else $("[data-val]", q).textContent = v;
     refreshNav();
   };
   $$(".q[data-k]", root).forEach(q => {
@@ -1700,6 +1755,10 @@ function finishHero(keys) {
       let inter = 0, uni = 0; for (const c of CLASSES) { const a = uk.has(c.key), b = gk.has(c.key); if (a && b) inter += c.combos; if (a || b) uni += c.combos; }
       const jac = uni ? inter / uni : 1, u = CUR.answers[k] ?? 30, sc = S.tier === "pro" ? Math.round(jac * 100) : scoreScalar(u, g.v[k]).score;
       rows.push({ k, kind: "range", you: u, gto: g.v[k], score: sc, uk, gk });
+    } else if (k === "hand.equity" && CUR.ab) {
+      if (CUR.answers[k] == null) continue;
+      const rec = { f: CUR.ab, ms: Math.round((CUR.abAt ?? performance.now()) - (CUR.abShown ?? CUR.t0)), a: CUR.answers[k], t: eqabTruth(CUR.ab, g), seed: AB.seed };
+      recordEqab(rec); refs.push({ k, kind: "ab", ...rec });
     } else if (g.v[k] != null) {
       const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], note: g.note[k], ...scoreScalar(u, g.v[k]) });
     }
@@ -1740,6 +1799,7 @@ function resultHTML(gr, compact) {
   }
   for (const r of gr.refs || []) {
     if (r.kind === "action") html += mixRefHTML(r.mix, r.you, SHORT[r.k]);
+    else if (r.kind === "ab") { const f = EQAB_FORMS[r.f]; html += `<div class="rrow ref" data-ab><div class="t"><span>질문 형태 실험 · 형태 ${r.f} ${f.title}</span><span style="font-size:11px;color:var(--faint)">채점 안 함</span></div><div class="cap"><span>내 답 <b class="${r.a === r.t ? "good" : "bad"}">${f.chips[r.a]}</b></span><span>참값 ${CONF} ${f.chips[r.t]}</span></div><div class="cap"><span>입력 ${(r.ms / 1000).toFixed(1)}초 · 학습 섹션에서 형태별 결과를 볼 수 있어요.</span></div></div>`; }
     else html += `<div class="rrow ref"><div class="t"><span>${SHORT[r.k]} · 내 답 <b class="num">${r.you}</b></span><span style="font-size:11px;color:var(--faint)">채점 안 함</span></div><div class="cap"><span>정의가 확정되지 않은 성찰 질문이라 정답·점수가 없어요.</span></div></div>`;
   }
   html += driversHTML(gr);
@@ -2061,7 +2121,18 @@ const MODS = [
 let LM = { k: null, lvl: "normal", prob: null, answered: false, val: null };
 let RANKQ = store.get("rankq", { n: 0, sum: 0 });
 const modAvg = k => k === "hand.rank" ? (RANKQ.n ? Math.round(RANKQ.sum / RANKQ.n) : null) : avgScore(k);
+function eqabHTML() {
+  const fmt = ms => ms == null ? "—" : (ms / 1000).toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "초";
+  const rows = ["A", "B"].map(f => {
+    const r = EQAB.filter(x => x.f === f), ms = r.map(x => x.ms), ok = r.filter(x => x.a === x.t).length;
+    return `<tr data-form="${f}"><td><b>${f}</b> · ${EQAB_FORMS[f].title}</td><td class="num">${r.length}</td><td class="num">${r.length ? fmt(pctl(ms, 50)) : "—"}</td><td class="num">${r.length ? fmt(pctl(ms, 95)) : "—"}</td><td class="num">${r.length ? Math.round(ok / r.length * 100) + "%" : "—"}</td></tr>`;
+  }).join("");
+  return `<h2>질문 형태 실험 · 에퀴티 질문 A/B</h2><p class="sub">A "${EQAB_FORMS.A.q}"와 B "${EQAB_FORMS.B.q}" 중 어느 쪽에 더 빨리, 더 정확히 답하는지 봐요. 정답 칩은 ${CONF} 값이고 기록은 이 기기에만 있어요.</p>
+    <div class="ab-wrap"><table class="ab-table"><thead><tr><th scope="col">형태</th><th scope="col">기록</th><th scope="col">입력 P50</th><th scope="col">입력 P95</th><th scope="col">정답률</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderEqab() { const box = $("#ab-box"); box.hidden = S.eqab !== "on" && !EQAB.length; if (!box.hidden) box.innerHTML = eqabHTML(); }
 function renderMods() {
+  renderEqab();
   const open = LM.k != null, wrap = $("#learn");
   wrap.classList.toggle("open", open); wrap.classList.toggle("gallery", !open);
   $("#drill").hidden = !open;
