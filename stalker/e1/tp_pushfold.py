@@ -13,7 +13,7 @@ Bottleneck: neither seat sees its cards, only the TP item `hand.equity` quantize
 Training is fictitious play between the two bottleneck policies: each round both best-respond (in
 bucket space) to the other's running average, so bluff-shoves, exploits and counter-exploits are
 explored and averaged out. The BB's buckets are recomputed every
-iterations from the SB's current average range, and the BB's average is projected onto the final
+iteration from the SB's current average range, and the BB's average is projected onto the final
 buckets so the delivered policy is a function of its TP value. The result is measured with the exact 169-class best
 response (`pushfold.exploitability`), never with the bucketed game.
 """
@@ -67,6 +67,12 @@ class Result:
     exploitability: float       # exact, summed BR gain of both seats, bb/hand
     nash_exploitability: float  # the unconstrained fictitious-play solution's, same measure
     bucket_changes: int         # iterations where the BB's equity bucketing moved
+    consistent: bool = True     # both delivered policies are functions of buckets computed from the other
+
+
+def _is_function_of(values: np.ndarray, buckets: np.ndarray) -> bool:
+    """True if values are constant within every bucket (the policy reads only its TP value)."""
+    return all(np.ptp(values[buckets == b]) < 1e-12 for b in np.unique(buckets))
 
 
 def _project(values: np.ndarray, buckets: np.ndarray, weight: np.ndarray) -> np.ndarray:
@@ -114,9 +120,11 @@ def train(stack: float, ante: float, tier: str, iters: int = 4000, sb_view: str 
         push += (s_br - push) / (t + 1)
         call += (c_br - call) / (t + 1)
     # Deliver policies that are functions of their own TP values, each measured against the other
-    # delivered policy (the assumption a user would be taught). A few passes reach a fixed point.
+    # delivered policy (the assumption a user would be taught). Usually a few passes reach a fixed
+    # point; with sb_view="called" the two bucketings can cycle, and then no consistent pair is
+    # delivered: the result is marked consistent=False and shown as such in the table (#268 review).
     avg_push, avg_call = push, call
-    for _ in range(10):
+    for _ in range(50):
         if sb_view == "called":
             sb_b = _quantize(sb_equity_when_called(call), step)
         push = _project(avg_push, sb_b, p.sum(axis=1))
@@ -125,8 +133,11 @@ def train(stack: float, ante: float, tier: str, iters: int = 4000, sb_view: str 
         if np.array_equal(new_call, call):
             break
         call = new_call
+    sb_final = _quantize(sb_equity_when_called(call), step) if sb_view == "called" else sb_b
+    consistent = _is_function_of(push, sb_final) and _is_function_of(call, _quantize(bb_equity(push), step))
     _, _, nash_ex = P.solve(stack, ante, max_iter=iters)
-    return Result(stack, ante, tier, push, call, P.exploitability(stack, ante, push, call), nash_ex, changes)
+    return Result(stack, ante, tier, push, call, P.exploitability(stack, ante, push, call), nash_ex, changes,
+                  consistent)
 
 
 def table(stacks=None, antes=None, tiers=("beginner", "mid", "pro"), views=("random", "called"),
@@ -142,7 +153,8 @@ def table(stacks=None, antes=None, tiers=("beginner", "mid", "pro"), views=("ran
                     rows.append({"stack": stack, "ante": ante, "sb_view": view, "tier": tier,
                                  "exploitability": round(r.exploitability, 5), "sb_gain": round(sb_gain, 5),
                                  "bb_gain": round(bb_gain, 5), "nash_fp_exploitability": round(r.nash_exploitability, 5),
-                                 "sb_shove": round(sb_freq, 4), "bb_call": round(bb_freq, 4)})
+                                 "sb_shove": round(sb_freq, 4), "bb_call": round(bb_freq, 4),
+                                 "consistent": r.consistent})
     return rows
 
 

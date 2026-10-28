@@ -47,3 +47,24 @@ def test_e1_pro_tier_with_equity_when_called_is_near_nash():
     # The TP v0.1 definition (equity vs a random hand) leaves a measurable gap at 15bb.
     v01 = T.train(15.0, 0.0, "pro", iters=3000, sb_view="random").exploitability
     assert v01 > 2 * T.train(15.0, 0.0, "pro", iters=3000, sb_view="called").exploitability
+
+
+def test_delivered_pairs_are_bottleneck_policies_or_flagged():
+    # #268 review: with sb_view="called" the final passes can cycle; such a pair is not a function of
+    # its own TP values and must be marked, never reported as a bottleneck policy.
+    import numpy as np
+
+    from stalker.e1 import tp_pushfold as T
+
+    flagged = T.train(13.0, 0.0, "pro", iters=3000, sb_view="called")
+    assert flagged.consistent is False
+    for stack, ante, tier, view in [(9.0, 0.0, "pro", "called"), (11.0, 0.0, "mid", "called"), (8.0, 1.0, "beginner", "random"),
+                                    (13.0, 0.0, "pro", "random")]:
+        r = T.train(stack, ante, tier, iters=600, sb_view=view)
+        if not r.consistent:
+            continue
+        step = T.TIER_STEP[tier]
+        sb_b = T._quantize(T.sb_equity_when_called(r.call) if view == "called" else T.sb_equity(), step)
+        bb_b = T._quantize(T.bb_equity(r.push), step)
+        assert T._is_function_of(r.push, sb_b) and T._is_function_of(r.call, bb_b), (stack, ante, tier, view)
+    assert all(T.train(s, 0.0, "mid", iters=300, sb_view="random").consistent for s in (3.0, 8.0, 14.0))
