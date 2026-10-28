@@ -37,8 +37,13 @@ def ehs_table(board: tuple[int, ...]) -> np.ndarray:
     ok = ~np.isin(COMBO_ARR, list(board)).any(axis=1)
     acc = np.zeros(len(COMBOS))
     need = 5 - len(board)
-    runs = RUNOUTS if need else 1  # the river has nothing left to deal: one evaluation is exact
-    for _ in range(runs):
+    river = None
+    for _ in range(RUNOUTS):
+        if river is not None:
+            # The river has nothing left to deal, so every "runout" is the board itself: evaluate once
+            # and repeat the same sum, which keeps the table bit-identical to RUNOUTS evaluations.
+            acc[river[0]] += river[1]
+            continue
         extra = rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)
         full = np.concatenate([np.array(board, dtype=np.int64), extra])
         usable = ok & ~np.isin(COMBO_ARR, extra).any(axis=1)
@@ -53,7 +58,9 @@ def ehs_table(board: tuple[int, ...]) -> np.ndarray:
         ranks = (lo + (hi - lo - 1) / 2) / max(len(idx) - 1, 1)
         acc[idx] += ranks
         acc[~usable & ok] += 0.5  # a combo blocked only by this runout: neutral contribution
-    out = acc / runs
+        if not need:
+            river = (idx, ranks)
+    out = acc / RUNOUTS
     out[~ok] = np.nan
     return out
 
