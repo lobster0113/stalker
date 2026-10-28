@@ -60,8 +60,10 @@ jobs:
             reap)  python harness/cloud/launcher.py reap --ledger "$LEDGER" ;;
             run)
               # the start entry is pushed right after pod creation; a failed push terminates the pod
+              # a spec with result_path gets its JSON pulled here (#184); the launcher checks size and secrets
               args=(run "$JOB" --ledger "$LEDGER" --run-id "$GITHUB_RUN_ID"
-                    --sync-cmd "bash harness/cloud/push_ledger.sh ops 'cloud: reserve run $GITHUB_RUN_ID'")
+                    --sync-cmd "bash harness/cloud/push_ledger.sh ops 'cloud: reserve run $GITHUB_RUN_ID'"
+                    --result-out "$RUNNER_TEMP/cloud-result/result.json")
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
               python harness/cloud/launcher.py "${args[@]}" ;;
             *) echo "mode must be check|run|reap, got '$MODE'"; exit 1 ;;
@@ -70,6 +72,14 @@ jobs:
         if: always() && env.MODE == 'run' && env.DRY_RUN != 'true'
         # pod name comes from the launcher's own spec parser, never a separate shell parse
         run: python harness/cloud/launcher.py reap --ledger "$LEDGER" --force --job "$JOB" --run-id "$GITHUB_RUN_ID"
+      - name: upload result
+        if: always() && env.MODE == 'run' && env.DRY_RUN != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-result-${{ github.run_id }}
+          path: ${{ runner.temp }}/cloud-result/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: push ledger
         if: always() && env.MODE != 'check'
         run: 'bash harness/cloud/push_ledger.sh ops "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"'
