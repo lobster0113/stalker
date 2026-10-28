@@ -1,0 +1,6 @@
+{"tier": "beginner", "abstraction": "pct5x5", "iters": 2000, "infosets": 8678, "train_s": 89.8, "lbr_bb": 1.2053, "stderr_bb": 0.3848, "seat0_bb": 1.3102, "seat1_bb": 1.1005, "hands": 600}
+{"tier": "beginner", "abstraction": "pct5x5", "iters": 6000, "infosets": 13058, "train_s": 226.1, "lbr_bb": 1.171, "stderr_bb": 0.3712, "seat0_bb": 0.9082, "seat1_bb": 1.4339, "hands": 600}
+{"tier": "mid", "abstraction": "pct11x11", "iters": 2000, "infosets": 12400, "train_s": 83.2, "lbr_bb": 1.7726, "stderr_bb": 0.4153, "seat0_bb": 0.9974, "seat1_bb": 2.5478, "hands": 600}
+{"tier": "mid", "abstraction": "pct11x11", "iters": 6000, "infosets": 23234, "train_s": 224.7, "lbr_bb": 1.2952, "stderr_bb": 0.4015, "seat0_bb": 1.1911, "seat1_bb": 1.3992, "hands": 600}
+{"tier": "baseline", "abstraction": "baseline", "iters": 2000, "infosets": 13341, "train_s": 87.5, "lbr_bb": 2.2923, "stderr_bb": 0.4296, "seat0_bb": 1.5495, "seat1_bb": 3.035, "hands": 600}
+{"tier": "baseline", "abstraction": "baseline", "iters": 6000, "infosets": 22367, "train_s": 215.6, "lbr_bb": 2.6959, "stderr_bb": 0.4204, "seat0_bb": 2.7947, "seat1_bb": 2.5972, "hands": 600}
