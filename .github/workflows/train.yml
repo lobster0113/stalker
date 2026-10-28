@@ -83,11 +83,15 @@ jobs:
           path: results
       - name: summary to ops
         run: |
+          # `if: always()` keeps partial matrices; so validate here too: an allow-listed job name (no path
+          # tricks) and at least one successful seed, size cap and credential check (summary_text).
+          [[ "$JOB" =~ ^[a-z0-9-]+$ ]] || { echo "job name must match ^[a-z0-9-]+$"; exit 1; }
+          python -m stalker.train_jobs summarize "$JOB" results > summary.json
+          cat summary.json
           git fetch -q origin ops
           git worktree add ops origin/ops -B ops
           mkdir -p "ops/training/$JOB"
-          python -m stalker.train_jobs summarize "$JOB" results > "ops/training/$JOB/$GITHUB_RUN_ID.json"
-          cat "ops/training/$JOB/$GITHUB_RUN_ID.json"
+          mv summary.json "ops/training/$JOB/$GITHUB_RUN_ID.json"
           cd ops
           git config user.name "stalker-ci"
           git config user.email "stalker-ci@users.noreply.github.com"
