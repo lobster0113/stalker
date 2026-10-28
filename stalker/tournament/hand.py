@@ -87,6 +87,7 @@ class Hand:
         rng: np.random.Generator,
         ante: int = 0,
         ante_mode: AnteMode = "none",
+        blind_seats: tuple[int, int] | None = None,
     ) -> None:
         stacks = [int(s) for s in stacks]
         if any(s < 0 for s in stacks):
@@ -113,18 +114,29 @@ class Hand:
         self.button = button
         self.starting_stacks = tuple(stacks)
 
+        # PokerKit opens preflop left of the largest posted blind, so blinds moved past short seats
+        # (short_stack_rule='skip') keep the usual "left of the BB acts first" order.
+        if blind_seats is None:
+            sb_i, bb_i = 0, 1
+        else:
+            if n < 3 or len(set(blind_seats)) != 2 or not all(s in self._index for s in blind_seats):
+                raise ValueError(f"blind_seats={blind_seats}: need two distinct occupied seats and >= 3 players")
+            sb_i, bb_i = (self._index[s] for s in blind_seats)
+            if sb_i > bb_i:
+                raise ValueError(f"blind_seats={blind_seats}: the SB must come before the BB left of the button")
         if ante_mode == "classic":
             antes: int | dict[int, int] = ante
         elif ante_mode == "bb_ante":
-            antes = {1: ante}  # index 1 is the BB for n > 2; heads-up pokerkit swaps it to the BB too
+            antes = {bb_i: ante}  # heads-up pokerkit swaps index 1 to the BB too
         else:
             antes = 0
         self.game = NoLimitTexasHoldem(
-            _AUTOMATIONS, False, antes, (small_blind, big_blind), big_blind, mode=Mode.TOURNAMENT
+            _AUTOMATIONS, False, antes, {sb_i: small_blind, bb_i: big_blind}, big_blind, mode=Mode.TOURNAMENT
         )
         self.state = self.game([stacks[s] for s in self.seats], n)
         self._deck = [int(c) for c in rng.permutation(N_CARDS)]
         self._pots: tuple[Pot, ...] = ()
+        self._holes: list[list[str]] = [[] for _ in range(n)]  # as dealt: PokerKit forgets mucked hands
         self._advance()
 
     def _draw(self) -> Card:
@@ -134,7 +146,9 @@ class Hand:
         st = self.state
         while True:
             if st.can_deal_hole():
-                st.deal_hole([self._draw()])
+                card = self._draw()
+                self._holes[st.hole_dealee_index].append(repr(card))
+                st.deal_hole([card])
             elif st.can_burn_card():
                 st.burn_card(self._draw())
             elif st.can_deal_board():
@@ -163,8 +177,24 @@ class Hand:
         i = self.state.actor_index
         return None if i is None else self.seats[i]
 
+    @property
+    def stacks(self) -> dict[int, int]:
+        """Chips behind by seat, occupied seats only."""
+        return {self.seats[i]: s for i, s in enumerate(self.state.stacks)}
+
+    @property
+    def bets(self) -> dict[int, int]:
+        """Chips committed this street by seat."""
+        return {self.seats[i]: b for i, b in enumerate(self.state.bets)}
+
+    @property
+    def pot(self) -> int:
+        """All chips in the middle, this street's bets included."""
+        return self.state.total_pot_amount
+
     def hole_cards(self, seat: int) -> list[str]:
-        return [repr(c) for c in self.state.hole_cards[self._index[seat]]]
+        """The seat's dealt cards, also after PokerKit mucked them (a hand can end inside the constructor)."""
+        return list(self._holes[self._index[seat]])
 
     def board(self) -> list[str]:
         return [repr(c) for c in self.state.get_board_cards(0)]

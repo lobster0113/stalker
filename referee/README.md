@@ -12,7 +12,7 @@ STALKER의 모든 "좋아졌다/나빠졌다" 판정은 여기의 코드가 CI�
 | `stats.py` | 게이트 통계: 클러스터 부트스트랩 CI, SPRT(무익성 중단 전용), 비열등성/우월성 판정, 필요 표본 수 |
 | `evaluate.py` | duplicate 토너먼트 평가: 후보 vs 기준 에이전트 ROI 차이와 CI, 결과 JSON(설정·시드 정책·참조기 버전) |
 | `gate_l.py` | Gate L 정보 누출·기억 경계: L1/L2/L5는 임의 `Agent` 팩토리를, L3/L4/L5는 관측·메모리 파이프라인을 검사. `python -m referee.gate_l`. 새 정책은 `REGISTRY`에 등록 |
-| `gate_r/` | Gate R 규칙 정확성 스위트: 독립 평가기·사이드팟 정산·이벤트 재생 검사, `python -m referee.gate_r` (`GATES.md` Gate R) |
+| `gate_r/` | Gate R 규칙 정확성 스위트: 독립 평가기·사이드팟 정산·이벤트 재생 검사, `python -m referee.gate_r`; 엣지 케이스 8종 `python -m referee.gate_r.edge` (`GATES.md` Gate R) |
 | `metrics.py` | main 머지마다 `ops:metrics/history.jsonl`에 append되는 지표 스냅샷 |
 
 ## 게이트 통계 (`stats.py`, `evaluate.py`)
