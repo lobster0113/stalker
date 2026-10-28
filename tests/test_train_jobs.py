@@ -195,3 +195,15 @@ def test_league_summary_keeps_one_entry_per_seed(tmp_path):
     assert s["seeds"] == [1, 2]
     assert s["champion_gain_bb_by_seed"] == [None, 0.4] and s["champion_worst_persona_by_seed"] == [None, "tag"]
     assert s["champion_field_ci95_low_bb_by_seed"] == [None, 0.05]
+
+
+def test_tp_noise_sim_job_reports_form_by_level_rows(tmp_path, monkeypatch):
+    # #261: the noisy-learner table is reproducible on CI; the exact learner loses nothing by construction.
+    monkeypatch.setattr(T, "NOISE_SIM_HANDS", 6)
+    T.run("tp-noise-sim", 20, 1, tmp_path)
+    r = json.loads((tmp_path / "tp-noise-sim-seed1.json").read_text(encoding="utf-8"))
+    assert {(x["form"], x["level"]) for x in r["rows"]} == {(f, lv) for f in ("equity", "pct")
+                                                         for lv in ("exact", "expert", "mid", "beginner")}
+    assert all(x["loss_bb"] == 0.0 for x in r["rows"] if x["level"] == "exact" and x["form"] == "pct")
+    s = T.summarize("tp-noise-sim", tmp_path)
+    assert s["hands"] == 6 and len(s["rows_by_seed"]) == 1 and len(s["rows_by_seed"][0]) == 8

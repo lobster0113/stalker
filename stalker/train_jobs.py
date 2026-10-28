@@ -24,6 +24,8 @@ from pathlib import Path
 LBR_HANDS = 4000
 # E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
 E3_LBR_HANDS = 1000
+# Noisy-learner hands per (form, level): 4000 gave CI ~±0.1-0.15 bb/hand per seed (#261 note).
+NOISE_SIM_HANDS = 4000
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
 ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
 # Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
@@ -121,6 +123,15 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
 
 
+def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
+    """#261: decision loss of a noisy TP learner, form (equity / rank) x level, on the E2 beginner policy."""
+    from stalker.tp.noise_sim import table
+
+    t0 = time.monotonic()
+    rows = table(iters, NOISE_SIM_HANDS, seed, levels=("exact", "expert", "mid", "beginner"))
+    return {"iters": iters, "hands": NOISE_SIM_HANDS, "rows": rows, "wall_sim_seconds": round(time.monotonic() - t0, 1)}
+
+
 JOBS = {"e2-mccfr": _e2_mccfr,
         "e2-tier-beginner": partial(_e2_mccfr, tier="beginner", name="e2-tier-beginner"),
         "e2-tier-mid": partial(_e2_mccfr, tier="mid", name="e2-tier-mid"),
@@ -130,7 +141,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #276: does a finer exploiter find what a same-tier one cannot?
         "e2-league-beginner-xbase": _e2_league("beginner", "baseline", "e2-league-beginner-xbase"),
         "e3-tp-beginner": partial(_e3_tp, tier="beginner", name="e3-tp-beginner"),     # #196/#197, 6-max
-        "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid")}
+        "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid"),
+        "tp-noise-sim": _tp_noise_sim}                                                  # #261
 
 
 def run(job: str, iters: int, seed: int, out: Path) -> Path:
@@ -198,6 +210,8 @@ def summarize(job: str, folder: Path) -> dict:
                     "champion_field_bb_by_seed": [c.get("field_bb") for c in champs],
                     "champion_field_ci95_low_bb_by_seed": [c.get("field_ci95_low_bb") for c in champs],
                     "champion_worst_persona_by_seed": [c.get("worst_persona") for c in champs]})
+    if job == "tp-noise-sim" and runs:
+        out.update({"iters": runs[0]["iters"], "hands": runs[0]["hands"], "rows_by_seed": [r["rows"] for r in runs]})
     return out
 
 
