@@ -1,0 +1,44 @@
+{
+ "job": "e2-league-beginner",
+ "runs": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "ref": "main",
+ "sha": "9aab2ca2394c03052931cdfab13903d6781e41d0",
+ "run_id": "40642250194",
+ "iters": 300000,
+ "promoted_by_seed": [
+  2,
+  3,
+  2,
+  1
+ ],
+ "champion_gain_bb_by_seed": [
+  -0.4266,
+  -0.5712,
+  -0.5516,
+  -0.5
+ ],
+ "champion_field_bb_by_seed": [
+  0.1614,
+  0.2355,
+  0.2309,
+  0.025
+ ],
+ "champion_field_ci95_low_bb_by_seed": [
+  0.0402,
+  0.1191,
+  0.1169,
+  -0.0947
+ ],
+ "champion_worst_persona_by_seed": [
+  "weak_tight",
+  "weak_tight",
+  "lag",
+  "maniac"
+ ]
+}
