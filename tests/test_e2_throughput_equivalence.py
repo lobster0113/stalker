@@ -19,7 +19,7 @@ class _Reference(MCCFR):
             return v if trav == 0 else -v
         acts = G.legal(s)
         key = infoset(s, self.abstraction)
-        sigma = self._regret_matching(key, len(acts))  # no strategy cache
+        sigma = self._sigma(key, len(acts))  # no strategy cache
         if s.to_act == trav:
             vals = np.array([self._walk(G.apply(s, a), trav) for a in acts])
             v = float(sigma @ vals)
@@ -111,3 +111,13 @@ def test_rank_pair_kernel_equals_the_numpy_table(monkeypatch, board):
     got = acc / A.RUNOUTS
     got[np.isnan(numpy_path)] = np.nan
     assert np.array_equal(got, numpy_path, equal_nan=True)
+
+
+def test_sigma_follows_regrets_updated_outside_the_base_walk():
+    # Exploiter and EqMCCFR update `regret` in place in their own walks and read `_sigma`;
+    # a cached strategy there went stale and weakened the exploiter (gain 0.55 < 0.6).
+    m = MCCFR(0)
+    m.regret["k"] = np.array([1.0, 0.0])
+    assert m._sigma("k", 2).tolist() == [1.0, 0.0]
+    np.maximum(m.regret["k"] + np.array([-1.0, 1.0]), 0, out=m.regret["k"])
+    assert m._sigma("k", 2).tolist() == [0.0, 1.0]

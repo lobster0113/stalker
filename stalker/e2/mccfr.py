@@ -72,14 +72,16 @@ class MCCFR:
         self._sig: dict[str, np.ndarray] = {}  # current strategy per key; derived from `regret`, not saved
         self._legal: dict[str, list[str]] = {}  # legal actions per history key (#201)
 
-    def _sigma(self, key: str, n: int) -> np.ndarray:
+    def _cached_sigma(self, key: str, n: int) -> np.ndarray:
         # Cached until the key's regrets change (#201): opponent nodes reread the same strategies.
+        # Only `_walk` below uses it, because only it drops the entry on every regret update;
+        # subclasses that update `regret` themselves (Exploiter, EqMCCFR) read `_sigma`.
         sig = self._sig.get(key)
         if sig is None:
-            sig = self._sig[key] = self._regret_matching(key, n)
+            sig = self._sig[key] = self._sigma(key, n)
         return sig
 
-    def _regret_matching(self, key: str, n: int) -> np.ndarray:
+    def _sigma(self, key: str, n: int) -> np.ndarray:
         r = self.regret.get(key)
         if r is None:
             return _uniform(n)
@@ -102,7 +104,7 @@ class MCCFR:
         if b is None:
             b = self._bk[p][st] = self.abstraction.bucket(s.hole[p], s.board)
         key = f"{p}|{st}|{b}|{hk}"
-        sigma = self._sigma(key, len(acts))
+        sigma = self._cached_sigma(key, len(acts))
         n = len(s.history)
         if p == trav:
             vals = []
