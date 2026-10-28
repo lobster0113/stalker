@@ -23,9 +23,39 @@ from stalker.e2 import game as G
 from stalker.e2.abstraction import BASELINE, TIERS, Abstraction
 
 
+def _short(h: str) -> str:
+    return h if len(h) == 1 else h[1:]
+
+
 def infoset(s: G.State, abstraction: Abstraction = BASELINE) -> str:
     p = s.to_act
-    return f"{p}|{s.street}|{abstraction.bucket(s.hole[p], s.board)}|{''.join(h if len(h) == 1 else h[1:] for h in s.history)}"
+    return f"{p}|{s.street}|{abstraction.bucket(s.hole[p], s.board)}|{''.join(_short(h) for h in s.history)}"
+
+
+def _sample(rng: np.random.Generator, p: np.ndarray) -> int:
+    """`rng.choice(len(p), p=p)` without its argument checks (#201): the same single `random()` draw
+    and the same rule (cumulative sum, sequential as numpy's, divided by its last entry; first entry
+    above the draw), so the same index."""
+    cdf, c = [], 0.0
+    for x in p.tolist():
+        c += x
+        cdf.append(c)
+    u = rng.random()
+    for i, x in enumerate(cdf):
+        if x / c > u:
+            return i
+    return len(cdf)
+
+
+_UNIFORM = {}
+
+
+def _uniform(n: int) -> np.ndarray:
+    u = _UNIFORM.get(n)
+    if u is None:
+        u = _UNIFORM[n] = np.full(n, 1.0 / n)
+        u.setflags(write=False)  # shared by every unvisited infoset with n actions
+    return u
 
 
 class MCCFR:
@@ -40,28 +70,41 @@ class MCCFR:
     def _sigma(self, key: str, n: int) -> np.ndarray:
         r = self.regret.get(key)
         if r is None:
-            return np.full(n, 1.0 / n)
+            return _uniform(n)
         pos = np.maximum(r, 0)
         s = pos.sum()
-        return pos / s if s > 0 else np.full(n, 1.0 / n)
+        return pos / s if s > 0 else _uniform(n)
 
-    def _walk(self, s: G.State, trav: int) -> float:
+    def _walk(self, s: G.State, trav: int, hk: str = "") -> float:
+        # Same values and keys as `infoset(s)`/`G.payoff(s)`, computed once per deal (#201): the
+        # showdown and each player's bucket per street are fixed for a deal, and `hk` is the
+        # history part of the key, extended edge by edge.
         if s.done:
-            v = G.payoff(s) / G.BB
+            v = G.payoff(s, self._sd) / G.BB
             return v if trav == 0 else -v
         acts = G.legal(s)
-        key = infoset(s, self.abstraction)
+        p, st = s.to_act, s.street
+        b = self._bk[p][st]
+        if b is None:
+            b = self._bk[p][st] = self.abstraction.bucket(s.hole[p], s.board)
+        key = f"{p}|{st}|{b}|{hk}"
         sigma = self._sigma(key, len(acts))
-        if s.to_act == trav:
-            vals = np.array([self._walk(G.apply(s, a), trav) for a in acts])
+        if p == trav:
+            vals = np.array([self._child(s, a, trav, hk) for a in acts])
             v = float(sigma @ vals)
             r = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(r + (vals - v), 0, out=r)
             return v
-        a = self.rng.choice(len(acts), p=sigma)
+        a = _sample(self.rng, sigma)
         avg = self.avg[key]
         self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
-        return self._walk(G.apply(s, acts[a]), trav)
+        return self._child(s, acts[a], trav, hk)
+
+    def _child(self, s: G.State, a: str, trav: int, hk: str) -> float:
+        ns = G.step(s, a)
+        n = len(s.history)
+        add = _short(a) if len(ns.history) == n + 1 else "".join(_short(h) for h in ns.history[n:])
+        return self._walk(ns, trav, hk + add)
 
     def iterate(self, n: int = 1, log=None, every: int = 1) -> None:
         """Run n iterations; with `log` (a text file), write a JSONL row every `every` iterations."""
@@ -71,6 +114,8 @@ class MCCFR:
                 self._log_row(log, t0)
             self.iterations += 1
             s = G.deal(self.rng)
+            self._sd = G.showdown(s)
+            self._bk = [[None] * 4, [None] * 4]
             for trav in (0, 1):
                 self._walk(s, trav)
         if log is not None:

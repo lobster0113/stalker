@@ -124,6 +124,11 @@ def _close_street(s: State) -> State:
 def apply(s: State, a: str) -> State:
     if a not in legal(s):
         raise ValueError(f"illegal action {a!r} after {s.history}; legal: {legal(s)}")
+    return step(s, a)
+
+
+def step(s: State, a: str) -> State:
+    """`apply` without the legality check, for callers that only play actions from `legal(s)` (#201)."""
     p, o = s.to_act, 1 - s.to_act
     if a == "f":
         return s._replace(folded=p, done=True, history=s.history + ("f",))
@@ -136,25 +141,33 @@ def apply(s: State, a: str) -> State:
     raised = to > max(s.bet)
     acted = [False, False] if raised else list(s.acted)
     acted[p] = True
-    ns = s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), history=s.history + (a,),
-                 raises=s.raises + int(raised), last_raise=max(s.last_raise, to - max(s.bet)) if raised else s.last_raise,
-                 acted=(acted[0], acted[1]), to_act=o)
+    # Built field by field (State's order), not with `_replace`: this is the hottest line of MCCFR (#201).
+    ns = State(s.hole, s.deck, tuple(stack), tuple(bet), tuple(total), s.street, s.board, o,
+               s.raises + int(raised), max(s.last_raise, to - max(s.bet)) if raised else s.last_raise,
+               (acted[0], acted[1]), s.history + (a,), s.folded, s.done)
     # Closed: both acted with equal bets, or this player called all in for less than the bet.
     if (all(ns.acted) and bet[0] == bet[1]) or (stack[p] == 0 and bet[p] <= bet[o]):
         return _close_street(ns)
     return ns
 
 
-def payoff(s: State) -> int:
-    """Chips player 0 wins (negative: loses) relative to the start of the hand."""
+def showdown(s: State) -> int:
+    """+1 if player 0 wins the showdown, -1 if player 1 does, 0 on a tie. Fixed for a deal: the board
+    is always the first five cards of the deck, whatever the betting."""
+    board = list(s.board) + list(s.deck[:5 - len(s.board)])
+    v0, v1 = evaluate(list(s.hole[0]) + board), evaluate(list(s.hole[1]) + board)
+    return 1 if v0 > v1 else -1 if v0 < v1 else 0
+
+
+def payoff(s: State, sd: int | None = None) -> int:
+    """Chips player 0 wins (negative: loses) relative to the start of the hand. `sd`: the deal's
+    `showdown(...)`, if the caller already has it (MCCFR reaches many showdowns of one deal)."""
     if not s.done:
         raise ValueError("hand is not over")
     if s.folded is not None:
         return -s.total[0] if s.folded == 0 else s.total[1]
     # Uncalled chips go back: each side risks at most what the other matched.
-    risk = min(s.total)
-    v0, v1 = evaluate(list(s.hole[0]) + list(s.board)), evaluate(list(s.hole[1]) + list(s.board))
-    return risk if v0 > v1 else -risk if v0 < v1 else 0
+    return min(s.total) * (showdown(s) if sd is None else sd)
 
 
 def public_tree_size() -> dict[str, int]:
