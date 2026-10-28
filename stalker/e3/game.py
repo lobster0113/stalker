@@ -219,8 +219,9 @@ def payoff(s: State) -> np.ndarray:
     best = max(score.values())
     winners = [i for i in postflop_order(s.n) if i in score and score[i] == best]
     share, odd = divmod(s.pot, len(winners))
-    for k, i in enumerate(winners):
-        out[i] += share + (1 if k < odd else 0)
+    for i in winners:
+        out[i] += share
+    out[winners[0]] += odd  # all odd chips to the first winner (TDA, as referee/gate_r/settlement.py; #203)
     return out
 
 

@@ -8,7 +8,8 @@ each of its decisions picks the action with the best value under a one-step look
   bet / raise   -> opponent folds with the policy's fold probability per combo, otherwise calls;
                    called value uses equity against the continuing range
 Averaged over sampled hands, LBR's winnings are a *found* exploitation gain — a lower bound, never a
-certificate (referee/GATES.md Gate Q3).
+certificate (referee/GATES.md Gate Q3). Opponent combos are bucketed with the policy's own card
+abstraction (`Abstraction`, baseline by default), so a TP-tier policy is read the way it was trained.
 """
 from __future__ import annotations
 
@@ -19,18 +20,14 @@ import numpy as np
 from referee.anchors.hu_equity import evaluate_batch
 from stalker.core.cards import COMBOS
 from stalker.e2 import game as G
-from stalker.e2.abstraction import N_BUCKETS, ehs_table, preflop_bucket
+from stalker.e2.abstraction import BASELINE, Abstraction
 
 COMBO_ARR = np.array(COMBOS, dtype=np.int64)
-PRE_BUCKET = np.array([preflop_bucket(a, b) for a, b in COMBOS])
 EQ_RUNOUTS = 8
 
 
-def combo_buckets(board: tuple[int, ...]) -> np.ndarray:
-    if not board:
-        return PRE_BUCKET
-    e = ehs_table(tuple(board))
-    return np.where(np.isnan(e), -1, np.minimum((np.nan_to_num(e) * N_BUCKETS).astype(int), N_BUCKETS - 1))
+def combo_buckets(board: tuple[int, ...], abstraction: Abstraction = BASELINE) -> np.ndarray:
+    return abstraction.combo_buckets(tuple(board))
 
 
 def opp_action_probs(policy, s: G.State, opp: int, board_buckets: np.ndarray) -> np.ndarray:
@@ -84,7 +81,7 @@ class LBRResult:
     stderr_bb: float
 
 
-def lbr_samples(policy, player: int, hands: int, seed: int = 0) -> np.ndarray:
+def lbr_samples(policy, player: int, hands: int, seed: int = 0, abstraction: Abstraction = BASELINE) -> np.ndarray:
     """LBR player's winnings per hand (bb). Deals come from their own stream (`seed`), play from another,
     so two policies measured with the same seed face the same deals (common random numbers)."""
     deal_rng = np.random.default_rng([seed, 0])
@@ -97,7 +94,7 @@ def lbr_samples(policy, player: int, hands: int, seed: int = 0) -> np.ndarray:
         w[np.isin(COMBO_ARR, list(s.hole[player])).any(axis=1)] = 0
         while not s.done:
             acts = G.legal(s)
-            buckets = combo_buckets(s.board)
+            buckets = combo_buckets(s.board, abstraction)
             if s.to_act == opp:
                 probs = opp_action_probs(policy, s, opp, buckets)
                 key_b = buckets[[i for i, c in enumerate(COMBOS) if set(c) == set(s.hole[opp])][0]]
@@ -108,7 +105,7 @@ def lbr_samples(policy, player: int, hands: int, seed: int = 0) -> np.ndarray:
                 continue
             best, best_v = None, -np.inf
             for a in acts:
-                v = _value(policy, s, a, w, player, rng)
+                v = _value(policy, s, a, w, player, rng, abstraction)
                 if v > best_v:
                     best, best_v = a, v
             s = G.apply(s, best)
@@ -117,12 +114,13 @@ def lbr_samples(policy, player: int, hands: int, seed: int = 0) -> np.ndarray:
     return np.array(wins)
 
 
-def lbr(policy: dict[str, list[float]], player: int, hands: int, seed: int = 0) -> LBRResult:
-    arr = lbr_samples(policy, player, hands, seed)
+def lbr(policy: dict[str, list[float]], player: int, hands: int, seed: int = 0,
+        abstraction: Abstraction = BASELINE) -> LBRResult:
+    arr = lbr_samples(policy, player, hands, seed, abstraction)
     return LBRResult(player, hands, float(arr.mean()), float(arr.std(ddof=1) / np.sqrt(len(arr))) if hands > 1 else 0.0)
 
 
-def _value(policy, s: G.State, a: str, w: np.ndarray, me: int, rng) -> float:
+def _value(policy, s: G.State, a: str, w: np.ndarray, me: int, rng, abstraction: Abstraction = BASELINE) -> float:
     """One-step look-ahead value (chips) of action `a` for the LBR player."""
     opp = 1 - me
     if a == "f":
@@ -133,7 +131,7 @@ def _value(policy, s: G.State, a: str, w: np.ndarray, me: int, rng) -> float:
         eq = equity_vs_range(s.hole[me], ns.board if ns.done else s.board, w, rng) if not ns.folded else 1.0
         pot = ns.total[0] + ns.total[1]
         return eq * pot - ns.total[me]
-    probs = opp_action_probs(policy, ns, opp, combo_buckets(ns.board))
+    probs = opp_action_probs(policy, ns, opp, combo_buckets(ns.board, abstraction))
     acts = G.legal(ns)
     fold = probs[:, acts.index("f")] if "f" in acts else np.zeros(len(COMBOS))
     pf = float((w * fold).sum() / max(w.sum(), 1e-12))
@@ -143,9 +141,9 @@ def _value(policy, s: G.State, a: str, w: np.ndarray, me: int, rng) -> float:
     return pf * ns.total[opp] + (1 - pf) * (eq * called_pot - ns.total[me])
 
 
-def exploitability_lb(policy, hands: int, seed: int = 0) -> dict:
+def exploitability_lb(policy, hands: int, seed: int = 0, abstraction: Abstraction = BASELINE) -> dict:
     """Mean of both seats' LBR winnings (bb/hand): a lower bound on exploitability."""
-    r0, r1 = lbr(policy, 0, hands, seed), lbr(policy, 1, hands, seed + 1)
+    r0, r1 = lbr(policy, 0, hands, seed, abstraction), lbr(policy, 1, hands, seed + 1, abstraction)
     return {"lbr_bb": round((r0.mean_bb + r1.mean_bb) / 2, 4),
             "stderr_bb": round(float(np.hypot(r0.stderr_bb, r1.stderr_bb) / 2), 4),
             "seat0_bb": round(r0.mean_bb, 4), "seat1_bb": round(r1.mean_bb, 4), "hands": hands}

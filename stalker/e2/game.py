@@ -7,11 +7,12 @@ Chips are integers with BB = 100. Player 0 is the button/SB (acts first preflop)
   postflop, facing a bet: f, c, r (raise to 3x the bet), a
 At most RAISE_CAP raises per street; after that only call/fold/all-in. A size that would put a
 player within one BB of all in is not offered (the all-in covers it). The state is immutable;
-`apply` returns a new state.
+`apply` returns a new state. `State` is a NamedTuple (#201, speed), so it also compares equal to a
+plain tuple of the same fields; compare states with each other, not with tuples.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from typing import NamedTuple
 
 import numpy as np
 
@@ -24,8 +25,9 @@ RAISE_CAP = 3
 PREFLOP_RAISE = (2.5, 3.0, 2.2)  # raise-to: open to 2.5BB, then multiples of the current bet
 
 
-@dataclass(frozen=True)
-class State:
+class State(NamedTuple):
+    # Immutable; a NamedTuple because `_replace` is several times cheaper than dataclasses.replace
+    # and MCCFR creates a state per tree edge (#201).
     hole: tuple[tuple[int, int], tuple[int, int]]
     deck: tuple[int, ...]                 # remaining cards; the board is dealt from the front
     stack: tuple[int, int] = (STACK - SB, STACK - BB)
@@ -105,17 +107,17 @@ def _amount_to(s: State, a: str) -> int:
 
 def _deal_street(s: State) -> State:
     n = 3 if s.street == 0 else 1
-    return replace(s, street=s.street + 1, board=s.board + s.deck[:n], deck=s.deck[n:], bet=(0, 0), to_act=1,
+    return s._replace(street=s.street + 1, board=s.board + s.deck[:n], deck=s.deck[n:], bet=(0, 0), to_act=1,
                    raises=0, last_raise=BB, acted=(False, False), history=s.history + ("/",))
 
 
 def _close_street(s: State) -> State:
     if s.street == 3:
-        return replace(s, done=True)
+        return s._replace(done=True)
     if 0 in s.stack:  # someone is all in: run the board out, no more betting
         while s.street < 3:
             s = _deal_street(s)
-        return replace(s, done=True)
+        return s._replace(done=True)
     return _deal_street(s)
 
 
@@ -124,7 +126,7 @@ def apply(s: State, a: str) -> State:
         raise ValueError(f"illegal action {a!r} after {s.history}; legal: {legal(s)}")
     p, o = s.to_act, 1 - s.to_act
     if a == "f":
-        return replace(s, folded=p, done=True, history=s.history + ("f",))
+        return s._replace(folded=p, done=True, history=s.history + ("f",))
     to = s.bet[p] if a == "k" else _amount_to(s, a)
     add = to - s.bet[p]
     stack, bet, total = list(s.stack), list(s.bet), list(s.total)
@@ -134,7 +136,7 @@ def apply(s: State, a: str) -> State:
     raised = to > max(s.bet)
     acted = [False, False] if raised else list(s.acted)
     acted[p] = True
-    ns = replace(s, stack=tuple(stack), bet=tuple(bet), total=tuple(total), history=s.history + (a,),
+    ns = s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), history=s.history + (a,),
                  raises=s.raises + int(raised), last_raise=max(s.last_raise, to - max(s.bet)) if raised else s.last_raise,
                  acted=(acted[0], acted[1]), to_act=o)
     # Closed: both acted with equal bets, or this player called all in for less than the bet.

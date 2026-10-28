@@ -32,13 +32,16 @@ def code_size() -> dict:
 
 
 def gate_r() -> dict:
+    from referee.gate_r import e3_suite
     from referee.gate_r.cash_suite import run_cash_suite
     from referee.gate_r.suite import run_suite
 
     tally = run_suite()
     cash, _ = run_cash_suite()
+    e3 = e3_suite.run_e3_suite()
     return {"gate_r_pass_rate": round(tally.pass_rate, 6), "gate_r_checks": tally.total,
-            "gate_r_cash_pass_rate": round(cash.pass_rate, 6), "gate_r_cash_checks": cash.total}
+            "gate_r_cash_pass_rate": round(cash.pass_rate, 6), "gate_r_cash_checks": cash.total,
+            "gate_r_e3_pass_rate": round(e3.pass_rate, 6), "gate_r_e3_checks": e3.total}
 
 
 def gate_l(report=None) -> dict:
