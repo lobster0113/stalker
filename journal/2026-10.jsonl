@@ -482,3 +482,4 @@
 {"ts":"2026-10-28T08:46:06Z","role":"reviewer-b","outcome":"skipped","issue":197,"pr":267,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T08:46:29Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":229,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T09:05:30Z","role":"reviewer","outcome":"changes","issue":197,"pr":267,"notes":"CI green; chart: BFS budget never reaches SB/BB, silent uniform on k/depth mismatch, beginner labels hardcoded, no caller/schema check","friction":"linked issues #196/#197 already closed and do not cover CI jobs/chart, so no acceptance criteria; browser spot format not in repo to validate against; first CI run cancelled left a stale gates failure on same sha"}
+{"ts":"2026-10-28T09:07:05Z","role":"reviewer-b","outcome":"skipped","issue":197,"pr":267,"notes":"not my parity","friction":""}
