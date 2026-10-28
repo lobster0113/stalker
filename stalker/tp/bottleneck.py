@@ -23,13 +23,38 @@ from stalker.env.contract import DecisionContext, PublicObservation, decision_co
 from stalker.tp.spec import Spec, load
 
 ACTIONS = ("fold", "call", "raise")
+# Numeric DecisionContext facts the head reads; each must be a field of the spec's decision_context.
 DC_NUMERIC = ("to_call", "pot", "effective_stack_bb", "spr", "required_equity", "position_vs_button",
               "opponents_to_act")
+# How each spec scale is stored and encoded: (number of values, lowest, highest). Values are divided
+# by 100 when encoded. range_169: one 0-100 cell per hand class (100 x line frequency, as
+# stalker.tp.reference.opp_range); risk_premium_pp: ICM premium in percentage points.
+SCALES = {"0-100": (1, 0.0, 100.0), "range_169": (169, 0.0, 100.0), "risk_premium_pp": (1, -100.0, 100.0)}
 
 
 def tp_items(spec: Spec) -> list[str]:
     """Items that form the TP vector: judgments and computed items, not the decision or reflections."""
     return [i["id"] for i in spec.data["items"] if i["kind"] in ("judgment", "computed")]
+
+
+def item_scale(spec: Spec, item: str) -> tuple[int, float, float]:
+    scale = spec.item(item)["scale"]
+    if scale not in SCALES:
+        raise ValueError(f"TP spec {spec.version} item {item} has scale {scale!r} that the bottleneck cannot encode; "
+                         f"add it to stalker/tp/bottleneck.py SCALES (known: {sorted(SCALES)})")
+    return SCALES[scale]
+
+
+def check_dc_fields(spec: Spec) -> None:
+    missing = [f for f in DC_NUMERIC if f not in spec.data["decision_context"]]
+    if missing:
+        raise ValueError(f"DC_NUMERIC uses {missing}, which TP spec {spec.version} decision_context does not define; "
+                         "drop them from DC_NUMERIC or add them to the spec (referee-change)")
+
+
+def feature_count(spec: Spec) -> int:
+    check_dc_fields(spec)
+    return sum(item_scale(spec, i)[0] + 1 for i in tp_items(spec)) + len(DC_NUMERIC)
 
 
 class TPVector(Mapping):
@@ -40,14 +65,30 @@ class TPVector(Mapping):
         unknown = set(values) - set(items)
         if unknown:
             raise ValueError(f"TP vector has items not in spec {spec.version}: {sorted(unknown)}")
-        self._v = {i: (None if values.get(i) is None else float(values[i])) for i in items}
-        for i, x in self._v.items():
-            if x is not None and i != "plan.icm" and not 0.0 <= x <= 100.0:
-                raise ValueError(f"{i}={x} is outside the 0-100 scale")
+        self._v: dict[str, tuple[float, ...] | None] = {}
+        self._width: dict[str, int] = {}
+        for i in items:
+            width, lo, hi = item_scale(spec, i)
+            self._width[i] = width
+            v = values.get(i)
+            if v is None:
+                self._v[i] = None
+                continue
+            xs = (float(v),) if width == 1 and not isinstance(v, (list, tuple, np.ndarray)) else tuple(float(x) for x in v)
+            if len(xs) != width:
+                raise ValueError(f"{i} needs {width} values on scale {spec.item(i)['scale']}, got {len(xs)}")
+            if not all(lo <= x <= hi for x in xs):
+                raise ValueError(f"{i} has a value outside {lo:g}..{hi:g} (scale {spec.item(i)['scale']})")
+            self._v[i] = xs
         self.spec_version = spec.version
 
     def __getitem__(self, k):
-        return self._v[k]
+        """A float for one-value scales, a tuple for range_169, None when N/A."""
+        v = self._v[k]
+        return v if v is None or self._width[k] > 1 else v[0]
+
+    def width(self, k) -> int:
+        return self._width[k]
 
     def __iter__(self):
         return iter(self._v)
@@ -70,11 +111,13 @@ TPHead = Callable[[PublicObservation], TPVector]
 
 
 def encode(tp: TPVector, dc: DecisionContext) -> np.ndarray:
-    """Fixed-order features: per TP item (value/100, present flag), then numeric DC facts."""
-    out = []
+    """Fixed-order features: per TP item its values/100 (169 for range_169) and a present flag, then
+    numeric DC facts. Length = feature_count(spec)."""
+    out: list[float] = []
     for i in tp:
-        v = tp[i]
-        out += [0.0 if v is None else v / 100.0, 0.0 if v is None else 1.0]
+        v = tp._v[i]
+        out += [0.0] * tp.width(i) if v is None else [x / 100.0 for x in v]
+        out.append(0.0 if v is None else 1.0)
     out += [float(getattr(dc, f)) for f in DC_NUMERIC]
     return np.array(out)
 
@@ -95,8 +138,7 @@ class LinearBottleneck:
 
     @classmethod
     def init(cls, spec: Spec, rng: np.random.Generator, scale: float = 0.1) -> "LinearBottleneck":
-        n = 2 * len(tp_items(spec)) + len(DC_NUMERIC)
-        return cls(rng.normal(0.0, scale, size=(len(ACTIONS), n)))
+        return cls(rng.normal(0.0, scale, size=(len(ACTIONS), feature_count(spec))))
 
     def act(self, tp: TPVector, dc: DecisionContext) -> dict[str, float]:
         return _legal_softmax(self.weights @ encode(tp, dc), dc)

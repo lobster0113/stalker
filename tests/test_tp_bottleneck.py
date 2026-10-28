@@ -83,3 +83,55 @@ def test_gates_md_t1_matches_implementation():
     gates = (ROOT / "referee" / "GATES.md").read_text(encoding="utf-8")
     line = next(x for x in gates.splitlines() if x.startswith("- T1 "))
     assert f"N={gate_t.T1_PERTURBATIONS}" in line and "check_t1" in line
+
+
+def test_tp_vector_holds_every_spec_scale_and_encodes_them():
+    # #232 review: opp.range is a 169-cell range (scale range_169), plan.icm is in percentage points.
+    import copy
+    import dataclasses
+
+    import numpy as np
+
+    from stalker.tp import bottleneck as B
+    from stalker.tp.spec import load
+
+    spec = load()
+    tp = B.TPVector({"opp.range": [50.0] * 169, "plan.icm": -3.5, "hand.equity": 62.0}, spec)
+    assert tp["opp.range"] == (50.0,) * 169 and tp["plan.icm"] == -3.5 and tp["hand.equity"] == 62.0
+    with pytest.raises(ValueError, match="needs 169 values"):
+        B.TPVector({"opp.range": [50.0] * 13}, spec)
+    with pytest.raises(ValueError, match="outside 0..100"):
+        B.TPVector({"opp.range": [150.0] * 169}, spec)
+
+    class DC:  # only the numeric facts encode reads
+        pass
+
+    dc = DC()
+    for f in B.DC_NUMERIC:
+        setattr(dc, f, 1.0)
+    feats = B.encode(tp, dc)
+    assert len(feats) == B.feature_count(spec)
+    assert len(feats) == sum(B.item_scale(spec, i)[0] + 1 for i in B.tp_items(spec)) + len(B.DC_NUMERIC)
+    assert int(np.isclose(feats, 0.5).sum()) == 169  # the range's cells, encoded value/100
+
+    fake = copy.deepcopy(spec.data)
+    next(i for i in fake["items"] if i["id"] == "hand.equity")["scale"] = "hexagon"
+    with pytest.raises(ValueError, match="SCALES"):
+        B.TPVector({}, dataclasses.replace(spec, data=fake))
+
+
+def test_dc_features_must_exist_in_the_spec():
+    import copy
+    import dataclasses
+
+    import numpy as np
+
+    from stalker.tp import bottleneck as B
+    from stalker.tp.spec import load
+
+    spec = load()
+    B.check_dc_fields(spec)
+    fake = copy.deepcopy(spec.data)
+    fake["decision_context"] = [f for f in fake["decision_context"] if f != "spr"]
+    with pytest.raises(ValueError, match="spr"):
+        B.LinearBottleneck.init(dataclasses.replace(spec, data=fake), np.random.default_rng(0))
