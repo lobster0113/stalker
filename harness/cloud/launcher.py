@@ -28,7 +28,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Callable
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -130,11 +130,16 @@ def parse_spec(text: str, source: str = "job") -> Job:
     return Job(**data)
 
 
+def _rel_posix(path: PurePath, root: PurePath) -> str:
+    """Repo-relative name with forward slashes on every OS (Windows paths use backslashes, #225)."""
+    return path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix()
+
+
 def load_spec(path: Path) -> Job:
-    rel = path.resolve().relative_to(ROOT) if path.resolve().is_relative_to(ROOT) else path
-    if not re.fullmatch(r"jobs/[^/]+\.yaml", str(rel)):
+    rel = _rel_posix(path.resolve(), ROOT)
+    if not re.fullmatch(r"jobs/[^/]+\.yaml", rel):
         raise LauncherError(f"{path}: job specs must be jobs/<name>.yaml in this repo")
-    return parse_spec(path.read_text(), str(rel))
+    return parse_spec(path.read_text(encoding="utf-8"), rel)
 
 
 # ---------- budget ledger ----------
