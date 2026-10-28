@@ -68,6 +68,10 @@ class TournamentConfig:
             raise ConfigError(f"players={self.players}: need at least 2 players.")
         if not 2 <= self.table_size <= 10:
             raise ConfigError(f"table_size={self.table_size}: must be between 2 and 10.")
+        # Odd survivor counts would leave a 1-player table (ceil(n/2) tables, spread <= 1), which cannot deal.
+        if self.table_size == 2 and self.players > 2:
+            raise ConfigError(f"table_size=2 with players={self.players}: heads-up tables cannot be balanced "
+                              "(an odd field leaves a lone player); use table_size >= 3 or players=2.")
         if self.starting_stack <= 0:
             raise ConfigError(f"starting_stack={self.starting_stack}: must be a positive integer.")
         if self.seconds_per_seat < 1:
