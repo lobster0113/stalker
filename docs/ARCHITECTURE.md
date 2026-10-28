@@ -41,6 +41,7 @@
   - `e2/abstraction.py` TP 티어(#187) — `Abstraction(pre_k, post_k)`가 `hand.pct`를 조합 가중 분위 k단계로 나눈다(초보 5·중수 11, `TIERS`). MCCFR·LBR이 같은 추상화로 정보 집합을 읽는다. 티어 표 `python -m stalker.e2.tiers`.
   - `core/fast_eval.py` — 학습 루프용 컴파일 커널(ADR 0013, 선택 의존성 numba `[fast]`): 7장 평가, 강도표 랭킹, 분위 단계, 레인지 에퀴티(#188 에퀴티 view). numba가 없으면 numpy 경로로 같은 결과(테스트로 강제). 심판은 쓰지 않는다.
   - `e2/eq_view.py` — `hand.equity` view(#188): 두 좌석의 공개 레인지(1326 도달 확률)를 걸음 내내 각 좌석 전략으로 Bayes 갱신하고, 상대 레인지 대비 에퀴티의 분위 단계로 정보 집합을 만든다(`EqMCCFR`). LBR의 동적 view가 정책의 믿음을 재현해 같은 버킷으로 읽는다.
+  - `e2/field.py` — 필드 대국(#306): 등급 정책(`FieldMCCFR`)이 자기 복사본 대신 필드(초보·중수·baseline 각자 MCCFR)에서 핸드마다 뽑은 한 상대와 학습하는 집단 자기 대전. 양쪽이 번갈아 순회하며 자기 차례에만 regret을 갱신한다. 필드가 비면 `MCCFR`과 정확히 같다. CI 잡 `e2-exploit-field-beginner`(착취 곡선·Q1·LBR, 자기 대전 `e2-exploit-beginner`와 비교). 체크포인트 미지원.
   - `referee/e2/exploiter.py`·`e2/league.py` — 학습 착취자(#202): 고정 정책을 상대로 한 MCCFR 최선 응답과 헤드업 착취 하한. 리그 v1: 자기 대전 세대마다 착취자로 시험하고, 이득이 줄면서 이전 챔피언 풀과의 헤드업에서도 지지 않을 때만 승격한다(순환 방지).
   - `personas/` — 난이도 1~19 사다리(#291): `level(n)`·`ladder()`가 `calling_station`(1)과 `high_stakes_pro`(19) 프리셋 사이를 네 파라미터 선형 보간한 `PersonaParams`를 돌려준다(범위 밖 `ValueError`). 양 끝 강도만 테스트로 고정, 상호 대전 표는 `docs/research/2026-10-persona-ladder.md`.
   - `e2/personas.py` — 페르소나 필드(#226, 리그 구성원 4): #198 프리셋(vpip·pfr·aggression·fold_to_bet)을 E2 액션 메뉴의 결정적 정책 callable로 옮긴 것(프리플랍 `hand_top_pct`, 포스트플랍 무작위 상대 대비 EHS). 리그는 세대마다 필드 평균(Gate Q1 보고)과 최약 상대를 기록하고, 어느 페르소나에게든 지면(평균 + SE < 0) 승격하지 않는다.

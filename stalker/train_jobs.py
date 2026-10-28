@@ -64,17 +64,25 @@ EXPLOIT_HANDS = 2000
 EXPLOIT_CHECKPOINTS = 3
 
 
-def _e2_exploit(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
+Q1_HANDS = 1000
+
+
+def _e2_exploit(iters: int, seed: int, out: Path, tier: str, name: str, field: bool = False) -> dict:
     """#299: train a tier policy, freeze it, then a baseline-abstraction exploiter per seat for
-    EXPLOIT_RATIO x iters, recording its gain at evenly spaced checkpoints (is it still rising?)."""
+    EXPLOIT_RATIO x iters, recording its gain at evenly spaced checkpoints (is it still rising?).
+    `field` (#306): train against a mixed field (`stalker.e2.field`) instead of a copy of itself.
+    Also records the persona-field mean (Gate Q1 report) and LBR on the same frozen policy."""
     import numpy as np
 
     from referee.e2.exploiter import BASELINE, Exploiter, play
+    from referee.e2.lbr import exploitability_lb
     from stalker.e2.abstraction import TIERS
+    from stalker.e2.field import FieldMCCFR
+    from stalker.e2.league import League
     from stalker.e2.mccfr import MCCFR
 
     t0 = time.monotonic()
-    m = MCCFR(seed, TIERS[tier])
+    m = FieldMCCFR(seed, TIERS[tier]) if field else MCCFR(seed, TIERS[tier])
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
@@ -95,8 +103,13 @@ def _e2_exploit(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
         se = float(np.hypot(w0.std(ddof=1) / np.sqrt(len(w0)), w1.std(ddof=1) / np.sqrt(len(w1))) / 2)
         curve.append({"exploiter_iters": done, "gain_bb": round(float((w0.mean() + w1.mean()) / 2), 4),
                       "stderr_bb": round(se, 4)})
-    return {"iters": iters, "tier": tier, "exploiter": {"tier": "baseline", "ratio": EXPLOIT_RATIO, "strategy": "current"},
-            "curve": curve, "gain_bb": curve[-1]["gain_bb"], "stderr_bb": curve[-1]["stderr_bb"],
+    q1 = League(tier, seed=seed)._field(policy, TIERS[tier], Q1_HANDS, 30_000 + seed)
+    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, abstraction=TIERS[tier])
+    return {"iters": iters, "tier": tier, "field_play": field,
+            "exploiter": {"tier": "baseline", "ratio": EXPLOIT_RATIO, "strategy": "current"},
+            "q1": None if q1 is None else {"field_bb": q1[0], "stderr_bb": q1[1], "worst_persona": q1[2],
+                                          "ci95_low_bb": q1[4]},
+            "lbr": lbr, "curve": curve, "gain_bb": curve[-1]["gain_bb"], "stderr_bb": curve[-1]["stderr_bb"],
             "policy_iters_per_s": round(iters / max(train_s, 1e-6), 2),
             "exploiter_iters_per_s": round(2 * done / max(ex_s, 1e-6), 2), "wall_seconds": round(time.monotonic() - t0, 1),
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
@@ -204,7 +217,9 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-beginner": partial(_e3_tp, tier="beginner", name="e3-tp-beginner"),     # #196/#197, 6-max
         "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
-        "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner")}  # #299
+        "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
+        # #306: the same measurement on a policy trained against a mixed field
+        "e2-exploit-field-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-field-beginner", field=True)}
 
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid"}   # #301
@@ -285,6 +300,8 @@ def summarize(job: str, folder: Path) -> dict:
                     "champion_worst_persona_by_seed": [c.get("worst_persona") for c in champs]})
     if job.startswith("e2-exploit-") and runs:
         out.update({"iters": runs[0]["iters"], "exploiter": runs[0]["exploiter"],
+                    "lbr_bb_by_seed": [r["lbr"]["lbr_bb"] for r in runs],
+                    "q1_field_bb_by_seed": [(r["q1"] or {}).get("field_bb") for r in runs],
                     "gain_bb_by_seed": [r["gain_bb"] for r in runs], "stderr_bb_by_seed": [r["stderr_bb"] for r in runs],
                     "curve_by_seed": [[(c["exploiter_iters"], c["gain_bb"]) for c in r["curve"]] for r in runs],
                     "policy_iters_per_s_mean": round(sum(r["policy_iters_per_s"] for r in runs) / len(runs), 2),

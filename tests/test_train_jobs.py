@@ -261,6 +261,8 @@ def test_train_workflow_resume_input_is_validated_and_passed_through_env():
 
 def test_exploit_job_records_a_curve_on_a_frozen_policy(tmp_path, monkeypatch):
     monkeypatch.setattr(T, "EXPLOIT_HANDS", 20)
+    monkeypatch.setattr(T, "LBR_HANDS", 10)
+    monkeypatch.setattr(T, "Q1_HANDS", 10)
     T.run("e2-exploit-beginner", 12, 1, tmp_path)
     r = json.loads((tmp_path / "e2-exploit-beginner-seed1.json").read_text(encoding="utf-8"))
     assert r["exploiter"] == {"tier": "baseline", "ratio": T.EXPLOIT_RATIO, "strategy": "current"}
@@ -272,3 +274,18 @@ def test_exploit_job_records_a_curve_on_a_frozen_policy(tmp_path, monkeypatch):
     s = T.summarize("e2-exploit-beginner", tmp_path)
     assert s["runs"] == 2 and len(s["curve_by_seed"][0]) == 3 and "lbr_bb_mean" not in s
     assert s["policy_iters_per_s_mean"] > 0 and s["exploiter_iters_per_s_mean"] > 0
+
+
+def test_exploit_field_job_trains_against_a_field_and_reports_q1_and_lbr(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "EXPLOIT_HANDS", 20)
+    monkeypatch.setattr(T, "LBR_HANDS", 10)
+    monkeypatch.setattr(T, "Q1_HANDS", 10)
+    T.run("e2-exploit-field-beginner", 10, 1, tmp_path)
+    T.run("e2-exploit-beginner", 10, 1, tmp_path)
+    f = json.loads((tmp_path / "e2-exploit-field-beginner-seed1.json").read_text(encoding="utf-8"))
+    s = json.loads((tmp_path / "e2-exploit-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert f["field_play"] is True and s["field_play"] is False
+    assert f["policy_sha256"] != s["policy_sha256"]
+    assert f["q1"]["field_bb"] is not None and "lbr_bb" in f["lbr"]
+    sm = T.summarize("e2-exploit-field-beginner", tmp_path)
+    assert sm["runs"] == 1 and len(sm["lbr_bb_by_seed"]) == 1 and len(sm["q1_field_bb_by_seed"]) == 1
