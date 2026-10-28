@@ -9,6 +9,7 @@ Usage:
   python harness/cloud/launcher.py run jobs/x.yaml --ledger L [--dry-run] [--run-id ID] [--sync-cmd CMD]
                                        [--result-out PATH]
   python harness/cloud/launcher.py reap --ledger L [--job jobs/x.yaml --run-id ID --force]
+  python harness/cloud/launcher.py publish result.json --run-id ID --ops OPS_WORKTREE
 
 Budget rule: a job runs only if month_total + worst_case(job) <= monthly cap
 (`harness/budget.json`). month_total counts finished jobs at their actual cost and open
@@ -20,6 +21,8 @@ Results (#184, ADR 0014): a job with `result_path` gets a per-run random token i
 after its command, serves only `/<token>/status.json` and `/<token>/result.json` over the RunPod
 HTTP proxy. The launcher pulls them (no RunPod key sent), checks size, JSON and secret patterns,
 writes `--result-out`, then terminates the pod. The pod needs no GitHub credential.
+`publish` copies a checked result to `ops:cloud/results/<run id>.json`: agent sandboxes cannot
+download artifacts (their blob storage host is outside the egress allow-list, #264), but read ops.
 """
 from __future__ import annotations
 
@@ -58,6 +61,9 @@ RESULT_MAX_BYTES = 20 * 1024 * 1024
 SECRET_PATTERNS = [re.compile(p) for p in (
     rb"gh[pousr]_[A-Za-z0-9]{30,}", rb"github_pat_[A-Za-z0-9_]{30,}", rb"rpa_[A-Za-z0-9]{20,}",
     rb"AKIA[0-9A-Z]{16}", rb"-----BEGIN [A-Z ]*PRIVATE KEY-----", rb"xox[abpr]-[A-Za-z0-9-]{10,}")]
+# ops is a git branch every routine fetches; bigger results stay artifact-only
+OPS_RESULT_MAX_BYTES = 1024 * 1024
+OPS_RESULT_DIR = PurePath("cloud", "results")
 
 
 class LauncherError(Exception):
@@ -445,6 +451,22 @@ def _collect(job: Job, pod_id: str, token: str, raw_status: bytes, out: Path, fe
     return "completed", meta
 
 
+def publish(src: Path, run_id: str, ops: Path, log=print) -> Path | None:
+    """Copy a checked result JSON to <ops>/cloud/results/<run_id>.json; None when it is too big for ops."""
+    if not re.fullmatch(r"[0-9]+", run_id):
+        raise LauncherError(f"run id must be digits (a cloud.yml run id), got {run_id!r}")
+    body = src.read_bytes()
+    check_result(body)  # again: a collected artifact did not pass through this process's _collect
+    if len(body) > OPS_RESULT_MAX_BYTES:
+        log(f"result is {len(body)} bytes > {OPS_RESULT_MAX_BYTES} for ops; it stays in the run's artifact only")
+        return None
+    dst = ops / OPS_RESULT_DIR / f"{run_id}.json"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(body)
+    log(f"result published: ops:{OPS_RESULT_DIR.as_posix()}/{run_id}.json ({len(body)} bytes)")
+    return dst
+
+
 def reap(api: RunPod, ledger: Path, *, name_prefix: str = POD_PREFIX, pod_name: str | None = None,
          force: bool = False, now: Callable[[], datetime] = _now, log=print) -> list[str]:
     """Terminate our pods past their deadline (or unknown to the ledger) and close stale ledger entries.
@@ -512,6 +534,10 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--job", type=Path, help="with --run-id: reap only this run's pod (name from the parsed spec)")
     g.add_argument("--run-id")
     g.add_argument("--force", action="store_true")
+    u = sub.add_parser("publish")
+    u.add_argument("result", type=Path)
+    u.add_argument("--run-id", required=True)
+    u.add_argument("--ops", type=Path, required=True, help="ops worktree")
     a = p.parse_args(argv)
 
     def api() -> RunPod:
@@ -531,6 +557,8 @@ def main(argv: list[str] | None = None) -> int:
             if res["status"] not in ("completed", "dry_run"):
                 print(f"job {job.name}: {res['status']}", file=sys.stderr)
                 return 1
+        elif a.cmd == "publish":
+            publish(a.result, a.run_id, a.ops)
         else:
             if bool(a.job) != bool(a.run_id):
                 raise LauncherError("reap: pass --job and --run-id together (or neither for the daily reap)")

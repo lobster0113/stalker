@@ -526,3 +526,53 @@ def test_cloud_workflow_uploads_result():
     assert '--result-out "$RUNNER_TEMP/cloud-result/result.json"' in wf
     up = wf.split("- name: upload result", 1)[1].split("- name:", 1)[0]
     assert "if: always()" in up and "actions/upload-artifact@v4" in up and "cloud-result/" in up
+
+
+def test_publish_copies_checked_result_to_ops(tmp_path, capsys):
+    src, ops = tmp_path / "result.json", tmp_path / "ops"
+    src.write_text('{"iters_per_s": 400}', encoding="utf-8")
+    dst = L.publish(src, "40778103365", ops, log=lambda _m: None)
+    assert dst == ops / "cloud" / "results" / "40778103365.json" and dst.read_bytes() == src.read_bytes()
+    with pytest.raises(L.LauncherError, match="digits"):
+        L.publish(src, "../x", ops)
+    src.write_text('{"k": "ghp_' + "a" * 36 + '"}', encoding="utf-8")
+    with pytest.raises(L.LauncherError, match="secret"):
+        L.publish(src, "2", ops)
+    assert not (ops / "cloud" / "results" / "2.json").exists()
+    src.write_text(json.dumps({"x": "a" * L.OPS_RESULT_MAX_BYTES}), encoding="utf-8")
+    assert L.publish(src, "3", ops, log=lambda _m: None) is None and not (ops / "cloud" / "results" / "3.json").exists()
+    src.write_text("{}", encoding="utf-8")
+    assert L.main(["publish", str(src), "--run-id", "4", "--ops", str(ops)]) == 0
+    assert L.main(["publish", str(src), "--run-id", "x4", "--ops", str(ops)]) == 1 and "digits" in capsys.readouterr().err
+
+
+def test_push_ledger_commits_published_results(tmp_path):
+    import subprocess
+
+    def git(*a, cwd):
+        subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+
+    remote, wt = tmp_path / "remote.git", tmp_path / "ops"
+    git("init", "-q", "--bare", "-b", "ops", str(remote), cwd=tmp_path)
+    git("clone", "-q", str(remote), str(wt), cwd=tmp_path)
+    git("checkout", "-q", "-b", "ops", cwd=wt)
+    (wt / "cloud" / "results").mkdir(parents=True)
+    (wt / "cloud" / "results" / "9.json").write_text("{}", encoding="utf-8")
+    subprocess.run(["bash", str(ROOT / "harness" / "cloud" / "push_ledger.sh"), str(wt), "cloud: collect 9"],
+                   check=True, capture_output=True)
+    files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
+                           capture_output=True, text=True).stdout.split()
+    assert files == ["cloud/results/9.json"]
+
+
+def test_cloud_workflow_collect_mode_and_result_to_ops():
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    assert "collect)" in wf and "actions: read" in wf and "COLLECT_RUN: ${{ inputs.collect_run }}" in wf
+    fetch = wf.split("- name: fetch earlier result", 1)[1].split("- name:", 1)[0]
+    assert "if: env.MODE == 'collect'" in fetch and "actions/download-artifact@v4" in fetch
+    assert "run-id: ${{ inputs.collect_run }}" in fetch and "cloud-result/" in fetch
+    # publish runs after upload and before the ledger push, which commits cloud/results too
+    i_up, i_pub, i_push = (wf.index(s) for s in ("- name: upload result", "- name: result to ops", "- name: push ledger"))
+    assert i_up < i_pub < i_push
+    pub = wf[i_pub:i_push]
+    assert "if: always()" in pub and "launcher.py publish" in pub and "${{ inputs." not in pub
