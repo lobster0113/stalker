@@ -18,7 +18,7 @@ def preflop_equity() -> dict[str, list[float]]:
     """class -> [equity vs 1 random hand, vs 2, ... vs 5]. Built by `python -m stalker.tools.build_tables`."""
     if not PREFLOP_TABLE.exists():
         raise FileNotFoundError(f"{PREFLOP_TABLE} missing; run `python -m stalker.tools.build_tables`")
-    return json.loads(PREFLOP_TABLE.read_text())
+    return json.loads(PREFLOP_TABLE.read_text(encoding="utf-8"))
 
 
 def class_equity(cls: str, n_opp: int = 1) -> float:

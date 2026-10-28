@@ -73,3 +73,20 @@ def test_compiled_equity_equals_the_numpy_path(monkeypatch):
     monkeypatch.setattr(F, "HAVE_NUMBA", False)
     slow = [equity_vs(b, w) for b, w in cases]
     assert all(np.array_equal(np.nan_to_num(a, nan=-1), np.nan_to_num(s, nan=-1)) for a, s in zip(fast, slow))
+
+
+def test_range_equity_kernel_path_equals_the_numpy_path(monkeypatch):
+    # #237 review rule: the kernel runs as plain Python without numba, so CI checks its logic too.
+    import numpy as np
+
+    from stalker.core import fast_eval as F
+    from stalker.e2.eq_view import equity_vs
+
+    rng = np.random.default_rng(188)
+    for board in [(0, 17, 34), (5, 22, 47, 12)]:
+        w = rng.random(1326) * (rng.random(1326) > 0.3)
+        monkeypatch.setattr(F, "HAVE_NUMBA", True)
+        kernel = equity_vs(board, w)
+        monkeypatch.setattr(F, "HAVE_NUMBA", False)
+        numpy_path = equity_vs(board, w)
+        assert np.array_equal(kernel, numpy_path, equal_nan=True)

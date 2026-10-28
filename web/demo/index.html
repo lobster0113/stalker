@@ -640,6 +640,14 @@ details.why[open] > summary { margin-bottom: 8px; }
             <button data-v="pro" aria-pressed="false">고수 · 13항목</button>
           </div>
         </div>
+        <div class="setting">
+          <div class="lab">플레이 모드 · 등급과 별개</div>
+          <div class="seg" id="set-play">
+            <button data-v="quick" aria-pressed="true">Quick · 액션 먼저</button>
+            <button data-v="guided" aria-pressed="false">Guided · 판단 전부</button>
+          </div>
+          <div id="play-desc" style="margin-top:8px;font-size:12px;color:var(--faint)"></div>
+        </div>
         <div class="start-row">
           <button class="cta" id="start-btn">테이블에 앉기 <span aria-hidden="true">→</span></button>
           <span class="note">다른 플레이어는 약 1.5초 간격으로 행동합니다.</span>
@@ -925,6 +933,8 @@ const TIERS = {
   pro: { name: "고수", step: 1, tol: 3, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "opp.foldy", "board.nut", "act.choice"] },
 };
 const REFLECTION = ["plan.pot"]; // spec reflection_items: asked (Guided-like tiers) but never graded
+// Spec `modes.quick` (TP §4.2): the core judgments Quick asks per spot type. Kept JSON-equal to tp_v0_1.json by tests/test_tp_spec.py.
+const MODES = {"quick": {"max_judgments": 3, "rule": {"preflop": ["hand.equity", "opp.range"], "postflop": ["hand.equity", "board.adv", "hand.outs"], "facing_bet": ["opp.value", "hand.equity"]}}};
 // Action has no Q(s,a) in the demo, so per TP §5 it is reference-only; plan.pot has no fixed definition.
 const isScored = k => !!TP[k] && k !== "act.choice" && !TP[k].reflection;
 const CONF = `<span class="conf" title="정답 출처 승인 상태: 모의 = 규칙 기반 대체값 (TP §5)">모의</span>`;
@@ -952,7 +962,7 @@ const DIFF_DESC = d => d >= 20 ? "최고 난이도 · TP-GTO 테이블" : d >= 1
 const NAMES = ["민준", "서연", "Viktor", "하루", "Maya", "도윤", "Kenji", "지아", "Lena", "Rafael", "윤서", "Theo", "은우", "Ines", "태오", "Sora"];
 
 /* ================= settings ================= */
-const S = { mode: "tournament", tier: "mid", diff: 9 };
+const S = { mode: "tournament", tier: "mid", diff: 9, play: "quick" };
 function segBind(id, key, after) {
   $$(`#${id} button`).forEach(b => b.addEventListener("click", () => {
     $$(`#${id} button`).forEach(x => x.setAttribute("aria-pressed", x === b)); S[key] = b.dataset.v; after && after();
@@ -960,6 +970,9 @@ function segBind(id, key, after) {
 }
 segBind("set-mode", "mode", () => { $("#set-tour").hidden = S.mode !== "tournament"; $("#set-cash").hidden = S.mode !== "cash"; });
 segBind("set-tier", "tier");
+const PLAY_DESC = { quick: "실전용. 내 차례에 액션부터 고르고 바로 진행해요. 원하면 '분석 보기'로 핵심 판단 1~3개를 답하고 TP-GTO와 비교해요.", guided: "집중 훈련용. 등급의 판단을 카드마다 전부 답한 뒤 액션을 고르고 채점해요." };
+const renderPlay = () => { $("#play-desc").textContent = PLAY_DESC[S.play]; };
+segBind("set-play", "play", renderPlay); renderPlay();
 function renderDiff() {
   const d = +$("#set-diff").value; S.diff = d;
   $("#diff-num").textContent = d; $("#diff-desc").textContent = DIFF_DESC(d);
@@ -1389,6 +1402,7 @@ function setTP(mode) {
   // ask: card news — one card per TP stage (B → F), 이전/다음, last card submits.
   $("#tp-ctx").innerHTML = ctxChips();
   tp.classList.add("open");
+  if (S.play === "quick") { setQuick(); return; }
   const opp = CUR.g.opp, items = itemsNow().filter(k => !isFollow(k)), cards = [];
   for (const k of items) { const st = TP[k].stage; if (!cards.length || cards.at(-1).stage !== st) cards.push({ stage: st, keys: [] }); cards.at(-1).keys.push(k); }
   CUR.base = cards.length; CUR.cards = cards; CUR.card = 0;
@@ -1413,6 +1427,50 @@ function setTP(mode) {
   goCard(0, true);
   if (matchMedia("(max-width: 760px)").matches) tp.classList.add("open");
 }
+const oppLine = () => { const opp = CUR.g.opp; return `<div class="tpc-opp">판단 대상 상대 · <b>${opp.name}</b> (${posName(opp)}) · 이번 게임 관측 <b class="num">${opp.stats.hands - 1}</b>핸드</div>`; };
+// Spot type for the Quick rule: facing a bet/raise this street, otherwise preflop/postflop.
+const spotType = () => G.streetAgg != null && G.streetAgg !== CUR.hero.i ? "facing_bet" : G.street === 0 ? "preflop" : "postflop";
+function quickItems() {
+  const tier = TIERS[S.tier].items;
+  return MODES.quick.rule[spotType()].filter(k => tier.includes(k) && applies(k) && !naNow(k)).slice(0, MODES.quick.max_judgments);
+}
+const actionDone = () => !!CUR.action && (CUR.action !== "raise" || CUR.size != null);
+const actionLabel = () => CUR.action === "raise" ? (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + sizeOptions()[CUR.size].label : ACT_NM[CUR.action];
+// Quick (TP §4.2): the action comes first and ends the decision; the core judgments are asked only on "분석 보기".
+function setQuick() {
+  CUR.quick = "act";
+  const n = quickItems().length;
+  $("#tp-body").innerHTML = `${oppLine()}<div class="tpc-view"><section class="tpc" data-card="quick-act" aria-label="F 액션">
+      <header class="tpc-h"><span class="tpc-letter">F</span><span class="tpc-name">액션 먼저</span><span class="tpc-count">Quick</span></header>
+      <div class="q" data-k="act.choice"><div class="n">1</div><div class="body">${qInput("act.choice")}</div></div>
+    </section></div>`;
+  const foot = $("#tp-foot"); foot.hidden = false;
+  foot.innerHTML = `<div class="tpc-nav"><button class="cta ghost small" id="tp-analyze" disabled>분석 보기</button><span></span><button class="cta small" id="tp-go" disabled>진행</button></div>
+    <span class="tpc-note">진행하면 바로 넘어가요. 분석 보기는 핵심 판단 ${n}개를 묻고 TP-GTO(${CONF})와 비교해요. 내 차례에는 레벨 시계가 멈춰요.</span>`;
+  bindInputs($("#tp-body"));
+  $("#tp-go").onclick = () => finishHero(null);
+  $("#tp-analyze").onclick = quickAnalyze;
+  quickNav();
+}
+function quickAnalyze() {
+  recordInputTime((performance.now() - CUR.t0) / 1000); CUR.timed = true; // the decision ends when the action is fixed
+  CUR.quick = "ask"; CUR.qkeys = quickItems();
+  $("#tp-body").innerHTML = `${oppLine()}<div class="tpc-view"><section class="tpc" data-card="quick-ask" aria-label="분석 · 핵심 판단">
+      <header class="tpc-h"><span class="tpc-letter">Q</span><span class="tpc-name">분석 · 핵심 판단</span><span class="tpc-count num">${CUR.qkeys.length}개</span></header>
+      <div class="hint">고른 액션(${actionLabel()})은 그대로 두고, 이 스팟의 핵심 판단만 답한 뒤 TP-GTO(모의)와 비교해요.</div>
+      ${CUR.qkeys.map((k, i) => `<div class="q" data-k="${k}"><div class="n">${i + 1}</div><div class="body">${qInput(k, false)}</div></div>`).join("")}
+    </section></div>`;
+  $("#tp-foot").innerHTML = `<div class="tpc-nav"><span></span><span></span><button class="cta small" id="tp-submit" disabled>비교 보기</button></div>
+    <span class="tpc-note">비교하면 채점하고 고른 액션으로 진행해요(정답 ${CONF}).</span>`;
+  bindInputs($("#tp-body"));
+  $("#tp-submit").onclick = () => finishHero([...CUR.qkeys, "act.choice"]);
+  $("#tp-body").scrollTop = 0; quickNav();
+}
+function quickNav() {
+  if (CUR.quick === "act") $("#tp-go").disabled = $("#tp-analyze").disabled = !actionDone();
+  else $("#tp-submit").disabled = !CUR.qkeys.every(k => CUR.answers[k] != null);
+}
+const refreshNav = () => CUR.quick ? quickNav() : navState();
 const isFollow = k => TP[k].stage[0] === "G";
 // Card G holds the checks that depend on the chosen action; it exists only while it has questions.
 function renderFollow() {
@@ -1516,7 +1574,7 @@ function bindInputs(root) {
       if (!fromGrid) { CUR.rangeKeys = classesInTop(v); CUR.rangeEdited = false; paintGrid($("[data-grid]", q), CUR.rangeKeys); }
       $("[data-val]", q).textContent = fromGrid ? `약 ${v}% (편집)` : `상위 ${v}%`;
     } else $("[data-val]", q).textContent = v;
-    navState();
+    refreshNav();
   };
   $$(".q[data-k]", root).forEach(q => {
     const k = q.dataset.k;
@@ -1538,9 +1596,9 @@ function bindInputs(root) {
   $$("[data-act]", root).forEach(b => b.addEventListener("click", () => {
     $$("[data-act]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.action = b.dataset.act; CUR.size = null;
     const sz = $("[data-sizes]"); sz.hidden = CUR.action !== "raise"; $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", "false"));
-    $("[data-val]", b.closest(".body")).textContent = b.textContent; delete CUR.answers["plan.foldeq"]; renderFollow();
+    $("[data-val]", b.closest(".body")).textContent = b.textContent; delete CUR.answers["plan.foldeq"]; CUR.quick ? quickNav() : renderFollow();
   }));
-  $$("[data-size]", root).forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; delete CUR.answers["plan.foldeq"]; renderFollow(); }));
+  $$("[data-size]", root).forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; delete CUR.answers["plan.foldeq"]; CUR.quick ? quickNav() : renderFollow(); }));
 }
 // Inputs for the shared answer explanation, from what the mock teacher used for this decision.
 function trainWhyCtx(g) {
@@ -1557,9 +1615,12 @@ function trainWhyCtx(g) {
   return { hero: hero.cards.slice(), board: G.board.slice(), oppPct: g.pct, heroPct: heroRangePct(hero), ov: g.ov, steps, note: g.note["opp.value"], texts };
 }
 function scoreScalar(u, g) { const tol = TIERS[S.tier].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * 2.4)) }; }
-function submitTP() {
+function submitTP() { finishHero(itemsNow()); }
+// keys = items to grade (Guided: every applicable item; Quick analysis: the core judgments + action). null = Quick without analysis.
+function finishHero(keys) {
   const g = CUR.g, rows = [], refs = [];
-  for (const k of itemsNow()) {
+  if (!CUR.timed) recordInputTime((performance.now() - CUR.t0) / 1000);
+  for (const k of keys || []) {
     if (naNow(k)) continue;
     if (k === "act.choice") {
       refs.push({ k, kind: "action", mix: g.v[k], you: CUR.action });
@@ -1577,10 +1638,9 @@ function submitTP() {
   rows.forEach(r => recordScore(r.k, r.score));
   const ctx = trainWhyCtx(g);
   rows.forEach(r => r.why = whyHTML(r.k, { ...ctx, text: ctx.texts[r.k] }));
-  recordInputTime((performance.now() - CUR.t0) / 1000);
   const total = rows.length ? Math.round(rows.reduce((a, r) => a + r.score, 0) / rows.length) : null;
   const worst = rows.slice().sort((a, b) => a.score - b.score)[0];
-  G.lastGrade = { rows, refs, total, worst, street: ["프리플랍", "플랍", "턴", "리버"][G.street], hand: CUR.hero.cards.map(cardTxt).join(" ") };
+  G.lastGrade = keys ? { rows, refs, total, worst, mode: CUR.quick ? "Quick" : "Guided", street: ["프리플랍", "플랍", "턴", "리버"][G.street], hand: CUR.hero.cards.map(cardTxt).join(" ") } : null;
   // resolve action
   let act;
   if (CUR.action === "raise") act = { type: "raise", to: sizeOptions()[CUR.size].to };
@@ -1600,7 +1660,7 @@ function mixRefHTML(mix, you, title) {
     <div class="cap"><span>모의 참고: TP-GTO(모의) 혼합 전략 · 내 선택 빈도 ${p}%</span><span>EV 손실 미산출 · 점수 제외</span></div></div>`;
 }
 function resultHTML(gr, compact) {
-  let html = `<div class="result-top"><div class="ring" style="--v:${gr.total ?? 0}"><b class="num">${gr.total ?? "—"}</b></div><div><div style="font-weight:600">${gr.street} 판단 채점 ${CONF}</div><div style="font-size:12px;color:var(--muted)">내 핸드 ${gr.hand} · 흰 막대 = 내 입력, 초록 막대 = TP-GTO(모의)${gr.total == null ? " · 이번에는 채점할 판단이 없었어요" : ""}</div></div></div>`;
+  let html = `<div class="result-top"><div class="ring" style="--v:${gr.total ?? 0}"><b class="num">${gr.total ?? "—"}</b></div><div><div style="font-weight:600">${gr.street} 판단 채점${gr.mode === "Quick" ? " · Quick 분석" : ""} ${CONF}</div><div style="font-size:12px;color:var(--muted)">내 핸드 ${gr.hand} · 흰 막대 = 내 입력, 초록 막대 = TP-GTO(모의)${gr.total == null ? " · 이번에는 채점할 판단이 없었어요" : ""}</div></div></div>`;
   for (const r of gr.rows) {
     const cls = r.score >= 80 ? "good" : r.score >= 55 ? "warn" : "bad";
     const lo = Math.min(r.you, r.gto), hi = Math.max(r.you, r.gto);

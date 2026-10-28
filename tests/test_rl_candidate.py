@@ -72,12 +72,12 @@ def test_memory_is_per_game_gate_l1(checkpoint):
 def test_gate_b_cli_end_to_end_is_insufficient_on_a_small_spec(checkpoint, tmp_path):
     path, version = checkpoint
     spec = tmp_path / "spec.json"
-    spec.write_text(json.dumps(SPEC))
+    spec.write_text(json.dumps(SPEC), encoding="utf-8")
     env = {**os.environ, candidate.CHECKPOINT_ENV: str(path)}
     proc = subprocess.run([sys.executable, "-m", "referee.gate_b", "--spec", str(spec), "--candidate",
                            "stalker.rl.candidate:policy", "--out", str(tmp_path / "out")],
-                          env=env, capture_output=True, text=True, timeout=600)
+                          env=env, capture_output=True, text=True, timeout=600, encoding="utf-8")
     assert proc.returncode == 1, proc.stderr  # only `pass` exits 0
-    res = json.loads((tmp_path / "out/gate_b.json").read_text())
+    res = json.loads((tmp_path / "out/gate_b.json").read_text(encoding="utf-8"))
     assert res["verdict"] == INSUFFICIENT
     assert res["presets"]["6max_sng_wta"]["illegal_actions"] == 0
