@@ -575,3 +575,4 @@
 {"ts":"2026-10-28T20:12:26Z","role":"builder-b","outcome":"pr_opened","issue":306,"pr":310,"notes":"FieldMCCFR + e2-exploit-field-beginner job; CI run after merge","friction":"gates full tests stage ~14min and foreground 10min limit forces nohup+poll; pip vs python -m pip env mismatch hid xdist"}
 {"ts":"2026-10-28T20:12:50Z","role":"reviewer","outcome":"skipped","issue":306,"pr":310,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
 {"ts":"2026-10-28T20:13:10Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"gh CLI token invalid; used GitHub MCP instead"}
+{"ts":"2026-10-28T20:41:32Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #310 is even (reviewer-b)","friction":"gh CLI token invalid; used MCP to list PRs"}
