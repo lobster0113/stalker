@@ -434,3 +434,4 @@
 {"ts":"2026-10-28T04:23:31Z","role":"reviewer","outcome":"skipped","issue":117,"pr":238,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T04:24:30Z","role":"reviewer","outcome":"skipped","issue":179,"pr":218,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T04:41:06Z","role":"reviewer-b","outcome":"merged","issue":128,"pr":232,"notes":"main 병합 head 3b6fd64 재판정: 코드 e44b2ca와 동일, CI 전부 success, squash 머지 a7fd316","friction":"gh pr comment/merge가 GraphQL 403, gh api 쓰기는 guard 훅이 막아 GitHub MCP 도구로 판정·머지함. reviewer.md의 gh pr 명령은 이 환경에서 동작하지 않음"}
+{"ts":"2026-10-28T04:44:39Z","role":"reviewer-b","outcome":"changes","issue":112,"pr":248,"notes":"Gate T4: 상대 수만 지운 입력이 21/21 통과(상대 수 쌍이 팟 크기로 교란), aggressor 쌍이 aggressor를 안 바꿈","friction":"이 sha의 CI 잡 대부분 cancelled·gates queued — 동시 실행 취소로 보임; gh pr checks/view는 GraphQL 403이라 REST로 대체"}
