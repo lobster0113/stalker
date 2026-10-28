@@ -11,14 +11,30 @@ import os
 import re
 import subprocess
 import sys
+import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_counts() -> dict:
-    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider"],
+def test_counts(junit: str | None = None) -> dict:
+    """Counts from the gates (tests) job's JUnit report when CI hands one over (METRICS_JUNIT, #312):
+    the suite already ran on this sha, and rerunning it serially took most of the 30-minute budget.
+    Without a report it runs the suite with the same workers as `gates full`."""
+    junit = junit or os.environ.get("METRICS_JUNIT")
+    if junit:
+        if not Path(junit).is_file():
+            raise SystemExit(f"METRICS_JUNIT={junit} not found; check the junit artifact step of gates (tests)")
+        root = ET.parse(junit).getroot()
+        suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+        n = {k: sum(int(s.get(k, 0)) for s in suites) for k in ("tests", "failures", "errors", "skipped")}
+        return {"tests_passed": n["tests"] - n["failures"] - n["errors"] - n["skipped"],
+                "tests_failed": n["failures"] + n["errors"]}
+    from referee.gates import FULL_TEST_WORKERS
+
+    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *FULL_TEST_WORKERS],
                        cwd=ROOT, capture_output=True, text=True)
     text = r.stdout + r.stderr
     counts = {k: int(v) for v, k in re.findall(r"(\d+) (passed|failed|error|skipped)", text)}
@@ -138,14 +154,10 @@ def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    snap.update(test_counts())
-    snap.update(code_size())
-    snap.update(gate_r())
-    snap.update(gate_l())
-    snap.update(gate_s_e1())
-    snap.update(e0())
-    snap.update(e1())
-    snap.update(gate_f_e1())
+    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1):
+        t0 = time.monotonic()
+        snap.update(part())
+        print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)
     return snap
 
 
