@@ -225,3 +225,4 @@ def test_exploit_job_records_a_curve_on_a_frozen_policy(tmp_path, monkeypatch):
     assert again["curve"] == r["curve"] and again["policy_sha256"] == r["policy_sha256"]
     s = T.summarize("e2-exploit-beginner", tmp_path)
     assert s["runs"] == 2 and len(s["curve_by_seed"][0]) == 3 and "lbr_bb_mean" not in s
+    assert s["policy_iters_per_s_mean"] > 0 and s["exploiter_iters_per_s_mean"] > 0

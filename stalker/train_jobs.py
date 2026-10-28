@@ -269,6 +269,7 @@ def summarize(job: str, folder: Path) -> dict:
         out.update({"iters": runs[0]["iters"], "exploiter": runs[0]["exploiter"],
                     "gain_bb_by_seed": [r["gain_bb"] for r in runs], "stderr_bb_by_seed": [r["stderr_bb"] for r in runs],
                     "curve_by_seed": [[(c["exploiter_iters"], c["gain_bb"]) for c in r["curve"]] for r in runs],
+                    "policy_iters_per_s_mean": round(sum(r["policy_iters_per_s"] for r in runs) / len(runs), 2),
                     "exploiter_iters_per_s_mean": round(sum(r["exploiter_iters_per_s"] for r in runs) / len(runs), 2),
                     "wall_seconds_max": max(r["wall_seconds"] for r in runs)})
     if job == "tp-noise-sim" and runs:
