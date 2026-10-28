@@ -1,19 +1,32 @@
 """Text I/O names its encoding (#191): Windows defaults to cp949 here, so an implicit encoding reads
 the repo's UTF-8 files differently on a local Windows session than on Linux CI."""
 import ast
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DIRS = ("harness", "stalker", "scripts", "tests")
 
 
+MODE = re.compile(r"^[rwxabt+]+$")
+
+
 def _text_open_mode(call: ast.Call) -> str | None:
-    if not (isinstance(call.func, ast.Name) and call.func.id == "open"):
-        return None
-    if len(call.args) > 1 and isinstance(call.args[1], ast.Constant):
-        mode = call.args[1].value
+    """Text mode of open(file, mode) or path.open(mode); None for binary or a non-file .open (zip.open(name))."""
+    kw = next((k.value.value for k in call.keywords if k.arg == "mode" and isinstance(k.value, ast.Constant)), None)
+    if isinstance(call.func, ast.Name) and call.func.id == "open":
+        pos = call.args[1].value if len(call.args) > 1 and isinstance(call.args[1], ast.Constant) else None
+        mode = pos or kw or "r"
+    elif isinstance(call.func, ast.Attribute) and call.func.attr == "open":
+        first = call.args[0].value if call.args and isinstance(call.args[0], ast.Constant) else None
+        if isinstance(first, str) and MODE.match(first):
+            mode = first
+        elif kw is not None or not call.args:
+            mode = kw or "r"           # Path.open() defaults to text
+        else:
+            return None
     else:
-        mode = next((k.value.value for k in call.keywords if k.arg == "mode" and isinstance(k.value, ast.Constant)), "r")
+        return None
     return None if "b" in str(mode) else str(mode)
 
 
@@ -36,3 +49,9 @@ def test_text_reads_and_writes_name_utf8():
                 if rw or _text_open_mode(n) is not None or _text_subprocess(n):
                     bad.append(f"{f.relative_to(ROOT).as_posix()}:{n.lineno}")
     assert not bad, "add encoding=\"utf-8\" to: " + ", ".join(bad)
+
+
+def test_the_check_sees_method_form_open():
+    calls = [ast.parse(src).body[0].value for src in ('p.open("a")', "p.open()", 'p.open("rb")', 'z.open("member.txt")',
+                                                       'open(f, "w")', 'p.open("w", encoding="utf-8")')]
+    assert [_text_open_mode(c) for c in calls[:5]] == ["a", "r", None, None, "w"]
