@@ -12,6 +12,7 @@
 - TP 항목 ID·등급·눈금·적용 조건은 TP v0.1(`docs/TP.md`, `stalker/tp/spec/tp_v0_1.json`)을 따른다. `TP` 키와 `TIERS[*].items`는 JSON과 정확히 같아야 하며 `tests/test_tp_spec.py::test_demo_matches_spec`이 검사한다. 명세가 바뀌면 이 파일의 `TP`·`TIERS`도 같은 PR에서 고친다.
 - 모든 정답 화면(훈련 게임 채점·학습 섹션·복기)에 신뢰도 라벨 `모의`를 붙인다. 액션은 Q값이 없으므로 "모의 참고: TP-GTO(모의) 혼합 전략"으로만 보여주고 점수·약점에 넣지 않으며 EV 손실 수치도 내지 않는다(TP §5). `plan.pot`은 채점하지 않는 성찰 질문(중수·고수)이고, `opp.*`는 기회 수(N/A 기준은 JSON `na.min_opportunities`)가 모자라면 묻지 않는다.
 - 결정당 입력 시간(내 차례 시작 → 제출. Quick은 액션을 확정한 `진행`·`분석 보기`까지)을 기록해 "내 약점" 화면에 P50/P95로 보여준다(브라우저 localStorage `stalker.itimes`, 최근 300회).
+- **기록 옮기기**(#117): '내 약점'의 '기록 옮기기'에서 학습 기록(`weak`·`itimes`·`rankq`)을 JSON 텍스트로 보여주고 복사한다. 다른 기기에서 붙여넣어 가져온다. 파일 다운로드나 서버 동기화는 쓰지 않는다. 스키마는 `{schema: "stalker.demo.records", schema_version: 1, ...}`이고, 잘못된 입력에는 고치는 법이 담긴 오류를 보여준다. 가져오기는 한 번 더 눌러야 덮어쓴다(뷰어에 `confirm()`이 없음). 검사: `tests/test_demo_records.py`(node로 `parseRecords`), Gate U 왕복(내보내기 → 초기화 → 가져오기 → 같은 통계).
 - 사용자에게 보여줄 때: 대화 세션이 `<!doctype>`·`<html>`·`<head>`·`<body>` 태그를 뺀 사본을 Claude Artifact(비공개)로 게시한다. 현재 게시본: https://claude.ai/artifact/LpQTDzYgZgTjcY5T4BwcZb
 
 ## e2e/ (Gate U, CI 잡 `web`)
