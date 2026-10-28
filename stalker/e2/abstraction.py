@@ -4,14 +4,20 @@ Preflop: the 169 hand classes. Postflop: expected hand strength against a unifor
 estimated by dealing `RUNOUTS` random completions of the board and ranking all 1326 combos at once
 with the vectorised evaluator; bucket = floor(EHS x N_BUCKETS). One call buckets every combo on a
 board, so the opponent-range computations in LBR reuse the same table. Seeded and cached by board.
+
+TP tiers (#187) see only hand.pct — the hand's percentile against a random hand — on a k-step
+quantile scale (each step holds about 1/k of the live combos, as in E1). `Abstraction` names either
+the baseline above or such a tier; MCCFR keys infosets with it and LBR buckets the opponent with it.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 
 import numpy as np
 
-from referee.anchors.hu_equity import evaluate_batch
+from stalker.core import fast_eval
+from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.core.cards import COMBO_INDEX, COMBOS, hand_class, HAND_CLASSES
 
 N_BUCKETS = 10
@@ -24,29 +30,45 @@ def preflop_bucket(a: int, b: int) -> int:
     return CLASS_INDEX[hand_class(a, b)]
 
 
-@lru_cache(maxsize=200_000)
+@lru_cache(maxsize=20_000)  # boards rarely repeat across hands; bounds memory on long runs (~10 KB each)
 def ehs_table(board: tuple[int, ...]) -> np.ndarray:
     """EHS of every combo on `board` (nan for combos that collide with the board)."""
     rng = np.random.default_rng([20261027, *board])  # seeded by the cards themselves, process-independent
-    live = np.array([c for c in range(52) if c not in board])
-    ok = ~np.isin(COMBO_ARR, list(board)).any(axis=1)
+    on_board = np.zeros(52, dtype=bool)
+    on_board[list(board)] = True
+    live = np.flatnonzero(~on_board)
+    ok = ~(on_board[COMBO_ARR[:, 0]] | on_board[COMBO_ARR[:, 1]])
     acc = np.zeros(len(COMBOS))
-    for _ in range(RUNOUTS):
-        need = 5 - len(board)
-        extra = rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)
-        full = np.concatenate([np.array(board, dtype=np.int64), extra])
-        usable = ok & ~np.isin(COMBO_ARR, extra).any(axis=1)
-        idx = np.flatnonzero(usable)
-        hands = np.concatenate([COMBO_ARR[idx], np.broadcast_to(full, (len(idx), 5))], axis=1)
-        score = evaluate_batch(hands)
-        order = np.argsort(score, kind="stable")
-        # Share of other usable combos this combo beats (ties count half).
-        s_sorted = score[order]
-        lo = np.searchsorted(s_sorted, score, side="left")
-        hi = np.searchsorted(s_sorted, score, side="right")
-        ranks = (lo + (hi - lo - 1) / 2) / max(len(idx) - 1, 1)
-        acc[idx] += ranks
-        acc[~usable & ok] += 0.5  # a combo blocked only by this runout: neutral contribution
+    need = 5 - len(board)
+    runs = RUNOUTS if need else 1  # the river has nothing left to deal: evaluate it once (see below)
+    # Same draws in the same order as before, compiled or not (choice by index = choice of `live`).
+    extras = [live[rng.choice(len(live), size=need, replace=False)] if need else np.array([], dtype=np.int64)
+              for _ in range(runs)]
+    one = acc if need else np.zeros(len(COMBOS))
+    if fast_eval.HAVE_NUMBA:
+        fulls = np.empty((runs, 5), dtype=np.int64)
+        fulls[:, :len(board)] = board
+        for r, x in enumerate(extras):
+            fulls[r, len(board):] = x
+        fast_eval.rank_runouts(COMBO_ARR, ok, fulls, one)
+    else:
+        for extra in extras:
+            full = np.concatenate([np.array(board, dtype=np.int64), extra])
+            usable = ok & ~np.isin(COMBO_ARR, extra).any(axis=1)
+            idx = np.flatnonzero(usable)
+            hands = np.concatenate([COMBO_ARR[idx], np.broadcast_to(full, (len(idx), 5))], axis=1)
+            score = evaluate_batch(hands)
+            # Share of other usable combos this combo beats (ties count half).
+            s_sorted = np.sort(score)
+            lo = np.searchsorted(s_sorted, score, side="left")
+            hi = np.searchsorted(s_sorted, score, side="right")
+            one[idx] += (lo + (hi - lo - 1) / 2) / max(len(idx) - 1, 1)
+            one[~usable & ok] += 0.5  # a combo blocked only by this runout: neutral contribution
+    if not need:
+        # Every river "runout" is the board itself: repeat the one evaluation's sum RUNOUTS times so
+        # the table stays bit-identical to RUNOUTS evaluations (#223 review: float rounding flips buckets).
+        for _ in range(RUNOUTS):
+            acc += one
     out = acc / RUNOUTS
     out[~ok] = np.nan
     return out
@@ -59,3 +81,89 @@ def postflop_bucket(a: int, b: int, board: tuple[int, ...]) -> int:
 
 def bucket(hole: tuple[int, int], board: tuple[int, ...]) -> int:
     return preflop_bucket(*hole) if not board else postflop_bucket(hole[0], hole[1], board)
+
+
+def quantile_buckets(x: np.ndarray, w: np.ndarray, k: int) -> np.ndarray:
+    """k-step quantile scale of x under weights w; equal values share a step (-1 where w == 0)."""
+    out = np.full(len(x), -1)
+    live = w > 0
+    if fast_eval.HAVE_NUMBA:
+        out[live] = fast_eval.quantile_steps(x[live], w[live], k, float(w[live].sum()))
+        return out
+    vals, inv = np.unique(x[live], return_inverse=True)
+    mass = np.bincount(inv, w[live], len(vals)) / w[live].sum()
+    mid = np.cumsum(mass) - mass / 2
+    out[live] = np.minimum((mid * k).astype(int), k - 1)[inv]
+    return out
+
+
+@lru_cache(maxsize=1)
+def _class_weights() -> np.ndarray:
+    w = np.zeros(len(HAND_CLASSES))
+    for a, b in COMBOS:
+        w[preflop_bucket(a, b)] += 1
+    return w
+
+
+@lru_cache(maxsize=None)
+def _preflop_pct_buckets(k: int) -> np.ndarray:
+    from referee.anchors.hu_equity import load
+
+    E, N = load()
+    vs_random = (N * E).sum(axis=1) / N.sum(axis=1)
+    return quantile_buckets(vs_random, _class_weights(), k)
+
+
+@lru_cache(maxsize=20_000)  # boards rarely repeat across hands; bounds memory on long runs (~10 KB each)
+def _postflop_pct_buckets(board: tuple[int, ...], k: int) -> np.ndarray:
+    e = ehs_table(board)
+    ok = ~np.isnan(e)
+    return quantile_buckets(np.nan_to_num(e), ok.astype(float), k)
+
+
+@dataclass(frozen=True)
+class Abstraction:
+    """Card abstraction: `pre_k`/`post_k` = None is the baseline (169 classes / EHS x N_BUCKETS)."""
+    pre_k: int | None = None
+    post_k: int | None = None
+
+    @property
+    def name(self) -> str:
+        return "baseline" if self == BASELINE else f"pct{self.pre_k or 169}x{self.post_k or N_BUCKETS}"
+
+    def bucket(self, hole: tuple[int, int], board: tuple[int, ...]) -> int:
+        if not board:
+            c = preflop_bucket(*hole)
+            return c if self.pre_k is None else int(_preflop_pct_buckets(self.pre_k)[c])
+        if self.post_k is None:
+            return postflop_bucket(hole[0], hole[1], board)
+        a, b = hole
+        return int(_postflop_pct_buckets(tuple(board), self.post_k)[COMBO_INDEX[(a, b) if a > b else (b, a)]])
+
+    def combo_buckets(self, board: tuple[int, ...]) -> np.ndarray:
+        """Bucket of every one of the 1326 combos (-1 where a combo collides with the board)."""
+        if not board:
+            cls = _combo_classes()
+            return cls if self.pre_k is None else _preflop_pct_buckets(self.pre_k)[cls]
+        if self.post_k is None:
+            e = ehs_table(tuple(board))
+            return np.where(np.isnan(e), -1, np.minimum((np.nan_to_num(e) * N_BUCKETS).astype(int), N_BUCKETS - 1))
+        return _postflop_pct_buckets(tuple(board), self.post_k)
+
+    def to_json(self) -> dict:
+        return {"pre_k": self.pre_k, "post_k": self.post_k}
+
+    @classmethod
+    def from_json(cls, d: dict | None) -> "Abstraction":
+        return cls(**d) if d else BASELINE
+
+
+@lru_cache(maxsize=1)
+def _combo_classes() -> np.ndarray:
+    return np.array([preflop_bucket(a, b) for a, b in COMBOS])
+
+
+BASELINE = Abstraction()
+# TP resolutions (docs/TP.md tiers, as in E1): beginner 5 steps, mid 11. The baseline stands in for
+# the finest tier until a finer postflop table is affordable.
+TIERS = {"beginner": Abstraction(5, 5), "mid": Abstraction(11, 11), "baseline": BASELINE}

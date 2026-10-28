@@ -1,0 +1,2 @@
+{"what": "trained-1500", "train_s": 220, "lbr_bb": 6.0915, "stderr_bb": 1.4418, "by_seat": {"UTG": 6.67, "HJ": 1.3367, "CO": 1.39, "BTN": 0.0033, "SB": 2.8867, "BB": 24.2625}, "hands": 150}
+{"what": "uniform", "lbr_bb": 2.1953, "stderr_bb": 1.4541, "by_seat": {"UTG": 4.01, "HJ": -1.3333, "CO": 3.3733, "BTN": 1.3467, "SB": 1.1233, "BB": 4.6517}, "hands": 150}

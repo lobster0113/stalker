@@ -7,11 +7,12 @@ Chips are integers with BB = 100. Player 0 is the button/SB (acts first preflop)
   postflop, facing a bet: f, c, r (raise to 3x the bet), a
 At most RAISE_CAP raises per street; after that only call/fold/all-in. A size that would put a
 player within one BB of all in is not offered (the all-in covers it). The state is immutable;
-`apply` returns a new state.
+`apply` returns a new state. `State` is a NamedTuple (#201, speed), so it also compares equal to a
+plain tuple of the same fields; compare states with each other, not with tuples.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from typing import NamedTuple
 
 import numpy as np
 
@@ -24,8 +25,9 @@ RAISE_CAP = 3
 PREFLOP_RAISE = (2.5, 3.0, 2.2)  # raise-to: open to 2.5BB, then multiples of the current bet
 
 
-@dataclass(frozen=True)
-class State:
+class State(NamedTuple):
+    # Immutable; a NamedTuple because `_replace` is several times cheaper than dataclasses.replace
+    # and MCCFR creates a state per tree edge (#201).
     hole: tuple[tuple[int, int], tuple[int, int]]
     deck: tuple[int, ...]                 # remaining cards; the board is dealt from the front
     stack: tuple[int, int] = (STACK - SB, STACK - BB)
@@ -105,54 +107,68 @@ def _amount_to(s: State, a: str) -> int:
 
 def _deal_street(s: State) -> State:
     n = 3 if s.street == 0 else 1
-    return replace(s, street=s.street + 1, board=s.board + s.deck[:n], deck=s.deck[n:], bet=(0, 0), to_act=1,
+    return s._replace(street=s.street + 1, board=s.board + s.deck[:n], deck=s.deck[n:], bet=(0, 0), to_act=1,
                    raises=0, last_raise=BB, acted=(False, False), history=s.history + ("/",))
 
 
 def _close_street(s: State) -> State:
     if s.street == 3:
-        return replace(s, done=True)
+        return s._replace(done=True)
     if 0 in s.stack:  # someone is all in: run the board out, no more betting
         while s.street < 3:
             s = _deal_street(s)
-        return replace(s, done=True)
+        return s._replace(done=True)
     return _deal_street(s)
 
 
 def apply(s: State, a: str) -> State:
     if a not in legal(s):
         raise ValueError(f"illegal action {a!r} after {s.history}; legal: {legal(s)}")
+    return step(s, a)
+
+
+def step(s: State, a: str) -> State:
+    """`apply` without the legality check, for callers that only play actions from `legal(s)` (#201)."""
     p, o = s.to_act, 1 - s.to_act
     if a == "f":
-        return replace(s, folded=p, done=True, history=s.history + ("f",))
+        return s._replace(folded=p, done=True, history=s.history + ("f",))
+    bet0, bet1 = s.bet
+    cur = bet0 if bet0 > bet1 else bet1
     to = s.bet[p] if a == "k" else _amount_to(s, a)
     add = to - s.bet[p]
-    stack, bet, total = list(s.stack), list(s.bet), list(s.total)
-    stack[p] -= add
-    bet[p] = to
-    total[p] += add
-    raised = to > max(s.bet)
-    acted = [False, False] if raised else list(s.acted)
-    acted[p] = True
-    ns = replace(s, stack=tuple(stack), bet=tuple(bet), total=tuple(total), history=s.history + (a,),
-                 raises=s.raises + int(raised), last_raise=max(s.last_raise, to - max(s.bet)) if raised else s.last_raise,
-                 acted=(acted[0], acted[1]), to_act=o)
+    raised = to > cur
+    # Built field by field (State's order), not with `_replace`: this is the hottest code of MCCFR (#201).
+    if p == 0:
+        stack, bet, total = (s.stack[0] - add, s.stack[1]), (to, bet1), (s.total[0] + add, s.total[1])
+        acted = (True, False if raised else s.acted[1])
+    else:
+        stack, bet, total = (s.stack[0], s.stack[1] - add), (bet0, to), (s.total[0], s.total[1] + add)
+        acted = (False if raised else s.acted[0], True)
+    ns = State(s.hole, s.deck, stack, bet, total, s.street, s.board, o, s.raises + int(raised),
+               max(s.last_raise, to - cur) if raised else s.last_raise, acted, s.history + (a,), s.folded, s.done)
     # Closed: both acted with equal bets, or this player called all in for less than the bet.
-    if (all(ns.acted) and bet[0] == bet[1]) or (stack[p] == 0 and bet[p] <= bet[o]):
+    if (acted[0] and acted[1] and bet[0] == bet[1]) or (stack[p] == 0 and bet[p] <= bet[o]):
         return _close_street(ns)
     return ns
 
 
-def payoff(s: State) -> int:
-    """Chips player 0 wins (negative: loses) relative to the start of the hand."""
+def showdown(s: State) -> int:
+    """+1 if player 0 wins the showdown, -1 if player 1 does, 0 on a tie. Fixed for a deal: the board
+    is always the first five cards of the deck, whatever the betting."""
+    board = list(s.board) + list(s.deck[:5 - len(s.board)])
+    v0, v1 = evaluate(list(s.hole[0]) + board), evaluate(list(s.hole[1]) + board)
+    return 1 if v0 > v1 else -1 if v0 < v1 else 0
+
+
+def payoff(s: State, sd: int | None = None) -> int:
+    """Chips player 0 wins (negative: loses) relative to the start of the hand. `sd`: the deal's
+    `showdown(...)`, if the caller already has it (MCCFR reaches many showdowns of one deal)."""
     if not s.done:
         raise ValueError("hand is not over")
     if s.folded is not None:
         return -s.total[0] if s.folded == 0 else s.total[1]
     # Uncalled chips go back: each side risks at most what the other matched.
-    risk = min(s.total)
-    v0, v1 = evaluate(list(s.hole[0]) + list(s.board)), evaluate(list(s.hole[1]) + list(s.board))
-    return risk if v0 > v1 else -risk if v0 < v1 else 0
+    return min(s.total) * (showdown(s) if sd is None else sd)
 
 
 def public_tree_size() -> dict[str, int]:

@@ -1,4 +1,6 @@
-# 기록 스키마 v1
+# 기록 스키마 v2
+
+- v2(#127): 모든 기록에 `env_id`(`stalker/env/spec.py`의 `EnvSpec.env_id`, 16자 hex)를 넣는다 — 결정은 `ids.env_id`, 핸드·게임은 `env_id`. v1 파일은 읽을 때 manifest의 `config`로 `env_id`를 계산해 채운다(`store.iter_records` → `schema.migrate`). 쓰기는 v2만.
 
 결정 기록은 게임 생성(1)의 출력이자 유형화(2)·RL 학습의 입력이다. 코드: `stalker/records/schema.py`(스키마·검증), `stalker/records/store.py`(저장). 기준: ADR 0003 결정 6, `referee/DATA_SUFFICIENCY.md` D5, `referee/GATES.md` Gate L3.
 
@@ -19,6 +21,7 @@
 | `decision_id` | 게임 내 유일 |
 | `player_id` | 게임 내 플레이어 인덱스(좌석과 무관) |
 | `policy_version` | 결정을 낸 정책 버전 |
+| `env_id` | 기록을 만든 환경(`EnvSpec`)의 식별자. `stalker.env.spec.lookup(env_id)`로 전체 명세 복원 |
 
 ## `DecisionRecord`
 - `tournament_context`: `table_size`(2..9), `sb`, `bb`, `ante_type`(`none`/`classic`/`bb_ante`), `ante`, `level`(0부터), `remaining`, `paid_places`, `payout_vector`(1등부터, 길이 = `paid_places`), `next_level`(`[sb, bb, ante]` 또는 null), `stacks`(남은 전원 스택 요약: n·total·min·max·mean·median).
