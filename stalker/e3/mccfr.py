@@ -84,6 +84,26 @@ class E3MCCFR:
         self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
         return self._walk(*child(i), trav)
 
+    def state(self) -> dict:
+        """Everything `iterate` reads, as JSON data; `from_state` continues bit for bit (#301), so a run
+        longer than one CI job (300 min) is chained from checkpoints."""
+        return {"version": 1, "k": self.k, "n": self.n, "depth": self.depth, "iterations": self.iterations,
+                "nodes": self.nodes, "rng": self.rng.bit_generator.state,
+                "regret": {k: v.tolist() for k, v in self.regret.items()},
+                "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}, "visits": dict(self.visits)}
+
+    @classmethod
+    def from_state(cls, st: dict) -> "E3MCCFR":
+        if st.get("version") != 1:
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads version 1")
+        m = cls(0, st["k"], st["n"], st["depth"])
+        m.rng.bit_generator.state = st["rng"]
+        m.iterations, m.nodes = st["iterations"], st["nodes"]
+        m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
+        m.avg.update({k: np.array(v, dtype=float) for k, v in st["avg"].items()})
+        m.visits.update(st["visits"])
+        return m
+
     def policy(self) -> dict[str, list[float]]:
         return {k: (v / v.sum()).tolist() for k, v in self.avg.items() if v is not None and v.sum() > 0}
 

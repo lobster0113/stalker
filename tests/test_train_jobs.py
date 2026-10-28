@@ -211,3 +211,49 @@ def test_tp_noise_sim_job_reports_form_by_level_rows(tmp_path, monkeypatch):
     assert all(x["loss_bb"] == 0.0 for x in r["rows"] if x["level"] == "exact" and x["form"] == "pct")
     s = T.summarize("tp-noise-sim", tmp_path)
     assert s["hands"] == 6 and len(s["rows_by_seed"]) == 1 and len(s["rows_by_seed"][0]) == 8
+
+
+def test_e3_checkpoint_resume_is_bit_identical():
+    from stalker.e3.mccfr import E3MCCFR
+
+    whole = E3MCCFR(3, 5, 6, "basic")
+    whole.iterate(6)
+    part = E3MCCFR(3, 5, 6, "basic")
+    part.iterate(3)
+    part = E3MCCFR.from_state(json.loads(json.dumps(part.state())))
+    part.iterate(3)
+    assert part.state() == whole.state()
+
+
+def test_e3_job_resumes_from_an_earlier_runs_checkpoint(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "E3_LBR_HANDS", 2)
+    monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
+    T.run("e3-tp-beginner", 2, 1, tmp_path / "a")
+    assert (tmp_path / "a" / "e3-tp-beginner-seed1.ckpt.json").is_file()
+    T.run("e3-tp-beginner", 3, 1, tmp_path / "b", resume=tmp_path / "a")
+    r = json.loads((tmp_path / "b" / "e3-tp-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert (r["iters"], r["chunk_iters"], r["resumed_from"]) == (5, 3, 2)
+    T.run("e3-tp-beginner", 5, 1, tmp_path / "c")
+    whole = json.loads((tmp_path / "c" / "e3-tp-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert whole["policy_sha256"] == r["policy_sha256"]  # two chunks = one run of the same length
+    s = T.summarize("e3-tp-beginner", tmp_path / "b")
+    assert s["runs"] == 1 and s["resumed_from_iters_by_seed"] == [2]
+
+
+def test_resume_errors_tell_how_to_fix(tmp_path):
+    with pytest.raises(SystemExit, match="cannot resume"):
+        T.run("e2-mccfr", 2, 1, tmp_path, resume=tmp_path)
+    with pytest.raises(SystemExit, match="leave resume_run empty"):
+        T.run("e3-tp-beginner", 2, 1, tmp_path / "x", resume=tmp_path)
+
+
+def test_train_workflow_resume_input_is_validated_and_passed_through_env():
+    wf = yaml.safe_load((ROOT / ".github" / "workflows" / "train.yml").read_text(encoding="utf-8"))
+    on = wf.get("on", wf.get(True))
+    assert "resume_run" in on["workflow_dispatch"]["inputs"]
+    run = wf["jobs"]["run"]
+    assert run["env"]["RESUME_RUN"] == "${{ inputs.resume_run }}"
+    steps = {s.get("name"): s for s in run["steps"]}
+    assert "^[0-9]+$" in steps["check resume_run"]["run"]
+    assert steps["fetch checkpoint"]["with"]["run-id"] == "${{ inputs.resume_run }}"
+    assert "--resume prev" in steps["train"]["run"]

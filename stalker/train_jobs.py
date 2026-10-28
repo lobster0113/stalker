@@ -104,16 +104,26 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
-def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6) -> dict:
+def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None) -> dict:
+    """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more."""
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3.mccfr import E3MCCFR, coverage
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
+    ckpt = f"{name}-seed{seed}.ckpt.json"
+    if resume is None:
+        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier])
+    elif (resume / ckpt).is_file():
+        m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")))
+    else:
+        raise SystemExit(f"{resume / ckpt} not found: resume_run must be an earlier {name} run with this seed "
+                         "(its train-<seed> artifact holds the checkpoint); leave resume_run empty to start fresh")
+    prev = m.iterations
     t0 = time.monotonic()
-    m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier])
     m.iterate(iters)
     train_s = time.monotonic() - t0
+    (out / ckpt).write_text(json.dumps(m.state()), encoding="utf-8")
     avg, cur = m.policy(), m.current_policy()
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     t1 = time.monotonic()
@@ -123,7 +133,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     cov = coverage(m)
     t2 = time.monotonic()
     field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if players == 6 else None
-    return {"iters": iters, "tier": tier, "depth": m.depth, "players": players, "train_seconds": round(train_s, 1),
+    return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
+            "players": players, "train_seconds": round(train_s, 1),
             "field": field, "field_seconds": round(time.monotonic() - t2, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "coverage": cov,
             "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_seconds": round(time.monotonic() - t1, 1),
@@ -152,14 +163,19 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "tp-noise-sim": _tp_noise_sim}                                                  # #261
 
 
-def run(job: str, iters: int, seed: int, out: Path) -> Path:
+RESUMABLE = {"e3-tp-beginner", "e3-tp-mid"}   # #301
+
+
+def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
     if job not in JOBS:
         raise SystemExit(f"unknown job {job!r}; allowed: {sorted(JOBS)}")
     if not 1 <= iters <= 10_000_000:
         raise SystemExit("iters must be between 1 and 10^7")
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.monotonic()
-    res = JOBS[job](iters, seed, out)
+    if resume is not None and job not in RESUMABLE:
+        raise SystemExit(f"{job} cannot resume; resumable jobs: {sorted(RESUMABLE)} (leave resume_run empty)")
+    res = JOBS[job](iters, seed, out, **({"resume": resume} if resume is not None else {}))
     path = out / f"{job}-seed{seed}.json"
     path.write_text(json.dumps({"job": job, "seed": seed, "wall_seconds": round(time.monotonic() - t0, 1),
                                 **res}, indent=1), encoding="utf-8")
@@ -197,16 +213,18 @@ def summary_text(job: str, folder: Path) -> str:
 
 def summarize(job: str, folder: Path) -> dict:
     runs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(folder.rglob(f"{job}-seed*.json"))
-            if not p.name.endswith(".policy.json")]
+            if not p.name.endswith((".policy.json", ".ckpt.json"))]
     # Which code produced these numbers: train.yml can run on a branch ref before merge (#245).
     out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs],
            "ref": os.environ.get("GITHUB_REF_NAME"), "sha": os.environ.get("GITHUB_SHA"),
-           "run_id": os.environ.get("GITHUB_RUN_ID")}
+           "run_id": os.environ.get("GITHUB_RUN_ID"), "resumed_from_run": os.environ.get("RESUME_RUN") or None}
     if job.startswith(("e2-", "e3-")) and not job.startswith("e2-league-") and runs:  # league runs report champions, not LBR
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
+    if job in RESUMABLE and runs:
+        out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set
         out.update({"field_sha256": runs[0]["field"]["sha256"], "field_deals": runs[0]["field"]["deals"],
                     "field_worst_by_seed": [r["field"]["worst"] for r in runs],
@@ -234,12 +252,13 @@ def main(argv=None) -> int:
     r.add_argument("--iters", type=int, required=True)
     r.add_argument("--seed", type=int, default=0)
     r.add_argument("--out", type=Path, required=True)
+    r.add_argument("--resume", type=Path, help="folder with this seed's checkpoint from an earlier run (#301)")
     s = sub.add_parser("summarize")
     s.add_argument("job")
     s.add_argument("folder", type=Path)
     a = ap.parse_args(argv)
     if a.cmd == "run":
-        print(run(a.job, a.iters, a.seed, a.out))
+        print(run(a.job, a.iters, a.seed, a.out, a.resume))
     else:
         print(summary_text(a.job, a.folder))
     return 0
