@@ -43,7 +43,7 @@ def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: st
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
     t1 = time.monotonic()
     # Same LBR deals for every tier and seed, so tiers differ only in what the policy sees (#187).
-    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, **({} if tier == "baseline" else {"abstraction": abstraction}))
+    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, abstraction=abstraction)
     return {"iters": iters, "tier": tier, "abstraction": abstraction.to_json(), "train_seconds": round(train_s, 1), "iters_per_s": round(iters / max(train_s, 1e-6), 2),
             "infosets": len(m.regret), "lbr": lbr, "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
