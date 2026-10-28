@@ -525,3 +525,4 @@
 {"ts":"2026-10-28T13:34:15Z","role":"planner","outcome":"planned","issue":280,"pr":286,"notes":"#286(#280 Gate S v0) 머지 반영: #280 in-progress 라벨 정리, 후속 #287(Gate S CI 기록·gates full 등록) ready P2 생성, ready 7, STATE 갱신","friction":"머지로 자동 닫힌 이슈에 in-progress 라벨이 남음(매 머지마다 planner가 수동 정리)"}
 {"ts":"2026-10-28T13:35:22Z","role":"reviewer","outcome":"skipped","issue":283,"pr":284,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T13:38:08Z","role":"reviewer","outcome":"skipped","issue":174,"pr":272,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T13:39:32Z","role":"reviewer","outcome":"skipped","issue":null,"pr":274,"notes":"not my parity","friction":""}
