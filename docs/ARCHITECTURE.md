@@ -1,7 +1,7 @@
 # 아키텍처 (현재 상태를 반영해 유지할 것)
 
 > **2026-10-27 방향 전환(ADR 0008)**: 아래 모듈 중 엔진·관측·기록·통계·ICM·Gate R/L은 유지·확장, `rl/`·`oracle/`은 동결, `typing/`·`pipeline/`·`service/`(구 퀴즈 프로토타입)·`referee/gate_a|gate_b|sufficiency`는 은퇴 예정이다(ADR 0008 표).
-> 예정 모듈: `stalker/tp/`(TP 명세 로더·채점, 명세 `stalker/tp/spec/`는 보호 경로), `stalker/personas/`(난이도 1~19 페르소나), `web/`(학습 서비스 웹앱 — D1 데모부터).
+> 예정 모듈: `stalker/tp/`(TP 명세 로더·채점, 명세 `stalker/tp/spec/`는 보호 경로), `web/`(학습 서비스 웹앱 — D1 데모부터).
 
 ## 계층
 - `stalker/` — 제품(L0)
@@ -40,6 +40,7 @@
   - `core/fast_eval.py` — 학습 루프용 컴파일 커널(ADR 0013, 선택 의존성 numba `[fast]`): 7장 평가, 강도표 랭킹, 분위 단계, 레인지 에퀴티(#188 에퀴티 view). numba가 없으면 numpy 경로로 같은 결과(테스트로 강제). 심판은 쓰지 않는다.
   - `e2/eq_view.py` — `hand.equity` view(#188): 두 좌석의 공개 레인지(1326 도달 확률)를 걸음 내내 각 좌석 전략으로 Bayes 갱신하고, 상대 레인지 대비 에퀴티의 분위 단계로 정보 집합을 만든다(`EqMCCFR`). LBR의 동적 view가 정책의 믿음을 재현해 같은 버킷으로 읽는다.
   - `referee/e2/exploiter.py`·`e2/league.py` — 학습 착취자(#202): 고정 정책을 상대로 한 MCCFR 최선 응답과 헤드업 착취 하한. 리그 v1: 자기 대전 세대마다 착취자로 시험하고, 이득이 줄면서 이전 챔피언 풀과의 헤드업에서도 지지 않을 때만 승격한다(순환 방지).
+  - `personas/` — 난이도 1~19 사다리(#291): `level(n)`·`ladder()`가 `calling_station`(1)과 `high_stakes_pro`(19) 프리셋 사이를 네 파라미터 선형 보간한 `PersonaParams`를 돌려준다(범위 밖 `ValueError`). 양 끝 강도만 테스트로 고정, 상호 대전 표는 `docs/research/2026-10-persona-ladder.md`.
   - `e2/personas.py` — 페르소나 필드(#226, 리그 구성원 4): #198 프리셋(vpip·pfr·aggression·fold_to_bet)을 E2 액션 메뉴의 결정적 정책 callable로 옮긴 것(프리플랍 `hand_top_pct`, 포스트플랍 무작위 상대 대비 EHS). 리그는 세대마다 필드 평균(Gate Q1 보고)과 최약 상대를 기록하고, 어느 페르소나에게든 지면(평균 + SE < 0) 승격하지 않는다.
   - `tp/range_shape.py` — `opp.range` 모양 입력(#159, ADR 0011 후보): 상대 레인지를 내 레인지 대비 에퀴티 5구간(에어·약함·중간·강함·넛급, 턴·리버 정확)으로 요약하고, 모양(폴라·응축·선형·혼합) + 캡드 플래그(상대 넛급 < 내 넛급의 절반), 빠른 입력 템플릿, 5구간 답의 EMD 채점(0–100). 초보 입력은 너비(상위 X%)이고 `width_default`가 선형 5구간으로 바꾼다.
   - `tp/range_shape_eval.py` — 위 채점의 판별력 측정(#159): 시드 고정 리버 스팟(행동 원형 폴라·응축·선형으로 좁힌 상대 레인지)에서 정답 모양 템플릿·선형 템플릿·최적 너비 답·입력 오차(5pp 반올림, ±σ 잡음)의 점수를 비교한다. 리버 강도는 콤보별 족보 한 번 평가로 계산하고 `strength_bins`와 같은 값인지 테스트로 대조한다. 결과 `docs/research/2026-10-28-range-shape.md`.
