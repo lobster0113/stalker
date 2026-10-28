@@ -1,5 +1,6 @@
 import json
 import stat
+import sys
 
 import pytest
 
@@ -7,6 +8,9 @@ from stalker.core.cards import card
 from stalker.oracle import texassolver as ts
 from stalker.oracle.texassolver import SolveSettings, Spot, StreetSizes, TexasSolverError
 from stalker.tools import bench_texassolver
+
+# The fake solver is a POSIX shell script; Windows cannot exec it (WinError 193). CI runs on Linux (#191).
+POSIX_FAKE = pytest.mark.skipif(sys.platform == "win32", reason="fake solver binary is a POSIX shell script")
 
 RIVER = Spot("Ks Td 7h 3c 2s", pot=100, effective_stack=100,
              range_oop="KK,TT,77,AQs,QJ,98s", range_ip="KK, AK, KQ, TT, JJ, 99, 65s",
@@ -99,12 +103,13 @@ def test_missing_binary_is_reported(tmp_path):
 def fake_install(tmp_path, script):
     (tmp_path / "resources").mkdir()
     exe = tmp_path / "console_solver"
-    exe.write_text("#!/bin/sh\n" + script)
+    exe.write_text("#!/bin/sh\n" + script, encoding="utf-8")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
-    (tmp_path / "VERSION").write_text("deadbeef\n")
+    (tmp_path / "VERSION").write_text("deadbeef\n", encoding="utf-8")
     return tmp_path
 
 
+@POSIX_FAKE
 def test_solve_plumbing_with_fake_binary(tmp_path):
     home = fake_install(tmp_path, f"""
 grep -q '^set_board Ks,Td,7h,3c,2s$' "$2" || exit 3
@@ -117,12 +122,14 @@ echo '{json.dumps(dump())}' > result.json
     assert r.wall_s >= 0 and r.peak_rss_mb > 0
 
 
+@POSIX_FAKE
 def test_solve_failure_shows_output_tail(tmp_path):
     home = fake_install(tmp_path, "echo 'board error'; exit 1\n")
     with pytest.raises(TexasSolverError, match="(?s)exit 1.*board error"):
         ts.solve(RIVER, home=home)
 
 
+@POSIX_FAKE
 def test_solve_timeout(tmp_path):
     home = fake_install(tmp_path, "exec sleep 5\n")
     with pytest.raises(TexasSolverError, match="timeout"):
@@ -135,6 +142,7 @@ def test_bench_without_binary_exits_2(tmp_path, monkeypatch):
     assert bench_texassolver.make_spot("turn").street() == "turn"
 
 
+@POSIX_FAKE
 def test_bench_prints_documented_json_lines(tmp_path, monkeypatch, capsys):
     home = fake_install(tmp_path, f"""
 echo '{{"iteration":9,"exploitibility":0.8,"time_ms":1}}' > tmp_log.txt

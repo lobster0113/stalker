@@ -231,7 +231,7 @@ def test_store_round_trip_with_manifest(tmp_path):
 def test_writer_refuses_invalid_records(tmp_path):
     with RecordWriter(tmp_path) as w, pytest.raises(RecordError, match="sums to"):
         w.write(_decision(probs_ai0=(0.5, 0.5, 0.5, 0.0)))
-    assert (tmp_path / RECORDS).read_text() == ""
+    assert (tmp_path / RECORDS).read_text(encoding="utf-8") == ""
 
 
 def test_loader_rejects_bad_lines(tmp_path):
@@ -245,11 +245,11 @@ def test_loader_rejects_bad_lines(tmp_path):
     ]
     for obj, needle in cases:
         # json.dumps writes NaN/Infinity tokens by default, which is exactly the bad input to reject
-        (tmp_path / RECORDS).write_text(json.dumps(good) + "\n" + json.dumps(obj) + "\n")
+        (tmp_path / RECORDS).write_text(json.dumps(good) + "\n" + json.dumps(obj) + "\n", encoding="utf-8")
         with pytest.raises(RecordError, match=needle) as exc:
             load_records(tmp_path)
         assert ":2:" in str(exc.value)
-    (tmp_path / RECORDS).write_text("{not json\n")
+    (tmp_path / RECORDS).write_text("{not json\n", encoding="utf-8")
     with pytest.raises(RecordError, match="not valid JSON"):
         load_records(tmp_path)
 
