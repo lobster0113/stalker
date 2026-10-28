@@ -54,9 +54,12 @@ def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: st
 LEAGUE_GENERATIONS = 10
 
 
-def _e2_league(tier: str):
+def _e2_league(tier: str, exploiter_tier: str | None = None, name: str | None = None):
     """League v1 (#202, #226) at a TP tier: `iters` main self-play iterations over LEAGUE_GENERATIONS
-    generations, each gated by a fresh exploiter, the snapshot pool and the persona field."""
+    generations, each gated by a fresh exploiter, the snapshot pool and the persona field.
+    `exploiter_tier` (#276): the exploiter's own card abstraction; None = the policy's tier."""
+    name = name or f"e2-league-{tier}"
+
     def job(iters: int, seed: int, out: Path) -> dict:
         from dataclasses import asdict
 
@@ -64,10 +67,10 @@ def _e2_league(tier: str):
 
         per_gen = max(1, iters // LEAGUE_GENERATIONS)
         t0 = time.monotonic()
-        lg = League(tier, seed=seed)
+        lg = League(tier, seed=seed, exploiter_tier=exploiter_tier)
         hist = lg.run(LEAGUE_GENERATIONS, per_gen, exploiter_iters=min(20_000, per_gen), hands=1000)
         if lg.champion is not None:
-            (out / f"e2-league-{tier}-seed{seed}.policy.json").write_text(json.dumps(lg.champion), encoding="utf-8")
+            (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(lg.champion), encoding="utf-8")
         champ = [g for g in hist if g.promoted]
         return {"iters": per_gen * LEAGUE_GENERATIONS, "tier": tier, "generations": [asdict(g) for g in hist],
                 "exploiter": {"tier": lg.exploiter_tier or tier, "ratio": lg.exploiter_ratio,
@@ -124,6 +127,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e2-eq-beginner": partial(_e2_eq, tier="beginner", name="e2-eq-beginner"),   # #188
         "e2-eq-mid": partial(_e2_eq, tier="mid", name="e2-eq-mid"),
         "e2-league-beginner": _e2_league("beginner"), "e2-league-mid": _e2_league("mid"),
+        # #276: does a finer exploiter find what a same-tier one cannot?
+        "e2-league-beginner-xbase": _e2_league("beginner", "baseline", "e2-league-beginner-xbase"),
         "e3-tp-beginner": partial(_e3_tp, tier="beginner", name="e3-tp-beginner"),     # #196/#197, 6-max
         "e3-tp-mid": partial(_e3_tp, tier="mid", name="e3-tp-mid")}
 
