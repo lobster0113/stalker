@@ -16,9 +16,13 @@ on:
       seeds:
         description: "number of seeds (parallel runners, 1..8)"
         default: "4"
+      resume_run:
+        description: "optional: run id of an earlier run of the same job; each seed continues from its checkpoint (#301)"
+        default: ""
 
 permissions:
   contents: write  # push the summary to ops
+  actions: read    # download an earlier run's checkpoint artifact (resume_run, #301)
 
 defaults:
   run:
@@ -50,16 +54,29 @@ jobs:
       JOB: ${{ inputs.job }}
       ITERS: ${{ inputs.iters }}
       SEED: ${{ matrix.seed }}
+      RESUME_RUN: ${{ inputs.resume_run }}
     steps:
+      - name: check resume_run
+        run: '[[ -z "$RESUME_RUN" || "$RESUME_RUN" =~ ^[0-9]+$ ]] || { echo "resume_run must be a run id (digits), got $RESUME_RUN"; exit 1; }'
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python -m pip install -q -e ".[fast]"  # numba evaluator when the extra exists (ADR 0013, #201); same results without it
+      - name: fetch checkpoint
+        if: inputs.resume_run != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: train-${{ matrix.seed }}
+          run-id: ${{ inputs.resume_run }}
+          github-token: ${{ github.token }}
+          path: prev
       - name: train
         run: |
           [[ "$ITERS" =~ ^[0-9]+$ ]] || { echo "iters must be an integer"; exit 1; }
-          python -m stalker.train_jobs run "$JOB" --iters "$ITERS" --seed "$SEED" --out out
+          resume=()
+          [[ -n "$RESUME_RUN" ]] && resume=(--resume prev)
+          python -m stalker.train_jobs run "$JOB" --iters "$ITERS" --seed "$SEED" --out out "${resume[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: train-${{ matrix.seed }}
@@ -72,6 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JOB: ${{ inputs.job }}
+      RESUME_RUN: ${{ inputs.resume_run }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
