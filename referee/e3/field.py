@@ -1,4 +1,4 @@
-"""E3 6-max duplicate field evaluation: "max loss vs opponent set" (#295, referee/GATES.md Gate Q, ADR 0014).
+"""E3 6-max duplicate field evaluation: "max loss vs opponent set" (#295, referee/GATES.md Gate Q, ADR 0015).
 
 One target policy sits with five opponents from a pre-registered configuration (`field_v1.json`,
 recorded with its sha256). Duplicate: every deal is played once per seat rotation - the target takes

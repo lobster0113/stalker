@@ -70,3 +70,27 @@ def test_e1_tp_policy_is_evaluated(spec):
 
     r = S.evaluate(gate_s_policy("mid", "quantile", iters=300), spec)
     assert r["pairs"] == len(S.pairs(spec)) and r["tp_change_p95"] is not None and len(r["golden"]) == len(spec["golden"])
+
+
+def test_tv_is_reported_per_seat(spec):
+    r = S.evaluate(S.oversensitive_policy, spec)
+    assert set(r["tv_p95_by_seat"]) == {"sb", "bb"} and all(0 <= v <= 1 for v in r["tv_p95_by_seat"].values())
+    assert max(r["tv_p95_by_seat"].values()) >= r["tv_p95"] - 1e-9
+
+
+def test_check_mode_is_the_gates_full_step():
+    import subprocess
+    import sys
+
+    from referee.gates import FULL_CHECKS
+
+    assert ("gate_s", [sys.executable, "-m", "referee.gate_s", "--check"]) in FULL_CHECKS
+    r = subprocess.run([sys.executable, "-m", "referee.gate_s", "--check"], capture_output=True, text=True, encoding="utf-8")
+    assert r.returncode == 0, r.stderr
+
+
+def test_check_mode_fails_when_discrimination_is_lost(monkeypatch):
+    from referee.gate_s import __main__ as cli
+
+    monkeypatch.setattr(S, "flat_policy", S.nash_policy)
+    assert cli.check() == 1

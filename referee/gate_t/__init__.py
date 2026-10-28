@@ -100,12 +100,13 @@ def main() -> int:
     spec = load()
     print(f"tp_spec {spec.version} sha256 {spec.sha256}")
     from referee.gate_t.t2 import check_t2
+    from referee.gate_t.t3 import check_t3
     from referee.gate_t.t4 import check_t4, load as load_t4
 
     ok = True
     print(f"t4_spots v1 sha256 {load_t4()[1]}")
     for name, make in REGISTRY.items():
-        for label, check in (("T1", check_t1), ("T2", check_t2), ("T4", check_t4)):
+        for label, check in (("T1", check_t1), ("T2", check_t2), ("T3", check_t3), ("T4", check_t4)):
             p, t, fails = check(make())
             rate = f" ({100 * p / t:.0f}%)" if t else " (no decisions emitted a checked item)"
             print(f"{label} [{name}] {p}/{t}{rate}")

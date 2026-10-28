@@ -257,3 +257,18 @@ def test_train_workflow_resume_input_is_validated_and_passed_through_env():
     assert "^[0-9]+$" in steps["check resume_run"]["run"]
     assert steps["fetch checkpoint"]["with"]["run-id"] == "${{ inputs.resume_run }}"
     assert "--resume prev" in steps["train"]["run"]
+
+
+def test_exploit_job_records_a_curve_on_a_frozen_policy(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "EXPLOIT_HANDS", 20)
+    T.run("e2-exploit-beginner", 12, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-exploit-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert r["exploiter"] == {"tier": "baseline", "ratio": T.EXPLOIT_RATIO, "strategy": "current"}
+    assert [c["exploiter_iters"] for c in r["curve"]] == [6, 12, 18]  # 1.5 x 12 in three checkpoints
+    assert r["gain_bb"] == r["curve"][-1]["gain_bb"]
+    T.run("e2-exploit-beginner", 12, 1, tmp_path / "again")
+    again = json.loads((tmp_path / "again" / "e2-exploit-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert again["curve"] == r["curve"] and again["policy_sha256"] == r["policy_sha256"]
+    s = T.summarize("e2-exploit-beginner", tmp_path)
+    assert s["runs"] == 2 and len(s["curve_by_seed"][0]) == 3 and "lbr_bb_mean" not in s
+    assert s["policy_iters_per_s_mean"] > 0 and s["exploiter_iters_per_s_mean"] > 0
