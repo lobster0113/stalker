@@ -150,3 +150,19 @@ def test_e3_job_records_both_policies_and_coverage(tmp_path, monkeypatch):
     assert r["players"] == 6 and r["depth"] == "basic" and r["lbr"]["lbr_bb"] == 3.0 and r["coverage"]
     pol = json.loads((tmp_path / "e3-tp-beginner-seed1.policy.json").read_text(encoding="utf-8"))
     assert set(pol) == {"average", "current"}
+
+
+def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "LEAGUE_GENERATIONS", 2)
+    import stalker.e2.league as lg
+    from stalker.e2 import personas
+
+    monkeypatch.setattr(lg, "persona_field", lambda names=None: personas.field(("tag",)))
+    T.run("e2-league-beginner", 40, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-league-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert r["tier"] == "beginner" and len(r["generations"]) == 2 and r["iters"] == 40
+    assert r["generations"][0]["worst_persona"] == "tag"
+    s = T.summarize("e2-league-beginner", tmp_path)
+    assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1
+
+
