@@ -95,8 +95,9 @@ def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int
     w = {q: np.where(mine, 0.0, ranges[q]) for q in opps}
     ns = G.apply(s, a)
     if a in ("k", "c") or ns.done:
-        board = ns.board if ns.done else s.board
-        return _eq_all(s.hole[me], board, list(w.values())) * ns.pot - ns.total[me]
+        # Only the dealt board: a call that ends the hand deals the runout into `ns`, and reading it
+        # would let LBR call only when it wins (clairvoyance, #257 review). Equity integrates the rest.
+        return _eq_all(s.hole[me], s.board, list(w.values())) * ns.pot - ns.total[me]
     # A bet or raise: who folds?
     pf, cont = {}, {}
     for q in opps:

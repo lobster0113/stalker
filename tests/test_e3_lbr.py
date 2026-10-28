@@ -43,3 +43,53 @@ def test_seat_probs_zero_board_collisions():
     from stalker.e2.eq_view import COMBO_ARR
     dead = np.isin(COMBO_ARR, list(s.board)).any(axis=1)
     assert np.all(pr[dead] == 0) and np.allclose(pr[~dead].sum(axis=1), 1)
+
+
+def test_lbr_never_reads_cards_that_are_not_dealt_yet():
+    # #257 review: facing an all-in, a call ends the hand and the engine deals the runout; the call's
+    # value must come from the dealt board only, so shuffling the undealt deck cannot change it.
+    rng = np.random.default_rng(257)
+    s = G.deal(rng, 3)
+    s = G.apply(s, "a")                       # UTG shoves
+    s = G.apply(s, "f")                       # SB folds; the BB faces the all-in alone
+    me = s.to_act
+    assert "c" in G.legal(s)
+    ranges = K.initial_ranges(s.n)
+    mine = np.zeros(K.N, dtype=bool)
+    values = set()
+    for k in range(4):
+        deck = list(s.deck)
+        np.random.default_rng(k).shuffle(deck)
+        values.add(round(L._value({}, s._replace(deck=tuple(deck)), "c", ranges, mine, me, 5, "full"), 9))
+    assert len(values) == 1, values
+
+
+def test_lbr_hands_conserve_chips(monkeypatch):
+    # Acceptance criterion: every LBR hand ends with integer results that sum to zero.
+    real, ends = G.payoff, []
+
+    def checked(s):
+        out = real(s)
+        ends.append(out)
+        return out
+
+    monkeypatch.setattr(L.G, "payoff", checked)
+    L.lbr({}, seat=0, hands=12, seed=4, k=5, n=6, depth="basic")
+    assert len(ends) >= 12
+    assert all(int(x.sum()) == 0 and np.issubdtype(x.dtype, np.integer) for x in ends)
+
+
+def test_current_policy_rows_are_distributions_over_the_legal_actions():
+    import re
+
+    m = E3MCCFR(2, 5, 6, "basic")
+    m.iterate(3)
+    cur = m.current_policy()
+    assert cur and set(cur) == set(m.regret)
+    for key, row in cur.items():
+        legal = key.split("|")[-2]
+        assert len(row) == len(re.findall(r"b33|b75|[fcrka]", legal)) == len(m.regret[key])
+        assert abs(sum(row) - 1) < 1e-9 and min(row) >= 0
+    zero = next(iter(m.regret))
+    m.regret[zero][:] = 0
+    assert np.allclose(m.current_policy()[zero], 1 / len(m.regret[zero]))

@@ -1,0 +1,5 @@
+{"policy": "uniform", "depth": "basic", "lbr_bb": 1.1328, "stderr_bb": 0.946, "by_seat": {"UTG": -1.3333, "HJ": 0.0, "CO": 2.0033, "BTN": 1.4933, "SB": 2.2567, "BB": 2.3767}, "hands": 150, "seconds": 5}
+{"policy": "average", "iters": 1500, "depth": "basic", "keys": 1406, "lbr_bb": 0.7603, "stderr_bb": 0.7952, "by_seat": {"UTG": -0.4423, "HJ": 1.3832, "CO": 0.0, "BTN": 0.0133, "SB": -0.33, "BB": 3.9376}, "hands": 150, "seconds": 9}
+{"policy": "current", "iters": 1500, "depth": "basic", "keys": 1406, "lbr_bb": 1.5578, "stderr_bb": 0.7239, "by_seat": {"UTG": 0.0, "HJ": 4.0565, "CO": 0.0365, "BTN": -0.6567, "SB": 1.4714, "BB": 4.439}, "hands": 150, "seconds": 14}
+{"policy": "average", "iters": 4000, "depth": "basic", "keys": 1635, "lbr_bb": -0.413, "stderr_bb": 0.6929, "by_seat": {"UTG": -0.6667, "HJ": 0.0067, "CO": 2.0133, "BTN": 0.75, "SB": -2.7918, "BB": -1.7893}, "hands": 150, "seconds": 7}
+{"policy": "current", "iters": 4000, "depth": "basic", "keys": 1635, "lbr_bb": 0.696, "stderr_bb": 0.687, "by_seat": {"UTG": 0.6767, "HJ": 0.0, "CO": 0.6767, "BTN": 0.0741, "SB": -3.0667, "BB": 5.8151}, "hands": 150, "seconds": 6}
