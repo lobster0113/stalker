@@ -400,7 +400,7 @@ def test_result_is_pulled_saved_and_recorded(tmp_path):
     proxy = FakeProxy()
     res, api, entries, out = _run_result(tmp_path, proxy)
     assert res["status"] == "completed" and api.terminated() == ["p1"]
-    assert json.loads(out.read_text()) == {"lbr_bb": 1.25}
+    assert json.loads(out.read_text(encoding="utf-8")) == {"lbr_bb": 1.25}
     end = entries[-1]
     assert end["result_bytes"] == len(proxy.result) and end["exit"] == 0
     assert end["result_sha256"] == __import__("hashlib").sha256(proxy.result).hexdigest()
