@@ -128,13 +128,14 @@ def evaluate(policy, spec: dict | None = None) -> dict:
             cache[k] = (probs, None if bins is None else np.asarray(bins))
         return cache[k]
 
-    tv, tp, reg = [], [], []
+    tv, tp, reg, tv_seat = [], [], [], []
     for seat, ante, a, b in pairs(spec):
         (pa, ba), (pb, bb) = act(seat, a, ante), act(seat, b, ante)
         stable, _, _ = roles(seat, ante, a, b, margin)
         mass = _anchor(seat, a, ante)[2]
         w = mass * stable
         tv.append(float((w * np.abs(pa - pb)).sum() / w.sum()) if w.sum() > 0 else 0.0)
+        tv_seat.append(seat)
         if ba is not None:
             tp.append(_wpct(np.abs(ba - bb).astype(float), mass, 95))
         reg.append(max(0.0, loss_pct(seat, b, ante, pb) - loss_pct(seat, a, ante, pa)))
@@ -155,6 +156,8 @@ def evaluate(policy, spec: dict | None = None) -> dict:
                     w = _anchor(seat, lo, ante)[2] * stable
                     cliffs.append(float((w * np.abs(act(seat, lo, ante)[0] - act(seat, hi, ante)[0])).sum() / w.sum()) > th["tv_p95"])
     out = {"pairs": len(tv), "tv_p95": round(float(np.percentile(tv, 95)), 4),
+           "tv_p95_by_seat": {s: round(float(np.percentile([t for t, x in zip(tv, tv_seat) if x == s], 95)), 4)
+                              for s in SEATS if s in tv_seat},
            "tp_change_p95": None if not tp else round(float(np.percentile(tp, 95)), 3),
            "stab_regret_mean_pct": round(float(np.mean(reg)), 4), "stab_regret_p99_pct": round(float(np.percentile(reg, 99)), 4),
            "cliff_ratio": round(sum(cliffs) / len(cliffs), 3) if cliffs else 0.0,
