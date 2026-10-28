@@ -7,6 +7,7 @@
 - 칩 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 블라인드·앤티(일반/BB 앤티)와 숏스택 징수, 탈락·순위·상금 배분. 통과율 100%.
 - 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`(토너먼트)와 `gate_r_cash_pass_rate`·`gate_r_cash_checks`(캐시)를 기록한다.
 - 엣지 케이스(SIM-d): `python -m referee.gate_r.edge [--cases N]`(`gates full`의 `gate_r_edge`, 로컬 약 25초). 무작위 플레이로는 드문 상황 8종 — 숏 올인 연쇄, 3개 이상 사이드팟+동점 분할+홀수 칩, 앤티로만 올인, 블라인드 숏, 보드 플레이 분할, 휠·키커, 헤즈업 전환 직후, 동시 다중 탈락 — 을 고정 시드로 일부러 만들고, 분류기가 그 상황이 실제로 일어났다고 확인한 케이스만 센다(종마다 ≥ 50, 못 채우면 실패). 핸드 6종은 덱을 고정해 PokerKit `Hand`·`FastHand`를 같은 액션으로 진행(항목 `engines`: 매 단계 액터·합법 액션, 끝의 카드·`HandResult` 일치)하고 같은 이벤트를 독립 모델로 재생한다. 게임 2종은 `run_game` + 위 검사 전체. 경계 항목별 손계산 골든 케이스는 `tests/test_gate_r_edge.py`(기대값과 계산 근거 주석).
+- E3 엔진(#203): `python -m referee.gate_r.e3_suite [--hands N]`(`gates full`의 `gate_r_e3`, 로컬 약 10초). 6인·9인 무작위 핸드 각 1,000개를 같은 홀카드·보드로 PokerKit에서 재생한다. 항목: `e3_actor`(매 액션 뒤 다음 액터·스트리트), `e3_stacks`(모든 좌석 스택), `e3_result`(좌석별 순결과: 폴드 승리·콜되지 않은 칩·분할·홀수 칩), `e3_chips`(결과 합 0, 기여 ≤ 스택, 팟 = 기여 합). 지표 `gate_r_e3_pass_rate`·`gate_r_e3_checks`. 손계산 골든 케이스는 `tests/test_e3_golden.py`. 홀수 칩은 토너먼트 정산과 같은 TDA 규칙(전부 포스트플랍 순서 첫 승자)이다.
 - 방법: 모든 프리셋 × 구조 변형 × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 게임을 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, `evaluator.py`, `settlement.py`)로 재생해 칩 단위로 대조한다.
 - 검사 항목: `antes_blinds`, `action_order`, `bet_sizing`, `street_flow`, `settlement`, `chip_conservation`, `button`, `stack_continuity`, `elimination`, `prizes`.
 - 규칙 명세(교과서에 없는 부분은 ADR 0005의 엔진 규칙과 같게 고정):
@@ -40,6 +41,7 @@
   - 규모: `python -m referee.gate_r`(지표용 기본) 프리셋당 2세션×100핸드, `--full` 프리셋당 12세션×1000핸드 = 합계 108,000핸드(엔진당). quick 게이트(pytest)는 프리셋당 2세션×50핸드. 통과율 100%.
 - 규칙 명세를 바꾸는 것은 referee-change다. 엔진이 명세와 다르면 엔진을 고친다(검사를 xfail로 돌리지 않는다).
 - **통과가 보증하는 것과 아닌 것**: Gate R 100%는 "지정한 검사 집합에서 세 구현(PokerKit·FastHand·독립 모델)이 일치"를 뜻한다. 모든 가능한 상태의 무오류를 보증하지 않는다(세 구현이 같은 해석 결함을 공유할 수 있다). 그래서 경계 항목(`button`, 숏 올인 재오픈, 미콜 반환, 동점 분할·홀수 칩, 동시 탈락, 탑업)마다 손으로 검증한 골든 케이스를 두고, 공개 핸드 기록(PHH) 재생은 규칙 환경이 맞는 게임만 쓰며 배제 사유를 기록한다.
+- **중간 시작(`start_state`, SIM-i3)**: 생존자만 앉고 시작 스택은 `start_state.stacks`(합 = `starting_stack × players`, 모두 ≥ 1)다. 이미 탈락한 선수는 순위 `remaining+1..players`를 player_id 오름차순으로 받는다(상금도 그 순위). 레벨 시계는 `level_index` 레벨의 시작 시점에서 출발한다(hands: 앞 레벨 길이 합만큼 핸드가 이미 지남, minutes: 그만큼의 분이 이미 지남). 첫 핸드의 버튼은 `button` 좌석 다음의 첫 점유 좌석이다. `check_game(start_state=)`가 칩 보존·순위·시계를 이 규칙으로 재계산하고, 스위트의 `MID_START`(`9max_sng_flat` 4인, `6max_sng_topheavy` 3인, `mtt54` 20인; random/skewed 스택, 레벨 시드별 순환)가 매 CI에서 돈다. 스택 +1 변이는 검사가 잡는다(테스트로 고정).
 - **토너먼트 시계(`length_unit="minutes"`, SIM-i1)**: 디렉터의 한 라운드(모든 테이블이 한 핸드씩)가 끝나면 시계가 `max(그 라운드 각 테이블의 핸드 시작 인원) × seconds_per_seat`초 진행하고, 다음 라운드의 레벨은 경과 분(경과 초 // 60)에 해당하는 레벨이다(마지막 레벨은 반복). `antes_blinds` 검사는 기록된 NEW_HAND의 시작 인원에서 이 규칙으로 레벨을 독립 재계산해 대조한다. Gate R 스위트의 `<프리셋>/minutes` 변형(레벨 1분)이 이를 매 CI에서 돌린다.
 - **토너먼트 시계(확장 시, 위 규칙의 일반화 방향)**: 레벨 길이가 시간 단위면 대회 전역 가상 시계를 쓴다. 테이블별 핸드 완료 이벤트가 시계를 진행시키고, 블라인드 상승은 "상승 시각 이후 시작하는 핸드"부터 적용, 테이블 병합·이동은 핸드 사이에만. 가상 시간은 실제 대회의 근사임을 결과에 표시한다.
 
