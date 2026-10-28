@@ -1,0 +1,28 @@
+{
+ "job": "e3-tp-beginner",
+ "runs": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "ref": "main",
+ "sha": "19de515d8e2519427633ca0890f9b02ae1cc9195",
+ "run_id": "40664565294",
+ "iters": 100000,
+ "iters_per_s_mean": 8.02,
+ "lbr_bb_mean": 0.8166,
+ "lbr_bb_by_seed": [
+  1.0842,
+  0.5673,
+  0.7586,
+  0.8563
+ ],
+ "lbr_stderr_by_seed": [
+  0.236,
+  0.2189,
+  0.235,
+  0.2031
+ ]
+}
