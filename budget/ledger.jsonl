@@ -1,1 +1,2 @@
 {"event": "start", "job": "e2-throughput-cpu", "max_minutes": 60, "month": "2026-10", "pod_id": "9sh6sqx0xg1bc1", "pod_name": "stalker-e2-throughput-cpu-40778103365", "reserved_usd": 0.12, "run_id": "40778103365", "ts": "2026-10-28T22:12:13Z"}
+{"actual_usd": 0.0037, "cost_per_hr": 0.06, "event": "end", "exit": 0, "job": "e2-throughput-cpu", "minutes": 3.73, "month": "2026-10", "pod_id": "9sh6sqx0xg1bc1", "result_bytes": 746, "result_sha256": "ce03e1746a3cf05b66077c877e97cde279f75337bd8897d61b78a7b2da6e6041", "status": "completed", "ts": "2026-10-28T22:15:57Z"}
