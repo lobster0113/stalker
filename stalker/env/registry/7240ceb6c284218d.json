@@ -1,0 +1,1 @@
+{"ante_mode":"none","ante_schedule":[0],"blind_schedule":[[50,100,1]],"field_size":2,"initial_stacks":[2250,2250],"kind":"hu_pushfold","payout_mode":"none","payout_vector":[],"rake":0,"reentry_rule":"none","rng_schema_version":1,"rules_version":"nlhe-1","table_size":2,"time_model":"hands"}

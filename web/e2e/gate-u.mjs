@@ -50,12 +50,14 @@ async function inspect(tag, focus) {
   must(critical.length === 0, `${tag}: axe critical ${critical.map(v => v.id + "×" + v.nodes.length).join(", ")}`);
 }
 
-// 1. 시작 → 테이블 → 내 차례 → TP 입력 → 제출 → 채점
+// 1. 시작 → 테이블 → 내 차례(Quick: 액션 먼저 → 진행 / 분석 보기 → 비교) → Guided TP 입력 → 제출 → 채점
 await page.goto(url);
+must(await page.locator("#set-play [data-v='quick'][aria-pressed='true']").count() === 1, "시작 화면: 플레이 모드 기본값이 Quick이 아님");
 await inspect("home");
 await page.click("#start-btn");
-await page.waitForSelector("#tp-body .tpc:not([hidden])");
-await inspect("train-input");
+const QUICK = "#tp-body [data-card='quick-act']";
+await page.waitForSelector(QUICK);
+await inspect("train-input", QUICK);
 // #163: the level clock is frozen while it is my turn (the TP panel is open).
 must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
 {
@@ -63,6 +65,50 @@ must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#
   await page.waitForTimeout(2500);
   must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
 }
+// #116 Quick: one decision ends in at most 3 inputs — action, size (only for a bet/raise), 진행. No judgment is required.
+{
+  let inputs = 0;
+  const raise = page.locator(`${QUICK} [data-act='raise']:not([disabled])`);
+  if (await raise.count()) {
+    await raise.click(); inputs++;
+    await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click(); inputs++;
+  } else { await page.locator(`${QUICK} [data-act]:not([disabled])`).last().click(); inputs++; }
+  must(await page.locator("#tp-go").isEnabled(), "Quick: 액션을 골랐는데 진행 버튼이 비활성");
+  await page.click("#tp-go"); inputs++;
+  await page.waitForSelector("#tp-body .waiting");
+  must(inputs <= 3, `Quick: 한 결정에 입력 ${inputs}개 (3개 이하여야 함)`);
+}
+// #116 Quick analysis: action first, then "분석 보기" asks 1–3 core judgments and shows the TP comparison.
+await page.waitForSelector(QUICK);
+await page.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+await page.click("#tp-analyze");
+await page.waitForSelector("#tp-body [data-card='quick-ask']");
+{
+  const qs = await page.locator("#tp-body [data-card='quick-ask'] .q").all();
+  must(qs.length >= 1 && qs.length <= 3, `Quick 분석: 핵심 판단 ${qs.length}개 (1~3개여야 함)`);
+  must((await page.locator("#tp-body [data-act]").count()) === 0, "Quick 분석: 액션을 다시 묻고 있음(액션이 먼저여야 함)");
+  for (const q of qs) await q.locator("[data-chip]").first().click();
+}
+await inspect("train-quick-ask", "#tp-submit");
+await page.click("#tp-submit");
+await page.waitForSelector("#tp-body .result-top");
+must((await page.textContent("#tp-body .result-top")).includes("Quick 분석"), "Quick 분석: 채점 화면에 Quick 표시 없음");
+must((await page.locator("#tp-body .rrow.ref").count()) >= 1, "Quick 분석: 액션 비교(TP-GTO 모의 혼합 전략)가 없음");
+await inspect("train-quick-result", "#tp-body .result-top");
+// Switch to Guided between decisions (hold the demo so the next turn waits), then do the full card deck.
+await page.evaluate(() => { window.__hold = true; });
+await page.click(".tab[data-view='home']");
+await page.click("#set-play [data-v='guided']");
+await page.click(".tab[data-view='train']");
+await page.evaluate(() => { window.__hold = false; });
+for (let guard = 0; guard < 6; guard++) {
+  await page.waitForSelector(`${QUICK}, #tp-body .tpc[data-card='0']:not([hidden])`);
+  if (!(await page.locator(QUICK).count())) break;
+  await page.locator(`${QUICK} [data-act]:not([disabled])`).first().click(); // a turn that began before the switch
+  await page.click("#tp-go");
+  await page.waitForSelector("#tp-body .waiting");
+}
+await inspect("train-guided", "#tp-body .tpc[data-card='0']");
 // #164: answer card 1, go next, come back with "이전": same card and the answer is kept.
 {
   const first = page.locator("#tp-body .tpc:not([hidden])");
