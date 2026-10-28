@@ -33,9 +33,21 @@ async function inspect(tag, focus) {
   for (const [name, width, height] of VIEWPORTS) {
     await page.setViewportSize({ width, height });
     if (focus) {
-      const el = page.locator(focus).first();
-      await el.scrollIntoViewIfNeeded();
-      must(await el.isVisible(), `${tag} ${width}x${height}: ${focus}가 화면에 없음`);
+      // A re-render (e.g. 복기 비교 결과) can detach the element between lookup and scroll: look it up
+      // again and retry instead of failing on a timing race.
+      let visible = false;
+      for (let attempt = 0; attempt < 3 && !visible; attempt++) {
+        try {
+          const el = page.locator(focus).first();
+          await el.waitFor({ state: "visible", timeout: 5000 });
+          await el.scrollIntoViewIfNeeded({ timeout: 5000 });
+          visible = await el.isVisible();
+        } catch (e) {
+          if (attempt === 2) console.error(`${tag} ${width}x${height}: ${focus} 재시도 실패 — ${e.message.split("\n")[0]}`);
+          await page.waitForTimeout(200);
+        }
+      }
+      must(visible, `${tag} ${width}x${height}: ${focus}가 화면에 없음`);
     }
     await page.screenshot({ path: `${shots}/${tag}-${name}.png` });
     const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
@@ -190,6 +202,28 @@ for (let guard = 0; guard < 8 && await page.locator("#rv-next:not([disabled])").
 await page.waitForSelector("#rv-out .rrow");
 must((await page.textContent("#rv-body h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
 await inspect("review", "#rv-body h2");
+
+// 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
+await page.click(".tab[data-view='home']");
+await page.click("#move summary");
+await page.waitForFunction(() => document.querySelector("#move-out").value.length > 0);
+const exported = await page.inputValue("#move-out");
+const weakBefore = await page.textContent("#weak-home");
+must(JSON.parse(exported).schema_version === 1 && Object.keys(JSON.parse(exported).weak).length > 0, "기록 옮기기: 내보낸 JSON에 schema_version·weak가 없음");
+await page.evaluate(() => localStorage.clear());
+await page.reload();
+must((await page.textContent("#weak-home")).includes("아직 기록이 없어요"), "기록 옮기기: 초기화 뒤에도 기록이 남음");
+await page.click("#move summary");
+await page.waitForFunction(() => document.querySelector("#move-out").value.length > 0);
+await page.fill("#move-in", "{not json");
+await page.click("#move-import");
+must((await page.textContent("#move-msg")).includes("JSON으로 읽을 수 없어요"), "기록 옮기기: 잘못된 입력에 고치는 법이 없음");
+await page.fill("#move-in", exported);
+await page.click("#move-import");                                    // 첫 클릭: 덮어쓰기 확인
+await page.click("#move-import");                                    // 두 번째: 가져오기
+must(await page.textContent("#weak-home") === weakBefore, "기록 옮기기: 가져온 뒤 통계가 내보내기 전과 다름");
+must(await page.evaluate(() => window.STALKER_RECORDS.exportRecords()) === exported, "기록 옮기기: 왕복 뒤 내보내기 텍스트가 다름");
+await inspect("home-move", "#move");
 
 await browser.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }

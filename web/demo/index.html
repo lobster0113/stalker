@@ -334,6 +334,12 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .drivers .hd { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
 .drivers ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .drivers .cap { font-size: 11.5px; color: var(--faint); }
+.move { margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.move summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.move textarea { width: 100%; box-sizing: border-box; min-height: 84px; margin-top: 8px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: 12px/1.45 ui-monospace, Consolas, monospace; resize: vertical; }
+.move .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.move .msg { font-size: 12px; color: var(--muted); }
+.move .msg.bad { color: var(--bad); } .move .msg.good { color: var(--good); }
 .reco { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(214,171,85,.14), rgba(214,171,85,.03)); border: 1px solid rgba(214,171,85,.3); font-size: 13px; }
 .mix { display: flex; height: 18px; border-radius: 6px; overflow: hidden; font: 600 10.5px/18px var(--font-display); }
 .mix span { text-align: center; color: #0b1013; white-space: nowrap; overflow: hidden; }
@@ -663,6 +669,14 @@ details.why[open] > summary { margin-bottom: 8px; }
           <h2>내 약점</h2>
           <p class="sub">TP 항목별 평균 점수. 낮은 항목은 학습 섹션에서 집중 연습하세요.</p>
           <div id="weak-home"></div>
+          <details class="move" id="move">
+            <summary>기록 옮기기 (다른 기기·브라우저로)</summary>
+            <p class="msg">아래 텍스트를 복사해 다른 기기의 '가져오기' 칸에 붙여넣으세요. 파일을 내려받지 않아요.</p>
+            <textarea id="move-out" readonly aria-label="내보낸 기록"></textarea>
+            <div class="row"><button class="cta small ghost" id="move-copy">복사</button><span class="msg" id="move-copy-msg"></span></div>
+            <textarea id="move-in" aria-label="가져올 기록" placeholder="내보낸 텍스트를 여기에 붙여넣기"></textarea>
+            <div class="row"><button class="cta small ghost" id="move-import">가져오기</button><span class="msg" id="move-msg"></span></div>
+          </details>
         </div>
         <div class="box">
           <h2>내 차례가 오면</h2>
@@ -1011,6 +1025,57 @@ function renderWeakHome() {
   el.querySelector("[data-learn]").onclick = e => { showView("learn"); selectModule(e.target.dataset.learn); };
 }
 renderWeakHome();
+
+/* ================= moving records between devices (#117) ================= */
+// No server sync yet (ADR 0010 P1-11): records travel as JSON text the learner copies and pastes.
+const RECORDS_SCHEMA = "stalker.demo.records", RECORDS_VERSION = 1;
+function exportRecords() {
+  return JSON.stringify({ schema: RECORDS_SCHEMA, schema_version: RECORDS_VERSION, weak: WEAK, itimes: ITIMES, rankq: RANKQ });
+}
+function parseRecords(text) {
+  let d;
+  try { d = JSON.parse(String(text).trim()); } catch { return { error: "JSON으로 읽을 수 없어요. 내보내기 칸의 텍스트를 처음부터 끝까지 그대로 붙여넣으세요." }; }
+  if (!d || typeof d !== "object" || d.schema !== RECORDS_SCHEMA) return { error: "STALKER 데모 기록이 아니에요(schema가 다름). '기록 옮기기'의 내보내기 텍스트를 붙여넣으세요." };
+  if (!Number.isInteger(d.schema_version)) return { error: "schema_version이 없어요. 내보내기 텍스트를 다시 복사해 붙여넣으세요." };
+  if (d.schema_version > RECORDS_VERSION) return { error: `이 데모(v${RECORDS_VERSION})보다 새 기록(v${d.schema_version})이에요. 데모를 새로 고친 뒤 다시 가져오세요.` };
+  const isStat = v => v && typeof v === "object" && Number.isInteger(v.n) && Number.isFinite(v.sum) && v.n >= 0;
+  const weak = d.weak ?? {}, itimes = d.itimes ?? [], rankq = d.rankq ?? { n: 0, sum: 0 };
+  // A weak item averages sum / n, so it needs at least one answer (n >= 1); rankq may be empty.
+  if (typeof weak !== "object" || Array.isArray(weak) || !Object.values(weak).every(v => isStat(v) && v.n >= 1)) return { error: "weak 항목이 {n ≥ 1, sum} 숫자 쌍이 아니에요. 내보낸 텍스트를 고치지 말고 그대로 붙여넣으세요." };
+  if (!Array.isArray(itimes) || !itimes.every(x => Number.isFinite(x) && x >= 0)) return { error: "itimes가 0 이상 숫자 목록이 아니에요. 내보낸 텍스트를 그대로 붙여넣으세요." };
+  if (!isStat(rankq)) return { error: "rankq가 {n, sum} 숫자 쌍이 아니에요. 내보낸 텍스트를 그대로 붙여넣으세요." };
+  return { data: { weak, itimes: itimes.slice(-300), rankq } };
+}
+function importRecords(text) {
+  const r = parseRecords(text);
+  if (r.error) return r;
+  WEAK = r.data.weak; ITIMES = r.data.itimes; RANKQ = r.data.rankq;
+  store.set("weak", WEAK); store.set("itimes", ITIMES); store.set("rankq", RANKQ);
+  renderWeakHome();
+  return r;
+}
+window.STALKER_RECORDS = { exportRecords, parseRecords, importRecords };
+(function wireMove() {
+  const out = $("#move-out"), inp = $("#move-in"), msg = $("#move-msg"), imp = $("#move-import");
+  const say = (el, t, cls) => { el.textContent = t; el.className = "msg" + (cls ? " " + cls : ""); };
+  // Fill on the summary click itself (synchronous), not on <details> "toggle", which fires later as a separate task.
+  $("#move summary").addEventListener("click", () => { out.value = exportRecords(); });
+  $("#move").addEventListener("toggle", () => { out.value = exportRecords(); });
+  $("#move-copy").onclick = async () => {
+    out.value = exportRecords();
+    try { await navigator.clipboard.writeText(out.value); say($("#move-copy-msg"), "복사했어요.", "good"); }
+    catch { out.focus(); out.select(); say($("#move-copy-msg"), "자동 복사가 막혀 있어요. 선택된 텍스트를 직접 복사하세요."); }
+  };
+  let armed = false;  // the viewer has no confirm(): the first click asks, the second overwrites
+  inp.addEventListener("input", () => { armed = false; imp.textContent = "가져오기"; say(msg, ""); });
+  imp.onclick = () => {
+    const r = parseRecords(inp.value);
+    if (r.error) { say(msg, r.error, "bad"); return; }
+    if (!armed) { armed = true; imp.textContent = "덮어쓰기"; say(msg, "지금 기기의 기록을 이 기록으로 바꿉니다. 한 번 더 누르면 덮어써요."); return; }
+    importRecords(inp.value); armed = false; imp.textContent = "가져오기"; out.value = exportRecords();
+    say(msg, `가져왔어요: TP 항목 ${Object.keys(r.data.weak).length}개, 입력 시간 ${r.data.itimes.length}회.`, "good");
+  };
+})();
 
 /* ================= view switching ================= */
 function showView(v) {
