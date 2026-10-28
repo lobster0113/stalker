@@ -399,3 +399,4 @@
 {"ts": "2026-10-28T02:18:45Z", "role": "reviewer-b", "outcome": "changes", "issue": 186, "pr": 228, "notes": "CHANGES: StartState.button semantics/effect untested; final_table precedes early so single-table SNGs never early/middle; GATES.md Gate R lacks mid-start rule", "friction": ""}
 {"ts":"2026-10-28T02:20:19Z","role":"reviewer","outcome":"skipped","issue":null,"pr":142,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T02:21:26Z","role":"reviewer","outcome":"skipped","issue":117,"pr":238,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T02:25:04Z","role":"reviewer","outcome":"skipped","issue":179,"pr":218,"notes":"not my parity","friction":""}
