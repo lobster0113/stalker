@@ -49,9 +49,55 @@ def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: st
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
+LEAGUE_GENERATIONS = 10
+
+
+def _e2_league(tier: str):
+    """League v1 (#202, #226) at a TP tier: `iters` main self-play iterations over LEAGUE_GENERATIONS
+    generations, each gated by a fresh exploiter, the snapshot pool and the persona field."""
+    def job(iters: int, seed: int, out: Path) -> dict:
+        from dataclasses import asdict
+
+        from stalker.e2.league import League
+
+        per_gen = max(1, iters // LEAGUE_GENERATIONS)
+        t0 = time.monotonic()
+        lg = League(tier, seed=seed)
+        hist = lg.run(LEAGUE_GENERATIONS, per_gen, exploiter_iters=min(20_000, per_gen), hands=1000)
+        if lg.champion is not None:
+            (out / f"e2-league-{tier}-seed{seed}.policy.json").write_text(json.dumps(lg.champion), encoding="utf-8")
+        champ = [g for g in hist if g.promoted]
+        return {"iters": per_gen * LEAGUE_GENERATIONS, "tier": tier, "generations": [asdict(g) for g in hist],
+                "promoted": len(champ), "champion": asdict(champ[-1]) if champ else None,
+                "wall_train_seconds": round(time.monotonic() - t0, 1)}
+    return job
+
+
+def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
+    """#188: the equity-against-range view, measured by LBR through the same dynamic view."""
+    from referee.e2.lbr import exploitability_lb
+    from stalker.e2.eq_view import EQ_TIERS, EqMCCFR
+
+    t0 = time.monotonic()
+    m = EqMCCFR(seed, EQ_TIERS[tier])
+    m.iterate(iters)
+    train_s = time.monotonic() - t0
+    policy = m.policy()
+    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    t1 = time.monotonic()
+    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, view=m.view)
+    return {"iters": iters, "tier": tier, "view": m.view.to_json(), "train_seconds": round(train_s, 1),
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "lbr": lbr,
+            "lbr_seconds": round(time.monotonic() - t1, 1),
+            "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
+
+
 JOBS = {"e2-mccfr": _e2_mccfr,
         "e2-tier-beginner": partial(_e2_mccfr, tier="beginner", name="e2-tier-beginner"),
-        "e2-tier-mid": partial(_e2_mccfr, tier="mid", name="e2-tier-mid")}
+        "e2-tier-mid": partial(_e2_mccfr, tier="mid", name="e2-tier-mid"),
+        "e2-eq-beginner": partial(_e2_eq, tier="beginner", name="e2-eq-beginner"),   # #188
+        "e2-eq-mid": partial(_e2_eq, tier="mid", name="e2-eq-mid"),
+        "e2-league-beginner": _e2_league("beginner"), "e2-league-mid": _e2_league("mid")}
 
 
 def run(job: str, iters: int, seed: int, out: Path) -> Path:
@@ -100,12 +146,22 @@ def summary_text(job: str, folder: Path) -> str:
 def summarize(job: str, folder: Path) -> dict:
     runs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(folder.rglob(f"{job}-seed*.json"))
             if not p.name.endswith(".policy.json")]
-    out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs]}
-    if job.startswith("e2-") and runs:
+    # Which code produced these numbers: train.yml can run on a branch ref before merge (#245).
+    out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs],
+           "ref": os.environ.get("GITHUB_REF_NAME"), "sha": os.environ.get("GITHUB_SHA"),
+           "run_id": os.environ.get("GITHUB_RUN_ID")}
+    if job.startswith("e2-") and not job.startswith("e2-league-") and runs:  # league runs report champions, not LBR
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
+    if job.startswith("e2-league-") and runs:
+        champs = [r["champion"] or {} for r in runs]  # one entry per seed (null without a champion), aligned with seeds
+        out.update({"iters": runs[0]["iters"], "promoted_by_seed": [r["promoted"] for r in runs],
+                    "champion_gain_bb_by_seed": [c.get("gain_bb") for c in champs],
+                    "champion_field_bb_by_seed": [c.get("field_bb") for c in champs],
+                    "champion_field_ci95_low_bb_by_seed": [c.get("field_ci95_low_bb") for c in champs],
+                    "champion_worst_persona_by_seed": [c.get("worst_persona") for c in champs]})
     return out
 
 

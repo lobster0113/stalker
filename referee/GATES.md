@@ -7,6 +7,7 @@
 - 칩 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 블라인드·앤티(일반/BB 앤티)와 숏스택 징수, 탈락·순위·상금 배분. 통과율 100%.
 - 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`(토너먼트)와 `gate_r_cash_pass_rate`·`gate_r_cash_checks`(캐시)를 기록한다.
 - 엣지 케이스(SIM-d): `python -m referee.gate_r.edge [--cases N]`(`gates full`의 `gate_r_edge`, 로컬 약 25초). 무작위 플레이로는 드문 상황 8종 — 숏 올인 연쇄, 3개 이상 사이드팟+동점 분할+홀수 칩, 앤티로만 올인, 블라인드 숏, 보드 플레이 분할, 휠·키커, 헤즈업 전환 직후, 동시 다중 탈락 — 을 고정 시드로 일부러 만들고, 분류기가 그 상황이 실제로 일어났다고 확인한 케이스만 센다(종마다 ≥ 50, 못 채우면 실패). 핸드 6종은 덱을 고정해 PokerKit `Hand`·`FastHand`를 같은 액션으로 진행(항목 `engines`: 매 단계 액터·합법 액션, 끝의 카드·`HandResult` 일치)하고 같은 이벤트를 독립 모델로 재생한다. 게임 2종은 `run_game` + 위 검사 전체. 경계 항목별 손계산 골든 케이스는 `tests/test_gate_r_edge.py`(기대값과 계산 근거 주석).
+- PHH 재생(SIM-f, #148): `python -m referee.gate_r.phh check`(pytest `tests/test_phh_replay.py`, 약 4초, 네트워크 불필요). 공개 PHH 기록(Pluribus 6인 NLHE 2,000핸드, MIT, 출처·커밋·배제 코드는 `tests/data/phh/README.md`)의 홀카드·보드를 덱으로 주입하고 기록된 액션을 `Hand`·`FastHand`에 그대로 적용해 최종 스택이 `finishing_stacks`와 칩 단위로 같은지 본다. 규칙이 다른 핸드는 배제 사유 코드와 함께 집계하고(샘플에서는 홀수 칩을 반으로 나눈 1건), 배제가 아닌 불일치는 0이어야 한다.
 - E3 엔진(#203): `python -m referee.gate_r.e3_suite [--hands N]`(`gates full`의 `gate_r_e3`, 로컬 약 10초). 6인·9인 무작위 핸드 각 1,000개를 같은 홀카드·보드로 PokerKit에서 재생한다. 항목: `e3_actor`(매 액션 뒤 다음 액터·스트리트), `e3_stacks`(모든 좌석 스택), `e3_result`(좌석별 순결과: 폴드 승리·콜되지 않은 칩·분할·홀수 칩), `e3_chips`(결과 합 0, 기여 ≤ 스택, 팟 = 기여 합). 지표 `gate_r_e3_pass_rate`·`gate_r_e3_checks`. 손계산 골든 케이스는 `tests/test_e3_golden.py`. 홀수 칩은 토너먼트 정산과 같은 TDA 규칙(전부 포스트플랍 순서 첫 승자)이다.
 - 방법: 모든 프리셋 × 구조 변형 × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 게임을 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, `evaluator.py`, `settlement.py`)로 재생해 칩 단위로 대조한다.
 - 검사 항목: `antes_blinds`, `action_order`, `bet_sizing`, `street_flow`, `settlement`, `chip_conservation`, `button`, `stack_continuity`, `elimination`, `prizes`.
@@ -60,10 +61,10 @@
 스위트: `referee/gate_l.py` — `python -m referee.gate_l`. 지표 `gate_l_pass_rate`·`gate_l_checks`·`gate_l_items`.
 
 ## Gate T — TP 경유 (D3부터 상시 CI)
-- T1 병목: 같은 TP 판단 값 + 같은 DecisionContext(`docs/TP.md` §1.1)이면, 그 밖의 관측을 무작위로 바꿔도 `act.choice` 분포가 완전히 같다.
+- T1 병목: 같은 TP 판단 값 + 같은 DecisionContext(`docs/TP.md` §1.1)이면, 그 밖의 관측을 무작위로 바꿔도 `act.choice` 분포가 완전히 같다. 구현: `referee/gate_t` `check_t1` — 기록된 게임의 결정 8개(프리플랍 4·포스트플랍 4)마다 TP 벡터와 DecisionContext를 고정하고 상대 식별자·통계·메모리·게임 ID를 N=100회 무작위로 바꾼다. 등록 정책은 `referee/gate_t` `REGISTRY`.
 - T2 계산 항목 일관성: `docs/TP.md`의 "계산" 항목은 정의식으로 다시 계산한 값과 허용 오차(명세 상수) 안에서 일치한다.
 - T3 형식: 모든 TP 값이 명세의 척도·눈금·형식 안에 있고, N/A 항목은 값이 없으며, 해당 등급에서 묻지 않는 항목에 의존하지 않는다.
-- T4 충분성(판별): 반드시 구분돼야 할 스팟 쌍 20종 이상(예: BTN 대 BB 단독 팟 vs BTN 대 BB·SB 멀티웨이, 버블 직전 vs 머니인 확정, 같은 에퀴티·다른 포지션)에서 액션 헤드 입력(TP + DecisionContext)이 서로 다르다. 스팟 목록은 버전 관리한다. T1~T3은 병목 **준수**를, T4는 병목이 **충분한 정보**를 담는지를 본다.
+- T4 충분성(판별): 반드시 구분돼야 할 스팟 쌍 20종 이상(예: BTN 대 BB 단독 팟 vs BTN 대 BB·SB 멀티웨이, 버블 직전 vs 머니인 확정, 같은 에퀴티·다른 포지션)에서 액션 헤드 입력(TP + DecisionContext)이 서로 다르다. 스팟 목록은 버전 관리한다. T1~T3은 병목 **준수**를, T4는 병목이 **충분한 정보**를 담는지를 본다. 구현: `referee/gate_t/t4.py` `check_t4` + 스팟 쌍 목록 `t4_spots_v1.json`(21쌍, 쌍마다 이유 한 줄, sha256 출력). 각 스팟을 엔진 `Observation` → `PublicObservation`으로 만들어 액션 헤드 입력(TP 벡터 + DecisionContext)이 다른지 본다. 판별: 포지션·상대 수를 지운 입력은 실패한다(테스트).
 - 통과율 100%. 기계 판독 TP 명세(`stalker/tp/spec/`)의 버전과 해시를 결과에 기록한다.
 
 ## Gate S — 둔감성, regret 기반 (D3부터)

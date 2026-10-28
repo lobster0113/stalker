@@ -91,6 +91,18 @@ def test_summarize_step_validates_before_touching_ops():
     assert step.index("^[a-z0-9-]+$") < step.index("train_jobs summarize") < step.index('mkdir -p "ops/training/$JOB"')
 
 
+def test_summary_records_the_ref_and_sha_it_ran_on(tmp_path, monkeypatch):
+    _fake_run(tmp_path, 1)
+    for k in ("GITHUB_REF_NAME", "GITHUB_SHA", "GITHUB_RUN_ID"):
+        monkeypatch.delenv(k, raising=False)
+    assert {k: T.summarize("e2-mccfr", tmp_path)[k] for k in ("ref", "sha", "run_id")} == {"ref": None, "sha": None, "run_id": None}
+    monkeypatch.setenv("GITHUB_REF_NAME", "claude/187-tiers-train")
+    monkeypatch.setenv("GITHUB_SHA", "a" * 40)
+    monkeypatch.setenv("GITHUB_RUN_ID", "40624661667")
+    s = T.summarize("e2-mccfr", tmp_path)
+    assert (s["ref"], s["sha"], s["run_id"]) == ("claude/187-tiers-train", "a" * 40, "40624661667")
+
+
 @pytest.mark.parametrize("tier,k", [("beginner", 5), ("mid", 11)])
 def test_tier_jobs_train_and_are_measured_at_their_tp_resolution(tmp_path, monkeypatch, tier, k):
     import referee.e2.lbr as lbr
@@ -111,3 +123,47 @@ def test_tier_jobs_train_and_are_measured_at_their_tp_resolution(tmp_path, monke
     pol = json.loads((tmp_path / f"e2-tier-{tier}-seed3.policy.json").read_text(encoding="utf-8"))
     assert {int(key.split("|")[2]) for key in pol} <= set(range(k))
     assert T.summarize(f"e2-tier-{tier}", tmp_path)["lbr_bb_mean"] == 2.0
+
+
+def test_eq_jobs_train_with_the_equity_view(tmp_path, monkeypatch):
+    import referee.e2.lbr as lbr
+
+    seen = {}
+
+    def fake_lbr(pol, hands, seed, view):
+        seen.update(view=view, seed=seed, hands=hands)
+        return {"lbr_bb": 1.5, "stderr_bb": 0.1, "hands": hands}
+
+    monkeypatch.setattr(lbr, "exploitability_lb", fake_lbr)
+    T.run("e2-eq-beginner", 3, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-eq-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert r["view"] == {"view": "equity", "k": 5} and seen["view"].k == 5
+    assert seen["seed"] == 10_001 and seen["hands"] == T.LBR_HANDS
+
+
+def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "LEAGUE_GENERATIONS", 2)
+    import stalker.e2.league as lg
+    from stalker.e2 import personas
+
+    monkeypatch.setattr(lg, "persona_field", lambda names=None: personas.field(("tag",)))
+    T.run("e2-league-beginner", 40, 1, tmp_path)
+    r = json.loads((tmp_path / "e2-league-beginner-seed1.json").read_text(encoding="utf-8"))
+    assert r["tier"] == "beginner" and len(r["generations"]) == 2 and r["iters"] == 40
+    assert r["generations"][0]["worst_persona"] == "tag"
+    s = T.summarize("e2-league-beginner", tmp_path)
+    assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1
+
+
+
+
+def test_league_summary_keeps_one_entry_per_seed(tmp_path):
+    # #255: a seed with no promoted champion must stay in place (null), not shift the others.
+    for seed, champ in ((1, None), (2, {"gain_bb": 0.4, "field_bb": 0.2, "field_ci95_low_bb": 0.05, "worst_persona": "tag"})):
+        (tmp_path / f"e2-league-beginner-seed{seed}.json").write_text(json.dumps(
+            {"job": "e2-league-beginner", "seed": seed, "iters": 10, "promoted": int(champ is not None),
+             "champion": champ}), encoding="utf-8")
+    s = T.summarize("e2-league-beginner", tmp_path)
+    assert s["seeds"] == [1, 2]
+    assert s["champion_gain_bb_by_seed"] == [None, 0.4] and s["champion_worst_persona_by_seed"] == [None, "tag"]
+    assert s["champion_field_ci95_low_bb_by_seed"] == [None, 0.05]
