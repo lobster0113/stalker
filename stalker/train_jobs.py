@@ -1,6 +1,7 @@
 """Allow-listed training jobs for the `train` workflow (GitHub Actions CPU runners, #184).
 
     python -m stalker.train_jobs run e2-mccfr --iters 20000 --seed 3 --out out/
+    python -m stalker.train_jobs run e2-tier-beginner --iters 100000 --seed 1 --out out/   (#187)
     python -m stalker.train_jobs summarize e2-mccfr out/ > summary.json
 
 Only names in JOBS can run, so a workflow input can never become an arbitrary command. Each run
@@ -16,6 +17,7 @@ import os
 import re
 import sys
 import time
+from functools import partial
 from pathlib import Path
 
 # LBR hands per seat: 400 gave SE ~0.4-0.5 bb/hand, too wide to separate TP tiers (#234); 4000 gives ~0.15.
@@ -27,24 +29,29 @@ SECRET_PATTERNS = re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|rpa
                              r"|-----BEGIN [A-Z ]*PRIVATE KEY-----")
 
 
-def _e2_mccfr(iters: int, seed: int, out: Path) -> dict:
+def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: str = "e2-mccfr") -> dict:
     from referee.e2.lbr import exploitability_lb
+    from stalker.e2.abstraction import TIERS
     from stalker.e2.mccfr import MCCFR
 
+    abstraction = TIERS[tier]
     t0 = time.monotonic()
-    m = MCCFR(seed)
+    m = MCCFR(seed, abstraction)
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
-    (out / f"e2-mccfr-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
     t1 = time.monotonic()
-    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed)
-    return {"iters": iters, "train_seconds": round(train_s, 1), "iters_per_s": round(iters / max(train_s, 1e-6), 2),  # tiny runs can read 0 s on coarse clocks
+    # Same LBR deals for every tier and seed, so tiers differ only in what the policy sees (#187).
+    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, abstraction=abstraction)
+    return {"iters": iters, "tier": tier, "abstraction": abstraction.to_json(), "train_seconds": round(train_s, 1), "iters_per_s": round(iters / max(train_s, 1e-6), 2),
             "infosets": len(m.regret), "lbr": lbr, "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
-JOBS = {"e2-mccfr": _e2_mccfr}
+JOBS = {"e2-mccfr": _e2_mccfr,
+        "e2-tier-beginner": partial(_e2_mccfr, tier="beginner", name="e2-tier-beginner"),
+        "e2-tier-mid": partial(_e2_mccfr, tier="mid", name="e2-tier-mid")}
 
 
 def run(job: str, iters: int, seed: int, out: Path) -> Path:
@@ -97,7 +104,7 @@ def summarize(job: str, folder: Path) -> dict:
     out = {"job": job, "runs": len(runs), "seeds": [r["seed"] for r in runs],
            "ref": os.environ.get("GITHUB_REF_NAME"), "sha": os.environ.get("GITHUB_SHA"),
            "run_id": os.environ.get("GITHUB_RUN_ID")}
-    if job == "e2-mccfr" and runs:
+    if job.startswith("e2-") and runs:
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
