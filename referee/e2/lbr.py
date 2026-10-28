@@ -149,7 +149,9 @@ def _value(policy, s: G.State, a: str, w: np.ndarray, me: int, rng, view, pub) -
     ns = G.apply(s, a)
     if ns.done or ns.to_act == me or a in ("c", "k"):
         # No bet for the opponent to answer: assume no more betting to showdown.
-        eq = equity_vs_range(s.hole[me], ns.board if ns.done else s.board, w, rng) if not ns.folded else 1.0
+        # Only the cards already dealt: a call that ends the hand deals the runout in `ns`, and reading
+        # it would let LBR call only when it wins (clairvoyance; #257 review). Equity integrates the rest.
+        eq = equity_vs_range(s.hole[me], s.board, w, rng) if not ns.folded else 1.0
         pot = ns.total[0] + ns.total[1]
         return eq * pot - ns.total[me]
     probs = opp_action_probs(policy, ns, opp, view.buckets(ns, opp, pub))

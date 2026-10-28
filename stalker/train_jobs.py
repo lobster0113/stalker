@@ -156,12 +156,12 @@ def summarize(job: str, folder: Path) -> dict:
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
     if job.startswith("e2-league-") and runs:
-        champs = [r["champion"] for r in runs if r["champion"]]
+        champs = [r["champion"] or {} for r in runs]  # one entry per seed (null without a champion), aligned with seeds
         out.update({"iters": runs[0]["iters"], "promoted_by_seed": [r["promoted"] for r in runs],
-                    "champion_gain_bb_by_seed": [c["gain_bb"] for c in champs],
-                    "champion_field_bb_by_seed": [c["field_bb"] for c in champs],
-                    "champion_field_ci95_low_bb_by_seed": [c["field_ci95_low_bb"] for c in champs],
-                    "champion_worst_persona_by_seed": [c["worst_persona"] for c in champs]})
+                    "champion_gain_bb_by_seed": [c.get("gain_bb") for c in champs],
+                    "champion_field_bb_by_seed": [c.get("field_bb") for c in champs],
+                    "champion_field_ci95_low_bb_by_seed": [c.get("field_ci95_low_bb") for c in champs],
+                    "champion_worst_persona_by_seed": [c.get("worst_persona") for c in champs]})
     return out
 
 

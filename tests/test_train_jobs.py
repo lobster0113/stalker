@@ -155,3 +155,15 @@ def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):
     assert s["runs"] == 1 and len(s["promoted_by_seed"]) == 1
 
 
+
+
+def test_league_summary_keeps_one_entry_per_seed(tmp_path):
+    # #255: a seed with no promoted champion must stay in place (null), not shift the others.
+    for seed, champ in ((1, None), (2, {"gain_bb": 0.4, "field_bb": 0.2, "field_ci95_low_bb": 0.05, "worst_persona": "tag"})):
+        (tmp_path / f"e2-league-beginner-seed{seed}.json").write_text(json.dumps(
+            {"job": "e2-league-beginner", "seed": seed, "iters": 10, "promoted": int(champ is not None),
+             "champion": champ}), encoding="utf-8")
+    s = T.summarize("e2-league-beginner", tmp_path)
+    assert s["seeds"] == [1, 2]
+    assert s["champion_gain_bb_by_seed"] == [None, 0.4] and s["champion_worst_persona_by_seed"] == [None, "tag"]
+    assert s["champion_field_ci95_low_bb_by_seed"] == [None, 0.05]
