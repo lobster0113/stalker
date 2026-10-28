@@ -160,6 +160,8 @@ def summarize(job: str, folder: Path) -> dict:
     if job.startswith("e2-league-") and runs:
         champs = [r["champion"] or {} for r in runs]  # one entry per seed (null without a champion), aligned with seeds
         out.update({"iters": runs[0]["iters"], "exploiter": runs[0].get("exploiter"),
+                    # per seed, the iterations each generation's exploiter actually trained (#247)
+                    "exploiter_iters_by_seed": [[g.get("exploiter_iters") for g in r["generations"]] for r in runs],
                     "promoted_by_seed": [r["promoted"] for r in runs],
                     "champion_gain_bb_by_seed": [c.get("gain_bb") for c in champs],
                     "champion_field_bb_by_seed": [c.get("field_bb") for c in champs],
