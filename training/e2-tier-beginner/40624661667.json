@@ -1,0 +1,22 @@
+{
+ "job": "e2-tier-beginner",
+ "runs": 3,
+ "seeds": [
+  2,
+  3,
+  4
+ ],
+ "iters": 900000,
+ "iters_per_s_mean": 67.79,
+ "lbr_bb_mean": 0.5292,
+ "lbr_bb_by_seed": [
+  0.505,
+  0.4807,
+  0.602
+ ],
+ "lbr_stderr_by_seed": [
+  0.1217,
+  0.1206,
+  0.1219
+ ]
+}
