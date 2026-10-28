@@ -15,7 +15,7 @@ SPEC = {"name": "t", "reference_version": "refbot-v1+icm-ref-v1+chart-v1+post-v1
 
 def _write(tmp_path, **kw):
     p = tmp_path / "spec.json"
-    p.write_text(json.dumps({**SPEC, **kw}))
+    p.write_text(json.dumps({**SPEC, **kw}), encoding="utf-8")
     return p
 
 
@@ -23,7 +23,7 @@ def test_spec_hash_and_missing_keys(tmp_path):
     spec, sha = load_spec(_write(tmp_path))
     assert len(sha) == 64 and spec["blocks"] == 4
     bad = tmp_path / "bad.json"
-    bad.write_text("{}")
+    bad.write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="lacks"):
         load_spec(bad)
 
@@ -45,7 +45,7 @@ def test_deterministic_bytes(tmp_path):
         assert main(["--spec", str(_write(tmp_path)), "--candidate", "referee.gate_b.candidates:random_legal",
                      "--out", str(tmp_path / name)]) == 1
     assert (tmp_path / "a/gate_b.json").read_bytes() == (tmp_path / "b/gate_b.json").read_bytes()
-    assert (tmp_path / "a/gate_b.md").read_text() == (tmp_path / "b/gate_b.md").read_text()
+    assert (tmp_path / "a/gate_b.md").read_text(encoding="utf-8") == (tmp_path / "b/gate_b.md").read_text(encoding="utf-8")
 
 
 def test_aa_is_not_pass_and_random_is_not_pass(tmp_path):

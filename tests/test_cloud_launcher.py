@@ -105,7 +105,7 @@ def test_parse_spec_rejects_bad_specs(bad, msg):
 
 def test_load_spec_only_from_jobs_dir(tmp_path):
     p = tmp_path / "x.yaml"
-    p.write_text(SPEC)
+    p.write_text(SPEC, encoding="utf-8")
     with pytest.raises(L.LauncherError, match="jobs/"):
         L.load_spec(p)
     for f in (ROOT / "jobs").glob("*.yaml"):
@@ -202,9 +202,9 @@ def test_reap_kills_overdue_and_unknown_pods_only(tmp_path):
 @pytest.mark.parametrize("name_line", ["name: smoke-cpu  # tiny", 'name: "smoke-cpu"', "name: 'smoke-cpu' # q"])
 def test_cleanup_step_finds_pod_by_parsed_spec_name(tmp_path, name_line, monkeypatch):
     jobs = ROOT / "jobs"
-    spec = (jobs / "smoke-cpu.yaml").read_text().replace("name: smoke-cpu", name_line)
+    spec = (jobs / "smoke-cpu.yaml").read_text(encoding="utf-8").replace("name: smoke-cpu", name_line)
     p = jobs / "_test_cleanup.yaml"
-    p.write_text(spec)
+    p.write_text(spec, encoding="utf-8")
     try:
         api = FakeRunPod(cost=0.1)
         api("POST", f"{L.REST_URL}/pods", {"name": "stalker-smoke-cpu-77"})
@@ -270,12 +270,12 @@ def test_main_dry_run_and_budget_exit_codes(tmp_path, capsys, monkeypatch):
 
 def test_budget_cap_is_user_decision():
     # NH-1: user set $100/month. Raising it needs a user decision (reviewer.md), never an agent PR.
-    assert json.loads((ROOT / "harness" / "budget.json").read_text()) == {"monthly_cap_usd": 100}
-    assert "budget.json" in (ROOT / "harness" / "routines" / "reviewer.md").read_text()
+    assert json.loads((ROOT / "harness" / "budget.json").read_text(encoding="utf-8")) == {"monthly_cap_usd": 100}
+    assert "budget.json" in (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
 
 
 def test_cloud_workflow_guards():
-    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text()
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
     on = wf.split("\non:\n", 1)[1].split("\n\n", 1)[0]
     assert "workflow_dispatch:" in on and "schedule:" in on
     assert not any(t in on for t in ("pull_request", "push:", "workflow_run"))
@@ -324,3 +324,16 @@ def test_spec_names_use_forward_slashes_on_windows_paths():
     root = PureWindowsPath(r"C:\repo")
     assert L._rel_posix(PureWindowsPath(r"C:\repo\jobs\smoke-cpu.yaml"), root) == "jobs/smoke-cpu.yaml"
     assert L._rel_posix(PureWindowsPath(r"C:\elsewhere\x.yaml"), root) == "C:/elsewhere/x.yaml"
+
+
+def test_relative_windows_spec_paths_and_nesting(tmp_path, monkeypatch):
+    from pathlib import PureWindowsPath
+
+    assert L._rel_posix(PureWindowsPath(r"jobs\x.yaml"), PureWindowsPath(r"C:\repo")) == "jobs/x.yaml"
+    monkeypatch.setattr(L, "ROOT", tmp_path)
+    (tmp_path / "jobs" / "sub").mkdir(parents=True)
+    (tmp_path / "jobs" / "x.yaml").write_text(SPEC, encoding="utf-8")
+    (tmp_path / "jobs" / "sub" / "x.yaml").write_text(SPEC, encoding="utf-8")
+    assert L.load_spec(tmp_path / "jobs" / "x.yaml").name
+    with pytest.raises(L.LauncherError, match="jobs/"):
+        L.load_spec(tmp_path / "jobs" / "sub" / "x.yaml")

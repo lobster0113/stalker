@@ -59,7 +59,7 @@ def main() -> None:
             m, se = seat_roi(lambda rng: CheckFoldAgent(), cfg, opp, args.eval_games, seed=7)
             row[f"roi_vs_{opp}"], row[f"se_vs_{opp}"] = round(m, 4), round(se, 4)
         args.out.mkdir(parents=True, exist_ok=True)
-        (args.out / "checkfold.json").write_text(json.dumps(row, indent=1))
+        (args.out / "checkfold.json").write_text(json.dumps(row, indent=1), encoding="utf-8")
         print(json.dumps(row))
         return
     cfg_t = dataclasses.replace(SETTINGS[args.setting], seed=args.seed)
@@ -78,7 +78,7 @@ def main() -> None:
         row[f"checkfold_roi_vs_{opp}"] = round(ev.baseline_roi, 4)
         row[f"actions_vs_{opp}"] = {k: round(v, 3) for k, v in ev.actions.items()}
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / f"{args.setting}-s{args.seed}.json").write_text(json.dumps(row, indent=1))
+    (args.out / f"{args.setting}-s{args.seed}.json").write_text(json.dumps(row, indent=1), encoding="utf-8")
     tr.save(args.out / f"{args.setting}-s{args.seed}.pt")
     print(json.dumps(row))
 
