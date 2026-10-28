@@ -364,3 +364,4 @@
 {"ts":"2026-10-28T00:16:47Z","role":"reviewer","outcome":"skipped","issue":179,"pr":218,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T00:17:19Z","role":"reviewer","outcome":"skipped","issue":184,"pr":222,"notes":"not my parity","friction":""}
 {"ts":"2026-10-28T00:19:49Z","role":"reviewer","outcome":"skipped","issue":null,"pr":142,"notes":"not my parity","friction":""}
+{"ts":"2026-10-28T00:29:44Z","role":"builder","outcome":"pr_opened","issue":116,"pr":227,"notes":"데모 Quick/Guided 플레이 모드(Quick 기본, 액션 먼저→진행 또는 분석 보기→핵심 판단 1~3개→비교), MODES=spec modes.quick 일치 테스트(변경 전 실패), Gate U에 Quick 입력≤3·분석 흐름·Guided 전환 추가; gates full PASS 로컬(tests 578s), Gate U ok","friction":"Bash cwd가 web/e2e로 남자 guard_bash 훅이 상대경로(harness/hooks/guard_bash.py)라 모든 Bash 호출이 막힘 — 임시 shim으로 빠져나옴. 훅 명령을 절대경로나 git rev-parse 기준으로 바꾸면 좋겠다. 열린 PR이 모두 lobster0113이라 builder 소유 판별에 journal+CLAIM 조회가 필요"}
