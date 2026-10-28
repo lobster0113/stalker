@@ -70,9 +70,7 @@ class E3MCCFR:
         probs = self._seat_probs(public, steps, len(acts))
 
         def child(i: int):
-            r = list(ranges)
-            r[p] = ranges[p] * probs[:, i]
-            return G.apply(s, acts[i]), r
+            return G.apply(s, acts[i]), K.update_range(ranges, p, probs[:, i])
 
         if p == trav:
             vals = np.array([self._walk(*child(i), trav) for i in range(len(acts))])
@@ -115,7 +113,7 @@ def main(argv=None) -> int:
     dt = time.monotonic() - t0
     print(json.dumps({"tier": a.tier, "players": a.players, "iters": a.iters, "seconds": round(dt, 1),
                       "iters_per_s": round(a.iters / dt, 3), "nodes_per_iter": round(m.nodes / a.iters, 1),
-                      "keys": len(m.regret), "theoretical_keys": K.theoretical_keys(a.players, m.k)}))
+                      "keys": len(m.regret), "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth)}))
     return 0
 
 
