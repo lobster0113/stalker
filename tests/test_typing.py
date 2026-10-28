@@ -18,7 +18,7 @@ from stalker.typing.spots import category_probs, position_label, spot_key, stack
 def decision(game="g0", probs=(0.0, 1.0, 0.0), remaining=9, hero_stack=1500, villain_stack=1500, position="UTG",
              street="preflop", actions=(), bets=(0, 0), memory=None, players_total=9) -> DecisionRecord:
     return DecisionRecord(
-        ids=RecordIds("ep", game, "t", 1, 1, 0, "v"),
+        ids=RecordIds("ep", game, "t", 1, 1, 0, "v", "0123456789abcdef"),
         tournament_context=TournamentContext(
             table_size=9, sb=25, bb=50, ante_type="none", ante=0, level=0, remaining=remaining, paid_places=3,
             payout_vector=(50.0, 30.0, 20.0), next_level=None, stacks=StackSummary.of([1500] * 9)),

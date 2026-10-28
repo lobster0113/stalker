@@ -181,10 +181,10 @@ def solve(spot: Spot, settings: SolveSettings = SolveSettings(), home: str | os.
         raise TexasSolverError("console_solver not found — run scripts/install_texassolver.sh "
                                "or set STALKER_TEXASSOLVER_HOME")
     root = exe.parent
-    version = (root / "VERSION").read_text().strip() if (root / "VERSION").is_file() else None
+    version = (root / "VERSION").read_text(encoding="utf-8").strip() if (root / "VERSION").is_file() else None
     with tempfile.TemporaryDirectory(prefix="texassolver-") as work:
         inp = Path(work) / "input.txt"
-        inp.write_text(build_input(spot, settings))
+        inp.write_text(build_input(spot, settings), encoding="utf-8")
         start = time.perf_counter()
         code, rss_mb, output = _run([str(exe), "-i", str(inp), "-r", str(root / "resources"), "-m", "holdem"],
                                     work, timeout)
@@ -193,10 +193,10 @@ def solve(spot: Spot, settings: SolveSettings = SolveSettings(), home: str | os.
         if code != 0 or not out.is_file():
             tail = "\n".join(output.splitlines()[-10:])
             raise TexasSolverError(f"console_solver exit {code}, no {OUTPUT_NAME}:\n{tail}")
-        raw = json.loads(out.read_text())
+        raw = json.loads(out.read_text(encoding="utf-8"))
         rootstrat = parse_root(raw)
         log = Path(work) / LOG_NAME
-        expl, iters = parse_log(log.read_text()) if log.is_file() else (None, None)
+        expl, iters = parse_log(log.read_text(encoding="utf-8")) if log.is_file() else (None, None)
     return SolveResult(rootstrat, raw, expl, iters, wall, rss_mb, version)
 
 
@@ -204,7 +204,7 @@ def _run(cmd: list[str], cwd: str, timeout: float | None) -> tuple[int, float, s
     """Run to completion; returns (exit code, this child's peak RSS in MB, combined output). `os.wait4`
     gives per-child rusage, which `subprocess.run` does not expose."""
     log = Path(cwd) / "console.out"
-    with open(log, "w") as fh:
+    with open(log, "w", encoding="utf-8") as fh:
         proc = subprocess.Popen(cmd, cwd=cwd, stdout=fh, stderr=subprocess.STDOUT)
         timer = threading.Timer(timeout, proc.kill) if timeout else None
         if timer:
@@ -217,7 +217,7 @@ def _run(cmd: list[str], cwd: str, timeout: float | None) -> tuple[int, float, s
         proc.returncode = os.waitstatus_to_exitcode(status)
     if timer and proc.returncode < 0:
         raise TexasSolverError(f"console_solver killed after {timeout}s timeout")
-    return proc.returncode, usage.ru_maxrss / 1024, log.read_text(errors="replace")
+    return proc.returncode, usage.ru_maxrss / 1024, log.read_text(errors="replace", encoding="utf-8")
 
 
 def _no_space(text: str) -> str:

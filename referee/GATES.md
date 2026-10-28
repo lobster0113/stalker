@@ -7,6 +7,7 @@
 - 칩 보존, 올인·사이드팟 정산의 독립 구현 일치, 포지션·베팅 순서·최소 레이즈, 블라인드·앤티(일반/BB 앤티)와 숏스택 징수, 탈락·순위·상금 배분. 통과율 100%.
 - 스위트: `referee/gate_r/` — `python -m referee.gate_r [--full] [--seeds N]`. `gates full`이 `--full`로 실행하고 `metrics.py`가 `gate_r_pass_rate`·`gate_r_checks`(토너먼트)와 `gate_r_cash_pass_rate`·`gate_r_cash_checks`(캐시)를 기록한다.
 - 엣지 케이스(SIM-d): `python -m referee.gate_r.edge [--cases N]`(`gates full`의 `gate_r_edge`, 로컬 약 25초). 무작위 플레이로는 드문 상황 8종 — 숏 올인 연쇄, 3개 이상 사이드팟+동점 분할+홀수 칩, 앤티로만 올인, 블라인드 숏, 보드 플레이 분할, 휠·키커, 헤즈업 전환 직후, 동시 다중 탈락 — 을 고정 시드로 일부러 만들고, 분류기가 그 상황이 실제로 일어났다고 확인한 케이스만 센다(종마다 ≥ 50, 못 채우면 실패). 핸드 6종은 덱을 고정해 PokerKit `Hand`·`FastHand`를 같은 액션으로 진행(항목 `engines`: 매 단계 액터·합법 액션, 끝의 카드·`HandResult` 일치)하고 같은 이벤트를 독립 모델로 재생한다. 게임 2종은 `run_game` + 위 검사 전체. 경계 항목별 손계산 골든 케이스는 `tests/test_gate_r_edge.py`(기대값과 계산 근거 주석).
+- E3 엔진(#203): `python -m referee.gate_r.e3_suite [--hands N]`(`gates full`의 `gate_r_e3`, 로컬 약 10초). 6인·9인 무작위 핸드 각 1,000개를 같은 홀카드·보드로 PokerKit에서 재생한다. 항목: `e3_actor`(매 액션 뒤 다음 액터·스트리트), `e3_stacks`(모든 좌석 스택), `e3_result`(좌석별 순결과: 폴드 승리·콜되지 않은 칩·분할·홀수 칩), `e3_chips`(결과 합 0, 기여 ≤ 스택, 팟 = 기여 합). 지표 `gate_r_e3_pass_rate`·`gate_r_e3_checks`. 손계산 골든 케이스는 `tests/test_e3_golden.py`. 홀수 칩은 토너먼트 정산과 같은 TDA 규칙(전부 포스트플랍 순서 첫 승자)이다.
 - 방법: 모든 프리셋 × 구조 변형 × {무작위 합법 봇, 콜링 스테이션} × 고정 시드로 게임을 돌리고, 공개 이벤트 스트림을 **PokerKit·`stalker.tournament.hand`를 쓰지 않는** 독립 규칙 모델(`checks.py`, `evaluator.py`, `settlement.py`)로 재생해 칩 단위로 대조한다.
 - 검사 항목: `antes_blinds`, `action_order`, `bet_sizing`, `street_flow`, `settlement`, `chip_conservation`, `button`, `stack_continuity`, `elimination`, `prizes`.
 - 규칙 명세(교과서에 없는 부분은 ADR 0005의 엔진 규칙과 같게 고정):
@@ -52,7 +53,7 @@
 | L4 | 생존자 수·상금 구조 변경 | 다음 관측에 즉시 반영 |
 | L5 | 게임 중 합류 | 합류 이후 관측만 메모리에 존재 |
 | L6 | 학습 배치 | game_id 경계에서 상태 초기화, 게임 간 상태 전달 없음 |
-| L7 | 숨은 카드 교체 (ADR 0010) | `PublicObservation`과 상대 정책 가정이 같고 타인 홀카드·덱만 다르면 정책 출력과 TP 정답 레이블(`opp.range` 등)이 완전 동일 |
+| L7 | 숨은 카드 교체 (ADR 0010). `check_l7`: 모두 체크/콜하는 고정 게임(카드와 무관한 공개 액션)에서 히어로 결정 6개(프리플랍 3·포스트플랍 3)마다, 히어로 홀카드·깔린 보드는 덱의 같은 자리에 두고 나머지 카드만 섞은 덱 N=50개로 엔진을 다시 돌려 **세계마다 디렉터가 관측을 새로 만든다**. 그 관측으로 레이블 경로(엔진 관측 → `PublicObservation` → DecisionContext·`opp.range` 교사 레이블)와 Gate L `REGISTRY`의 정책을 실행 | `PublicObservation`과 상대 정책 가정이 같고 타인 홀카드·덱만 다르면 **정책 출력과 TP 정답 레이블**(그리고 DecisionContext)이 완전 동일. 판별: 덱을 읽는 가짜 레이블러·정책 입력, 덱을 관측에 흘리는 엔진은 실패해야 한다 |
 | L8 | 특성 출처 | 정책 입력 텐서의 모든 필드가 `PublicObservation` 또는 DecisionContext에서 왔음을 런타임 출처 표지로 확인(정적 import 검사만으로는 부족). `TeacherContext`·`PrivateWorldState` 값이 섞이면 실패 |
 
 스위트: `referee/gate_l.py` — `python -m referee.gate_l`. 지표 `gate_l_pass_rate`·`gate_l_checks`·`gate_l_items`.
