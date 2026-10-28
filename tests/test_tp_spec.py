@@ -159,6 +159,11 @@ def _demo_defs():
     return items, tiers
 
 
+def _demo_quick_mode():
+    m = re.search(r"^const MODES = (\{.*\});$", DEMO, flags=re.M)
+    return json.loads(m.group(1))["quick"] if m else None
+
+
 def demo_differences() -> list[str]:
     spec = load()
     items, tiers = _demo_defs()
@@ -171,6 +176,10 @@ def demo_differences() -> list[str]:
         if tiers.get(t) != want:
             got = tiers.get(t, set())
             diffs.append(f"tier {t}: demo-only {sorted(got - want)}, spec-only {sorted(want - got)}")
+    quick = _demo_quick_mode()
+    want = {k: spec.data["modes"]["quick"][k] for k in ("max_judgments", "rule")}
+    if quick != want:
+        diffs.append(f"modes.quick: demo {quick} != spec {want} (copy the spec's max_judgments/rule into MODES)")
     return diffs
 
 
@@ -184,6 +193,12 @@ def test_demo_differences_are_reported():
 def test_demo_parser_finds_definitions():
     items, tiers = _demo_defs()
     assert "hand.equity" in items and set(tiers) == {"beginner", "mid", "pro"}
+
+
+def test_demo_quick_rule_is_read_from_spec_field():
+    # Quick must pick its questions through MODES (the spec field), not a list hard-coded in the flow.
+    assert _demo_quick_mode() is not None, "web/demo/index.html: no single-line `const MODES = {...};` JSON"
+    assert "MODES.quick.rule[" in DEMO and "MODES.quick.max_judgments" in DEMO
 
 
 def test_demo_matches_spec():
