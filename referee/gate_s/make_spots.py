@@ -13,7 +13,7 @@ EDGES = [5.0, 10.0, 15.0]   # docs/TP.md §6 effective-stack buckets inside E1
 MIN_FLIP_MASS = 0.03
 
 spec = {"version": 1, "seed": 280, "per_base": 6, "bucket_edges": EDGES, "flip_margin_pot": 0.01,
-        "thresholds": {"tv_p95": 0.15, "tp_change_steps": 1, "stab_regret_p99_pct": 2.0, "golden_moved": 0.5},
+        "thresholds": {"tv_p95": 0.15, "tp_change_steps": 1, "tp_change_points": 10, "stab_regret_p99_pct": 2.0, "golden_moved": 0.5},
         "base": [[seat, s, ante] for seat in S.SEATS for ante in (0.0, 1.0) for s in S.grid(EDGES)]}
 golden = []
 g = S.grid(EDGES)

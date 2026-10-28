@@ -3,6 +3,8 @@
 A policy is `policy(seat, stack_bb, ante_bb) -> (probs, tp_bins)` over the 169 hand classes:
 `probs` is the shove (SB) or call (BB) probability, `tp_bins` the TP value each hand reads on the
 policy's own scale (bin index, so one bin = one scale step) or None for a policy without TP values.
+A policy may carry `tp_step_points` (0-100 points per scale step); without it a step counts as the
+whole scale, so the tolerance falls back to one step.
 
 A perturbation moves the stack inside its `docs/TP.md` §6 bucket (E1: <=5, 5-10, 10-15 BB) on the
 anchor's 0.5 BB grid; seat and ante stay. For each (base, perturbed) pair, per hand, the anchor's
@@ -18,7 +20,7 @@ Measured per pair (aggregate over hands, mass-weighted):
 - tp_change: weighted 95th percentile of |bin - bin'| over all hands (scale steps);
 - stab_regret: max(0, L' - L), where L is the policy's loss against the anchor's best at the spot,
   per decision reached, in % of the pot at the decision (SB 1.5 + ante, BB facing a shove stack + 1 + ante).
-Pass (GATES.md initial draft): tv p95 <= 0.15, tp_change p95 <= 1 step, stab_regret top 1% <= 2% of
+Pass (ADR 0016): tv p95 <= 0.15, tp_change p95 <= max(1 step, `tp_change_points` points), stab_regret top 1% <= 2% of
 the pot, and every golden spot moved at least half of its flip mass in the anchor's direction.
 Boundary cliffs (adjacent grid stacks across a bucket edge, tv > 0.15) are reported, not gated.
 """
@@ -128,6 +130,7 @@ def evaluate(policy, spec: dict | None = None) -> dict:
             cache[k] = (probs, None if bins is None else np.asarray(bins))
         return cache[k]
 
+    step_pts = float(getattr(policy, "tp_step_points", 100.0))
     tv, tp, reg, tv_seat = [], [], [], []
     for seat, ante, a, b in pairs(spec):
         (pa, ba), (pb, bb) = act(seat, a, ante), act(seat, b, ante)
@@ -159,14 +162,17 @@ def evaluate(policy, spec: dict | None = None) -> dict:
            "tv_p95_by_seat": {s: round(float(np.percentile([t for t, x in zip(tv, tv_seat) if x == s], 95)), 4)
                               for s in SEATS if s in tv_seat},
            "tp_change_p95": None if not tp else round(float(np.percentile(tp, 95)), 3),
+           "tp_change_p95_points": None if not tp else round(float(np.percentile(tp, 95)) * step_pts, 3),
            "stab_regret_mean_pct": round(float(np.mean(reg)), 4), "stab_regret_p99_pct": round(float(np.percentile(reg, 99)), 4),
            "cliff_ratio": round(sum(cliffs) / len(cliffs), 3) if cliffs else 0.0,
            "golden": golden}
     fails = []
     if out["tv_p95"] > th["tv_p95"]:
         fails.append(f"tv p95 {out['tv_p95']} > {th['tv_p95']}: actions move inside a bucket where the anchor's best action does not")
-    if out["tp_change_p95"] is not None and out["tp_change_p95"] > th["tp_change_steps"]:
-        fails.append(f"tp change p95 {out['tp_change_p95']} > {th['tp_change_steps']} step(s)")
+    allowed = max(th["tp_change_steps"] * step_pts, th["tp_change_points"])
+    if out["tp_change_p95"] is not None and out["tp_change_p95_points"] > allowed:
+        fails.append(f"tp change p95 {out['tp_change_p95']} steps = {out['tp_change_p95_points']} points > "
+                     f"max({th['tp_change_steps']} step, {th['tp_change_points']} points)")
     if out["stab_regret_p99_pct"] > th["stab_regret_p99_pct"]:
         fails.append(f"stabilization regret top 1% {out['stab_regret_p99_pct']}% > {th['stab_regret_p99_pct']}% of the pot")
     for gs in golden:
