@@ -74,6 +74,12 @@ def inconsistency(spot: dict) -> str | None:
     acted = {s for s, a, _ in spot.get("history", []) if a in ("cc", "cbr")}
     if (acted - folded) - in_hand:
         return f"seats {sorted((acted - folded) - in_hand)} called or raised, never folded, yet are not in in_hand"
+    if not spot.get("board"):  # #254: preflop, a seat's chips in front are its last call/raise (blinds left out)
+        last = {seat: amt for seat, a, amt in spot.get("history", []) if a in ("cc", "cbr")}
+        bets = {int(k): x for k, x in spot.get("bets_bb", {}).items() if x > 0}
+        for seat in sorted(set(last) | set(bets)):
+            if last.get(seat, 0) != bets.get(seat, 0):
+                return f"seat {seat} last put in {last.get(seat, 0)}BB in the history but bets_bb says {bets.get(seat, 0)}BB"
     return None
 
 
