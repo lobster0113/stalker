@@ -14,12 +14,12 @@ pytestmark = pytest.mark.slow
 
 def _write(tmp_path, spots):
     p = tmp_path / "s.json"
-    p.write_text(json.dumps({"spots": spots}))
+    p.write_text(json.dumps({"spots": spots}), encoding="utf-8")
     return p
 
 
 def _first():
-    return json.loads(SPOTS_V1.read_text())["spots"][0]
+    return json.loads(SPOTS_V1.read_text(encoding="utf-8"))["spots"][0]
 
 
 def test_v1_set_covers_all_axes():
@@ -93,7 +93,7 @@ def test_v1_ids_match_data():
 
 
 def test_call_spot_requires_valid_pusher(tmp_path):
-    s = next(r for r in json.loads(SPOTS_V1.read_text())["spots"] if r["kind"] == "call")
+    s = next(r for r in json.loads(SPOTS_V1.read_text(encoding="utf-8"))["spots"] if r["kind"] == "call")
     for bad in (None, s["hero"], -1):
         s["pusher"] = bad
         with pytest.raises(SpotSetError, match="pusher"):

@@ -42,7 +42,7 @@ DEFAULT_QUEUE_LOW_MIN_HOURS = 2
 
 def _git(*args: str, env: dict | None = None, stdin: str | None = None) -> str:
     r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True,
-                       env={**os.environ, **env} if env else None, input=stdin)
+                       env={**os.environ, **env} if env else None, input=stdin, encoding="utf-8")
     return r.stdout if r.returncode == 0 else ""
 
 
@@ -132,7 +132,7 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
            now: datetime | None = None) -> tuple[bool, str]:
     if role != "auditor" and (ROOT / "harness" / "PAUSE").exists():
         return False, "harness/PAUSE present"
-    cfg = json.loads((ROOT / "harness" / "schedule.json").read_text()).get(role)
+    cfg = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8")).get(role)
     if cfg is None:
         return False, f"unknown role {role!r}"
     if not cfg.get("enabled", True):

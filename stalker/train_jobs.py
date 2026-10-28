@@ -20,6 +20,8 @@ import time
 from functools import partial
 from pathlib import Path
 
+# LBR hands per seat: 400 gave SE ~0.4-0.5 bb/hand, too wide to separate TP tiers (#234); 4000 gives ~0.15.
+LBR_HANDS = 4000
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
 ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
 # Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
@@ -41,13 +43,14 @@ def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: st
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
     t1 = time.monotonic()
     # Same LBR deals for every tier and seed, so tiers differ only in what the policy sees (#187).
-    lbr = exploitability_lb(policy, hands=400, seed=10_000 + seed, **({} if tier == "baseline" else {"abstraction": abstraction}))
+    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, abstraction=abstraction)
     return {"iters": iters, "tier": tier, "abstraction": abstraction.to_json(), "train_seconds": round(train_s, 1), "iters_per_s": round(iters / max(train_s, 1e-6), 2),
             "infosets": len(m.regret), "lbr": lbr, "lbr_seconds": round(time.monotonic() - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
 def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
+    """#188: the equity-against-range view, measured by LBR through the same dynamic view."""
     from referee.e2.lbr import exploitability_lb
     from stalker.e2.eq_view import EQ_TIERS, EqMCCFR
 
@@ -58,7 +61,7 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
     policy = m.policy()
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
     t1 = time.monotonic()
-    lbr = exploitability_lb(policy, hands=400, seed=10_000 + seed, view=m.view)
+    lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, view=m.view)
     return {"iters": iters, "tier": tier, "view": m.view.to_json(), "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "lbr": lbr,
             "lbr_seconds": round(time.monotonic() - t1, 1),
@@ -146,7 +149,8 @@ def summarize(job: str, folder: Path) -> dict:
     if job.startswith(("e2-", "e3-")) and runs:
         lb = [r["lbr"]["lbr_bb"] for r in runs]
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
-                    "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb})
+                    "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
+                    "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
     return out
 
 
