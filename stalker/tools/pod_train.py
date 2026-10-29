@@ -50,14 +50,15 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
     keys = raw.decode().split("\n") if raw else []
     regret, avg, visits = {}, {}, {}
     ri = ai = 0
-    for k, rl, al, v in zip(keys, z["reg_len"], z["avg_len"], z["visits"]):
+    # Python ints for the offsets: NumPy 2 keeps int + int16 as int16, which wraps past 32767 (#355).
+    for k, rl, al, v in zip(keys, z["reg_len"].tolist(), z["avg_len"].tolist(), z["visits"].tolist()):
         if rl:
             regret[k] = z["reg"][ri:ri + rl].astype(float).tolist()
         if al:
             avg[k] = z["avg"][ai:ai + al].astype(float).tolist()
         if v:
             visits[k] = int(v)
-        ri, ai = ri + int(rl), ai + int(al)
+        ri, ai = ri + rl, ai + al
     return {"version": 1, **meta, "regret": regret, "avg": avg, "visits": visits}
 
 

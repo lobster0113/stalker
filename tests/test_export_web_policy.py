@@ -56,3 +56,19 @@ def test_size_cap_and_pruning(tmp_path):
     doc = json.loads(out.read_text(encoding="utf-8"))
     assert doc["keys_dropped"] > 0 and doc["min_visits"] == 3
     assert all(m.visits[k] >= 3 for k in doc["policy"])
+
+
+def test_average_strategy_and_pod_result_input(tmp_path):
+    # #355: export the average strategy, straight from a pod training result
+    from stalker.tools import pod_train as P
+
+    r = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2)
+    res = tmp_path / "pod.json"
+    res.write_text(json.dumps(r), encoding="utf-8")
+    out = tmp_path / "p.json"
+    assert X.main(["--pod-result", str(res), "--strategy", "average", "--run", "9", "--out", str(out)]) == 0
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert doc["strategy"] == "average" and doc["lbr_bb"] == r["lbr_average"]["lbr_bb"]
+    assert doc["iterations"] == r["iters"] and doc["field_worst"] is None
+    m = E3MCCFR.from_state(P.unpack_state(__import__("base64").b64decode(r["checkpoint"]["b64"]), r["model"]))
+    assert set(doc["policy"]) <= set(m.policy()) and doc["keys"] == len(m.policy())

@@ -58,3 +58,16 @@ def test_job_spec_is_bounded_and_leaves_time_to_evaluate(spec):
     assert int(args[args.index("--workers") + 1]) <= job.vcpu
     # install + training + evaluation (LBR 2x1000 hands, field 1000 deals) inside the pod deadline
     assert float(args[args.index("--minutes") + 1]) + 60 <= job.max_minutes
+
+
+def test_unpack_handles_tables_past_int16_offsets():
+    # #355: offsets wrapped at 32767 in NumPy 2 (int + int16 stays int16); a real mid table has 54k keys
+    m = E3MCCFR(1, 5, 3, "basic")
+    for i in range(12_000):
+        m.regret[f"k{i}"] = np.array([1.0, 2.0, float(i)])
+        m.avg[f"k{i}"] = np.array([float(i), 1.0, 0.5])
+        m.visits[f"k{i}"] = i + 1
+    meta = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": 0, "nodes": 0, "rng": m.rng.bit_generator.state}
+    st = P.unpack_state(P.pack(m), meta)
+    assert st["regret"]["k11999"] == [1.0, 2.0, 11999.0] and st["avg"]["k11999"] == [11999.0, 1.0, 0.5]
+    assert st["visits"]["k11999"] == 12000
