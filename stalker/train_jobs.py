@@ -168,11 +168,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules."""
-    from referee.e3.field import evaluate as field_eval
-    from referee.e3.lbr import exploitability_lb
-    from stalker.e3 import game as G
     from stalker.e3 import parallel
-    from stalker.e3.mccfr import E3MCCFR, coverage
+    from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
     ckpt = f"{name}-seed{seed}.ckpt.json"
@@ -190,20 +187,34 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     (out / ckpt).write_text(json.dumps(m.state()), encoding="utf-8")
     avg, cur = m.policy(), m.current_policy()
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
-    t1 = time.monotonic()
-    # Same LBR deals for both policies.
-    with G.rules(m.menu, m.raise_cap):
-        lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=players, depth=m.depth)
-               for k, pol in (("average", avg), ("current", cur))}
-        cov = coverage(m)
-        t2 = time.monotonic()
-        field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if players == 6 else None
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap,
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
-            "field": field, "field_seconds": round(time.monotonic() - t2, 1),
-            "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "coverage": cov,
-            "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_seconds": round(time.monotonic() - t1, 1),
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
+
+
+def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) -> dict:
+    """The CI E3 evaluation of a trained model: LBR of both policies, coverage, field (6-max only).
+    Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare.
+    `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation)."""
+    from referee.e3.field import evaluate as field_eval
+    from referee.e3.lbr import exploitability_lb
+    from stalker.e3 import game as G
+    from stalker.e3.mccfr import coverage
+
+    avg = m.policy() if avg is None else avg
+    cur = m.current_policy() if cur is None else cur
+    t1 = time.monotonic()
+    # Same LBR deals for both policies.
+    with G.rules(m.menu, m.raise_cap):
+        lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
+               for k, pol in (("average", avg), ("current", cur))}
+        cov = coverage(m)
+        t2 = time.monotonic()
+        field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if m.n == 6 else None
+    return {"field": field, "field_seconds": round(time.monotonic() - t2, 1), "infosets": len(m.regret),
+            "coverage": cov, "lbr": lbr["current"], "lbr_average": lbr["average"],
+            "lbr_seconds": round(t2 - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
 
 

@@ -108,8 +108,11 @@ def test_load_spec_only_from_jobs_dir(tmp_path):
     p.write_text(SPEC, encoding="utf-8")
     with pytest.raises(L.LauncherError, match="jobs/"):
         L.load_spec(p)
+    cap = json.loads((ROOT / "harness" / "budget.json").read_text(encoding="utf-8"))["monthly_cap_usd"]
     for f in (ROOT / "jobs").glob("*.yaml"):
-        assert L.load_spec(f).worst_case_usd <= 1.0, f  # checked-in examples stay cheap
+        # Probes stay under $1; a training run (#333) may take at most a tenth of the monthly cap.
+        limit = 0.1 * cap if f.stem.startswith("e3-tp-") else 1.0
+        assert L.load_spec(f).worst_case_usd <= limit, f
 
 
 def test_budget_rejects_over_cap_before_creating_pod(tmp_path):
@@ -407,7 +410,17 @@ def test_result_is_pulled_saved_and_recorded(tmp_path):
     assert TOKEN not in json.dumps(entries)  # the ledger is pushed to a public branch
 
 
-def test_result_rejected_when_oversized_non_json_or_secret(tmp_path):
+def test_result_size_limit_fits_a_pod_checkpoint():
+    # #346: a pod training result (#333) carries its model; 21 MB passes, the cap still rejects.
+    body = b'{"x": "' + b"a" * (21 * 1024 * 1024) + b'"}'
+    L.check_result(body)
+    assert L.RESULT_MAX_BYTES == 256 * 1024 * 1024
+    with pytest.raises(L.LauncherError, match="bytes"):
+        L.check_result(body, max_bytes=1024)
+
+
+def test_result_rejected_when_oversized_non_json_or_secret(tmp_path, monkeypatch):
+    monkeypatch.setattr(L, "RESULT_MAX_BYTES", 4096)  # the size path, without a 256 MB body
     cases = {
         "big": b'{"x": "' + b"a" * L.RESULT_MAX_BYTES + b'"}',
         "nonjson": b"\x00\x01 not json",
