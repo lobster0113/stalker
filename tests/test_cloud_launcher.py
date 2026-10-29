@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import json
 import re
@@ -352,8 +353,19 @@ TOKEN = "t" * 32
 class FakeProxy:
     """RunPod HTTP proxy in front of the pod's result server: status.json appears after `ready_after` polls."""
 
-    def __init__(self, status=b'{"exit": 0}', result=b'{"lbr_bb": 1.25}', ready_after=3):
+    def __init__(self, status=b'{"exit": 0}', result=b'{"lbr_bb": 1.25}', ready_after=3, up_after=1, put_code=200):
         self.status, self.result, self.ready_after, self.urls = status, result, ready_after, []
+        self.up_after, self.put_code, self.puts = up_after, put_code, []
+
+    def send(self, url, body):
+        """PUT: the proxy answers 502 (0) for `up_after` tries while the pod boots, then the server takes it."""
+        assert url.startswith(f"https://p1-{L.RESULT_PORT}.proxy.runpod.net/{TOKEN}/")
+        self.puts.append((url.rsplit("/", 1)[1], body))
+        if len(self.puts) <= self.up_after:
+            return 0, b""
+        if self.put_code != 200:
+            return self.put_code, b""
+        return 200, json.dumps({"bytes": len(body), "sha256": __import__("hashlib").sha256(body).hexdigest()}).encode()
 
     def __call__(self, url, max_bytes):
         self.urls.append(url)
@@ -375,7 +387,7 @@ def _result_job(**kw):
 def _run_result(tmp_path, proxy, api=None, **kw):
     ledger, clock, api = tmp_path / "l.jsonl", Clock(), api or FakeRunPod()
     out = tmp_path / "res" / "result.json"
-    res = _run(api, ledger, clock, job=_result_job(), result_out=out, fetch=proxy, token=TOKEN, **kw)
+    res = _run(api, ledger, clock, job=_result_job(), result_out=out, fetch=proxy, send=proxy.send, token=TOKEN, **kw)
     return res, api, L.read_ledger(ledger), out
 
 
@@ -393,7 +405,7 @@ def test_result_job_create_body_and_command(tmp_path):
     assert create["ports"] == [f"{L.RESULT_PORT}/http"] and create["env"] == {L.TOKEN_ENV: TOKEN}
     script = create["dockerStartCmd"][2]
     assert TOKEN not in script and "python -m stalker.rl.train --steps 10" in script
-    assert script.splitlines()[-1] == "sleep infinity"
+    assert script.splitlines()[-1] == "sleep infinity" and L.POD_SERVER.strip() in script
     plain = _run(FakeRunPod(exit_after_polls=1), tmp_path / "l2.jsonl", Clock())
     assert plain["status"] == "completed"  # jobs without result_path behave as before
     body = []
@@ -494,46 +506,213 @@ def test_http_fetch_sends_no_credentials_and_caps_reads(monkeypatch):
     assert L.http_fetch("https://x/y", 10) == (0, b"")
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="the pod script is bash on Linux")
-def test_pod_command_serves_only_token_dir(tmp_path):
-    """Runs the wrapped script with bash and a real http.server, as the pod would."""
+def _free_port():
     import socket
-    import subprocess
-    import time
-    import urllib.request
-
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
-    work = tmp_path / "work"
-    job = _job(command=f"mkdir -p {work} && echo '{{\"ok\": 1}}' > {work}/r.json", result_path=f"{work}/r.json")
-    script = L.pod_command(job, serve_dir=str(tmp_path / "srv"), port=port).replace("sleep infinity", "sleep 30")
+        return s.getsockname()[1]
+
+
+def _http(port, path, body=None):
+    import urllib.request
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=body,
+                                 method="PUT" if body is not None else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except OSError:
+        return 0, b""
+
+
+def _wait(port, path, code=200, tries=150):
+    import time
+    for _ in range(tries):
+        got = _http(port, path)
+        if got[0] == code:
+            return got
+        time.sleep(0.1)
+    raise AssertionError(f"{path} never answered {code}")
+
+
+@pytest.fixture
+def pod_server(tmp_path):
+    """The pod's result/resume server (launcher.POD_SERVER) as a real process, with a 1000-byte upload cap."""
+    import os
+    import subprocess
+    port, root, rdir = _free_port(), tmp_path / "srv", tmp_path / "rs"
+    root.mkdir(), rdir.mkdir()
+    proc = subprocess.Popen([sys.executable, "-c", L.POD_SERVER, str(root), str(port), str(rdir), "1000"],
+                            env={**os.environ, L.TOKEN_ENV: TOKEN})
+    try:
+        _wait(port, f"/{TOKEN}/status.json", code=404)
+        yield port, root, rdir
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+def test_pod_server_takes_one_capped_upload_and_serves_only_token_names(pod_server):
+    port, root, rdir = pod_server
+    (root / "status.json").write_text('{"exit": 0}', encoding="utf-8")
+    assert _http(port, f"/{TOKEN}/status.json") == (200, b'{"exit": 0}')
+    for path in ("/", f"/{TOKEN}/", "/status.json", f"/{'u' * 32}/status.json", f"/{TOKEN}/../srv/status.json"):
+        assert _http(port, path)[0] == 404, path
+    assert _http(port, f"/{'u' * 32}/resume", b"x")[0] == 404  # wrong token
+    assert _http(port, f"/{TOKEN}/resume", b"x" * 1001)[0] in (413, 0)  # over the cap: refused, nothing kept
+    assert not (rdir / "signal").exists() and not (rdir / "resume.bin").exists()
+    body = b"\x1f\x8b" + bytes(range(256)) * 3
+    code, raw = _http(port, f"/{TOKEN}/resume", body)
+    assert code == 200
+    assert json.loads(raw) == {"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}
+    assert (rdir / "resume.bin").read_bytes() == body and (rdir / "signal").read_text(encoding="utf-8") == "ready"
+    assert _http(port, f"/{TOKEN}/resume-none", b"")[0] == 409  # one signal only
+    assert _http(port, f"/{TOKEN}/resume.bin")[0] == 404  # the upload is not served back
+
+
+def test_pod_server_none_signal(pod_server):
+    port, root, rdir = pod_server
+    assert _http(port, f"/{TOKEN}/resume-none", b"")[0] == 200
+    assert (rdir / "signal").read_text(encoding="utf-8") == "none" and not (rdir / "resume.bin").exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the pod script is bash on Linux")
+@pytest.mark.parametrize("resume", [None, b'{"ok": 2}'], ids=["none", "upload"])
+def test_pod_command_waits_for_the_resume_signal_then_serves_the_result(tmp_path, resume):
+    """Runs the wrapped script with bash and the real server, as the pod would."""
+    import os
+    import signal
+    import subprocess
+    import time
+
+    port, work = _free_port(), tmp_path / "work"
+    cmd = (f'mkdir -p {work} && if [ -n "$STALKER_RESUME" ]; then cat "$STALKER_RESUME"; '
+           f"else echo '{{\"ok\": 1}}'; fi > {work}/r.json")
+    job = _job(command=cmd, result_path=f"{work}/r.json")
+    script = L.pod_command(job, serve_dir=str(tmp_path / "srv"), port=port,
+                           resume_dir=str(tmp_path / "rs")).replace("sleep infinity", "sleep 30")
     proc = subprocess.Popen(["bash", "-c", script], env={"PATH": "/usr/bin:/bin:" + str(Path(sys.executable).parent),
                                                          L.TOKEN_ENV: TOKEN}, start_new_session=True)
     try:
-        def get(path):
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as r:
-                    return r.status, r.read()
-            except urllib.error.HTTPError as e:
-                return e.code, b""
-            except OSError:
-                return 0, b""
-
-        for _ in range(100):
-            code, body = get(f"/{TOKEN}/status.json")
-            if code == 200:
+        time.sleep(0.5)
+        assert not work.exists()  # the job waits for the signal
+        for _ in range(150):
+            if _http(port, f"/{TOKEN}/resume" if resume else f"/{TOKEN}/resume-none", resume or b"")[0] == 200:
                 break
             time.sleep(0.1)
+        _, body = _wait(port, f"/{TOKEN}/status.json")
         assert json.loads(body) == {"exit": 0}
-        assert json.loads(get(f"/{TOKEN}/result.json")[1]) == {"ok": 1}
-        root, listing = get("/"), get(f"/{TOKEN}/")
-        assert root[0] == 200 and TOKEN.encode() not in root[1] and b"result" not in listing[1]
+        assert json.loads(_http(port, f"/{TOKEN}/result.json")[1]) == {"ok": 2 if resume else 1}
+        assert _http(port, "/")[0] == 404
     finally:
-        import os
-        import signal
         os.killpg(proc.pid, signal.SIGKILL)
         proc.wait()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the pod script is bash on Linux")
+def test_pod_command_without_a_signal_skips_the_job(tmp_path):
+    import subprocess
+    work = tmp_path / "work"
+    job = _job(command=f"mkdir -p {work}", result_path=f"{work}/r.json")
+    script = L.pod_command(job, serve_dir=str(tmp_path / "srv"), port=_free_port(), resume_dir=str(tmp_path / "rs"),
+                           wait_s=2).replace("sleep infinity", "exit 0")
+    script = script.replace("python3 - ", "true ", 1)  # no server: nobody can signal
+    subprocess.run(["bash", "-c", script], env={"PATH": "/usr/bin:/bin", L.TOKEN_ENV: TOKEN}, timeout=30, check=True)
+    assert not work.exists()
+    assert json.loads((tmp_path / "srv" / TOKEN / "status.json").read_text(encoding="utf-8")) == {"exit": 97}
+
+
+def _pod_result(tmp_path, **kw):
+    r = {"job": "e3-tp-pro-pod", "tier": "pro", "players": 6, "seed": 1, "iters": 7, "lbr": {"x": 1},
+         "model": {"k": 17, "n": 6}, "checkpoint": {"format": "npz", "dtype": "float64", "b64": "QUJD"}} | kw
+    f = tmp_path / "resume" / "result.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(r), encoding="utf-8")
+    return f
+
+
+def test_resume_payload_is_trimmed_gzipped_and_capped(tmp_path):
+    import gzip
+    f = _pod_result(tmp_path)
+    got = json.loads(gzip.decompress(L.resume_payload(f, "123")))
+    assert got["run_id"] == "123" and got["iters"] == 7 and got["checkpoint"]["b64"] == "QUJD"
+    assert "lbr" not in got  # evaluation numbers stay in the artifact
+    with pytest.raises(L.LauncherError, match="proxy body limit"):
+        L.resume_payload(f, "123", max_bytes=50)
+    with pytest.raises(L.LauncherError, match="digits"):
+        L.resume_payload(f, "12;rm")
+    with pytest.raises(L.LauncherError, match="no checkpoint"):
+        L.resume_payload(_pod_result(tmp_path, checkpoint=None), "123")
+    with pytest.raises(L.LauncherError, match="downloaded"):
+        L.resume_payload(tmp_path / "missing.json", "123")
+    assert L.RESUME_MAX_BYTES < 100 * 1024 * 1024  # Cloudflare's request body limit in front of the proxy
+
+
+def test_resume_is_uploaded_before_the_result_is_polled(tmp_path):
+    proxy = FakeProxy(up_after=2)
+    res, api, entries, out = _run_result(tmp_path, proxy, resume=b"\x1f\x8bpayload")
+    assert res["status"] == "completed" and json.loads(out.read_text(encoding="utf-8")) == {"lbr_bb": 1.25}
+    assert proxy.puts == [("resume", b"\x1f\x8bpayload")] * 3  # retried while the proxy said 502
+    assert sum(u.endswith("status.json") for u in proxy.urls) == proxy.ready_after + 1
+    assert TOKEN not in json.dumps(entries) and entries[-1]["status"] == "completed"
+
+
+def test_no_resume_signals_none(tmp_path):
+    proxy = FakeProxy(up_after=0)
+    res, *_ = _run_result(tmp_path, proxy)
+    assert res["status"] == "completed" and proxy.puts == [("resume-none", b"")]
+
+
+class _Garbled(FakeProxy):
+    def send(self, url, body):
+        self.puts.append((url.rsplit("/", 1)[1], body))
+        return 200, b'{"bytes": 1, "sha256": "0"}'
+
+
+@pytest.mark.parametrize("proxy,msg", [(lambda: FakeProxy(up_after=0, put_code=413), "cap"),
+                                       (lambda: FakeProxy(up_after=0, put_code=404), "refused"),
+                                       (lambda: _Garbled(), "received")], ids=["oversized", "refused", "garbled"])
+def test_resume_refused_or_garbled_terminates(tmp_path, proxy, msg):
+    p = proxy()
+    with pytest.raises(L.LauncherError, match=msg):
+        _run_result(tmp_path, p, resume=b"xy")
+    entries = L.read_ledger(tmp_path / "l.jsonl")
+    assert entries[-1]["status"] == "resume_failed" and entries[-1]["event"] == "end"
+    assert not any(u.endswith("status.json") for u in p.urls)  # the job never got its file: no result taken
+
+
+def test_resume_lost_reply_then_409_carries_on(tmp_path):
+    # only this launcher knows the token, so a 409 means an earlier try of ours landed
+    res, *_ = _run_result(tmp_path, FakeProxy(up_after=0, put_code=409), resume=b"x")
+    assert res["status"] == "completed"
+
+
+def test_resume_needs_a_result_job_and_is_checked_in_dry_run(tmp_path, capsys):
+    with pytest.raises(L.LauncherError, match="result_path"):
+        _run(FakeRunPod(), tmp_path / "l.jsonl", Clock(), resume=b"x")
+    f = _pod_result(tmp_path)
+    ledger = tmp_path / "l2.jsonl"
+    spec = ROOT / "jobs" / "e3-tp-pro-pod32.yaml"
+    assert L.main(["run", str(spec), "--ledger", str(ledger), "--dry-run", "--resume-file", str(f),
+                   "--resume-run", "55"]) == 0
+    assert "resume upload" in capsys.readouterr().out
+    assert L.main(["run", str(spec), "--ledger", str(ledger), "--dry-run", "--resume-file", str(f)]) == 1
+    assert "together" in capsys.readouterr().err
+
+
+def test_cloud_workflow_resume_run_input():
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    assert "resume_run:" in wf and "RESUME_RUN: ${{ inputs.resume_run }}" in wf
+    check = wf.split("- name: check resume_run", 1)[1].split("- name:", 1)[0]
+    assert '"$RESUME_RUN" =~ ^[0-9]+$' in check and "${{" not in check
+    fetch = wf.split("- name: fetch resume result", 1)[1].split("- name:", 1)[0]
+    assert "env.RESUME_RUN != ''" in fetch and "actions/download-artifact@v4" in fetch
+    assert "run-id: ${{ env.RESUME_RUN }}" in fetch and "github-token: ${{ github.token }}" in fetch
+    assert "resume/" in fetch
+    # validated before the download uses it, downloaded before the launcher runs
+    assert wf.index("- name: check resume_run") < wf.index("- name: fetch resume result") < wf.index("- name: launcher")
+    assert '--resume-file "$RUNNER_TEMP/resume/result.json" --resume-run "$RESUME_RUN"' in wf
 
 
 def test_cloud_workflow_uploads_result():

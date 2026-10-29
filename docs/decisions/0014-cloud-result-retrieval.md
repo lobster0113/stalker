@@ -25,3 +25,6 @@
 - 이미지에 `python3`가 없으면 서버가 뜨지 않는다. 그러면 `max_minutes`에 `timeout`으로 끝난다(비용 상한 안). `jobs/README.md`에 요구 사항을 적었다.
 - 결과를 내놓은 뒤 파드는 대기 상태로 과금된다. 런처가 다음 폴링(≤30초)에 회수하고 종료하므로 추가 비용은 그만큼이다.
 - 실제 RunPod 프록시 동작은 가짜 전송 테스트로만 검증했다. 감싼 셸 스크립트는 테스트가 실제 bash와 `http.server`로 실행해 확인한다. 첫 GPU 잡(#264)이 실측 검증이다.
+
+## 후속
+- #354: 같은 서버가 이어 달리기 업로드(`PUT /<토큰>/resume`, 95 MB 상한)를 받는다. `http.server` 대신 표준 라이브러리 핸들러(`launcher.POD_SERVER`)가 토큰 경로의 이름만 답하므로 `index.html`은 더 쓰지 않는다. 기록: `harness/experiments/026-pod-resume.md`.

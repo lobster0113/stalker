@@ -72,6 +72,8 @@ def test_average_strategy_and_pod_result_input(tmp_path):
     assert doc["iterations"] == r["iters"] and doc["field_worst"] is None
     m = E3MCCFR.from_state(P.unpack_state(__import__("base64").b64decode(r["checkpoint"]["b64"]), r["model"]))
     assert set(doc["policy"]) <= set(m.policy()) and doc["keys"] == len(m.policy())
+    with pytest.raises(SystemExit, match="drop --summary"):
+        X.main(["--pod-result", str(res), "--summary", str(res), "--out", str(out)])
 
 
 def test_pro_tables_name_their_board_nut_grid():

@@ -87,6 +87,8 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     from stalker.e3.mccfr import E3MCCFR
 
+    if a.pod_result and a.summary:
+        raise SystemExit("--summary is for --ckpt; a --pod-result already carries its LBR and field: drop --summary")
     summary = json.loads(a.summary.read_text(encoding="utf-8")) if a.summary else None
     if a.pod_result:
         import base64
