@@ -61,3 +61,16 @@ def test_w4_jobs_are_registered_and_resumable():
     for job in ("e3-tp-beginner-w4", "e3-tp-mid-w4"):
         assert job in T.JOBS and job in T.RESUMABLE
         assert T.JOBS[job].keywords["workers"] == 4
+
+
+def test_9_handed_jobs_are_registered_and_resumable():
+    for job in ("e3-tp-beginner9-w4", "e3-tp-mid9-w4"):
+        assert job in T.JOBS and job in T.RESUMABLE
+        assert T.JOBS[job].keywords["players"] == 9 and T.JOBS[job].keywords["workers"] == 4
+
+
+def test_9_handed_parallel_is_deterministic(pool):
+    a, b = E3MCCFR(2, 3, 9), E3MCCFR(2, 3, 9)
+    parallel.iterate(a, 4, workers=2, batch=2, pool=pool)
+    parallel.iterate(b, 4, workers=2, batch=2, pool=pool)
+    assert _sha(a) == _sha(b) and a.regret

@@ -225,13 +225,16 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #318: one chain on the runner's 4 vCPUs
         "e3-tp-beginner-w4": partial(_e3_tp, tier="beginner", name="e3-tp-beginner-w4", workers=4),
         "e3-tp-mid-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-w4", workers=4),
+        # #324: the target table size (CHARTER), same chains
+        "e3-tp-beginner9-w4": partial(_e3_tp, tier="beginner", name="e3-tp-beginner9-w4", players=9, workers=4),
+        "e3-tp-mid9-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid9-w4", players=9, workers=4),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
         "e2-exploit-field-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-field-beginner", field=True)}
 
 
-RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4"}   # #301
+RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-beginner9-w4", "e3-tp-mid9-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
