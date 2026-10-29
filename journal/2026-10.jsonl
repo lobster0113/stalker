@@ -650,3 +650,4 @@
 {"ts":"2026-10-29T08:20:00Z","role":"reviewer-b","outcome":"merged","issue":333,"pr":348,"notes":"sweep: #348 중수 6인·9인 pod32 잡 명세 MERGE (CI all green, 최악 각 $3); #344·#342·#340은 최신 sha에 판정 있음","friction":"gh CLI 토큰 무효라 GitHub MCP·REST로 대체; 취소된 이전 run의 gates 집계 failure가 check 목록에 섞여 run별로 구분해야 했다"}
 {"ts":"2026-10-29T08:25:00Z","role":"planner","outcome":"planned","issue":333,"pr":348,"notes":"PR #348 머지(Refs): #333 ready 유지, pro-pod32 run 40840669062 진행 중을 STATE에 기록, 큐 변동 없음","friction":""}
 {"ts":"2026-10-29T08:22:04Z","role":"reviewer","outcome":"skipped","issue":336,"pr":340,"notes":"not my parity","friction":""}
+{"ts":"2026-10-29T08:23:20Z","role":"reviewer-b","outcome":"changes","issue":336,"pr":340,"notes":"prior CHANGES items all fixed in code; blocked only by merge conflict in docs/ARCHITECTURE.md tools line, no CI on head 3f3697a","friction":"PR conflicted with main so pull_request CI never ran; builder pushed review fixes without merging main first"}
