@@ -21,8 +21,8 @@ from stalker.e3.mccfr import E3MCCFR
 
 
 def _work(args) -> tuple[dict, dict, dict, int, float]:
-    k, n, depth, regret, iterations, seed, iters = args
-    m = E3MCCFR(0, k, n, depth)
+    k, n, depth, menu, raise_cap, regret, iterations, seed, iters = args
+    m = E3MCCFR(0, k, n, depth, menu, raise_cap)
     m.rng = np.random.default_rng(seed)
     m.regret = {key: r.copy() for key, r in regret.items()}
     m.iterations = iterations
@@ -70,7 +70,7 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
             chunk = min(left, workers * batch)
             shares = [s for s in split(chunk, workers) if s > 0]
             seeds = m.rng.integers(0, 2**63, size=len(shares))
-            jobs = [(m.k, m.n, m.depth, m.regret, m.iterations, int(sd), s) for sd, s in zip(seeds, shares)]
+            jobs = [(m.k, m.n, m.depth, m.menu, m.raise_cap, m.regret, m.iterations, int(sd), s) for sd, s in zip(seeds, shares)]
             t0 = time.perf_counter()
             # All results first: the pool pickles `jobs` (which hold m.regret) in a feeder thread.
             results = list(pool.map(_work, jobs))

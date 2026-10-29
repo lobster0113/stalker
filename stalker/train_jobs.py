@@ -164,18 +164,20 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
-           workers: int = 1) -> dict:
+           workers: int = 1, menu: str = "v1", raise_cap: int | None = 3) -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
-    `workers` > 1 trains one chain on that many processes, batch-synchronously (#318)."""
+    `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
+    `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules."""
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
+    from stalker.e3 import game as G
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR, coverage
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
     ckpt = f"{name}-seed{seed}.ckpt.json"
     if resume is None:
-        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier])
+        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap)
     elif (resume / ckpt).is_file():
         m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")))
     else:
@@ -190,12 +192,14 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     t1 = time.monotonic()
     # Same LBR deals for both policies.
-    lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=players, depth=m.depth)
-           for k, pol in (("average", avg), ("current", cur))}
-    cov = coverage(m)
-    t2 = time.monotonic()
-    field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if players == 6 else None
+    with G.rules(m.menu, m.raise_cap):
+        lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=players, depth=m.depth)
+               for k, pol in (("average", avg), ("current", cur))}
+        cov = coverage(m)
+        t2 = time.monotonic()
+        field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if players == 6 else None
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
+            "menu": m.menu, "raise_cap": m.raise_cap,
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "field": field, "field_seconds": round(time.monotonic() - t2, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), "infosets": len(m.regret), "coverage": cov,
@@ -229,6 +233,10 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #324: the target table size (CHARTER), same chains
         "e3-tp-beginner9-w4": partial(_e3_tp, tier="beginner", name="e3-tp-beginner9-w4", players=9, workers=4),
         "e3-tp-mid9-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid9-w4", players=9, workers=4),
+        # #339: TP.md section 6 size menu vs e3-tp-mid-w4, with and without the per-street raise cap
+        "e3-tp-mid-tp6-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-tp6-w4", workers=4, menu="tp6"),
+        "e3-tp-mid-tp6nc-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-tp6nc-w4", workers=4, menu="tp6",
+                                      raise_cap=None),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -236,7 +244,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
-             "e3-tp-beginner9-w4", "e3-tp-mid9-w4"}   # #301
+             "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
