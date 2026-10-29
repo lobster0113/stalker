@@ -730,3 +730,4 @@
 {"ts":"2026-10-29T19:23:25Z","role":"reviewer","outcome":"changes","issue":374,"pr":377,"notes":"code/tests/CI(run 40934888931) fine; CHANGES only for docs/ARCHITECTURE.md merge conflict with main (#375/#376)","friction":"opened-event CI run fired before labels attached so guard failed on that run; check-runs list mixes both runs on the same sha"}
 {"ts":"2026-10-29T19:41:57Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #377,#369 already have verdicts on current head sha (CHANGES); none pending","friction":""}
 {"ts":"2026-10-29T19:59:54Z","role":"reviewer","outcome":"skipped","issue":352,"pr":368,"notes":"not my parity","friction":""}
+{"ts":"2026-10-29T20:24:26Z","role":"builder-b","outcome":"changes","issue":358,"pr":369,"notes":"#369 실험 번호 027→028, #377 main 머지·충돌 해결 후 푸시(CI 대기)","friction":"PR 소유 구분 불가(같은 로그인)라 코멘트로 판별; quick 게이트가 백그라운드 설치와 겹쳐 pytest 없음 실패"}
