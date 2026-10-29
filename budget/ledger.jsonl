@@ -20,3 +20,4 @@
 {"actual_usd": 4.0959, "cost_per_hr": 0.96, "event": "end", "exit": 0, "job": "e3-tp-pro-pod32", "minutes": 255.99, "month": "2026-10", "pod_id": "kh11k7bsinhanu", "result_bytes": 13909426, "result_sha256": "05ae75080a4e5c432f938cb177be4b35b4b0f8e4cff44d294a3f9917cb5c5a66", "status": "completed", "ts": "2026-10-29T19:40:00Z"}
 {"event": "start", "job": "e3-tp-mid-pod32", "max_minutes": 150, "month": "2026-10", "pod_id": "t2ym40zd3j6chq", "pod_name": "stalker-e3-tp-mid-pod32-40968157300", "reserved_usd": 3.0, "run_id": "40968157300", "ts": "2026-10-29T22:44:48Z"}
 {"event": "start", "job": "e3-tp-pro-pod32", "max_minutes": 320, "month": "2026-10", "pod_id": "1doksalz5uu7uc", "pod_name": "stalker-e3-tp-pro-pod32-40971348915", "reserved_usd": 6.4, "run_id": "40971348915", "ts": "2026-10-29T23:11:17Z"}
+{"actual_usd": 6.4, "event": "end", "job": "e3-tp-pro-pod32", "month": "2026-10", "pod_id": "1doksalz5uu7uc", "status": "reaped", "ts": "2026-10-29T23:40:26Z"}
