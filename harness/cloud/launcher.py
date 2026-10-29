@@ -578,8 +578,11 @@ def _signal(pod_id: str, token: str, resume: bytes | None, send: Send, log) -> b
     """Hand the pod its resume file (or "none"); False while the proxy is not up yet."""
     name, body = ("resume", resume) if resume is not None else ("resume-none", b"")
     code, raw = send(proxy_url(pod_id, token, name), body)
-    if code == 0 or code >= 500:
-        return False  # pod booting: the proxy answers 502 until the server listens
+    if code in (0, 404) or code >= 500:
+        # pod booting: the proxy answers 404 before the port is routed (run 40886839070, #361) and 502
+        # until the server listens; our server's own 404 is only for paths this launcher never sends.
+        # Bounded: without a signal the pod exits 97 after RESUME_WAIT_S and the loop ends on EXITED.
+        return False
     if code == 409:
         # a signal is already there; only this launcher knows the token, so an earlier try of ours landed
         log(f"{name}: pod already signalled (an earlier upload's reply was lost)")

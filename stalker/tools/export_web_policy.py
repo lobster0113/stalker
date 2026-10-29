@@ -1,7 +1,8 @@
 """Trained E3 policy -> the web service's policy file (#336): `python -m stalker.tools.export_web_policy`.
 
-The service plays and grades from the regret-matching (current) strategy, the one the CI and pod
-runs evaluate (`stalker.train_jobs.e3_evaluate`: LBR and field are measured on it). Probabilities are
+By default the service plays and grades from the regret-matching (current) strategy, the one the CI
+and pod runs evaluate in full (`stalker.train_jobs.e3_evaluate`: LBR and field). `--strategy average`
+exports the average strategy instead (LBR is measured on both; pick the less exploitable, #355). Probabilities are
 quantized to 1/255 with the largest remainder, so each row still sums to exactly 255, and every
 action the policy plays (p > 0) keeps at least 1: a zero would empty that action's combos in the page's
 Bayes range update (`updateRanges`) when a person takes it. Values are integers 0..255; divide by `q`.
@@ -50,21 +51,33 @@ def export(policy: dict[str, list[float]], meta: dict, visits: dict[str, int] | 
             "policy": {k: quantize(v) for k, v in sorted(kept.items())}}
 
 
-def meta_from(model: dict, summary: dict | None, run: str, sha: str) -> dict:
+def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: str = "current") -> dict:
     s = summary or {}
     field = s.get("field") or {}
     worst = field.get("worst") if isinstance(field, dict) else None
     tier = {5: "beginner", 11: "mid", 17: "pro"}.get(model["k"], s.get("tier"))
-    lbr = s.get("lbr")
+    lbr = s.get("lbr_average" if strategy == "average" else "lbr")
     lbr, se = (lbr.get("lbr_bb"), lbr.get("stderr_bb")) if isinstance(lbr, dict) else (lbr, None)
     return {"tier": s.get("tier", tier), "players": model["n"], "k": model["k"], "depth": model["depth"],
             "iterations": model["iterations"], "run_id": str(run), "sha": sha or s.get("sha", ""),
-            "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst, "job": s.get("job", "")}
+            "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst if strategy == "current" else None, "job": s.get("job", ""),
+            "strategy": strategy, **nut_k(model)}
+
+
+def nut_k(model: dict) -> dict:
+    """Pro keys carry board.nut steps; tpgto.js checkNutK refuses a table built on another grid (#332)."""
+    from stalker.e3 import tp_key as K
+
+    return {"nut_k": model.get("nut_k", K.K_PRO)} if model.get("depth") == "pro" else {}
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--ckpt", type=Path, required=True, help="a CI-layout .ckpt.json (or `pod_train --unpack` output)")
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--ckpt", type=Path, help="a CI-layout .ckpt.json (or `pod_train --unpack` output)")
+    src.add_argument("--pod-result", type=Path, help="a RunPod training result (stalker.tools.pod_train), summary included")
+    ap.add_argument("--strategy", choices=("current", "average"), default="current",
+                    help="regret matching (what CI's field evaluates) or the average strategy (#355)")
     ap.add_argument("--summary", type=Path, help="the seed's summary JSON (<job>-seed<s>.json): LBR, field, job")
     ap.add_argument("--run", default="", help="the training run id the checkpoint came from")
     ap.add_argument("--sha", default="")
@@ -74,10 +87,24 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     from stalker.e3.mccfr import E3MCCFR
 
-    st = json.loads(a.ckpt.read_text(encoding="utf-8"))
-    m = E3MCCFR.from_state(st)
+    if a.pod_result and a.summary:
+        raise SystemExit("--summary is for --ckpt; a --pod-result already carries its LBR and field: drop --summary")
     summary = json.loads(a.summary.read_text(encoding="utf-8")) if a.summary else None
-    doc = export(m.current_policy(), meta_from(st, summary, a.run, a.sha), dict(m.visits), a.min_visits)
+    if a.pod_result:
+        import base64
+
+        from stalker.tools.pod_train import unpack_state
+
+        summary = json.loads(a.pod_result.read_text(encoding="utf-8"))
+        if not summary.get("checkpoint"):
+            raise SystemExit(f"{a.pod_result}: no checkpoint in this result ({summary.get('checkpoint_note', 'missing')})")
+        st = unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"])
+    else:
+        st = json.loads(a.ckpt.read_text(encoding="utf-8"))
+    m = E3MCCFR.from_state(st)
+    policy = m.policy() if a.strategy == "average" else m.current_policy()
+    meta = meta_from(st, summary, a.run, a.sha, a.strategy)
+    doc = export(policy, meta, dict(m.visits), a.min_visits)
     body = json.dumps(doc, separators=(",", ":")).encode()
     if len(body) > a.max_bytes:
         raise SystemExit(f"{a.out}: {len(body)} bytes > {a.max_bytes}; drop rarely updated keys with --min-visits "

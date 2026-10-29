@@ -16,6 +16,7 @@ exploitation gain — a lower bound, never a certificate (referee/GATES.md Gate 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import numpy as np
 
@@ -40,6 +41,67 @@ def seat_probs(policy, s: G.State, seat: int, ranges, k: int, depth: str = "full
     return out
 
 
+OVERBETS = (1.5, 2.0)    # postflop bets as a fraction of the pot that the training menu does not have
+
+
+class Extra(NamedTuple):
+    """An off-menu bet or raise the LBR seat may choose: `to` chips on this street, read by the policy as `menu`."""
+    to: int
+    menu: str
+
+
+def _top(s: G.State) -> float:
+    """The bet-to at or above which the state's rules count a size as all in (see `G._offered`)."""
+    room = s.stack[s.to_act] + s.bet[s.to_act]
+    return room - G.BB if s.raise_cap is not None else min(room - G.BB, G.ALLIN_MERGE * room)
+
+
+def translate_size(s: G.State, to: int) -> str:
+    """The menu action the policy reads an off-menu bet or raise to `to` chips as (s = state before it).
+
+    Nearest size the state's menu offers (v1 or tp6, by chips); a tie takes the larger. All in (or more)
+    is "a"; with nothing to call the all-in is a candidate too. Facing a bet only the menu's raise sizes
+    compete (v1 has one, "r"). Nearest, not pseudo-harmonic: the key already carries the real price
+    through the pot-odds and SPR steps, so the label only has to place the action on the menu for the
+    initiative flag and the range update, and nearest is the simplest deterministic rule."""
+    p = s.to_act
+    room = s.stack[p] + s.bet[p]
+    if to >= room:
+        return "a"
+    sizes = dict(G._offered(s))
+    if s.to_call() == 0:
+        sizes["a"] = room
+    if not sizes:
+        return "a"
+    return min(sizes, key=lambda m: (abs(sizes[m] - to), -sizes[m]))
+
+
+def extra_actions(s: G.State) -> list[Extra]:
+    """Off-menu postflop sizes for the seat to act: overbets with nothing to call, a minimum raise when
+    facing a bet. Only sizes the state's menu lacks (same chips as an offered size does not count) and
+    short of all in (the all-in covers the rest). Honors the state's `raise_cap`."""
+    p = s.to_act
+    call = s.to_call()
+    if (s.street == 0 or s.stack[p] <= call or not [i for i in s.active() if i != p]
+            or (s.raise_cap is not None and s.raises >= s.raise_cap)):
+        return []
+    on_menu = {t for _, t in G._offered(s)}
+    top = _top(s)
+    if call > 0:
+        to = max(s.bet) + s.last_raise
+        return [Extra(to, translate_size(s, to))] if to < top and to not in on_menu else []
+    out = []
+    for frac in OVERBETS:
+        to = s.bet[p] + max(G.BB, int(round(s.pot * frac)))
+        if to < top and to not in on_menu:
+            out.append(Extra(to, translate_size(s, to)))
+    return out
+
+
+def _step(s: G.State, a) -> G.State:
+    return G.apply_to(s, a.to, a.menu) if isinstance(a, Extra) else G.apply(s, a)
+
+
 def _as_actor(s: G.State, q: int) -> G.State:
     return s._replace(to_act=q)
 
@@ -62,7 +124,10 @@ class LBRResult:
     stderr_bb: float
 
 
-def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full") -> LBRResult:
+def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full",
+        extra_sizes: bool = False) -> LBRResult:
+    """`extra_sizes`: the LBR seat may also bet 150% / 200% of the pot and min-raise postflop, sizes the
+    policy never trained on (#343). A superset of its default actions, so it measures at least as much."""
     rng = np.random.default_rng(seed)
     wins = []
     for _ in range(hands):
@@ -77,11 +142,15 @@ def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, de
                 row = probs[combo_index(s.hole[p])]
                 a = int(rng.choice(len(acts), p=row / row.sum()))
             else:
-                vals = [_value(policy, s, x, ranges, mine, seat, k, depth) for x in acts]
+                cands = acts + (extra_actions(s) if extra_sizes else [])
+                vals = [_value(policy, s, x, ranges, mine, seat, k, depth) for x in cands]
                 a = int(np.argmax(vals))
+            chosen = cands[a] if p == seat else acts[a]
+            if isinstance(chosen, Extra):   # the policy's belief about this seat sees the nearest menu action
+                a = acts.index(chosen.menu) if chosen.menu in acts else acts.index("a")
             ranges = list(ranges)
             ranges[p] = ranges[p] * probs[:, a]
-            s = G.apply(s, acts[a])
+            s = _step(s, chosen)
         wins.append(float(G.payoff(s)[seat]) / G.BB)
     arr = np.array(wins)
     se = float(arr.std(ddof=1) / np.sqrt(len(arr))) if hands > 1 else 0.0
@@ -93,7 +162,7 @@ def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int
         return -float(s.total[me])
     opps = [q for q in s.live() if q != me]
     w = {q: np.where(mine, 0.0, ranges[q]) for q in opps}
-    ns = G.apply(s, a)
+    ns = _step(s, a)
     if a in ("k", "c") or ns.done:
         # Only the dealt board: a call that ends the hand deals the runout into `ns`, and reading it
         # would let LBR call only when it wins (clairvoyance, #257 review). Equity integrates the rest.
@@ -119,10 +188,11 @@ def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int
     return p_all * win_now + (1 - p_all) * (eq * called_pot - ns.total[me])
 
 
-def exploitability_lb(policy, hands: int, seed: int = 0, k: int = 5, n: int = 6, seats=None, depth: str = "full") -> dict:
+def exploitability_lb(policy, hands: int, seed: int = 0, k: int = 5, n: int = 6, seats=None, depth: str = "full",
+                      extra_sizes: bool = False) -> dict:
     """Mean over seats of the LBR player's winnings (bb/hand): a lower bound on one-seat exploitation."""
     seats = list(range(n)) if seats is None else list(seats)
-    rs = [lbr(policy, q, hands, seed + 101 * q, k, n, depth) for q in seats]
+    rs = [lbr(policy, q, hands, seed + 101 * q, k, n, depth, extra_sizes) for q in seats]
     return {"lbr_bb": round(float(np.mean([r.mean_bb for r in rs])), 4),
             "stderr_bb": round(float(np.sqrt(sum(r.stderr_bb ** 2 for r in rs)) / len(rs)), 4),
             "by_seat": {G.position_names(n)[r.seat]: round(r.mean_bb, 4) for r in rs}, "hands": hands}

@@ -144,13 +144,16 @@ def test_eq_jobs_train_with_the_equity_view(tmp_path, monkeypatch):
 def test_e3_job_records_both_policies_and_coverage(tmp_path, monkeypatch):
     import referee.e3.lbr as lbr3
 
-    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n, depth: {"lbr_bb": 3.0, "hands": hands})
+    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n, depth, extra_sizes=False:
+                        {"lbr_bb": 4.5 if extra_sizes else 3.0, "hands": hands})
     monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
     T.run("e3-tp-beginner", 2, 1, tmp_path)
     r = json.loads((tmp_path / "e3-tp-beginner-seed1.json").read_text(encoding="utf-8"))
     assert r["players"] == 6 and r["depth"] == "basic" and r["lbr"]["lbr_bb"] == 3.0 and r["coverage"]
     assert r["field"]["deals"] == 2 and len(r["field"]["sha256"]) == 64 and r["field"]["worst"]["name"]
+    assert r["lbr_offmenu"]["lbr_bb"] == 4.5          # #343
     s = T.summarize("e3-tp-beginner", tmp_path)
+    assert s["lbr_offmenu_bb_by_seed"] == [4.5]
     assert s["field_worst_by_seed"] == [r["field"]["worst"]] and "self5" in s["field_bb100_by_seed"][0]
     pol = json.loads((tmp_path / "e3-tp-beginner-seed1.policy.json").read_text(encoding="utf-8"))
     assert set(pol) == {"average", "current"}
