@@ -729,3 +729,4 @@
 {"ts":"2026-10-29T19:13:59Z","role":"planner","outcome":"planned","issue":332,"pr":376,"notes":"PR #376 머지 반영(#332 닫힘, in-progress 라벨 제거); #374 PR #377 기록; 새 이슈·FEEDBACK 없음; ready 5 유지","friction":""}
 {"ts":"2026-10-29T19:23:25Z","role":"reviewer","outcome":"changes","issue":374,"pr":377,"notes":"code/tests/CI(run 40934888931) fine; CHANGES only for docs/ARCHITECTURE.md merge conflict with main (#375/#376)","friction":"opened-event CI run fired before labels attached so guard failed on that run; check-runs list mixes both runs on the same sha"}
 {"ts":"2026-10-29T19:41:57Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #377,#369 already have verdicts on current head sha (CHANGES); none pending","friction":""}
+{"ts":"2026-10-29T19:59:54Z","role":"reviewer","outcome":"skipped","issue":352,"pr":368,"notes":"not my parity","friction":""}
