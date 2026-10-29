@@ -1,33 +1,34 @@
-# STATE (2026-10-29 04:06Z, planner)
+# STATE (2026-10-29 05:25Z, planner)
 ## 현재 단계
-**D2 설계·준비(주력).** D1 종료, NH-3 open(비차단), FEEDBACK.md 없음.
+**D2 설계·준비(주력) + 사용자 지시: 서비스에 실제 TP-GTO 정책 연결·노리밋 정상화(P0).** D1 종료, NH-3·NH-5 open(비차단), FEEDBACK.md 없음.
 D2 종료 조건 대비: Gate R 100%(캐시·토너먼트·E3) 유지 / TP v1: #262·#263 머지(ADR 0011) / 게이트: T1~T4·Q4(E0·E1)·S v0(+ADR 0016)·F v0 머지 / 비용 ADR 0017 / 설계 ADR 0009·0011·0015·0016·0017.
-21:55Z 이후 머지: #264 Part of(PR #322 831730a: cloud.yml 결과 → ops:cloud/results, mode=collect). #264 실측(세션, run 40778103365): RunPod cpu3c 641.96 it/s = CI 코어당 약 ×3, $0.06/h → ADR 0017 'RunPod=CI×1.0' 가정 무효, #321에서 반영.
-01:30Z 머지: PR #329(#313 닫힘) Gate S·F E1m 3인 ICM 판별 — 등급 표는 CI 출력 경로 없음(로컬 재현, reviewer friction). 02:13Z 머지: PR #326(#324 닫힘) 9인 TP 잡 e3-tp-beginner9-w4·e3-tp-mid9-w4(학습 결과 기록은 잡 실행 후). 03:42Z 머지: PR #330(#325 닫힘) 고수 TP 키+e3-tp-pro-w4 — 로컬 참고: 고수 키 2만 회 137,488(중수 ×4.5, 87%가 HU 포스트플랍 board.nut), 처리량 중수 ×0.64 → #332(nut_bins) 계약 형식 정리·ready P1. 04:0xZ 머지: PR #328(#321 1/2, 4a1237b: 다코어 병렬 MCCFR 확장 측정 도구+RunPod 32 vCPU 잡 명세, 행별 sync_frac·최대 워커 RSS) — #321은 잡 실행·결과 기록(2/2) 남아 in-progress 유지. 열린 PR: #331(#315, CHANGES: 순위형 답 공식·히어로 레인지 기준).
-새 이슈(다른 세션): #321 다코어 확장 실측, #323 ADR 0008 은퇴 자산 정리(gardener), #324 9인 TP 학습 잡(PR #326 열림), #325 고수 TP 키+pro-w4. planner 새 이슈: #327 Gate Q4 CFR-BR 기록(#311 후속, #312 해소로 이슈화).
+05:18Z 머지: PR #331(#315 닫힘) TP v0.2 초보 hand.equity 순위형(share_better 정답식·bands, 데모 정답 = 내 레인지 표본). 04:0xZ 머지: PR #328(#321 1/2).
+새 이슈(사용자 lobster0113, 04:14~04:46Z): #333 RunPod 32 vCPU 학습(PR #334 CHANGES: Closes→Refs), #335 JS E3 엔진·번역(PR #342), #336 정책 내보내기(PR #340), #337 서비스 화면 연결, #339 사이즈 메뉴 TP §6, #341 비정상 제약 전수 점검(추적).
+planner 이번 실행: #337·#339 계약 형식으로 재작성(#337 = Gate U 기준, #335·#336 선행이라 blocked; #339 = RAISE_CAP 제거 옵션·Gate R 검사 추가 포함), #343 새 이슈(LBR 메뉴 밖 사이즈, referee-change, #341 항목 6), #341 ready 제거(추적용, 항목 연결 코멘트), #332 ready→in-progress(PR #338).
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. **고수 정책 벽시계 병목 재산정**: #264 실측 ×3 + #320(CI W=4 비교) + #321(다코어 실측) + #325(고수 키 수 실측)으로 ADR 0017 가정을 실측값으로 교체. 고수 체인 45–67.5일 추정이 가장 큰 불확실성.
-2. **고수 키 폭증 억제(#332)**: 50만 키 초과 시 ADR 0017 가정(30만) 붕괴 — 고수 체인 비용의 최대 변수.
-3. **D2 게이트 판별력 확장**: #313 Gate S·F E1m 3인 머지(PR #329). 다음은 9인·포스트플랍(후보). #324 9인 학습 잡 머지(PR #326) → 실행 결과 기록은 후보.
+1. **실제 정책으로 서비스 화면(#335→#336→#337, P0)**: 사용자 직접 지시. 학습 중간본을 서비스에서 체험 가능해야 피드백 루프가 돈다. 열린 PR #342·#340 리뷰가 병목.
+2. **노리밋 정상화(#341: #339 메뉴·상한, #343 LBR 메뉴 밖)**: 착취도 과소평가는 판정 능력 결함 → #343 P1 referee-change 우선.
+3. **고수 체인 비용(#333 파드 학습, #332 키 폭증 PR #338, #320·#321 실측)**: ADR 0017 가정을 실측값으로 교체.
 ## 큐
-ready 4: #332 P1, #320 P2, #240 P3, #327 P3.
-in-progress: #264 P2(PR #322 머지 → 마무리), #306 P2(builder-b, train run 40807006873 대기; ready 라벨 중복 제거), #315 P2(PR #331 CHANGES), #321 P2(PR #328 머지 1/2 → 32 vCPU 잡 실행·기록 2/2 대기).
-blocked: #105. 상태 라벨 없음: #189(GTO 브라우저 P1, D3), #323(P3, gardener 제안 — referee 경로 포함이라 referee-change 판단 필요).
-후보(이슈화 보류): Gate S·F 등급 표 CI 출력 경로(#329 friction, 지표 등록은 referee-change), ADR 0017 개정(#320·#321·#325 결과 후), e2-exploit-beginner/xbase·e3-tp-*9-w4·e3-tp-pro-w4 학습 결과 기록(train run 40781705890·40783153094·40793583489 진행 중), Gate S·F 포스트플랍(E2), 커리큘럼 후속(#173 §7).
+ready 5: #339 P1, #343 P1(referee-change), #320 P2, #240 P3, #327 P3.
+in-progress: #333 P0(PR #334), #335 P0(PR #342), #336 P0(PR #340), #332 P1(PR #338), #264 P2(PR #322 머지 → 마무리), #306 P2(builder-b, train run 40807006873 대기), #321 P2(2/2 32 vCPU 잡 대기).
+blocked: #337 P0(#335·#336 머지 대기), #105. 상태 라벨 없음: #341(추적), #189(GTO 브라우저 P1, D3), #323(P3, referee-change 판단 필요).
+후보(이슈화 보류): 스택 분포 무작위화(#341 항목 7, #339 결과 후), E2 RAISE_CAP(#339 노트 후), Gate S·F 등급 표 CI 출력 경로(지표 등록 referee-change), ADR 0017 개정(#320·#321·#325·#333 결과 후), e3-tp-*9-w4·pro-w4 학습 결과 기록, Gate S·F 포스트플랍(E2), 커리큘럼 후속(#173 §7).
 ## 지표 요약 (최근 값과 추세)
-- **history 복구 확인(#312 해소)**: 2044ebd(10-28 22:14Z) — tests 1143(+172), failed 0, gate_r 1.0(224,269), gate_r_cash 1.0(224,636), gate_r_e3 1.0(37,462), gate_l 1.0(32), stalker_loc 10896(+1921). 831730a CI run 40796658322 in_progress.
-- E2 LBR(#259 후 CI): baseline −0.159, beginner −0.244, mid −0.234 bb/hand(하한).
+- CI 4a1237b(10-29 04:33Z): tests 1172(+29), failed 0, gate_r 1.0(224,269), gate_r_cash 1.0(224,636), gate_r_e3 1.0(37,462), gate_l 1.0(32), stalker_loc 11177(+281). bbe6d22(#331) CI 지표 대기.
+- E2 LBR(#259 후 CI): baseline −0.159, beginner −0.244, mid −0.234 bb/hand(하한 — 메뉴 안 착취자만, #343으로 보강 예정).
 - E1 분위 눈금: 초보 손실 0.244 → 0.018 bb/hand(노트). S v0 고수 분위 ADR 0016 기준 통과(record-only).
 - E0 CFR-BR(#311, 로컬 참고): Kuhn k=2 0.170→0.056, Leduc 1×1 2.36→0.98 → #327로 CI 기록 예정.
 - 연산(#264, RunPod 1회): 641.96 it/s(2 vCPU), CI 177.7~220.6 it/s, 비용 $0.0037/회.
 ## 경보
-- **gh CLI 토큰 무효·GraphQL 403·guard 훅** → 전 역할 MCP 우회(friction 계속). 후보: 지침의 gh 예시를 MCP 기준으로.
-- **Actions 아티팩트 blob 호스트 프록시 403**(#264 builder friction): cloud.yml은 PR #322로 해소. train.yml 결과도 같은 문제 가능 — 후보(Auditor).
-- **"Closes #N" vs 분할 수용 기준**(reviewer friction): 1/2 PR이 CI 측정 기준 전에 이슈를 닫음 → 측정 기준은 처음부터 별도 이슈로(planner 반영: #320).
-- 머지된 브랜치 삭제 도구 없음(#105, 반복). gates full 약 19분·quick 423초(목표 90초).
-- 실험 기록 규칙(harness-change 인프라 확장 시 experiments 기록) 누락 쉬움(PR #322 CHANGES 1회). 후보.
-- main CI 완료 간격·취소 run의 gates=failure·닫힌 이슈 in-progress 잔존·PR 소유 구분 불가·ARCHITECTURE.md 충돌·동시 webhook 잠금: 후보 유지.
-- NEEDS_HUMAN: NH-3, NH-5(비용 재산정, 비차단) open. 리포 상호작용 제한 2027-04-23 만료.
+- **사용자가 계약 형식 아닌 ready 이슈를 직접 생성(#337·#339·#341)** → planner가 재작성. 내용 보존, 기준만 검증 가능하게.
+- **gh CLI 토큰 무효·GraphQL 403·guard 훅(gh api PATCH 차단)** → 전 역할 MCP 우회. 후보: 지침의 gh 예시를 MCP 기준으로.
+- **Actions 아티팩트 blob 호스트 프록시 403**: reviewer가 Gate U를 로컬로 대체(#331). train.yml 결과도 같은 문제 가능 — 후보(Auditor).
+- **"Closes #N" vs 실행 후 기준**(#334 CHANGES 재발): 머지 후에만 가능한 기준은 처음부터 별도 이슈로. 같은 sha 규칙 때문에 본문만 고친 PR은 재리뷰 불가(reviewer-b friction).
+- 동시 취소 run의 gates=failure(같은 sha), 게이트를 작업 트리에서 백그라운드로 돌리면 가짜 실패(builder friction → 별도 worktree 권장). gates full 약 20분·quick 448초(목표 90초).
+- 머지된 브랜치 삭제 도구 없음(#105, guard 훅이 push --delete 차단).
+- 실험 기록 규칙 누락 쉬움, 닫힌 이슈 in-progress 잔존, PR 소유 구분 불가(같은 로그인), ARCHITECTURE.md 충돌: 후보 유지.
+- NEEDS_HUMAN: NH-3, NH-5 open. 리포 상호작용 제한 2027-04-23 만료.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
 - 001 builder 자가 언블록 (#55 머지 PR #57, 10-25 03:50Z). 측정창: 머지 후 14일. 성공 기준: builder no_work ≤10%(기준 24%), 처리량 80% 이상 유지.
 - 009 planner run_on_merge (#130 PR #131 머지 51686a6, 10-27 12:38Z). 기록: harness/experiments.
