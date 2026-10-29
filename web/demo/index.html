@@ -1034,7 +1034,7 @@ const renderPlay = () => { $("#play-desc").textContent = PLAY_DESC[S.play]; };
 segBind("set-play", "play", renderPlay); renderPlay();
 setTimeout(() => { renderModelStatus(); tpgLoad(S.mode === "cash" ? S.tier : null); }, 0);
 // The strategy browser (#189) ships separately; hide its link where the page is not deployed.
-if (location.protocol !== "file:") fetch("strategy.html", { method: "HEAD" }).then(r => { if (!r.ok) $("#strategy-link").hidden = true; }).catch(() => { $("#strategy-link").hidden = true; });
+{ const sl = $("#strategy-link"), href = sl.getAttribute("href"); if (!/^https?:/.test(href) && location.protocol !== "file:") fetch(href, { method: "HEAD" }).then(r => { if (!r.ok) sl.hidden = true; }).catch(() => { sl.hidden = true; }); }
 const renderEqabDesc = () => { $("#eqab-desc").textContent = S.eqab === "on" ? "훈련 게임의 에퀴티 질문을 결정마다 A(이길 확률) 또는 B(상위 %) 형태로 무작위로 묻고, 입력 시간과 맞힌 칩을 이 기기에만 기록해요. 이 답은 채점하지 않아요." : "끄면 에퀴티 질문은 지금처럼 0–100 칩으로 묻고 채점해요."; };
 segBind("set-eqab", "eqab", renderEqabDesc); renderEqabDesc();
 function renderDiff() {
