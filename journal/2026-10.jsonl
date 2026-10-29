@@ -628,3 +628,4 @@
 {"ts":"2026-10-29T05:34:26Z","role":"reviewer","outcome":"skipped","issue":337,"pr":344,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T05:35:07Z","role":"reviewer-b","outcome":"changes","issue":337,"pr":344,"notes":"merge conflict with main (README, demo, gate-u) so no CI ran; prereqs #340/#342 unmerged; e2e gaps: policy argmax, size rejection, equity scoring, error screen; no Artifact steps","friction":"PR opened on a conflicting base stacked on unmerged prereqs, so no CI ran and nothing could be verified"}
 {"ts":"2026-10-29T05:37:08Z","role":"reviewer","outcome":"skipped","issue":337,"pr":344,"notes":"not my parity","friction":""}
+{"ts":"2026-10-29T05:37:34Z","role":"reviewer-b","outcome":"changes","issue":337,"pr":344,"notes":"CHANGES 2회째 sha=26636a9: main과 3파일 충돌 그대로, 체크 런 0개, 선행 #342·#340 미머지, 직전 3~7항 미해결","friction":"synchronize push가 충돌 미해결 상태로 와서 CI 없이 리뷰가 또 돈다; 충돌(dirty) PR은 리뷰 트리거를 건너뛰면 사이클 절약"}
