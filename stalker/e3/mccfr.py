@@ -97,12 +97,20 @@ class E3MCCFR:
         return {"version": 1, "k": self.k, "n": self.n, "depth": self.depth, "iterations": self.iterations,
                 "nodes": self.nodes, "menu": self.menu, "raise_cap": self.raise_cap, "rng": self.rng.bit_generator.state,
                 "regret": {k: v.tolist() for k, v in self.regret.items()},
-                "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}, "visits": dict(self.visits)}
+                "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}, "visits": dict(self.visits),
+                **self._grid()}
+
+    def _grid(self) -> dict:
+        # The pro table's board.nut grid is part of its key meaning (#332): 17 -> 5 steps changed `n<nut>`.
+        return {"nut_k": K.NUT_K} if self.depth == "pro" else {}
 
     @classmethod
     def from_state(cls, st: dict) -> "E3MCCFR":
         if st.get("version") != 1:
             raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads version 1")
+        if st["depth"] == "pro" and st.get("nut_k", K.K_PRO) != K.NUT_K:
+            raise ValueError(f"checkpoint board.nut has {st.get('nut_k', K.K_PRO)} steps; this code uses {K.NUT_K} "
+                             "(#332) - start a fresh run instead of resuming it")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP))
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]

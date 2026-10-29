@@ -393,6 +393,14 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             sync()
         except Exception as e:
             raise LauncherError(f"ledger sync failed after creating {pod_id}: {e}; terminated") from e
+        # Runs of different jobs go in parallel (#350): two may pass check_budget before either's
+        # reservation is on ops. The sync pulled every reservation pushed before ours, and a later one
+        # sees ours, so at least one of two racing runs sees both here and stops its pod.
+        total = month_total(read_ledger(ledger), month)
+        if total > cap:
+            status = "over_cap"
+            raise BudgetExceeded(f"budget: {month} reserved ${total:.2f} > cap ${cap:.2f} after a parallel run "
+                                 f"reserved too; {pod_id} terminated. Dispatch it again when a run finishes.")
         if rate > job.hourly_usd:
             status = "rate_exceeded"
             raise LauncherError(f"pod {pod_id} costs ${rate}/h > job hourly_usd ${job.hourly_usd}; terminated")

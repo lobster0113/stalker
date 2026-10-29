@@ -104,7 +104,8 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
            "seed": seed, "workers": workers, "batch": batch, "iters": m.iterations, **stats}
     res.update(e3_evaluate(m, seed))
     res["model"] = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
-                    "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state}
+                    "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state,
+                    **m._grid()}
     for dtype in (np.float64, np.float32):
         blob = pack(m, dtype)
         if len(blob) * 4 // 3 + 64 * 1024 < budget:

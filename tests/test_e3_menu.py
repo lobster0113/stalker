@@ -9,6 +9,7 @@ from referee.gate_r.e3_suite import run_e3_suite
 from stalker import train_jobs as T
 from stalker.e3 import game as G
 from stalker.e3 import parallel
+from stalker.e3 import tp_key as K
 from stalker.e3.mccfr import E3MCCFR
 
 RULES = [("v1", 3), ("v1", None), ("tp6", 3), ("tp6", None)]
@@ -143,6 +144,16 @@ def test_training_keeps_its_rules_across_workers_and_checkpoints():
     old = m.state()
     del old["menu"], old["raise_cap"]          # a checkpoint written before #339
     assert (E3MCCFR.from_state(old).menu, E3MCCFR.from_state(old).raise_cap) == ("v1", 3)
+
+
+def test_pro_checkpoint_keeps_both_its_nut_grid_and_its_rules():
+    # #338 (nut_k) and #339 (menu/raise_cap) both write the checkpoint; neither may drop the other.
+    m = E3MCCFR(2, 3, 2, "pro", "tp6", None)
+    m.iterate(2)
+    st = json.loads(json.dumps(m.state()))
+    assert st["nut_k"] == K.NUT_K and (st["menu"], st["raise_cap"]) == ("tp6", None)
+    back = E3MCCFR.from_state(st)
+    assert (back.menu, back.raise_cap, back.depth) == ("tp6", None, "pro") and back.state() == m.state()
 
 
 def test_tp6_jobs_are_registered_and_resumable():
