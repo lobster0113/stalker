@@ -206,6 +206,56 @@ await page.evaluate(() => { window.__hold = false; });
   console.log(`질문 형태 실험: 배정 ${forms.join("")}`);
 }
 
+// #315 TP v0.2: with the experiment off, beginners get hand.equity as the rank question (form B chips),
+// graded against the B truth chip, and no A/B record is written. Then back to mid for the rest.
+await page.evaluate(() => { window.__hold = true; });
+await page.click(".tab[data-view='home']");
+await page.click("#set-eqab [data-v='off']");
+await page.click("#set-tier [data-v='beginner']");
+await page.click(".tab[data-view='train']");
+await page.evaluate(() => { window.__hold = false; });
+{
+  for (let guard = 0; guard < 6; guard++) {   // a turn that began before the switch is still mid
+    await page.waitForSelector("#tp-body .tpc[data-card='0']:not([hidden])");
+    if (await page.evaluate(() => CUR && CUR.rank === true)) break;
+    await answerDeck();
+    await page.click("#tp-submit");
+    await page.waitForSelector("#tp-body .waiting");
+  }
+  must(await page.evaluate(() => CUR && CUR.rank === true), "초보 순위형: 초보로 바꿨는데 hand.equity가 순위형으로 묻지 않음");
+  must(!(await page.locator("#tp-form").isVisible()), "초보 순위형: 실험이 꺼져 있는데 패널 제목에 형태가 보임");
+  const eq = page.locator("#tp-body .q[data-k='hand.equity']");
+  must((await eq.textContent()).includes("내 레인지의 상위 몇 %"), `초보 순위형: 에퀴티 질문 문구가 순위형이 아님 (${(await eq.textContent()).slice(0, 60)})`);
+  const chips = (await eq.locator("[data-chip]").allTextContents()).map(t => t.trim());
+  must(chips.length === 5 && chips[0] === "상위 20%" && chips[4] === "하위 20%", `초보 순위형: 순위 칩 5개가 아님 (${chips.join(", ")})`);
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("stalker.eqab") || "[]").length);
+  // Walk the deck up to the card that asks hand.equity so the screenshot shows the rank question.
+  for (let guard = 0; guard < 6 && !(await eq.isVisible()); guard++) {
+    for (const q of await page.locator("#tp-body .tpc:not([hidden]) .q:not(.na)").all())
+      if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+    if (!(await page.locator("#tp-next").isEnabled())) break;
+    await page.click("#tp-next");
+  }
+  await eq.locator("[data-chip]").first().click();
+  await inspect("train-beginner-rank", "#tp-body .q[data-k='hand.equity']");
+  await answerDeck();
+  await page.click("#tp-submit");
+  await page.waitForSelector("#tp-body .result-top");
+  const row = page.locator("#tp-body .rrow:not(.ref)", { hasText: "참값" });
+  must(await row.count() === 1, "초보 순위형: 채점 결과에 순위형 에퀴티 줄(참값 칸)이 없음");
+  if (await row.count()) must(/상위 20%|20–40%|40–60%|60–80%|하위 20%/.test(await row.textContent()), "초보 순위형: 채점 줄에 순위 칩 라벨이 없음");
+  if (await row.count()) must((await row.textContent()).includes("내 레인지"), "초보 순위형: 채점 노트가 정답 기준(내 레인지 안 순위, TP §4.1 share_better)을 밝히지 않음");
+  must(!(await page.locator("#tp-body [data-ab]").count()), "초보 순위형: 실험이 꺼져 있는데 A/B 기록 줄이 보임");
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem("stalker.eqab") || "[]").length);
+  must(after === before, `초보 순위형: 실험 기록(eqab)이 늘어남 (${before} → ${after}) — 순위형 채점은 eqab에 넣지 않는다`);
+  await inspect("train-beginner-result", "#tp-body .result-top");
+}
+await page.evaluate(() => { window.__hold = true; });
+await page.click(".tab[data-view='home']");
+await page.click("#set-tier [data-v='mid']");
+await page.click(".tab[data-view='train']");
+await page.evaluate(() => { window.__hold = false; });
+
 // 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
