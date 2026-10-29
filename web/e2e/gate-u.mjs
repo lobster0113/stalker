@@ -474,6 +474,48 @@ await inspect("home-move", "#move");
   await p2.close();
 }
 
+// 6. #360 고수 등급: 상대 5명이 pro-6.json 정책(board.nut 키 포함)을 두고, 한 핸드를 끝까지 치며 모델 비교가 보인다.
+{
+  const p3 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p3.setDefaultTimeout(90_000);
+  p3.on("pageerror", e => must(false, `page error (고수 정책): ${e.message}`));
+  await p3.goto(url);
+  await p3.click("#set-tier [data-v='pro']");
+  await p3.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.pro, null, { timeout: 120_000 });
+  await p3.click("#start-btn");
+  await p3.waitForSelector(QUICK);
+  must((await p3.textContent("#infobar")).includes("상대 TP-GTO 고수"), "고수: 상대가 TP-GTO 고수 정책이 아님");
+  const first = await p3.evaluate(() => G.handNo);
+  let compared = false;
+  for (let guard = 0; guard < 40; guard++) {
+    const fin = await p3.evaluate(h => G.handNo > h + 1 && TPG.botLog.filter(x => x.tier === "pro" && x.key.startsWith("p|")).length > 0, first);
+    if (fin) break;
+    await p3.waitForSelector(QUICK);
+    await p3.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+    await p3.click("#tp-go");
+    if (await p3.locator("#tp-body [data-model-action]").count()) compared = true;
+  }
+  must(compared, "고수: 진행 뒤 TP-GTO 고수 혼합 전략 비교([data-model-action])가 한 번도 보이지 않음");
+  const done = await p3.evaluate(h => G.eng?.lastHand?.hand >= h && G.eng.lastHand.ok && G.eng.lastHand.done, first);
+  must(done, `고수: 첫 핸드가 엔진과 함께 끝나지 않음 (${JSON.stringify(await p3.evaluate(() => G.eng?.lastHand))})`);
+  const file = JSON.parse(readFileSync(resolve(webRoot, "app/policy/pro-6.json"), "utf8"));
+  must(file.nut_k === await p3.evaluate(() => TPG.mod.NUT_K), "고수: 정책 파일 nut_k가 tpgto.js NUT_K와 다름");
+  const log = await p3.evaluate(() => TPG.botLog.filter(x => x.tier === "pro"));
+  let inTable = 0, post = 0;
+  for (const d of log) {
+    const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
+    must(i >= 0, `고수 정책 상대: 합법 메뉴 밖 액션 ${d.chosen} (${d.key})`);
+    if (!row) { must(!d.fromTable, `고수 정책 상대: 파일에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+    inTable++; if (d.key.startsWith("p|")) post++;
+    must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `고수 정책 상대: 페이지 확률이 파일과 다름 (${d.key})`);
+    must(row[i] > 0, `고수 정책 상대: 확률 0인 액션 ${d.chosen} (${d.key})`);
+  }
+  must(inTable >= 6 && post >= 1, `고수 정책 상대: 표에 있는 키 ${inTable}개, 포스트플랍 ${post}개 (6개·1개 이상이어야 함, 전체 ${log.length})`);
+  console.log(`고수 정책 상대: AI 결정 ${log.length}개(표 ${inTable}, 포스트플랍 ${post}) 모두 정책 지지 액션`);
+  await p3.screenshot({ path: `${shots}/train-pro-laptop.png` });
+  await p3.close();
+}
+
 await browser.close();
 server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
