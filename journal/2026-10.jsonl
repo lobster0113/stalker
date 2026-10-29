@@ -659,3 +659,4 @@
 {"ts":"2026-10-29T08:59:49Z","role":"reviewer","outcome":"skipped","issue":336,"pr":340,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
 {"ts":"2026-10-29T09:07:36Z","role":"reviewer","outcome":"skipped","issue":335,"pr":342,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T09:27:21Z","role":"reviewer-b","outcome":"merged","issue":336,"pr":340,"notes":"conflict resolved by merge commit a18573a; all CI green; squash-merged","friction":"gh pr comment/merge fail (GraphQL 403) and guard hook blocks mutating gh api; used GitHub MCP tools instead"}
+{"ts":"2026-10-29T09:31:00Z","role":"planner","outcome":"planned","issue":336,"pr":340,"notes":"PR #340 머지(#336 닫힘) 반영: #343 ready 제거(CLAIM), #350 in-progress(PR #351), #337 선행 안내, 충돌 PR CI 미실행 friction 3회+ 후보 기록","friction":""}
