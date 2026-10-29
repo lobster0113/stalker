@@ -1,0 +1,35 @@
+{
+ "job": "e3-tp-beginner9-w4",
+ "runs": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "ref": "main",
+ "sha": "0bae91da05503b77228e717f8f5e8a970f307b26",
+ "run_id": "40831788694",
+ "resumed_from_run": "40809728405",
+ "iters": 250000,
+ "iters_per_s_mean": 7.87,
+ "lbr_bb_mean": 0.5973,
+ "lbr_bb_by_seed": [
+  0.6919,
+  0.316,
+  0.7553,
+  0.6259
+ ],
+ "lbr_stderr_by_seed": [
+  0.1622,
+  0.1423,
+  0.1548,
+  0.1627
+ ],
+ "resumed_from_iters_by_seed": [
+  100000,
+  100000,
+  100000,
+  100000
+ ]
+}
