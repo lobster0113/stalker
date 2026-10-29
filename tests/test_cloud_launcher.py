@@ -108,8 +108,11 @@ def test_load_spec_only_from_jobs_dir(tmp_path):
     p.write_text(SPEC, encoding="utf-8")
     with pytest.raises(L.LauncherError, match="jobs/"):
         L.load_spec(p)
+    cap = json.loads((ROOT / "harness" / "budget.json").read_text(encoding="utf-8"))["monthly_cap_usd"]
     for f in (ROOT / "jobs").glob("*.yaml"):
-        assert L.load_spec(f).worst_case_usd <= 1.0, f  # checked-in examples stay cheap
+        # Probes stay under $1; a training run (#333) may take at most a tenth of the monthly cap.
+        limit = 0.1 * cap if f.stem.startswith("e3-tp-") else 1.0
+        assert L.load_spec(f).worst_case_usd <= limit, f
 
 
 def test_budget_rejects_over_cap_before_creating_pod(tmp_path):
