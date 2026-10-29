@@ -749,3 +749,4 @@
 {"ts":"2026-10-29T22:12:22Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-10-29T22:41:36Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-10-29T23:10:43Z","role":"reviewer","outcome":"skipped","issue":382,"pr":388,"notes":"not my parity","friction":""}
+{"ts": "2026-10-29T23:31:22Z", "role": "reviewer-b", "outcome": "merged", "issue": 382, "pr": 388, "notes": "real size menu + pseudo-harmonic translation; CI green, criteria verified, CI cost/compute plan split to #387, web to #386", "friction": "Closes #382 with two acceptance items moved to follow-ups (#386/#387) only via a builder plan comment; the issue body was not updated, so the reviewer has to infer the split. python vs pip interpreter mismatch locally (pip is 3.13, python is 3.11): use python -m pip."}
