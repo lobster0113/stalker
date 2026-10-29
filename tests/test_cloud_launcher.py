@@ -742,11 +742,33 @@ def test_publish_copies_checked_result_to_ops(tmp_path, capsys):
     with pytest.raises(L.LauncherError, match="secret"):
         L.publish(src, "2", ops)
     assert not (ops / "cloud" / "results" / "2.json").exists()
-    src.write_text(json.dumps({"x": "a" * L.OPS_RESULT_MAX_BYTES}), encoding="utf-8")
-    assert L.publish(src, "3", ops, log=lambda _m: None) is None and not (ops / "cloud" / "results" / "3.json").exists()
+    src.write_text(json.dumps({"x": ["a" * 100] * (L.OPS_RESULT_MAX_BYTES // 100 + 1)}), encoding="utf-8")
+    assert L.publish(src, "3", ops, log=lambda _m: None) is None and not list((ops / "cloud" / "results").glob("3*"))
     src.write_text("{}", encoding="utf-8")
     assert L.main(["publish", str(src), "--run-id", "4", "--ops", str(ops)]) == 0
     assert L.main(["publish", str(src), "--run-id", "x4", "--ops", str(ops)]) == 1 and "digits" in capsys.readouterr().err
+
+
+def test_publish_oversized_result_writes_summary_without_blobs(tmp_path):
+    src, ops = tmp_path / "result.json", tmp_path / "ops"
+    blob = "b" * (L.OPS_RESULT_MAX_BYTES + 10)
+    src.write_text(json.dumps({"iters_per_s": 151, "lbr": {"cur": 0.47}, "checkpoint": blob}), encoding="utf-8")
+    dst = L.publish(src, "5", ops, log=lambda _m: None)
+    assert dst == ops / "cloud" / "results" / "5.summary.json" and not (ops / "cloud" / "results" / "5.json").exists()
+    out = json.loads(dst.read_text(encoding="utf-8"))
+    assert out["iters_per_s"] == 151 and out["lbr"] == {"cur": 0.47}
+    assert out["checkpoint"]["omitted_chars"] == len(blob) and len(out["checkpoint"]["sha256"]) == 64
+    assert out["_summary_of"]["result_bytes"] == src.stat().st_size
+    assert len(dst.read_bytes()) < L.OPS_RESULT_MAX_BYTES
+
+
+def test_publish_summary_is_secret_checked(tmp_path):
+    src, ops = tmp_path / "result.json", tmp_path / "ops"
+    src.write_text(json.dumps({"note": "ghp_" + "a" * 36, "checkpoint": "b" * L.OPS_RESULT_MAX_BYTES}), encoding="utf-8")
+    with pytest.raises(L.LauncherError, match="secret"):
+        L.publish(src, "6", ops)
+    # a long string hides the secret from the summary only if the original was already clean: the full body is checked first
+    assert not (ops / "cloud" / "results").exists()
 
 
 def test_push_ledger_commits_published_results(tmp_path):

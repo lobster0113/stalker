@@ -27,6 +27,7 @@ the uploaded file in `$STALKER_RESUME` (empty for none). With `--resume-file` th
 earlier run's result there, trimmed to what a resume needs and gzipped; without it, `resume-none`.
 `publish` copies a checked result to `ops:cloud/results/<run id>.json`: agent sandboxes cannot
 download artifacts (their blob storage host is outside the egress allow-list, #264), but read ops.
+Over 1 MB it writes `<run id>.summary.json` with long strings (model blobs) left out (#358).
 """
 from __future__ import annotations
 
@@ -70,6 +71,7 @@ SECRET_PATTERNS = [re.compile(p) for p in (
 # ops is a git branch every routine fetches; bigger results stay artifact-only
 OPS_RESULT_MAX_BYTES = 1024 * 1024
 OPS_RESULT_DIR = PurePath("cloud", "results")
+SUMMARY_BLOB_CHARS = 4096  # strings longer than this (model blobs) are left out of an oversized result's ops summary
 RESUME_DIR = "/stalker-resume"
 RESUME_ENV = "STALKER_RESUME"
 # The upload goes through RunPod's proxy, which is behind Cloudflare: its request bodies stop at 100 MB.
@@ -626,19 +628,41 @@ def _collect(job: Job, pod_id: str, token: str, raw_status: bytes, out: Path, fe
     return "completed", meta
 
 
+def _strip_blobs(obj):
+    """Copy of a JSON value with long strings replaced by {omitted_chars, sha256}."""
+    if isinstance(obj, str) and len(obj) > SUMMARY_BLOB_CHARS:
+        return {"omitted_chars": len(obj), "sha256": hashlib.sha256(obj.encode("utf-8")).hexdigest()}
+    if isinstance(obj, dict):
+        return {k: _strip_blobs(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_strip_blobs(v) for v in obj]
+    return obj
+
+
 def publish(src: Path, run_id: str, ops: Path, log=print) -> Path | None:
-    """Copy a checked result JSON to <ops>/cloud/results/<run_id>.json; None when it is too big for ops."""
+    """Copy a checked result JSON to <ops>/cloud/results/<run_id>.json.
+
+    Over the ops limit: publish <run_id>.summary.json instead (long strings, i.e. model blobs, left out;
+    agent sandboxes cannot download the artifact). None when nothing was published."""
     if not re.fullmatch(r"[0-9]+", run_id):
         raise LauncherError(f"run id must be digits (a cloud.yml run id), got {run_id!r}")
     body = src.read_bytes()
     check_result(body)  # again: a collected artifact did not pass through this process's _collect
+    name = f"{run_id}.json"
     if len(body) > OPS_RESULT_MAX_BYTES:
-        log(f"result is {len(body)} bytes > {OPS_RESULT_MAX_BYTES} for ops; it stays in the run's artifact only")
-        return None
-    dst = ops / OPS_RESULT_DIR / f"{run_id}.json"
+        summary = _strip_blobs(json.loads(body.decode("utf-8")))
+        if isinstance(summary, dict):
+            summary["_summary_of"] = {"result_bytes": len(body), "result_sha256": hashlib.sha256(body).hexdigest()}
+        body = json.dumps(summary, ensure_ascii=False, indent=1).encode("utf-8")
+        check_result(body)
+        if len(body) > OPS_RESULT_MAX_BYTES:
+            log(f"result and its summary are over {OPS_RESULT_MAX_BYTES} bytes for ops; it stays in the run's artifact only")
+            return None
+        name = f"{run_id}.summary.json"
+    dst = ops / OPS_RESULT_DIR / name
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(body)
-    log(f"result published: ops:{OPS_RESULT_DIR.as_posix()}/{run_id}.json ({len(body)} bytes)")
+    log(f"result published: ops:{OPS_RESULT_DIR.as_posix()}/{name} ({len(body)} bytes)")
     return dst
 
 
