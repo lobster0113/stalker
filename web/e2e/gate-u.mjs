@@ -486,15 +486,16 @@ await inspect("home-move", "#move");
   await p3.waitForSelector(QUICK);
   must((await p3.textContent("#infobar")).includes("상대 TP-GTO 고수"), "고수: 상대가 TP-GTO 고수 정책이 아님");
   const first = await p3.evaluate(() => G.handNo);
-  let compared = false;
+  let compared = false, fin = false;
   for (let guard = 0; guard < 40; guard++) {
-    const fin = await p3.evaluate(h => G.handNo > h + 1 && TPG.botLog.filter(x => x.tier === "pro" && x.key.startsWith("p|")).length > 0, first);
+    fin = await p3.evaluate(h => G.handNo > h + 1 && TPG.botLog.filter(x => x.tier === "pro" && x.key.startsWith("p|")).length > 0, first);
     if (fin) break;
     await p3.waitForSelector(QUICK);
     await p3.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
     await p3.click("#tp-go");
     if (await p3.locator("#tp-body [data-model-action]").count()) compared = true;
   }
+  must(fin, "고수: 40번의 내 차례 안에 첫 핸드가 끝나고 포스트플랍 고수 키가 기록되지 않음");
   must(compared, "고수: 진행 뒤 TP-GTO 고수 혼합 전략 비교([data-model-action])가 한 번도 보이지 않음");
   const done = await p3.evaluate(h => G.eng?.lastHand?.hand >= h && G.eng.lastHand.ok && G.eng.lastHand.done, first);
   must(done, `고수: 첫 핸드가 엔진과 함께 끝나지 않음 (${JSON.stringify(await p3.evaluate(() => G.eng?.lastHand))})`);
