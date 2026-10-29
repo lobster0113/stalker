@@ -252,6 +252,10 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-tp6-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-tp6-w4", workers=4, menu="tp6"),
         "e3-tp-mid-tp6nc-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-tp6nc-w4", workers=4, menu="tp6",
                                       raise_cap=None),
+        # #382: the real-play size menu (TP.md section 6); preflop the menu keeps its own cap of 3,
+        # postflop raise wars run uncapped up to ALLIN_MERGE
+        "e3-tp-mid-real-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-real-w4", workers=4, menu="real",
+                                     raise_cap=None),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -259,7 +263,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
-             "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4"}   # #301
+             "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
+             "e3-tp-mid-real-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:

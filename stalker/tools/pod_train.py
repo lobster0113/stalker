@@ -212,7 +212,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--batch", type=int, default=500, help="iterations per worker between syncs")
     ap.add_argument("--resume", type=Path, help="a CI-layout .ckpt.json to continue")
-    ap.add_argument("--menu", default="v1", choices=("v1", "tp6"), help="E3 action menu (#339): v1 or tp6")
+    ap.add_argument("--menu", default="v1", choices=("v1", "tp6", "real"),
+                    help="E3 action menu: v1, tp6 (#339) or real (#382)")
     ap.add_argument("--no-raise-cap", action="store_true", help="no raise cap (#339); default cap 3")
     ap.add_argument("--resume-result", type=Path, help="an earlier pod result (JSON, may be gzipped) to continue")
     ap.add_argument("--sha-file", type=Path, help="file holding the source commit (the pod reads it from the tarball)")

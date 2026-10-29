@@ -203,7 +203,20 @@
     "anchor_best_action_ev_gap_changes"
   ],
   "size_buckets": {
-    "preflop_x": [2.2, 2.5, 3.0, "all_in"],
-    "postflop_pot_pct": [33, 50, 75, 100, 150, "all_in"]
+    "preflop_open_bb": [2.0, 2.2, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0, 10.0, "all_in"],
+    "preflop_iso_per_limper_bb": 1.0,
+    "preflop_3bet_x": [2.5, 3.0, 3.5, 4.0, 5.0, "all_in"],
+    "preflop_4bet_x": [2.0, 2.2, 2.5, 3.0, "all_in"],
+    "preflop_5bet_plus": ["all_in"],
+    "postflop_bet_pot_pct": [20, 33, 50, 75, 100, 150, 200, 300, "all_in"],
+    "postflop_raise_x": [2.5, 3.0, 4.0, 5.0, 7.0, 10.0, "all_in"],
+    "translation": {
+      "rule": "pseudo_harmonic",
+      "size_measure": "(to - current_bet) / (pot + to_call)",
+      "grading": "probability_split",
+      "ai_reading": "seeded_sample",
+      "below_smallest": "smallest",
+      "all_in": "all_in"
+    }
   }
 }

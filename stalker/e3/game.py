@@ -18,6 +18,18 @@ offered once. `raise_cap=None` removes the per-street cap; then a raise to ALLIN
 more is merged into the all-in (raise wars end in a few steps instead of creeping up by min-raises).
 Both are State fields, so a hand keeps its rules; `deal` takes them, defaulting to `rules(...)`.
 
+`menu="real"` (#382) is the real-play size set of TP.md section 6 (owner decision: sizes are not cut
+for compute); "r" again keeps the 2.5BB open and the 3x raise:
+  preflop, unopened: r2, r22, r, r3, r35, r4, r5, r6, r8, r10 (open to 2 ... 10 BB); with limpers the
+    same labels isolate to that open + 1BB per limper
+  preflop 3-bet (facing an open): r25, r, r35, r4, r5 (2.5x ... 5x the open); 4-bet (facing a 3-bet):
+    r2, r22, r25, r (2x ... 3x the 3-bet); a 5-bet is all in (REAL_PREFLOP_RAISE)
+  postflop, facing a bet or raise: r25, r, r4, r5, r7, r10 (raise to 2.5x ... 10x the current bet)
+  postflop, nothing to call: k, b20, b33, b50, b75, b100, b150, b200, b300, a
+Preflop the menu itself keeps RAISE_CAP (sized open, 3-bet and 4-bet; a 5-bet is all in, as in real
+play), whatever `raise_cap` says; `raise_cap` caps the postflop streets. Any other chip amount maps to
+these labels with stalker/e3/translate.py.
+
 Seats are numbered in preflop order: 0 = UTG ... n-3 = BTN, n-2 = SB, n-1 = BB. Postflop the SB
 acts first. Heads-up (n = 2) the SB is the button: first preflop, last postflop. Every player starts with the same stack, so an all-in is the largest possible
 contribution and no side pot can arise; showdowns split one pot (odd chips to the first winner
@@ -37,10 +49,21 @@ SB = 50
 STACK = 100 * BB
 RAISE_CAP = 3
 PREFLOP_RAISE = (2.5, 3.0, 2.2)
-MENUS = ("v1", "tp6")
+MENUS = ("v1", "tp6", "real")
 TP6_OPEN = (("r22", 2.2), ("r", 2.5), ("r3", 3.0))           # BB
 TP6_RAISE = (("r25", 2.5), ("r", 3.0), ("r4", 4.0))          # x the current bet
 TP6_BET = (("b33", 0.33), ("b50", 0.5), ("b75", 0.75), ("b100", 1.0), ("b150", 1.5))   # x the pot
+REAL_OPEN = (("r2", 2.0), ("r22", 2.2), ("r", 2.5), ("r3", 3.0), ("r35", 3.5), ("r4", 4.0), ("r5", 5.0),
+             ("r6", 6.0), ("r8", 8.0), ("r10", 10.0))                                     # BB
+REAL_RAISE = (("r25", 2.5), ("r", 3.0), ("r4", 4.0), ("r5", 5.0), ("r7", 7.0), ("r10", 10.0))   # x the bet
+# Preflop re-raises by raise count (State.raises before the re-raise: 2 = facing an open, 3 = facing a
+# 3-bet), x the current bet. One table so the owner's draft (#382) is a one-line change; a 5-bet is all in.
+REAL_PREFLOP_RAISE = {2: (("r25", 2.5), ("r", 3.0), ("r35", 3.5), ("r4", 4.0), ("r5", 5.0)),     # 3-bet
+                      3: (("r2", 2.0), ("r22", 2.2), ("r25", 2.5), ("r", 3.0))}                   # 4-bet
+REAL_BET = (("b20", 0.2), ("b33", 0.33), ("b50", 0.5), ("b75", 0.75), ("b100", 1.0), ("b150", 1.5),
+            ("b200", 2.0), ("b300", 3.0))                                                 # x the pot
+SIZE_LABELS = tuple(dict.fromkeys(["r", "b33", "b75"] + [name for table in (TP6_OPEN, TP6_RAISE, TP6_BET,
+                    REAL_OPEN, REAL_RAISE, REAL_BET) for name, _ in table]))   # every bet/raise label but "a"
 ISO_BASE, ISO_PER_LIMPER = 250, 100
 ALLIN_MERGE = 0.8      # raise_cap=None: a raise to >= 80% of the stack is the all-in
 _DEFAULT = {"menu": "v1", "raise_cap": RAISE_CAP}
@@ -158,20 +181,30 @@ def _sizes(s: State) -> list[tuple[str, int]]:
             return [("r", max(_raise_to(s), cur + s.last_raise))]
         return [(name, s.bet[p] + max(BB, int(round(s.pot * frac)))) for name, frac in (("b33", 0.33), ("b75", 0.75))]
     least = cur + s.last_raise
+    opens, raises, bets = (REAL_OPEN, REAL_RAISE, REAL_BET) if s.menu == "real" else (TP6_OPEN, TP6_RAISE, TP6_BET)
     if s.street == 0 and s.raises <= 1:
         limpers = sum(1 for i in range(s.n - 1) if s.bet[i] == BB)  # the big blind's own BB is not a limp
+        if limpers and s.menu == "real":
+            return [(name, max(least, int(round(x * BB)) + ISO_PER_LIMPER * limpers)) for name, x in opens]
         if limpers:
             return [("r", max(least, ISO_BASE + ISO_PER_LIMPER * limpers))]
-        return [(name, max(least, int(round(x * BB)))) for name, x in TP6_OPEN]
+        return [(name, max(least, int(round(x * BB)))) for name, x in opens]
+    if s.menu == "real" and s.street == 0:
+        raises = REAL_PREFLOP_RAISE.get(s.raises, ())   # past the 4-bet: all in only (also capped by street_cap)
     if s.to_call() > 0:
-        return [(name, max(least, int(round(x * cur)))) for name, x in TP6_RAISE]
-    return [(name, s.bet[p] + max(BB, int(round(s.pot * frac)))) for name, frac in TP6_BET]
+        return [(name, max(least, int(round(x * cur)))) for name, x in raises]
+    return [(name, s.bet[p] + max(BB, int(round(s.pot * frac)))) for name, frac in bets]
+
+
+def street_cap(s: State) -> int | None:
+    """The raise cap on this street: the real menu caps preflop at RAISE_CAP (module doc)."""
+    return RAISE_CAP if s.menu == "real" and s.street == 0 else s.raise_cap
 
 
 def _offered(s: State) -> list[tuple[str, int]]:
     p = s.to_act
     room = s.stack[p] + s.bet[p]
-    top = room - BB if s.raise_cap is not None else min(room - BB, ALLIN_MERGE * room)
+    top = room - BB if street_cap(s) is not None else min(room - BB, ALLIN_MERGE * room)
     out: list[tuple[str, int]] = []
     for name, to in _sizes(s):
         if to < top and all(to != t for _, t in out):
@@ -190,7 +223,7 @@ def legal(s: State) -> list[str]:
         acts.append("f")
     acts.append("c" if (call > 0 or s.street == 0) else "k")
     if s.stack[p] > call and others:
-        cap = s.raise_cap
+        cap = street_cap(s)
         if cap is None or s.raises < cap + (1 if s.street == 0 else 0):
             acts.extend(name for name, _ in _offered(s))
         acts.append("a")
@@ -283,7 +316,7 @@ def apply_to(s: State, to: int, label: str) -> State:
     p = s.to_act
     room = s.stack[p] + s.bet[p]
     if (s.done or s.street == 0 or not max(s.bet) + s.last_raise <= to <= room
-            or (s.raise_cap is not None and s.raises >= s.raise_cap)
+            or (street_cap(s) is not None and s.raises >= street_cap(s))
             or len([i for i in s.active() if i != p]) == 0):
         raise ValueError(f"illegal bet/raise to {to} after {s.history}")
     return _advance(_put_in(s, to, f"{p}:{label}"), p)
