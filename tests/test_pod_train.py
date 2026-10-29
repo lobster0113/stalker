@@ -17,10 +17,10 @@ import launcher as L  # noqa: E402
 
 
 def test_pack_round_trips_the_model_state():
-    m = E3MCCFR(3, 5, 3, "basic")
+    m = E3MCCFR(3, 5, 3, "basic", "tp6", None)  # non-default rules must survive the trip (#339)
     m.iterate(3)
     meta = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
-            "rng": m.rng.bit_generator.state}
+            "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state}
     st = P.unpack_state(P.pack(m), meta)
     assert st == json.loads(json.dumps(m.state()))
     back, again = E3MCCFR.from_state(st), E3MCCFR.from_state(m.state())
@@ -33,6 +33,7 @@ def test_run_writes_a_checked_result_and_unpacks_to_the_ci_layout(tmp_path):
     r = P.run("beginner", 3, 2, minutes=0.001, seed=1, batch=1)
     assert r["iters"] >= 2 and r["checkpoint"]["dtype"] == "float64"
     assert r["lbr"] is not None and r["field"] is None  # field is 6-max only
+    assert (r["model"]["menu"], r["model"]["raise_cap"]) == ("v1", 3)
     body = json.dumps(r).encode()
     L.check_result(body)  # the launcher's own size and secret checks
     res = tmp_path / "r.json"

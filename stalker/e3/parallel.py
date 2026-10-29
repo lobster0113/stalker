@@ -22,9 +22,9 @@ from stalker.e3.mccfr import E3MCCFR
 
 
 def _work(args) -> tuple[dict, dict, dict, int, float]:
-    k, n, depth, blob, iterations, seed, iters = args
+    k, n, depth, menu, raise_cap, blob, iterations, seed, iters = args
     regret = pickle.loads(blob)
-    m = E3MCCFR(0, k, n, depth)
+    m = E3MCCFR(0, k, n, depth, menu, raise_cap)
     m.rng = np.random.default_rng(seed)
     m.regret = {key: r.copy() for key, r in regret.items()}
     m.iterations = iterations
@@ -76,7 +76,7 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
             # One pickle of the snapshot per batch, not one per worker: at 32 workers and a pro-sized
             # table the per-job pickling in the pool's single feeder thread was the serial part (#333).
             blob = pickle.dumps(m.regret, protocol=pickle.HIGHEST_PROTOCOL)
-            jobs = [(m.k, m.n, m.depth, blob, m.iterations, int(sd), s) for sd, s in zip(seeds, shares)]
+            jobs = [(m.k, m.n, m.depth, m.menu, m.raise_cap, blob, m.iterations, int(sd), s) for sd, s in zip(seeds, shares)]
             results = list(pool.map(_work, jobs))
             t1 = time.perf_counter()
             for delta, avg, visits, nodes, _ in results:

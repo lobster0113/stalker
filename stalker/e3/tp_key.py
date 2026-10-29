@@ -64,7 +64,7 @@ NUT_K = 5                        # board.nut steps in the pro table (module doc,
 NUT_TOP = 0.10                   # board.nut: share of combos counted as near-nut (TP.md §3)
 FOLDY_MIN_OPPS = 6               # opp.foldy is N/A below this many faced bets (TP.md §3)
 FOLDY_PRIOR, FOLDY_PRIOR_N = 0.5, 6.0   # shrinkage toward an even fold rate, worth 6 decisions
-AGGRESSIVE = ("r", "b33", "b75", "a")
+AGGRESSIVE = ("r", "b33", "b75", "a", "r22", "r3", "r25", "r4", "b50", "b100", "b150")   # v1 + tp6 (#339)
 POT_ODDS_EDGES = (0.2, 0.3, 0.4)
 SPR_EDGES = (1.0, 3.0, 6.0)
 
