@@ -1,13 +1,25 @@
-// Gate U 센서: 데모 E2E 흐름 + 3종 화면 스크린샷 + 가로 스크롤/axe 검사. 사용법은 web/README.md.
+// Gate U 센서: 서비스 E2E 흐름 + 3종 화면 스크린샷 + 가로 스크롤/axe 검사. 사용법은 web/README.md.
 import { chromium } from "playwright";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { mkdirSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, extname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
+// The page loads the TP-GTO engine and policies with import()/fetch, which file:// blocks: serve web/.
+const webRoot = resolve(here, "..");
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json" };
+const server = createServer((req, res) => {
+  const path = resolve(webRoot, "." + decodeURIComponent(new URL(req.url, "http://x").pathname));
+  if (!path.startsWith(webRoot + sep) || !existsSync(path) || !statSync(path).isFile()) { res.writeHead(404); res.end(); return; }
+  const body = readFileSync(path);
+  res.writeHead(200, { "content-type": TYPES[extname(path)] || "application/octet-stream", "content-length": body.length });
+  res.end(body);
+});
+await new Promise(r => server.listen(0, "127.0.0.1", r));
 // abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass.
-const url = pathToFileURL(resolve(here, "../demo/index.html")).href + "?speed=30&abseed=1";
+const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1`;
 const shots = resolve(process.env.SCREENSHOT_DIR || resolve(here, "screenshots"));
 const axeSource = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const VIEWPORTS = [["phone", 390, 844], ["tablet", 820, 1180], ["laptop", 1440, 900]];
@@ -66,31 +78,46 @@ async function inspect(tag, focus) {
 // 1. 시작 → 테이블 → 내 차례(Quick: 액션 먼저 → 진행 / 분석 보기 → 비교) → Guided TP 입력 → 제출 → 채점
 await page.goto(url);
 must(await page.locator("#set-play [data-v='quick'][aria-pressed='true']").count() === 1, "시작 화면: 플레이 모드 기본값이 Quick이 아님");
+must(await page.locator("#set-mode [data-v='cash'][aria-pressed='true']").count() === 1, "시작 화면: 기본 게임이 캐시게임(TP-GTO)이 아님");
+// #337: the trained policy index loads and the header names the model, not a mock.
+await page.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 30_000 });
+must(!(await page.evaluate(() => document.body.innerText)).includes("데모"), "서비스 화면에 '데모' 문구가 남아 있음");
+must(await page.locator("#model-status .ms.on").count() >= 1, "시작 화면: 학습된 TP-GTO 모델 표시가 없음");
 await inspect("home");
 await page.click("#start-btn");
 const QUICK = "#tp-body [data-card='quick-act']";
 await page.waitForSelector(QUICK);
+must((await page.textContent("#infobar")).includes("상대 TP-GTO"), "훈련 게임: 상대가 TP-GTO 정책이 아님(정책 연결 실패)");
 await inspect("train-input", QUICK);
-// #163: the level clock is frozen while it is my turn (the TP panel is open).
-must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
-{
-  const before = (await page.textContent("#lv-left")).trim();
-  await page.waitForTimeout(2500);
-  must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
-}
 // #116 Quick: one decision ends in at most 3 inputs — action, size (only for a bet/raise), 진행. No judgment is required.
-{
+// #337/#341: the size is free no-limit — the amount box takes any size from the minimum raise to all in.
+let freeSized = false;
+for (let d = 0; d < 6 && !freeSized; d++) {
+  if (d) await page.waitForSelector(QUICK);
   let inputs = 0;
   const raise = page.locator(`${QUICK} [data-act='raise']:not([disabled])`);
   if (await raise.count()) {
     await raise.click(); inputs++;
-    await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click(); inputs++;
+    const num = page.locator("[data-sizes]:not([hidden]) [data-size-num]");
+    const lo = +(await num.getAttribute("min")), hi = +(await num.getAttribute("max"));
+    const want = Math.round(((lo + hi) / 2.7) * 10) / 10;   // an off-preset amount between min raise and all in
+    await num.fill(String(want)); await num.press("Enter"); inputs++;
+    const to = await page.evaluate(() => CUR.to);
+    must(Math.abs(to - Math.round(want * 100)) <= 10 && to >= lo * 100 && to <= hi * 100, `노리밋 입력: ${want}BB를 넣었는데 금액이 ${to / 100}BB`);
+    freeSized = true;
   } else { await page.locator(`${QUICK} [data-act]:not([disabled])`).last().click(); inputs++; }
   must(await page.locator("#tp-go").isEnabled(), "Quick: 액션을 골랐는데 진행 버튼이 비활성");
+  await page.evaluate(() => { window.__hold = true; });   // keep the waiting panel on screen while checking it
   await page.click("#tp-go"); inputs++;
   await page.waitForSelector("#tp-body .waiting");
   must(inputs <= 3, `Quick: 한 결정에 입력 ${inputs}개 (3개 이하여야 함)`);
+  // Quick without analysis still compares the action with the trained policy's mixed strategy.
+  must(await page.locator("#tp-body [data-model-action]").count() === 1 || !(await page.evaluate(() => G.eng?.ok)), "Quick: 진행 뒤 TP-GTO 혼합 전략 비교가 없음");
+  if (!freeSized) await page.evaluate(() => { window.__hold = false; });
 }
+must(freeSized, "노리밋 입력: 6번의 결정 동안 벳·레이즈 기회가 없었음");
+must((await page.textContent("#tp-body [data-model-action]")).includes("학습 중간본"), "액션 비교: 모델 라벨(학습 중간본·반복·LBR·run)이 없음");
+await inspect("train-quick-model", "#tp-body [data-model-action]");
 // #116 Quick analysis: action first, then "분석 보기" asks 1–3 core judgments and shows the TP comparison.
 await page.waitForSelector(QUICK);
 await page.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
@@ -106,7 +133,8 @@ await inspect("train-quick-ask", "#tp-submit");
 await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
 must((await page.textContent("#tp-body .result-top")).includes("Quick 분석"), "Quick 분석: 채점 화면에 Quick 표시 없음");
-must((await page.locator("#tp-body .rrow.ref").count()) >= 1, "Quick 분석: 액션 비교(TP-GTO 모의 혼합 전략)가 없음");
+must((await page.locator("#tp-body .rrow.ref").count()) >= 1, "Quick 분석: 액션 비교(TP-GTO 혼합 전략)가 없음");
+must((await page.locator("#tp-body .result-top .conf.model").count()) === 1, "Quick 분석: 채점 화면에 TP-GTO 학습 중간본 라벨이 없음");
 await inspect("train-quick-result", "#tp-body .result-top");
 // Switch to Guided between decisions (hold the demo so the next turn waits), then do the full card deck.
 await page.evaluate(() => { window.__hold = true; });
@@ -206,6 +234,22 @@ await page.evaluate(() => { window.__hold = false; });
   console.log(`질문 형태 실험: 배정 ${forms.join("")}`);
 }
 
+// #163 토너먼트(모의): 내 차례에는 레벨 시계가 멈춘다.
+await page.evaluate(() => { window.__hold = true; });
+await page.click(".tab[data-view='home']");
+await page.click("#set-mode [data-v='tournament']");
+await page.click("#set-play [data-v='quick']");
+await page.evaluate(() => { window.__hold = false; });
+await page.click("#start-btn");
+await page.waitForSelector(QUICK);
+must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
+{
+  const before = (await page.textContent("#lv-left")).trim();
+  await page.waitForTimeout(2500);
+  must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
+}
+must((await page.textContent("#svc-pill")).includes("모의"), "토너먼트: 학습 정책이 없는데 모의 표시가 없음");
+
 // 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
@@ -251,6 +295,7 @@ for (let guard = 0; guard < 12 && await page.locator("#rv-bar [data-rv]").count(
 for (let guard = 0; guard < 8 && await page.locator("#rv-next:not([disabled])").count(); guard++) await page.click("#rv-next");
 await page.waitForSelector("#rv-out .rrow");
 must((await page.textContent("#rv-body h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
+must(await page.locator("#rv-out [data-model-action]").count() === 1, "복기: 캐시 6인 100BB 핸드인데 TP-GTO 정책 비교가 없음");
 await inspect("review", "#rv-body h2");
 
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
@@ -279,5 +324,6 @@ must(await page.evaluate(() => { renderEqab(); return document.querySelector("#a
 await inspect("home-move", "#move");
 
 await browser.close();
+server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
 console.log("Gate U ok");
