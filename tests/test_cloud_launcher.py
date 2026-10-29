@@ -353,16 +353,17 @@ TOKEN = "t" * 32
 class FakeProxy:
     """RunPod HTTP proxy in front of the pod's result server: status.json appears after `ready_after` polls."""
 
-    def __init__(self, status=b'{"exit": 0}', result=b'{"lbr_bb": 1.25}', ready_after=3, up_after=1, put_code=200):
+    def __init__(self, status=b'{"exit": 0}', result=b'{"lbr_bb": 1.25}', ready_after=3, up_after=1, put_code=200,
+                 booting_code=0):
         self.status, self.result, self.ready_after, self.urls = status, result, ready_after, []
-        self.up_after, self.put_code, self.puts = up_after, put_code, []
+        self.up_after, self.put_code, self.puts, self.booting_code = up_after, put_code, [], booting_code
 
     def send(self, url, body):
         """PUT: the proxy answers 502 (0) for `up_after` tries while the pod boots, then the server takes it."""
         assert url.startswith(f"https://p1-{L.RESULT_PORT}.proxy.runpod.net/{TOKEN}/")
         self.puts.append((url.rsplit("/", 1)[1], body))
         if len(self.puts) <= self.up_after:
-            return 0, b""
+            return self.booting_code, b""
         if self.put_code != 200:
             return self.put_code, b""
         return 200, json.dumps({"bytes": len(body), "sha256": __import__("hashlib").sha256(body).hexdigest()}).encode()
@@ -658,6 +659,14 @@ def test_resume_is_uploaded_before_the_result_is_polled(tmp_path):
     assert TOKEN not in json.dumps(entries) and entries[-1]["status"] == "completed"
 
 
+@pytest.mark.parametrize("booting_code", [404, 502])
+def test_signal_retries_while_the_proxy_routes_the_new_pod(tmp_path, booting_code):
+    # #361: the RunPod proxy answered 404 right after creation (run 40886839070) and the launcher gave up
+    proxy = FakeProxy(up_after=2, booting_code=booting_code)
+    res, api, entries, out = _run_result(tmp_path, proxy)
+    assert res["status"] == "completed" and proxy.puts == [("resume-none", b"")] * 3
+
+
 def test_no_resume_signals_none(tmp_path):
     proxy = FakeProxy(up_after=0)
     res, *_ = _run_result(tmp_path, proxy)
@@ -671,7 +680,7 @@ class _Garbled(FakeProxy):
 
 
 @pytest.mark.parametrize("proxy,msg", [(lambda: FakeProxy(up_after=0, put_code=413), "cap"),
-                                       (lambda: FakeProxy(up_after=0, put_code=404), "refused"),
+                                       (lambda: FakeProxy(up_after=0, put_code=403), "refused"),
                                        (lambda: _Garbled(), "received")], ids=["oversized", "refused", "garbled"])
 def test_resume_refused_or_garbled_terminates(tmp_path, proxy, msg):
     p = proxy()
