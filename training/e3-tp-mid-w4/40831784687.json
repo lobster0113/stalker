@@ -1,0 +1,65 @@
+{
+ "job": "e3-tp-mid-w4",
+ "runs": 2,
+ "seeds": [
+  1,
+  4
+ ],
+ "ref": "main",
+ "sha": "0bae91da05503b77228e717f8f5e8a970f307b26",
+ "run_id": "40831784687",
+ "resumed_from_run": "40793583489",
+ "iters": 600000,
+ "iters_per_s_mean": 18.46,
+ "lbr_bb_mean": 0.753,
+ "lbr_bb_by_seed": [
+  0.6382,
+  0.8678
+ ],
+ "lbr_stderr_by_seed": [
+  0.1815,
+  0.188
+ ],
+ "resumed_from_iters_by_seed": [
+  350000,
+  350000
+ ],
+ "field_sha256": "a509992d2140b5a1b02f15d191a8740edb26aa08951de1f68b9a5ac410e345b0",
+ "field_deals": 1000,
+ "field_worst_by_seed": [
+  {
+   "name": "nit5",
+   "bb100": -11.97,
+   "ci95_low": -51.48
+  },
+  {
+   "name": "lag5",
+   "bb100": -42.25,
+   "ci95_low": -100.73
+  }
+ ],
+ "field_bb100_by_seed": [
+  {
+   "tag5": 1.24,
+   "lag5": 43.57,
+   "nit5": -11.97,
+   "station5": 131.83,
+   "maniac5": 128.98,
+   "mixed_styles": 77.89,
+   "mixed_regs": 28.99,
+   "uniform5": 513.18,
+   "self5": 0.0
+  },
+  {
+   "tag5": -10.54,
+   "lag5": -42.25,
+   "nit5": 4.52,
+   "station5": 124.5,
+   "maniac5": 165.48,
+   "mixed_styles": 52.38,
+   "mixed_regs": -4.47,
+   "uniform5": 572.07,
+   "self5": 0.0
+  }
+ ]
+}
