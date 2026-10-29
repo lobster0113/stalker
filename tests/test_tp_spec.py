@@ -143,6 +143,12 @@ def _bad(mutate):
      .update(form="slider"), "form 'slider'"),
     (lambda d: next(i for i in d["items"] if i["id"] == "hand.equity")["question_forms"]
      .update(expert={"form": "rank", "question": "q"}), "question_forms tier 'expert'"),
+    (lambda d: next(i for i in d["items"] if i["id"] == "hand.equity")["question_forms"]["beginner"]
+     .pop("answer"), "lacks 'answer'; a rank form must define its graded answer"),
+    (lambda d: next(i for i in d["items"] if i["id"] == "hand.equity")["question_forms"]["beginner"]
+     .update(bands=[0.4, 0.2, 0.6, 0.8]), "strictly increasing shares"),
+    (lambda d: next(i for i in d["items"] if i["id"] == "hand.equity")["question_forms"]["beginner"]
+     .update(bands=[0.25, 0.5, 0.75]), "5 chips for 3 bands"),
 ])
 def test_invalid_spec_errors_say_how_to_fix(mutate, msg):
     with pytest.raises(SpecError, match=re.escape(msg)):
@@ -158,6 +164,21 @@ def test_beginner_equity_is_asked_as_rank_in_doc_spec_and_demo():
     row = next(x for x in _section(TP_MD, "### 3.1", "### 3.2").splitlines() if x.startswith("| `hand.equity`"))
     assert qf["beginner"]["question"] in row and "`hand.eq_call`" in row
     assert qf["beginner"]["question"] in DEMO
+
+
+def test_beginner_rank_answer_and_scale_are_in_the_contract():
+    # The rank form grades share_better, not the equity value, so its definition and scale live in the
+    # spec and TP.md, and the demo grades the same chips against my range (not all hands).
+    qf = load().item("hand.equity")["question_forms"]["beginner"]
+    assert qf["answer"].startswith("share_better") and "내 레인지" in qf["answer"]
+    assert qf["bands"] == [0.2, 0.4, 0.6, 0.8] and len(qf["chips"]) == 5
+    row = next(x for x in _section(TP_MD, "### 3.1", "### 3.2").splitlines() if x.startswith("| `hand.equity`"))
+    assert "share_better" in row
+    sec = _section(TP_MD, "### 4.1", "### 4.2")
+    assert "0.2·0.4·0.6·0.8" in sec and all(c in sec for c in qf["chips"])
+    b_chips = re.search(r'B: \{[^}]*chips: \[([^\]]*)\]', DEMO).group(1)
+    assert [c.strip().strip('"') for c in b_chips.split(",")] == qf["chips"]
+    assert 'eqabTruth("B", g, heroRangePct(CUR.hero))' in DEMO
 
 
 def test_unknown_version_lists_available():

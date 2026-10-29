@@ -24,8 +24,10 @@ GRADING_CONDITIONS = {
 }
 TIER_ORDER = ("beginner", "mid", "pro")
 # Per-tier question forms (ADR 0011 #263): "rank" asks the item as "top X% of my range" on screen;
-# the item's value (answer definition) is unchanged.
+# the graded answer is the form's own `answer` (a different quantity from the item value), so the
+# contract must carry its definition and scale; the item value itself (records, Gate T2) is unchanged.
 QUESTION_FORMS = {"rank"}
+RANK_FORM_KEYS = ("answer", "bands", "chips", "chip_rule", "grading")
 REQUIRED = ("tp_version", "decision_context_version", "decision_context", "items", "tiers", "modes",
             "grading", "buckets", "sensitivity_exceptions", "size_buckets")
 
@@ -95,6 +97,17 @@ def validate(data: dict, path: Path = Path("tp_spec.json")) -> None:
                             f"{sorted(QUESTION_FORMS)} or add the form to QUESTION_FORMS with its meaning")
             if not qf.get("question"):
                 _fail(path, f"{where} question_forms[{tier!r}] lacks 'question'; give the on-screen wording")
+            if qf["form"] == "rank":
+                for k in RANK_FORM_KEYS:
+                    if not qf.get(k):
+                        _fail(path, f"{where} question_forms[{tier!r}] lacks {k!r}; a rank form must define "
+                                    f"its graded answer and scale ({', '.join(RANK_FORM_KEYS)}, see docs/TP.md §4.1)")
+                b = qf["bands"]
+                if not (all(0 < x < 1 for x in b) and all(x < y for x, y in zip(b, b[1:]))):
+                    _fail(path, f"{where} question_forms[{tier!r}] bands {b}; use strictly increasing shares in (0, 1)")
+                if len(qf["chips"]) != len(b) + 1:
+                    _fail(path, f"{where} question_forms[{tier!r}] has {len(qf['chips'])} chips for {len(b)} bands; "
+                                "give one chip per band interval (len(bands) + 1)")
     known = set(ids)
     prev: set[str] = set()
     for t in TIER_ORDER:
