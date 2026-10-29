@@ -649,3 +649,4 @@
 {"ts":"2026-10-29T08:15:00Z","role":"planner","outcome":"planned","issue":332,"pr":338,"notes":"PR #338 머지 후: #332 ready(머지 후 NUT_K=5 비교 run), #342에 벡터 재생성 안내, #240 ready 제거로 ready 8 유지, STATE 갱신","friction":""}
 {"ts":"2026-10-29T08:20:00Z","role":"reviewer-b","outcome":"merged","issue":333,"pr":348,"notes":"sweep: #348 중수 6인·9인 pod32 잡 명세 MERGE (CI all green, 최악 각 $3); #344·#342·#340은 최신 sha에 판정 있음","friction":"gh CLI 토큰 무효라 GitHub MCP·REST로 대체; 취소된 이전 run의 gates 집계 failure가 check 목록에 섞여 run별로 구분해야 했다"}
 {"ts":"2026-10-29T08:25:00Z","role":"planner","outcome":"planned","issue":333,"pr":348,"notes":"PR #348 머지(Refs): #333 ready 유지, pro-pod32 run 40840669062 진행 중을 STATE에 기록, 큐 변동 없음","friction":""}
+{"ts":"2026-10-29T08:22:04Z","role":"reviewer","outcome":"skipped","issue":336,"pr":340,"notes":"not my parity","friction":""}
