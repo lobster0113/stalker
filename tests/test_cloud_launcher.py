@@ -410,7 +410,17 @@ def test_result_is_pulled_saved_and_recorded(tmp_path):
     assert TOKEN not in json.dumps(entries)  # the ledger is pushed to a public branch
 
 
-def test_result_rejected_when_oversized_non_json_or_secret(tmp_path):
+def test_result_size_limit_fits_a_pod_checkpoint():
+    # #346: a pod training result (#333) carries its model; 21 MB passes, the cap still rejects.
+    body = b'{"x": "' + b"a" * (21 * 1024 * 1024) + b'"}'
+    L.check_result(body)
+    assert L.RESULT_MAX_BYTES == 256 * 1024 * 1024
+    with pytest.raises(L.LauncherError, match="bytes"):
+        L.check_result(body, max_bytes=1024)
+
+
+def test_result_rejected_when_oversized_non_json_or_secret(tmp_path, monkeypatch):
+    monkeypatch.setattr(L, "RESULT_MAX_BYTES", 4096)  # the size path, without a 256 MB body
     cases = {
         "big": b'{"x": "' + b"a" * L.RESULT_MAX_BYTES + b'"}',
         "nonjson": b"\x00\x01 not json",

@@ -3,7 +3,7 @@
 One chain, `--workers` processes (batch-synchronous, `stalker.e3.parallel`), trained until
 `--minutes` of wall time, then evaluated exactly as the CI `e3-tp-*` jobs are
 (`stalker.train_jobs.e3_evaluate`: LBR, coverage, field), so pod and CI numbers compare. The launcher
-fetches one JSON of at most 20 MB, so the result carries the summary plus the model as a compressed
+fetches one JSON of at most 256 MB (#346), so the result carries the summary plus the model as a compressed
 `.npz` (base64): keys, regrets, average-strategy sums and visit counts, float32 if float64 does not
 fit. `--unpack` turns it back into the CI layout (`<job>-seed<s>.ckpt.json`, `.policy.json`), so a
 pod run can be evaluated, compared and resumed (`resume_run` in CI, or `--resume` here) like a CI one.
@@ -24,7 +24,7 @@ import numpy as np
 
 from stalker.tools.pod_bench import machine, max_child_rss_mb, max_rss_mb
 
-RESULT_BUDGET = 19 * 1024 * 1024  # under the launcher's 20 MB result cap, with room for the summary
+RESULT_BUDGET = 250 * 1024 * 1024  # under the launcher's 256 MB result cap (#346), with room for the summary
 PROGRESS_SECONDS = 300
 
 
