@@ -4,7 +4,7 @@
  "tiers": {
   "beginner": {
    "file": "beginner-6.json",
-   "bytes": 62447,
+   "bytes": 62479,
    "tier": "beginner",
    "players": 6,
    "k": 5,
@@ -21,11 +21,13 @@
    },
    "job": "e3-tp-beginner",
    "q": 255,
-   "keys": 1724
+   "min_visits": 0,
+   "keys": 1724,
+   "keys_dropped": 0
   },
   "mid": {
    "file": "mid-6.json",
-   "bytes": 1611697,
+   "bytes": 1611729,
    "tier": "mid",
    "players": 6,
    "k": 11,
@@ -42,7 +44,9 @@
    },
    "job": "e3-tp-mid-w4",
    "q": 255,
-   "keys": 43757
+   "min_visits": 0,
+   "keys": 43757,
+   "keys_dropped": 0
   }
  }
 }

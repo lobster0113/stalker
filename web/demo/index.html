@@ -335,6 +335,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .size-num input { width: 76px; background: var(--ink); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 7px; font: 600 14px/1 var(--font-display); }
 .size-num input:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
 .size-cap { font-size: 11.5px; color: var(--faint); margin-top: 5px; }
+.size-msg { font-size: 12px; color: var(--bad); margin-top: 5px; }
 .mixm { display: grid; gap: 4px; margin-top: 6px; }
 .mixm .r { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 8px; font-size: 12.5px; }
 .mixm .bar { position: relative; height: 20px; border-radius: 5px; background: var(--panel-3); overflow: hidden; }
@@ -1176,6 +1177,7 @@ async function startGame() {
     clearInterval(iv);
     if (tok !== gameToken || !$("#view-train").classList.contains("active")) return;
     if (!ok) {
+      $("#infobar").innerHTML = `<span class="pill">캐시게임 · 6인</span><span>TP-GTO 연결 실패</span>`;
       $("#tp-body").innerHTML = `<div class="loadbox" role="alert"><div>${TPG.err}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta small" id="tpg-again">다시 시도</button><button class="cta small ghost" id="tpg-mock">모의 정답으로 계속</button></div></div>`;
       $("#tpg-again").onclick = () => startGame();
       $("#tpg-mock").onclick = () => startTable();
@@ -1461,7 +1463,7 @@ async function botTurn(s) {
    its own chip logic for display; if the two ever disagree on whose turn it is, the mirror switches
    off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
 const APP_BASE = window.STALKER_APP_BASE || "../app/";
-const TPG = { mod: null, index: null, eq: false, pol: {}, state: "idle", step: "", pct: 0, err: null, busy: null };
+const TPG = { mod: null, index: null, eq: false, pol: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 const modelMeta = tier => TPG.index?.tiers?.[tier] || null;
 function modelLine(m) {
@@ -1493,6 +1495,7 @@ function tpgLoad(tier) {
         const step = `${TIERS[tier].name} 정책 ${(m.bytes / 1e6).toFixed(1)}MB`;
         tpgSet("loading", step, 35);
         const doc = await fetchJSON(APP_BASE + "policy/" + m.file, f => tpgSet("loading", step, 35 + Math.round(f * 60)));
+        TPG.mod.checkNutK?.(doc.nut_k);   // a pro table built on another board.nut grid would mis-key
         const q = doc.q || 255, pol = new Map();
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
         TPG.pol[tier] = pol;
@@ -1500,7 +1503,9 @@ function tpgLoad(tier) {
       TPG.err = null; tpgSet("ready", "", 100); return true;
     } catch (e) {
       console.warn("[tpgto] load failed", e);
-      TPG.err = location.protocol === "file:" ? "파일로 연 페이지에서는 정책을 불러올 수 없어요. 웹 서버로 열어 주세요(예: web 폴더에서 python -m http.server)." : `정책을 불러오지 못했어요: ${e.message}`;
+      TPG.err = location.protocol === "file:" ? "파일로 연 페이지에서는 정책을 불러올 수 없어요. 웹 서버로 열어 주세요(예: web 폴더에서 python -m http.server)."
+        : e instanceof TypeError ? `정책을 불러오지 못했어요. ${TPG.step || "파일"}을 받는 중에 연결이 끊겼어요. 네트워크를 확인하고 다시 시도하세요.`
+        : `정책을 불러오지 못했어요. ${e.message}`;
       tpgSet("error"); return false;
     } finally { TPG.busy = null; }
   })();
@@ -1563,6 +1568,8 @@ function engBotAct(s) {
     while (i < ap.probs.length - 1 && (u -= ap.probs[i]) > 0) i++;
     const a = ap.acts[i], L = legal(s);
     E.pending = { d: ap };
+    TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: ap.fromTable, chosen: a });
+    if (TPG.botLog.length > 500) TPG.botLog.shift();
     if (a === "f") return { type: L.canCheck ? "check" : "fold", menu: a };
     if (a === "k") return { type: "check", menu: a };
     if (a === "c") return { type: L.toCall > 0 ? "call" : "check", menu: a };
@@ -1634,6 +1641,12 @@ function engHeroTruth(hero, g) {
     g.src = { ...(g.src || {}), "act.choice": "model" };
     g.v["act.choice"] = cat;
     if (Number.isFinite(eq)) { g.v["hand.equity"] = Math.round(eq * 100); g.src["hand.equity"] = "model"; delete g.note["hand.equity"]; }
+    // share_better: of my public range (weights from the policy), the share with higher equity than my hand
+    // against the same opponents; ties count half. Chip 0 = top 20% (TP v0.2, form B).
+    const all = tg.multiEquity(E.s, md.d.seat, E.ranges), w = E.ranges[md.d.seat];
+    let tot = 0, better = 0;
+    for (let c = 0; c < all.length; c++) { if (!(w[c] > 0) || !Number.isFinite(all[c])) continue; tot += w[c]; better += all[c] > eq ? w[c] : all[c] === eq ? w[c] / 2 : 0; }
+    if (tot > 0 && Number.isFinite(eq)) { md.rankShare = better / tot; md.rankChip = Math.min(4, Math.floor(md.rankShare * 5)); }
   } catch (e) { engBreak(e); g.model = null; }
 }
 // What the hero's choice is to the table: its menu label and, for an off-menu size, the translation.
@@ -1966,6 +1979,7 @@ function actionInput() {
       <div class="sizes">${sizeOptions().map((o, i) => `<button class="size" data-size="${i}" aria-pressed="false">${o.label}</button>`).join("")}</div>
       <div class="size-free"><input type="range" data-size-range min="${L.minTo}" max="${L.maxTo}" step="10" value="${L.minTo}" aria-label="벳·레이즈 금액"><label class="size-num"><input type="number" data-size-num min="${L.minTo / G.bb}" max="${L.maxTo / G.bb}" step="0.1" inputmode="decimal" aria-label="벳·레이즈 금액 직접 입력 (BB)"><span>BB</span></label></div>
       <div class="size-cap">최소 ${bbf(L.minTo)}BB · 최대 ${bbf(L.maxTo)}BB(올인) · 금액은 자유롭게 정할 수 있어요</div>
+      <div class="size-msg" data-size-msg role="alert" hidden></div>
     </div>`;
 }
 function setFill(inp) { inp.style.setProperty("--fill", ((inp.value - inp.min) / (inp.max - inp.min) * 100) + "%"); }
@@ -2018,10 +2032,23 @@ function bindInputs(root) {
     $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || L.toCall ? "레이즈 " : "벳 ") + sizeLabel(to);
     delete CUR.answers["plan.foldeq"]; CUR.quick ? quickNav() : renderFollow();
   };
-  $$("[data-size]", root).forEach(b => b.addEventListener("click", () => setSize(sizeOptions()[+b.dataset.size].to)));
-  $$("[data-size-range]", root).forEach(r => { setFill(r); r.addEventListener("input", () => setSize(+r.value, true)); });
+  $$("[data-size]", root).forEach(b => b.addEventListener("click", () => { sizeMsg(""); setSize(sizeOptions()[+b.dataset.size].to); }));
+  $$("[data-size-range]", root).forEach(r => { setFill(r); r.addEventListener("input", () => { sizeMsg(""); setSize(+r.value, true); }); });
+  const sizeMsg = text => { const m = $("[data-size-msg]"); if (m) { m.textContent = text || ""; m.hidden = !text; } };
   $$("[data-size-num]", root).forEach(n => {
-    n.addEventListener("change", () => { const v = parseFloat(n.value); if (Number.isFinite(v)) { setSize(v * G.bb); n.value = (CUR.to / G.bb).toFixed(1); } });
+    n.addEventListener("change", () => {
+      const v = parseFloat(n.value), L = CUR.g.L, to = Math.round(v * G.bb);
+      if (!Number.isFinite(v)) { sizeMsg("금액을 숫자로 넣어 주세요(BB 단위)."); return; }
+      if (to < L.minTo || to > L.maxTo) {
+        // Refuse instead of clamping: the player must see why the amount did not take.
+        CUR.to = null; CUR.size = null; $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", "false"));
+        $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = G.street === 0 || L.toCall ? "레이즈" : "벳";
+        sizeMsg(to < L.minTo ? `최소 레이즈는 ${bbf(L.minTo)}BB예요. ${bbf(to)}BB는 낼 수 없어요.` : `내 스택으로는 ${bbf(L.maxTo)}BB(올인)까지만 낼 수 있어요.`);
+        CUR.quick ? quickNav() : renderFollow();
+        return;
+      }
+      sizeMsg(""); setSize(to); n.value = (CUR.to / G.bb).toFixed(1);
+    });
     n.addEventListener("keydown", e => { if (e.key === "Enter") n.blur(); });
   });
 }
@@ -2064,8 +2091,11 @@ function finishHero(keys) {
     } else if (k === "hand.equity" && CUR.rank) {
       // Chip 0 = top 20%; the bar runs weak -> strong like equity, so position = (4 - chip) * 25.
       if (CUR.answers[k] == null) continue;
-      const u = CUR.answers[k], t = eqabTruth("B", g, heroRangePct(CUR.hero)), pos = c => (4 - c) * 25;
-      rows.push({ k, kind: "scalar", you: pos(u), gto: pos(t), labels: EQAB_FORMS.B.chips, youL: EQAB_FORMS.B.chips[u], gtoL: EQAB_FORMS.B.chips[t], note: `순위형(초보): 내 레인지(모의: 상위 ${heroRangePct(CUR.hero)}%) 안에서 같은 상대에게 내 핸드보다 에퀴티가 높은 콤보 비율(표본 60)`, ...scoreScalar(pos(u), pos(t)) });
+      const mr = g.model?.rankChip, u = CUR.answers[k], t = mr ?? eqabTruth("B", g, heroRangePct(CUR.hero)), pos = c => (4 - c) * 25;
+      const note = mr != null
+        ? `순위형(초보): 내 레인지(TP-GTO 정책으로 좁힌 공개 레인지) 안에서 같은 상대들에게 내 핸드보다 에퀴티가 높은 콤보 비중 ${Math.round(g.model.rankShare * 100)}%`
+        : `순위형(초보): 내 레인지(모의: 상위 ${heroRangePct(CUR.hero)}%) 안에서 같은 상대에게 내 핸드보다 에퀴티가 높은 콤보 비율(표본 60)`;
+      rows.push({ k, kind: "scalar", you: pos(u), gto: pos(t), labels: EQAB_FORMS.B.chips, youL: EQAB_FORMS.B.chips[u], gtoL: EQAB_FORMS.B.chips[t], note, src: mr != null ? "model" : undefined, ...scoreScalar(pos(u), pos(t)) });
     } else if (g.v[k] != null) {
       const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], note: g.note[k], src: g.src?.[k], ...scoreScalar(u, g.v[k]) });
     }
@@ -2159,6 +2189,7 @@ $("#tp-handle").addEventListener("click", () => $("#tp").classList.toggle("open"
 
 /* ---------- showdown & payout ---------- */
 async function showdown(alive) {
+  if (G.eng) G.eng.lastHand = { hand: G.handNo, ok: G.eng.ok, done: !!G.eng.s?.done };
   const contenders = live();
   const banner = h("div", "banner");
   if (contenders.length === 1) {
