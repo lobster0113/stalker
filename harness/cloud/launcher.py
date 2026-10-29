@@ -7,7 +7,7 @@ dispatch the workflow.
 Usage:
   python harness/cloud/launcher.py check                       # balance query, costs nothing
   python harness/cloud/launcher.py run jobs/x.yaml --ledger L [--dry-run] [--run-id ID] [--sync-cmd CMD]
-                                       [--result-out PATH]
+                                       [--result-out PATH] [--resume-file R.json --resume-run ID]
   python harness/cloud/launcher.py reap --ledger L [--job jobs/x.yaml --run-id ID --force]
   python harness/cloud/launcher.py publish result.json --run-id ID --ops OPS_WORKTREE
 
@@ -21,12 +21,17 @@ Results (#184, ADR 0014): a job with `result_path` gets a per-run random token i
 after its command, serves only `/<token>/status.json` and `/<token>/result.json` over the RunPod
 HTTP proxy. The launcher pulls them (no RunPod key sent), checks size, JSON and secret patterns,
 writes `--result-out`, then terminates the pod. The pod needs no GitHub credential.
+Resume (#354): the same server takes one upload at `/<token>/resume` (PUT, at most RESUME_MAX_BYTES),
+or `/<token>/resume-none`. The wrapped job waits for either (RESUME_WAIT_S) before it starts and sees
+the uploaded file in `$STALKER_RESUME` (empty for none). With `--resume-file` the launcher sends an
+earlier run's result there, trimmed to what a resume needs and gzipped; without it, `resume-none`.
 `publish` copies a checked result to `ops:cloud/results/<run id>.json`: agent sandboxes cannot
 download artifacts (their blob storage host is outside the egress allow-list, #264), but read ops.
 """
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import hashlib
 import os
@@ -65,6 +70,13 @@ SECRET_PATTERNS = [re.compile(p) for p in (
 # ops is a git branch every routine fetches; bigger results stay artifact-only
 OPS_RESULT_MAX_BYTES = 1024 * 1024
 OPS_RESULT_DIR = PurePath("cloud", "results")
+RESUME_DIR = "/stalker-resume"
+RESUME_ENV = "STALKER_RESUME"
+# The upload goes through RunPod's proxy, which is behind Cloudflare: its request bodies stop at 100 MB.
+RESUME_MAX_BYTES = 95 * 1024 * 1024
+RESUME_WAIT_S = 1200
+# what pod_train --resume-result reads; the evaluation numbers stay in the artifact
+RESUME_FIELDS = ("job", "tier", "players", "seed", "iters", "model", "checkpoint", "sha")
 
 
 class LauncherError(Exception):
@@ -282,20 +294,98 @@ class RunPod:
         self.t("DELETE", f"{REST_URL}/pods/{pod_id}", None)
 
 
-def pod_command(job: Job, serve_dir: str = RESULT_DIR, port: int = RESULT_PORT) -> str:
-    """The job's command, wrapped to publish its result over HTTP when `result_path` is set.
+# The pod's result server (stdlib only, the image may have nothing else). GET serves status.json and
+# result.json from the token directory; PUT/POST takes one resume upload (size-capped, written whole
+# then renamed) or a "none", and then refuses more, so the job sees exactly one signal.
+POD_SERVER = r"""
+import hashlib, http.server, json, os, shutil, sys, threading
+root, port, rdir, cap = sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4])
+pre = "/" + os.environ["STALKER_RESULT_TOKEN"] + "/"
+lock = threading.Lock()  # a retried upload waits for the one still running
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+    def reply(self, code, body=b""):
+        self.send_response(code)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def name(self):
+        return self.path[len(pre):] if self.path.startswith(pre) else ""
+    def do_GET(self):
+        if self.name() not in ("status.json", "result.json"):
+            return self.reply(404)
+        try:
+            f = open(os.path.join(root, self.name()), "rb")
+        except OSError:
+            return self.reply(404)
+        with f:
+            self.send_response(200)
+            self.send_header("Content-Length", str(os.fstat(f.fileno()).st_size))
+            self.end_headers()
+            shutil.copyfileobj(f, self.wfile)
+    def do_PUT(self):
+        kind = {"resume": "ready", "resume-none": "none"}.get(self.name())
+        if kind is None:
+            return self.reply(404)
+        with lock:
+            self.take(kind)
+    def take(self, kind):
+        if os.path.exists(os.path.join(rdir, "signal")):
+            return self.reply(409)
+        try:
+            n = int(self.headers.get("Content-Length", ""))
+        except ValueError:
+            return self.reply(411)
+        if not 0 <= n <= cap or (kind == "ready" and n == 0):
+            self.close_connection = True
+            return self.reply(413)
+        h, left = hashlib.sha256(), n
+        part = os.path.join(rdir, "resume.part")
+        with open(part, "wb") as f:
+            while left:
+                b = self.rfile.read(min(left, 1 << 20))
+                if not b:
+                    return self.reply(400)
+                f.write(b)
+                h.update(b)
+                left -= len(b)
+        if kind == "ready":
+            os.replace(part, os.path.join(rdir, "resume.bin"))
+        with open(os.path.join(rdir, "signal.tmp"), "w") as f:
+            f.write(kind)
+        os.replace(os.path.join(rdir, "signal.tmp"), os.path.join(rdir, "signal"))
+        self.reply(200, json.dumps({"bytes": n, "sha256": h.hexdigest()}).encode())
+    do_POST = do_PUT
+http.server.ThreadingHTTPServer(("", port), H).serve_forever()
+"""
 
-    Empty index.html files stop http.server from listing directories, so the token directory is
-    reachable only by name. status.json is written last (atomically), so once it is visible the
-    result copy is complete. The pod then idles until the launcher terminates it."""
+
+def pod_command(job: Job, serve_dir: str = RESULT_DIR, port: int = RESULT_PORT, resume_dir: str = RESUME_DIR,
+                wait_s: int = RESUME_WAIT_S) -> str:
+    """The job's command, wrapped to take a resume upload and publish its result over HTTP when
+    `result_path` is set.
+
+    Only `/<token>/...` names answer, so the token is the only way in. The job starts once the launcher
+    has sent a resume file or "none"; no signal in `wait_s` exits 97 without running it. status.json
+    is written last (atomically), so once it is visible the result copy is complete. The pod then
+    idles until the launcher terminates it."""
     if not job.result_path:
         return job.command
     d = f'{serve_dir}/"${TOKEN_ENV}"'
+    sig = f"{resume_dir}/signal"
     return "\n".join([
-        f'mkdir -p {d} && touch {serve_dir}/index.html {d}/index.html',
-        f'(cd {serve_dir} && exec python3 -m http.server {port} >/dev/null 2>&1) &',
+        f"mkdir -p {d} {resume_dir}",
+        f"python3 - {d} {port} {resume_dir} {RESUME_MAX_BYTES} >/dev/null 2>&1 <<'STALKER_SERVER' &",
+        POD_SERVER.strip("\n"),
+        "STALKER_SERVER",
+        f"w=0; while [ ! -f {sig} ] && [ $w -lt {wait_s} ]; do sleep 2; w=$((w+2)); done",
+        f'sig=$(cat {sig} 2>/dev/null); {RESUME_ENV}=""; [ "$sig" = ready ] && {RESUME_ENV}={resume_dir}/resume.bin',
+        f"export {RESUME_ENV}",
+        'if [ "$sig" = ready ] || [ "$sig" = none ]; then',
         "(", job.command, ")",
         "rc=$?",
+        f'else echo "no resume signal from the launcher in {wait_s} s" >&2; rc=97; fi',
         f"cp {job.result_path} {d}/result.json 2>/dev/null",
         f'printf \'{{"exit": %d}}\' "$rc" > {d}/.status.tmp && mv {d}/.status.tmp {d}/status.json',
         "sleep infinity",
@@ -320,6 +410,45 @@ def http_fetch(url: str, max_bytes: int) -> tuple[int, bytes]:
         return e.code, b""
     except (urllib.error.URLError, OSError):
         return 0, b""
+
+
+Send = Callable[[str, bytes], tuple[int, bytes]]
+
+
+def http_send(url: str, body: bytes) -> tuple[int, bytes]:
+    """PUT without credentials (the pod's resume upload). Unreachable is status 0, i.e. "try again"."""
+    req = urllib.request.Request(url, data=body, method="PUT",
+                                 headers={"User-Agent": USER_AGENT, "Content-Type": "application/octet-stream"})
+    try:
+        with urllib.request.urlopen(req, timeout=600) as r:
+            return r.status, r.read(4096)
+    except urllib.error.HTTPError as e:
+        return e.code, b""
+    except (urllib.error.URLError, OSError):
+        return 0, b""
+
+
+def resume_payload(path: Path, run_id: str, max_bytes: int = RESUME_MAX_BYTES) -> bytes:
+    """An earlier pod result, trimmed to RESUME_FIELDS plus its run id, gzipped, for the next pod."""
+    if not re.fullmatch(r"[0-9]+", run_id):
+        raise LauncherError(f"--resume-run must be digits (the cloud.yml run id of the result), got {run_id!r}")
+    try:
+        body = path.read_bytes()
+    except OSError as e:
+        raise LauncherError(f"resume file {path}: {e.strerror}; was artifact cloud-result-{run_id} downloaded?") from e
+    check_result(body)
+    r = json.loads(body)
+    if not isinstance(r, dict) or not r.get("checkpoint") or not isinstance(r.get("model"), dict):
+        note = r.get("checkpoint_note", "missing") if isinstance(r, dict) else "not an object"
+        raise LauncherError(f"run {run_id}'s result has no checkpoint ({note}); it cannot be resumed — "
+                            "dispatch without resume_run")
+    trimmed = {k: r[k] for k in RESUME_FIELDS if k in r} | {"run_id": run_id}
+    # the npz inside is compressed already; gzip takes back most of base64's 4/3
+    blob = gzip.compress(json.dumps(trimmed).encode(), compresslevel=6, mtime=0)
+    if len(blob) > max_bytes:
+        raise LauncherError(f"resume upload {len(blob)} bytes > {max_bytes} (RunPod proxy body limit); "
+                            "the checkpoint is too big to hand over — see harness/experiments/026-pod-resume.md")
+    return blob
 
 
 def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int | None = None) -> None:
@@ -363,14 +492,18 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             dry_run: bool = False, sync: Callable[[], None] = lambda: None, now: Callable[[], datetime] = _now,
             sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, log=print,
             result_out: Path | None = None, fetch: Fetch = http_fetch, token: str | None = None,
-            forbidden: Sequence[str] = ()) -> dict:
+            forbidden: Sequence[str] = (), resume: bytes | None = None, send: Send = http_send) -> dict:
     cap = load_cap() if cap is None else cap
     start = now()
     month = start.strftime("%Y-%m")
     spent = check_budget(job, read_ledger(ledger), cap, month)
     pod_name = pod_name_for(job, run_id)
     log(f"budget ok: {month} ${spent:.2f} + worst case ${job.worst_case_usd:.2f} <= cap ${cap:.2f}")
+    if resume is not None and not job.result_path:
+        raise LauncherError(f"{job.name}: resume needs a job with result_path (the upload goes to its result server)")
     if dry_run:
+        if resume is not None:
+            log(f"dry run: resume upload {len(resume)} bytes ok")
         log(f"dry run: would create pod {pod_name} ({job.gpu_type or job.cpu_flavor}, max {job.max_minutes} min)")
         return {"status": "dry_run", "pod_name": pod_name, "worst_case_usd": job.worst_case_usd}
     assert api is not None
@@ -405,6 +538,7 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             status = "rate_exceeded"
             raise LauncherError(f"pod {pod_id} costs ${rate}/h > job hourly_usd ${job.hourly_usd}; terminated")
         deadline = start + timedelta(minutes=job.max_minutes)
+        signalled = not job.result_path
         while True:
             info = api.get(pod_id)
             if info is None or info.get("desiredStatus") in ("EXITED", "TERMINATED"):
@@ -412,7 +546,11 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
                 status = "no_result" if job.result_path else "completed"
                 break
             rate = _cost_per_hr(info) or rate
-            if job.result_path:
+            if not signalled:
+                status = "resume_failed"  # what the ledger says if the pod refuses the handover
+                signalled = _signal(pod_id, token, resume, send, log)
+                status = "error"
+            elif job.result_path:
                 code, raw = fetch(proxy_url(pod_id, token, "status.json"), 1024)
                 if code == 200:
                     status, result = _collect(job, pod_id, token, raw, result_out, fetch, [token, *forbidden], log)
@@ -434,6 +572,30 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
                                    "actual_usd": actual, **result})
             log(f"pod {pod_id} {status}: {hours * 60:.1f} min, ${actual:.4f}")
     return {"status": status, "pod_id": pod_id, "actual_usd": actual, **result}
+
+
+def _signal(pod_id: str, token: str, resume: bytes | None, send: Send, log) -> bool:
+    """Hand the pod its resume file (or "none"); False while the proxy is not up yet."""
+    name, body = ("resume", resume) if resume is not None else ("resume-none", b"")
+    code, raw = send(proxy_url(pod_id, token, name), body)
+    if code == 0 or code >= 500:
+        return False  # pod booting: the proxy answers 502 until the server listens
+    if code == 409:
+        # a signal is already there; only this launcher knows the token, so an earlier try of ours landed
+        log(f"{name}: pod already signalled (an earlier upload's reply was lost)")
+        return True
+    if code != 200:
+        raise LauncherError(f"{name} refused by the pod (HTTP {code}); {pod_id} terminated"
+                            + (f" — over the pod's {RESUME_MAX_BYTES}-byte cap" if code == 413 else ""))
+    want = {"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}
+    try:
+        got = json.loads(raw)
+    except ValueError:
+        got = None
+    if got != want:
+        raise LauncherError(f"{name}: pod received {got}, sent {want}; {pod_id} terminated")
+    log(f"{name}: sent {len(body)} bytes" if resume is not None else "resume: none")
+    return True
 
 
 def _collect(job: Job, pod_id: str, token: str, raw_status: bytes, out: Path, fetch: Fetch,
@@ -539,6 +701,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--dry-run", action="store_true")
     r.add_argument("--sync-cmd", help="command run after the start entry is written; nonzero → terminate, fail")
     r.add_argument("--result-out", type=Path, help="where to write the job's result_path JSON (required if set)")
+    r.add_argument("--resume-file", type=Path, help="an earlier run's result JSON to continue from (#354)")
+    r.add_argument("--resume-run", help="the cloud.yml run id that produced --resume-file")
     g = sub.add_parser("reap")
     g.add_argument("--ledger", type=Path, required=True)
     g.add_argument("--job", type=Path, help="with --run-id: reap only this run's pod (name from the parsed spec)")
@@ -561,9 +725,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"RunPod key ok; balance ${api().balance():.2f}; cap ${load_cap():.2f}/month")
         elif a.cmd == "run":
             job = load_spec(a.spec)
+            if bool(a.resume_file) != bool(a.resume_run):
+                raise LauncherError("run: pass --resume-file and --resume-run together")
+            resume = resume_payload(a.resume_file, a.resume_run) if a.resume_file else None
             sync = (lambda: subprocess.run(a.sync_cmd, shell=True, check=True)) if a.sync_cmd else (lambda: None)
             res = run_job(job, None if a.dry_run else api(), a.ledger, a.run_id, dry_run=a.dry_run, sync=sync,
-                          result_out=a.result_out, forbidden=[os.environ.get("RUNPOD_API_KEY", "")])
+                          result_out=a.result_out, forbidden=[os.environ.get("RUNPOD_API_KEY", "")], resume=resume)
             if res["status"] not in ("completed", "dry_run"):
                 print(f"job {job.name}: {res['status']}", file=sys.stderr)
                 return 1
