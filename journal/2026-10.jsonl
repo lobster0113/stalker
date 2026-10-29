@@ -735,3 +735,4 @@
 {"ts":"2026-10-29T20:29:24Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #379,#377,#369 all odd (reviewer's parity); no even PR to judge","friction":""}
 {"ts":"2026-10-29T20:36:00Z","role":"planner","outcome":"planned","issue":378,"pr":368,"notes":"PR #368 머지 반영(#352 닫힘, in-progress 제거, NH-7 이미 있음); 사용자 새 이슈 #378 계약 형식 재작성(P1 in-progress, PR #379); ready 4; STATE 갱신","friction":"사용자 이슈가 계약 형식·우선순위 없이 ready로 들어오고 builder가 재작성 전에 이미 PR을 연다(#378/#379)"}
 {"ts":"2026-10-29T20:39:34Z","role":"reviewer","outcome":"merged","issue":358,"pr":369,"notes":"3번째 판정: 실험 번호 028로 정정 확인, CI 7개 success → squash merge b1e5ef6","friction":"gh api 쓰기는 guard 훅이 막고 gh pr(GraphQL)은 403이라 판정·머지는 MCP 도구로 했다"}
+{"ts":"2026-10-29T20:42:00Z","role":"planner","outcome":"planned","issue":333,"pr":369,"notes":"PR #369 머지 반영(#358 닫힘) → #333 blocked 해제 ready P0; ready 5; STATE 갱신","friction":""}
