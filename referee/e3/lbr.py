@@ -53,13 +53,13 @@ class Extra(NamedTuple):
 def _top(s: G.State) -> float:
     """The bet-to at or above which the state's rules count a size as all in (see `G._offered`)."""
     room = s.stack[s.to_act] + s.bet[s.to_act]
-    return room - G.BB if s.raise_cap is not None else min(room - G.BB, G.ALLIN_MERGE * room)
+    return room - G.BB if G.street_cap(s) is not None else min(room - G.BB, G.ALLIN_MERGE * room)
 
 
 def translate_size(s: G.State, to: int) -> str:
     """The menu action the policy reads an off-menu bet or raise to `to` chips as (s = state before it).
 
-    Nearest size the state's menu offers (v1 or tp6, by chips); a tie takes the larger. All in (or more)
+    Nearest size the state's menu offers (v1, tp6 or real, by chips); a tie takes the larger. All in (or more)
     is "a"; with nothing to call the all-in is a candidate too. Facing a bet only the menu's raise sizes
     compete (v1 has one, "r"). Nearest, not pseudo-harmonic: the key already carries the real price
     through the pot-odds and SPR steps, so the label only has to place the action on the menu for the
@@ -83,7 +83,7 @@ def extra_actions(s: G.State) -> list[Extra]:
     p = s.to_act
     call = s.to_call()
     if (s.street == 0 or s.stack[p] <= call or not [i for i in s.active() if i != p]
-            or (s.raise_cap is not None and s.raises >= s.raise_cap)):
+            or (G.street_cap(s) is not None and s.raises >= G.street_cap(s))):
         return []
     on_menu = {t for _, t in G._offered(s)}
     top = _top(s)

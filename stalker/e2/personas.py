@@ -25,8 +25,10 @@ from stalker.e2.abstraction import ehs_table
 
 STRONG, MEDIUM = 0.75, 0.5
 # A label the menu does not offer at this node gives its weight to the next one that is offered.
-FALLBACK = {"r": ("r3", "r25", "r4", "a", "c"),   # r3/r25/r4: E3 tp6 menu (#339), absent in E2
-            "b75": ("b33", "a", "k"), "b33": ("b75", "a", "k"), "a": ("r", "c"),
+# r3/r25/r4: E3 tp6 menu (#339); b20/b50: E3 real menu (#382), where b20 takes b33's place when both
+# round to the same chips. Absent in E2, so E2 is unchanged.
+FALLBACK = {"r": ("r3", "r25", "r4", "a", "c"),
+            "b75": ("b33", "a", "k"), "b33": ("b20", "b50", "b75", "a", "k"), "a": ("r", "c"),
             "f": ("c", "k"), "c": ("k",), "k": ("c",)}
 
 

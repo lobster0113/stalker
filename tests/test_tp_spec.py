@@ -108,10 +108,39 @@ def test_doc_buckets_match_spec():
     assert _edges(axes["벳 크기"]) == b["bet_size_pot_pct"]
     assert _edges(axes["프리플랍 레이즈"]) == b["preflop_raise_bb"]
     assert axes["벳 크기"].endswith("올인") and axes["프리플랍 레이즈"].endswith("올인") and b["all_in_bucket"]
-    size_line = next(x for x in TP_MD.splitlines() if x.startswith("- 사이즈 버킷:"))
-    pre, post = re.search(r"프리플랍 (.*?), 포스트플랍 (.*?)\.", size_line).groups()
-    num = lambda t: [float(x) for x in re.findall(r"([\d.]+)[x%]", t)] + (["all_in"] if t.endswith("올인") else [])
-    assert num(pre) == sizes["preflop_x"] and num(post) == sizes["postflop_pot_pct"]
+    assert _size_lines() == {k: v for k, v in sizes.items() if isinstance(v, list)}
+
+
+SIZE_LINES = {"프리플랍 오픈": "preflop_open_bb", "프리플랍 3벳": "preflop_3bet_x", "프리플랍 4벳": "preflop_4bet_x",
+              "프리플랍 5벳 이상": "preflop_5bet_plus", "포스트플랍 벳": "postflop_bet_pot_pct",
+              "포스트플랍 레이즈": "postflop_raise_x"}
+
+
+def _size_lines() -> dict[str, list]:
+    """TP.md section 6 size bucket sub-items, e.g. "  - 포스트플랍 벳: 20·33·…·300% 팟·올인." -> spec lists."""
+    out = {}
+    for line in TP_MD.splitlines():
+        m = re.match(r"  - (.+?)(?:\(.*?\))?: (.*)", line)
+        if m and m.group(1).strip() in SIZE_LINES:
+            vals = m.group(2).split("올인")[0]   # the numbers come before the all-in; notes after it
+            nums = [float(x) for x in re.findall(r"(\d+(?:\.\d+)?)", vals)]
+            out[SIZE_LINES[m.group(1).strip()]] = nums + (["all_in"] if "올인" in m.group(2) else [])
+    return out
+
+
+def test_size_buckets_are_the_training_menu():
+    # TP.md section 6 = spec = the E3 "real" menu (#382): one change has to touch all three.
+    from stalker.e3 import game as G
+    sizes = load().data["size_buckets"]
+    num = lambda xs: [x for x in xs if x != "all_in"]
+    assert num(sizes["preflop_open_bb"]) == [x for _, x in G.REAL_OPEN]
+    assert num(sizes["preflop_3bet_x"]) == [x for _, x in G.REAL_PREFLOP_RAISE[2]]
+    assert num(sizes["preflop_4bet_x"]) == [x for _, x in G.REAL_PREFLOP_RAISE[3]]
+    assert num(sizes["postflop_bet_pot_pct"]) == [round(100 * x) for _, x in G.REAL_BET]
+    assert num(sizes["postflop_raise_x"]) == [x for _, x in G.REAL_RAISE]
+    assert sizes["preflop_iso_per_limper_bb"] * G.BB == G.ISO_PER_LIMPER
+    assert all(v[-1] == "all_in" for v in sizes.values() if isinstance(v, list))
+    assert sizes["translation"]["rule"] == "pseudo_harmonic"
 
 
 def test_decision_context_fields_are_listed_in_doc():
