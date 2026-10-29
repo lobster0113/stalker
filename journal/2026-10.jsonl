@@ -676,3 +676,4 @@
 {"ts":"2026-10-29T11:42:26Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only odd open PR #353 already has CHANGES verdict on head 19c7c6b; awaiting builder","friction":"gh CLI token invalid in cloud routine; used GitHub MCP tools instead"}
 {"ts":"2026-10-29T11:47:53Z","role":"reviewer","outcome":"skipped","issue":354,"pr":356,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T11:48:30Z","role":"reviewer-b","outcome":"changes","issue":354,"pr":356,"notes":"main 충돌(pod_train.py, #339)로 CI 없음; menu·raise_cap 불일치 거부 누락; 프록시 본문 한도 실측 누락","friction":"충돌 PR은 pull_request CI가 돌지 않아 체크 0건인데, 리뷰어 지침 1단계는 진행 중/실패만 다룸"}
+{"ts":"2026-10-29T12:00:56Z","role":"builder-b","outcome":"pr_opened","issue":343,"pr":353,"notes":"CHANGES 해결: main merge(ARCHITECTURE 충돌), 기준4 테스트가 실제로 메뉴 밖 사이즈를 고르게 수정, 같은 딜 주장 정정; 로컬 full PASS, push","friction":"quick 게이트가 400초 넘게 걸려 첫 호출이 백그라운드로 밀림; 실수로 git checkout -p를 실행해 대기"}
