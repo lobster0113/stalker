@@ -30,7 +30,7 @@ def test_committed_vectors_cover_the_spec_and_are_current(committed):
     v = committed
     assert v["schema"] == W.SCHEMA and v["schema_version"] == W.SCHEMA_VERSION
     c = v["constants"]
-    assert c["TIER_K"] == K.TIER_K and c["NUT_BASE"] == K.NUT_BASE and c["NUT_K"] == K.K_PRO, \
+    assert c["TIER_K"] == K.TIER_K and c["NUT_BASE"] == K.NUT_BASE and c["NUT_K"] == K.NUT_K, \
         "tp_key constants changed: run `python -m stalker.tools.web_vectors` and update web/app/tpgto.js"
     s = W.summary(v)
     assert s["decisions"] >= 200 and all(s["by_street"][st] > 0 for st in "0123")
