@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SPEC_DIR = Path(__file__).resolve().parent / "spec"
-LATEST = "0.1"
+LATEST = "0.2"
 KINDS = {"judgment", "computed", "decision", "reflection"}
 MODULES = {"common", "postflop", "plan", "decision"}
 GRADING_CONDITIONS = {
@@ -23,6 +23,11 @@ GRADING_CONDITIONS = {
     "tier_mid_or_above", "single_table_exact_icm", "definition_open", "q_values_available",
 }
 TIER_ORDER = ("beginner", "mid", "pro")
+# Per-tier question forms (ADR 0011 #263): "rank" asks the item as "top X% of my range" on screen;
+# the graded answer is the form's own `answer` (a different quantity from the item value), so the
+# contract must carry its definition and scale; the item value itself (records, Gate T2) is unchanged.
+QUESTION_FORMS = {"rank"}
+RANK_FORM_KEYS = ("answer", "bands", "chips", "chip_rule", "grading")
 REQUIRED = ("tp_version", "decision_context_version", "decision_context", "items", "tiers", "modes",
             "grading", "buckets", "sensitivity_exceptions", "size_buckets")
 
@@ -84,6 +89,25 @@ def validate(data: dict, path: Path = Path("tp_spec.json")) -> None:
                         "in stalker/tp/spec.py together with its meaning, or use a known one")
         if it["kind"] == "reflection" and it["eligible_for_grading"]:
             _fail(path, f"{where} is a reflection question; set eligible_for_grading to false")
+        for tier, qf in it.get("question_forms", {}).items():
+            if tier not in TIER_ORDER:
+                _fail(path, f"{where} question_forms tier {tier!r}; use one of {list(TIER_ORDER)}")
+            if qf.get("form") not in QUESTION_FORMS:
+                _fail(path, f"{where} question_forms[{tier!r}] form {qf.get('form')!r}; use one of "
+                            f"{sorted(QUESTION_FORMS)} or add the form to QUESTION_FORMS with its meaning")
+            if not qf.get("question"):
+                _fail(path, f"{where} question_forms[{tier!r}] lacks 'question'; give the on-screen wording")
+            if qf["form"] == "rank":
+                for k in RANK_FORM_KEYS:
+                    if not qf.get(k):
+                        _fail(path, f"{where} question_forms[{tier!r}] lacks {k!r}; a rank form must define "
+                                    f"its graded answer and scale ({', '.join(RANK_FORM_KEYS)}, see docs/TP.md §4.1)")
+                b = qf["bands"]
+                if not (all(0 < x < 1 for x in b) and all(x < y for x, y in zip(b, b[1:]))):
+                    _fail(path, f"{where} question_forms[{tier!r}] bands {b}; use strictly increasing shares in (0, 1)")
+                if len(qf["chips"]) != len(b) + 1:
+                    _fail(path, f"{where} question_forms[{tier!r}] has {len(qf['chips'])} chips for {len(b)} bands; "
+                                "give one chip per band interval (len(bands) + 1)")
     known = set(ids)
     prev: set[str] = set()
     for t in TIER_ORDER:
