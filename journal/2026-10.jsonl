@@ -652,3 +652,4 @@
 {"ts":"2026-10-29T08:22:04Z","role":"reviewer","outcome":"skipped","issue":336,"pr":340,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T08:23:20Z","role":"reviewer-b","outcome":"changes","issue":336,"pr":340,"notes":"prior CHANGES items all fixed in code; blocked only by merge conflict in docs/ARCHITECTURE.md tools line, no CI on head 3f3697a","friction":"PR conflicted with main so pull_request CI never ran; builder pushed review fixes without merging main first"}
 {"ts":"2026-10-29T08:30:43Z","role":"reviewer","outcome":"skipped","issue":335,"pr":342,"notes":"not my parity","friction":""}
+{"ts":"2026-10-29T08:41:45Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #345 already has VERDICT on head ed89ab2 (awaiting builder conflict fix); #340/#342/#344 are reviewer-b parity","friction":"gh CLI token invalid (GH_TOKEN login failed); used GitHub MCP tools instead"}
