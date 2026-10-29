@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SPEC_DIR = Path(__file__).resolve().parent / "spec"
-LATEST = "0.1"
+LATEST = "0.2"
 KINDS = {"judgment", "computed", "decision", "reflection"}
 MODULES = {"common", "postflop", "plan", "decision"}
 GRADING_CONDITIONS = {
@@ -23,6 +23,9 @@ GRADING_CONDITIONS = {
     "tier_mid_or_above", "single_table_exact_icm", "definition_open", "q_values_available",
 }
 TIER_ORDER = ("beginner", "mid", "pro")
+# Per-tier question forms (ADR 0011 #263): "rank" asks the item as "top X% of my range" on screen;
+# the item's value (answer definition) is unchanged.
+QUESTION_FORMS = {"rank"}
 REQUIRED = ("tp_version", "decision_context_version", "decision_context", "items", "tiers", "modes",
             "grading", "buckets", "sensitivity_exceptions", "size_buckets")
 
@@ -84,6 +87,14 @@ def validate(data: dict, path: Path = Path("tp_spec.json")) -> None:
                         "in stalker/tp/spec.py together with its meaning, or use a known one")
         if it["kind"] == "reflection" and it["eligible_for_grading"]:
             _fail(path, f"{where} is a reflection question; set eligible_for_grading to false")
+        for tier, qf in it.get("question_forms", {}).items():
+            if tier not in TIER_ORDER:
+                _fail(path, f"{where} question_forms tier {tier!r}; use one of {list(TIER_ORDER)}")
+            if qf.get("form") not in QUESTION_FORMS:
+                _fail(path, f"{where} question_forms[{tier!r}] form {qf.get('form')!r}; use one of "
+                            f"{sorted(QUESTION_FORMS)} or add the form to QUESTION_FORMS with its meaning")
+            if not qf.get("question"):
+                _fail(path, f"{where} question_forms[{tier!r}] lacks 'question'; give the on-screen wording")
     known = set(ids)
     prev: set[str] = set()
     for t in TIER_ORDER:

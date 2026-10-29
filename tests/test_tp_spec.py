@@ -33,8 +33,8 @@ def _doc_tiers() -> dict[str, list[str]]:
 
 
 def test_spec_loads_with_stable_hash():
-    a, b = load(), load("0.1")
-    assert a.version == "0.1" and a.sha256 == b.sha256 and len(a.sha256) == 64
+    a, b = load(), load("0.2")
+    assert a.version == "0.2" and a.sha256 == b.sha256 and len(a.sha256) == 64
 
 
 def test_doc_items_equal_spec_items():
@@ -139,14 +139,29 @@ def _bad(mutate):
     (lambda d: d["buckets"].update(effective_stack_bb=[10, 5]), "strictly increasing"),
     (lambda d: next(i for i in d["items"] if i["id"] == "plan.pot").update(eligible_for_grading=True),
      "eligible_for_grading to false"),
+    (lambda d: next(i for i in d["items"] if i["id"] == "hand.equity")["question_forms"]["beginner"]
+     .update(form="slider"), "form 'slider'"),
+    (lambda d: next(i for i in d["items"] if i["id"] == "hand.equity")["question_forms"]
+     .update(expert={"form": "rank", "question": "q"}), "question_forms tier 'expert'"),
 ])
 def test_invalid_spec_errors_say_how_to_fix(mutate, msg):
     with pytest.raises(SpecError, match=re.escape(msg)):
         validate(_bad(mutate))
 
 
+def test_beginner_equity_is_asked_as_rank_in_doc_spec_and_demo():
+    # ADR 0011 #263: beginners answer hand.equity as "top X% of my range"; the call comparison
+    # (hand.eq_call) stays a win probability, and mid/pro keep form A.
+    qf = load().item("hand.equity")["question_forms"]
+    assert set(qf) == {"beginner"} and qf["beginner"]["form"] == "rank"
+    assert qf["beginner"]["exception"] == "hand.eq_call"
+    row = next(x for x in _section(TP_MD, "### 3.1", "### 3.2").splitlines() if x.startswith("| `hand.equity`"))
+    assert qf["beginner"]["question"] in row and "`hand.eq_call`" in row
+    assert qf["beginner"]["question"] in DEMO
+
+
 def test_unknown_version_lists_available():
-    with pytest.raises(SpecError, match="available: tp_v0_1.json"):
+    with pytest.raises(SpecError, match="available: tp_v0_2.json"):
         load("9.9")
 
 
