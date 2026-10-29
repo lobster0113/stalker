@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "check | run | reap"
+        description: "check | run | reap | collect"
         default: check
       job:
         description: "job spec path for mode=run (jobs/<name>.yaml)"
@@ -16,6 +16,9 @@ on:
         description: "mode=run: budget check only, no pod"
         type: boolean
         default: true
+      collect_run:
+        description: "mode=collect: run id of an earlier cloud.yml run whose result artifact is copied to ops"
+        default: ""
   schedule:
     - cron: "17 3 * * *"
 
@@ -25,7 +28,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write  # push ledger lines to ops
+  contents: write  # push ledger lines and results to ops
+  actions: read    # mode=collect: download an earlier run's cloud-result artifact (#264)
 
 defaults:
   run:
@@ -43,6 +47,7 @@ jobs:
       MODE: ${{ github.event_name == 'schedule' && 'reap' || inputs.mode }}
       JOB: ${{ inputs.job }}
       DRY_RUN: ${{ inputs.dry_run }}
+      COLLECT_RUN: ${{ inputs.collect_run }}
       LEDGER: ${{ github.workspace }}/ops/budget/ledger.jsonl
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +71,8 @@ jobs:
                     --result-out "$RUNNER_TEMP/cloud-result/result.json")
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
               python harness/cloud/launcher.py "${args[@]}" ;;
-            *) echo "mode must be check|run|reap, got '$MODE'"; exit 1 ;;
+            collect) [[ "$COLLECT_RUN" =~ ^[0-9]+$ ]] || { echo "collect_run must be a cloud.yml run id, got '$COLLECT_RUN'"; exit 1; } ;;
+            *) echo "mode must be check|run|reap|collect, got '$MODE'"; exit 1 ;;
           esac
       - name: terminate this run's pods (finally)
         if: always() && env.MODE == 'run' && env.DRY_RUN != 'true'
@@ -80,6 +86,24 @@ jobs:
           path: ${{ runner.temp }}/cloud-result/
           if-no-files-found: ignore
           retention-days: 30
+      - name: fetch earlier result
+        if: env.MODE == 'collect'
+        uses: actions/download-artifact@v4
+        with:
+          name: cloud-result-${{ inputs.collect_run }}
+          run-id: ${{ inputs.collect_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/cloud-result/
+      - name: result to ops
+        # agent sandboxes cannot download artifacts but read ops (#264); the launcher re-checks the JSON
+        if: always() && (env.MODE == 'collect' || (env.MODE == 'run' && env.DRY_RUN != 'true'))
+        run: |
+          src="$RUNNER_TEMP/cloud-result/result.json"
+          id="$GITHUB_RUN_ID"; [[ "$MODE" == collect ]] && id="$COLLECT_RUN"
+          if [[ ! -f "$src" ]]; then
+            echo "no result file for run $id"; [[ "$MODE" == collect ]] && exit 1; exit 0
+          fi
+          python harness/cloud/launcher.py publish "$src" --run-id "$id" --ops ops
       - name: push ledger
         if: always() && env.MODE != 'check'
         run: 'bash harness/cloud/push_ledger.sh ops "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"'

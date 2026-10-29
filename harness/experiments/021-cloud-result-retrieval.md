@@ -21,3 +21,13 @@ ADR 0014. `harness/cloud/launcher.py`: 스펙 키 `result_path`, 파드 명령 �
 잡 스펙에서 `result_path`를 빼면 이전 동작(감싸기·포트·폴링 없음)으로 돌아간다. `test_result_job_create_body_and_command`가 `result_path` 없는 스펙의 생성 본문이 바뀌지 않음을 보장한다. 경로 자체가 문제면 PR #269를 revert한다.
 ## 결과
 (측정창 종료 후 auditor가 기록)
+
+## 추가 변경 (2026-10-29, #264 / PR #322): 결과를 ops에 게시 + `mode=collect`
+- **변경**: `cloud.yml`이 `result_path` 실행의 결과 JSON을 검사(크기 1 MB 이하, `check_result` 비밀 패턴)한 뒤 `ops:cloud/results/<run id>.json`에 올린다. `mode=collect`(`collect_run`, 숫자만)는 파드를 만들지 않고 이전 실행의 아티팩트를 받아 같은 경로로 게시한다(비용 $0).
+- **가설**: 에이전트가 아티팩트 blob을 내려받지 않고 ops에서 결과를 읽을 수 있다. 그러면 결과 회수가 실행마다 끊기지 않는다.
+- **측정 지표와 측정창**: `result_path` 실행 5회 또는 14일 중 먼저 오는 쪽.
+  - `completed`로 끝난 실행 중 `ops:cloud/results/<id>.json`이 푸시된 비율.
+  - 그 파일을 ops에서 읽은 에이전트 실행 수(run journal·이슈 코멘트 인용).
+  - ops 커밋 크기.
+- **성공 기준 (수치)**: 게시율 100%, 비밀 유출 0건, 1 MB를 넘는 ops 결과 커밋 0건.
+- **롤백**: `cloud.yml`의 `result to ops`·`fetch earlier result` 단계를 지우거나 PR #322를 revert한다. 이미 올라간 `ops:cloud/results/` 파일은 검사를 통과한 결과이므로 지우지 않고 남긴다(기록 보존).
