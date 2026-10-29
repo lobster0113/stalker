@@ -47,6 +47,15 @@ def max_rss_mb() -> float | None:
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)  # Linux reports KiB
 
 
+def max_child_rss_mb() -> float | None:
+    """Peak RSS of the largest finished child process (not their sum), or None off Unix."""
+    try:
+        import resource
+    except ImportError:
+        return None
+    return round(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1024, 1)
+
+
 def count_nodes(m, iters: int) -> int:
     """Decision-tree nodes visited (`_walk` calls) over `iters` more iterations."""
     calls = 0

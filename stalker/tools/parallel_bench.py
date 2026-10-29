@@ -2,8 +2,12 @@
 
 Warms one E3 model (so the regret table has the size a real run syncs), then, from that same state,
 runs the batch-synchronous trainer (`stalker.e3.parallel`, #318) at each worker count for the same
-iterations per worker and records iterations/s and efficiency against one worker. Workers are started
-before the clock, as a long training run starts them once. Meant for a RunPod CPU pod
+iterations per worker and records iterations/s, efficiency against one worker and `sync_frac`: the
+share of wall time not spent in the slowest worker's own iterations (snapshot pickling and transfer,
+merging, stragglers; 0 for one worker), so a low efficiency can be split into sync cost and slower
+cores. Workers are started before the clock, as a long training run starts them once.
+`max_child_rss_mb` is the largest single worker's peak RSS, not a sum: peak pod memory is roughly
+workers x that plus the parent's `max_rss_mb`. Meant for a RunPod CPU pod
 (`jobs/e3-parallel-scaling.yaml`); a local run gives reference numbers only (CLAUDE.md).
 """
 from __future__ import annotations
@@ -17,7 +21,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from stalker.tools.pod_bench import machine, max_rss_mb
+from stalker.tools.pod_bench import machine, max_child_rss_mb, max_rss_mb
 
 WORKERS = (1, 4, 8, 16, 32)
 
@@ -45,10 +49,12 @@ def bench(workers=WORKERS, tier: str = "mid", players: int = 6, warm: int = 4000
         with ProcessPoolExecutor(w) as p:
             if w > 1:  # start the workers and import the trainer in them before the clock
                 parallel.iterate(copy.deepcopy(base), w, w, 1, pool=p)
-            t0 = time.monotonic()
-            parallel.iterate(m, iters, w, batch, pool=p if w > 1 else None)
+            t0, timing = time.monotonic(), {}
+            parallel.iterate(m, iters, w, batch, pool=p if w > 1 else None, timing=timing)
             dt = time.monotonic() - t0
-        rows.append({"workers": w, "iters": iters, "seconds": round(dt, 1), "iters_per_s": round(iters / max(dt, 1e-6), 2)})
+        sync = max(0.0, timing["total"] - timing["compute"]) / max(timing["total"], 1e-9)
+        rows.append({"workers": w, "iters": iters, "seconds": round(dt, 1), "iters_per_s": round(iters / max(dt, 1e-6), 2),
+                     "sync_frac": round(sync, 3), "merge_s": round(timing["merge"], 2)})
         print(json.dumps(rows[-1]), file=sys.stderr, flush=True)
     one = rows[0]["iters_per_s"] / rows[0]["workers"]
     for r in rows:
@@ -56,7 +62,7 @@ def bench(workers=WORKERS, tier: str = "mid", players: int = 6, warm: int = 4000
     return {"job": "e3-parallel-scaling", "tier": tier, "players": players, "seed": seed, "warm_iters": warm,
             "warm_seconds": round(warm_s, 1), "keys": len(base.regret), "snapshot_mb": round(len(snap) / 1e6, 2),
             "snapshot_pickle_s": round(pickle_s, 3), "per_worker": per_worker, "batch": batch, "rows": rows,
-            "max_rss_mb": max_rss_mb(), "machine": machine()}
+            "max_rss_mb": max_rss_mb(), "max_child_rss_mb": max_child_rss_mb(), "machine": machine()}
 
 
 def main(argv=None) -> int:

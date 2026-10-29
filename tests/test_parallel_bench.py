@@ -21,7 +21,20 @@ def test_bench_rows_efficiency_and_machine():
     assert r["rows"][0]["efficiency"] == 1.0 and r["rows"][1]["iters"] == 4
     assert all(row["iters_per_s"] > 0 for row in r["rows"])
     assert r["keys"] > 0 and r["snapshot_mb"] >= 0 and r["machine"]["cpu_count"] >= 1
+    assert r["rows"][0]["sync_frac"] == 0 and 0 <= r["rows"][1]["sync_frac"] <= 1
+    if sys.platform != "win32":
+        assert r["max_child_rss_mb"] > 0, "worker memory must be recorded: 32 regret copies size the pod"
     json.dumps(r)  # the launcher fetches it as JSON
+
+
+def test_iterate_timing_splits_compute_from_sync():
+    from stalker.e3 import parallel
+    from stalker.e3.mccfr import E3MCCFR
+
+    m, timing = E3MCCFR(1, 5, 3, 2), {}
+    parallel.iterate(m, 4, 2, 1, timing=timing)
+    assert 0 < timing["compute"] <= timing["total"] and 0 <= timing["merge"] <= timing["total"]
+    assert m.iterations == 4
 
 
 def test_bad_workers_fail_with_a_fix():
