@@ -1,5 +1,7 @@
 # ADR 0017 (제안): TP-GTO 학습 연산 계획 — E3·E4(D3 첫 환경) 비용 재산정
 
+> **학습 순서·비용 계획은 [ADR 0019](0019-training-plan-realistic-game.md)가 대체한다**(2026-10-30, #390). 소유자 결정으로 실전 사이즈·좌석별 스택·2–6인·토너먼트를 학습하고, 이 문서의 v1 메뉴·100BB 균등 스택 기준 체인은 멈춘다. §8 파드 실측은 ADR 0019의 입력으로 그대로 쓴다. 아래 §4 표는 `compute_plan.py` 출력과 묶여 있어 바꾸지 않는다.
+
 - 상태: **제안 — 사용자 결정 대기**(NEEDS_HUMAN). 결정되면 "채택"으로 바꾸고 선택안을 적는다.
 - 이슈: #314. 대체: ADR 0004(ADR 0008로 보류된 RL 기준 연산 계획).
 - 계산: `stalker/tools/compute_plan.py`(`python -m stalker.tools.compute_plan`). 이 문서의 표 값은 그 출력이며, `tests/test_compute_plan.py`가 표와 출력이 같은지 확인한다.
