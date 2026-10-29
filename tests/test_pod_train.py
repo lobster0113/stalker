@@ -58,3 +58,80 @@ def test_job_spec_is_bounded_and_leaves_time_to_evaluate(spec):
     assert int(args[args.index("--workers") + 1]) <= job.vcpu
     # install + training + evaluation (LBR 2x1000 hands, field 1000 deals) inside the pod deadline
     assert float(args[args.index("--minutes") + 1]) + 60 <= job.max_minutes
+
+
+@pytest.fixture
+def no_eval(monkeypatch):
+    """The resume tests check the chain, not the evaluation (covered above), which is most of their time."""
+    import stalker.train_jobs as TJ
+    monkeypatch.setattr(TJ, "e3_evaluate", lambda m, seed: {"lbr": None})
+
+
+def _pod_result_file(tmp_path, r, gz=False, run_id=None):
+    import gzip
+    body = json.dumps(r | ({"run_id": run_id} if run_id else {})).encode()
+    f = tmp_path / ("r.json.gz" if gz else "r.json")
+    f.write_bytes(gzip.compress(body) if gz else body)
+    return f
+
+
+def test_resume_result_continues_the_chain_and_records_the_run(tmp_path, no_eval):
+    # #354: train -> result -> launcher payload (trimmed, gzipped) -> next pod -> iterations add up
+    first = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2)
+    src = _pod_result_file(tmp_path, first)
+    f = tmp_path / "upload.bin"
+    f.write_bytes(L.resume_payload(src, "4242"))
+    st, run_id = P.load_resume_result(f, "beginner", 3)
+    assert run_id == "4242" and st["iterations"] == first["iters"]
+    second = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2, resume=st, resumed_from_run=run_id)
+    assert second["resumed_from_run"] == "4242" and second["resumed_from"] == first["iters"]
+    assert second["iters"] == first["iters"] + second["chunk_iters"] > first["iters"]
+    assert first["resumed_from_run"] is None
+
+
+def test_resume_result_cli_writes_the_continued_result(tmp_path, no_eval):
+    first = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2)
+    f = _pod_result_file(tmp_path, first, gz=True, run_id="77")
+    out = tmp_path / "out" / "r2.json"
+    assert P.main(["--tier", "beginner", "--players", "3", "--workers", "1", "--minutes", "0.001", "--batch", "2",
+                   "--resume-result", str(f), "--out", str(out)]) == 0
+    r2 = json.loads(out.read_text(encoding="utf-8"))
+    assert r2["resumed_from_run"] == "77" and r2["iters"] > first["iters"] == r2["resumed_from"]
+    with pytest.raises(SystemExit, match="not both"):
+        P.main(["--tier", "beginner", "--resume", str(f), "--resume-result", str(f), "--out", str(out)])
+
+
+@pytest.mark.parametrize("change,msg", [
+    ({"tier": "mid"}, "tier"), ({"players": 6}, "players"), ({"job": "e3-tp-beginner3-x"}, "job"),
+    ({"checkpoint": None}, "no checkpoint")], ids=["tier", "players", "job", "no-ckpt"])
+def test_resume_result_refuses_another_job(tmp_path, change, msg):
+    r = {"job": "e3-tp-beginner3-pod", "tier": "beginner", "players": 3,
+         "model": {"k": 5, "n": 3, "depth": "basic"}, "checkpoint": {"b64": ""}} | change
+    with pytest.raises(SystemExit, match=msg):
+        P.load_resume_result(_pod_result_file(tmp_path, r), "beginner", 3)
+
+
+def test_resume_result_refuses_an_old_board_nut_grid(tmp_path):
+    from stalker.e3 import tp_key as K
+    r = {"job": "e3-tp-pro-pod", "tier": "pro", "players": 6, "checkpoint": {"b64": ""},
+         "model": {"k": K.TIER_K["pro"], "n": 6, "depth": "pro", "nut_k": K.NUT_K + 1}}
+    with pytest.raises(SystemExit, match="nut_k"):
+        P.load_resume_result(_pod_result_file(tmp_path, r), "pro", 6)
+
+
+def test_checkpoint_stays_under_the_pod_upload_limit_when_float32_fits():
+    assert P.RESUME_BUDGET == L.RESUME_MAX_BYTES
+    m = E3MCCFR(3, 5, 3, "basic")
+    m.iterate(20)
+    f64, f32 = len(P.pack(m)), len(P.pack(m, np.float32))
+    big = 10 ** 9
+    assert P._checkpoint(m, big, big)["checkpoint"]["dtype"] == "float64"
+    c = P._checkpoint(m, big, (f64 + f32) // 2 + 1024 * 1024)
+    assert c["checkpoint"]["dtype"] == "float32" and "checkpoint_note" not in c
+    c = P._checkpoint(m, big, 1024 * 1024)  # neither fits the upload: still in the result, marked
+    assert c["checkpoint"]["dtype"] == "float64" and "cannot resume" in c["checkpoint_note"]
+
+
+def test_pod_jobs_take_the_resume_file():
+    for spec in sorted((ROOT / "jobs").glob("e3-tp-*-pod32.yaml")):
+        assert '${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}' in L.load_spec(spec).command, spec.name
