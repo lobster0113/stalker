@@ -120,7 +120,7 @@ def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, ti
                 out_hands.append(_play(policy, n, tier, rng, FOLD_WEIGHTS[h % len(FOLD_WEIGHTS)], policy_used.setdefault(f"{n}/{tier}", {})))
     return {"schema": SCHEMA, "schema_version": SCHEMA_VERSION,
             "constants": {"TIER_K": K.TIER_K, "TIER_DEPTH": K.TIER_DEPTH, "NUT_BASE": K.NUT_BASE, "NUT_TOP": K.NUT_TOP,
-                          "NUT_K": K.K_PRO, "EQ_RUNOUTS": EQ_RUNOUTS},
+                          "NUT_K": K.NUT_K, "EQ_RUNOUTS": EQ_RUNOUTS},
             "params": {"hands": hands, "iters": iters, "seed": seed},
             "policies": policy_used, "hands": out_hands, "rng": rng_vectors(rng_count, seed)}
 

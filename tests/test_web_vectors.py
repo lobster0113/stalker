@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 
+import numpy as np
 import pytest
 
 from stalker.e3 import tp_key as K
@@ -30,7 +31,7 @@ def test_committed_vectors_cover_the_spec_and_are_current(committed):
     v = committed
     assert v["schema"] == W.SCHEMA and v["schema_version"] == W.SCHEMA_VERSION
     c = v["constants"]
-    assert c["TIER_K"] == K.TIER_K and c["NUT_BASE"] == K.NUT_BASE and c["NUT_K"] == K.K_PRO, \
+    assert c["TIER_K"] == K.TIER_K and c["NUT_BASE"] == K.NUT_BASE and c["NUT_K"] == K.NUT_K, \
         "tp_key constants changed: run `python -m stalker.tools.web_vectors` and update web/app/tpgto.js"
     s = W.summary(v)
     assert s["decisions"] >= 200 and all(s["by_street"][st] > 0 for st in "0123")
@@ -41,8 +42,21 @@ def test_committed_vectors_cover_the_spec_and_are_current(committed):
     p = v["params"]
     sub = W.build(p["hands"], p["iters"], p["seed"], players=(6,), tiers=("pro",), rng_count=0)
     mine = [h for h in v["hands"] if h["n"] == 6 and h["tier"] == "pro"]
-    assert sub["hands"] == mine and sub["policies"]["6/pro"] == v["policies"]["6/pro"], \
-        "web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"
+    stale = "web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"
+    # Discrete fields exactly; floats to 1e-12, because another numpy build may differ in the last ulp
+    # (the node test still checks JS against the committed vectors exactly).
+    exact = ("a", "legal", "public", "steps", "nut", "key")
+    assert len(sub["hands"]) == len(mine), stale
+    for got, want in zip(sub["hands"], mine):
+        assert (got["n"], got["tier"], got["perm"], got["board"], got["payoff"]) == \
+            (want["n"], want["tier"], want["perm"], want["board"], want["payoff"]), stale
+        assert len(got["decisions"]) == len(want["decisions"]), stale
+        for g, w in zip(got["decisions"], want["decisions"]):
+            assert {f: g[f] for f in exact} == {f: w[f] for f in exact}, stale
+            assert np.allclose(g["sums"], w["sums"], rtol=0, atol=1e-12), stale
+    pg, pw = sub["policies"]["6/pro"], v["policies"]["6/pro"]
+    assert pg.keys() == pw.keys(), stale
+    assert all(len(pg[k]) == len(pw[k]) and np.allclose(pg[k], pw[k], rtol=0, atol=1e-12) for k in pg), stale
     assert W.rng_vectors(5, p["seed"]) == v["rng"][:5]
 
 

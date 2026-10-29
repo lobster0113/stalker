@@ -31,6 +31,8 @@ test("schema and constants match the Python side", () => {
   assert.equal(c.NUT_BASE, T.NUT_BASE);
   assert.equal(c.NUT_TOP, T.NUT_TOP);
   assert.equal(c.NUT_K, T.NUT_K, "board.nut step count differs: update NUT_K in tpgto.js");
+  T.checkNutK(c.NUT_K);
+  assert.throws(() => T.checkNutK(17), /board.nut has 17 steps/);
   assert.equal(c.EQ_RUNOUTS, T.EQ_RUNOUTS);
 });
 

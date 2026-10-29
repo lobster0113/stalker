@@ -108,8 +108,11 @@ def test_load_spec_only_from_jobs_dir(tmp_path):
     p.write_text(SPEC, encoding="utf-8")
     with pytest.raises(L.LauncherError, match="jobs/"):
         L.load_spec(p)
+    cap = json.loads((ROOT / "harness" / "budget.json").read_text(encoding="utf-8"))["monthly_cap_usd"]
     for f in (ROOT / "jobs").glob("*.yaml"):
-        assert L.load_spec(f).worst_case_usd <= 1.0, f  # checked-in examples stay cheap
+        # Probes stay under $1; a training run (#333) may take at most a tenth of the monthly cap.
+        limit = 0.1 * cap if f.stem.startswith("e3-tp-") else 1.0
+        assert L.load_spec(f).worst_case_usd <= limit, f
 
 
 def test_budget_rejects_over_cap_before_creating_pod(tmp_path):
@@ -280,7 +283,9 @@ def test_cloud_workflow_guards():
     assert "workflow_dispatch:" in on and "schedule:" in on
     assert not any(t in on for t in ("pull_request", "push:", "workflow_run"))
     assert re.findall(r"secrets\.(\w+)", wf) == ["RUNPOD_API_KEY"]
-    assert "group: cloud-budget" in wf and "cancel-in-progress: false" in wf
+    # #350: runs of different jobs in parallel, same job serial; check/reap/collect share one group
+    assert "format('cloud-run-{0}', inputs.job)" in wf and "'cloud-budget'" in wf
+    assert "cancel-in-progress: false" in wf
     (minutes,) = re.findall(r"timeout-minutes: (\d+)", wf)
     assert L.MAX_JOB_MINUTES + 15 <= int(minutes) <= 360   # GitHub-hosted runner job limit
     cleanup = wf.split("terminate this run's pods", 1)[1].split("- name:", 1)[0]
@@ -407,7 +412,17 @@ def test_result_is_pulled_saved_and_recorded(tmp_path):
     assert TOKEN not in json.dumps(entries)  # the ledger is pushed to a public branch
 
 
-def test_result_rejected_when_oversized_non_json_or_secret(tmp_path):
+def test_result_size_limit_fits_a_pod_checkpoint():
+    # #346: a pod training result (#333) carries its model; 21 MB passes, the cap still rejects.
+    body = b'{"x": "' + b"a" * (21 * 1024 * 1024) + b'"}'
+    L.check_result(body)
+    assert L.RESULT_MAX_BYTES == 256 * 1024 * 1024
+    with pytest.raises(L.LauncherError, match="bytes"):
+        L.check_result(body, max_bytes=1024)
+
+
+def test_result_rejected_when_oversized_non_json_or_secret(tmp_path, monkeypatch):
+    monkeypatch.setattr(L, "RESULT_MAX_BYTES", 4096)  # the size path, without a 256 MB body
     cases = {
         "big": b'{"x": "' + b"a" * L.RESULT_MAX_BYTES + b'"}',
         "nonjson": b"\x00\x01 not json",
@@ -576,3 +591,54 @@ def test_cloud_workflow_collect_mode_and_result_to_ops():
     assert i_up < i_pub < i_push
     pub = wf[i_pub:i_push]
     assert "if: always()" in pub and "launcher.py publish" in pub and "${{ inputs." not in pub
+
+
+def test_parallel_reservation_over_cap_terminates_after_sync(tmp_path):
+    # #350: another run's reservation arrives with our sync; together they pass the cap -> stop ours
+    ledger, api = tmp_path / "l.jsonl", FakeRunPod(exit_after_polls=5)
+
+    def sync():  # what a pull brings in: a parallel run reserved $0.80 of the $1.00 cap
+        L.append_ledger(ledger, {"event": "start", "ts": "2026-11-01T00:00:00Z", "month": "2026-11", "job": "other",
+                                 "pod_id": "q9", "pod_name": "stalker-other-7", "run_id": "7", "max_minutes": 60,
+                                 "reserved_usd": 0.8})
+
+    with pytest.raises(L.BudgetExceeded, match="parallel run"):
+        _run(api, ledger, Clock(), cap=1.0, sync=sync)
+    assert api.terminated() == ["p1"] and not any(m == "GET" for m, _, _ in api.calls)
+    end = L.read_ledger(ledger)[-1]
+    assert end["status"] == "over_cap" and end["pod_id"] == "p1"
+
+
+def test_push_ledger_union_merges_parallel_appends(tmp_path):
+    import shutil
+    import subprocess
+    if shutil.which("git") is None or shutil.which("bash") is None:
+        pytest.skip("needs git and bash")
+    sh = str(ROOT / "harness" / "cloud" / "push_ledger.sh")
+
+    def git(cwd, *a):
+        return subprocess.run(["git", "-C", str(cwd), *a], check=True, capture_output=True, text=True,
+                              encoding="utf-8")
+
+    NL = b"\n"
+    remote = tmp_path / "remote.git"
+    git(tmp_path, "init", "-q", "--bare", "-b", "ops", str(remote))
+    seed = tmp_path / "seed"
+    git(tmp_path, "clone", "-q", str(remote), str(seed))
+    (seed / "budget").mkdir()
+    (seed / "budget" / "ledger.jsonl").write_bytes(b'{"n": 0}' + NL)
+    git(seed, "add", "budget/ledger.jsonl")
+    git(seed, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "seed")
+    git(seed, "push", "-q", "origin", "HEAD:ops")
+    a, b = tmp_path / "a", tmp_path / "b"
+    for d in (a, b):
+        git(tmp_path, "clone", "-q", "-b", "ops", str(remote), str(d))
+    for d, n in ((a, 1), (b, 2)):
+        with open(d / "budget" / "ledger.jsonl", "ab") as f:
+            f.write(b'{"n": %d}' % n + NL)
+    for d in (a, b):  # b pushes second: its rebase meets a's line at the same end of file
+        subprocess.run(["bash", sh, str(d), "test"], check=True, capture_output=True)
+    check = tmp_path / "check"
+    git(tmp_path, "clone", "-q", "-b", "ops", str(remote), str(check))
+    lines = (check / "budget" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+    assert sorted(lines) == ['{"n": 0}', '{"n": 1}', '{"n": 2}']

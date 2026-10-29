@@ -1,7 +1,9 @@
 import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
+import pytest
 
 from stalker import train_jobs as T
 from stalker.e2.eq_view import N
@@ -55,6 +57,25 @@ def test_scale_and_foldy_steps():
     assert K.foldy_step(0, 1000) == "0" and K.foldy_step(1000, 1000) == "16"
 
 
+def test_board_nut_uses_the_coarse_table_grid():
+    # #332: 5 board.nut steps in the table, not the 17 used for hand.equity
+    assert K.NUT_K == 5
+    vals = {K.scale_step(v, K.NUT_K) for v in range(0, 101)}
+    assert vals == set(range(K.NUT_K))
+    assert K.theoretical_keys(6, K.K_PRO, "pro") < K.theoretical_keys(6, K.K_PRO, "full") * (2 + 17) / 3
+
+
+def test_grading_scale_for_board_nut_is_unchanged_by_the_table_grid():
+    # #332 review: NUT_K is the table's abstraction only; a person's board.nut answer is still graded on
+    # the TP spec's 0-100 scale within the pro tolerance (TP.md §4.1), and tp_key does not read the spec.
+    from stalker.tp.spec import load
+
+    spec = load()
+    assert spec.item("board.nut")["scale"] == "0-100" and "board.nut" in spec.tier_items("pro")
+    assert spec.data["tiers"]["pro"]["tolerance"] == 3
+    assert K.NUT_K < K.K_PRO and "tp.spec" not in Path(K.__file__).read_text(encoding="utf-8")
+
+
 def test_pro_key_extends_full_and_encodes_nut_with_the_equity_step():
     s = _hu_flop()
     r = K.initial_ranges(6)
@@ -86,3 +107,16 @@ def test_pro_job_is_registered_and_resumable():
     assert "e3-tp-pro-w4" in T.JOBS and "e3-tp-pro-w4" in T.RESUMABLE
     kw = T.JOBS["e3-tp-pro-w4"].keywords
     assert kw["tier"] == "pro" and kw["workers"] == 4
+
+
+def test_pro_checkpoint_records_its_board_nut_grid_and_refuses_another():
+    # #332 review: a checkpoint from the 17-step board.nut table must not resume silently on 5 steps.
+    m = E3MCCFR(1, K.K_PRO, 3, "pro")
+    m.iterate(2)
+    st = json.loads(json.dumps(m.state()))
+    assert st["nut_k"] == K.NUT_K
+    assert E3MCCFR.from_state(st).regret.keys() == m.regret.keys()
+    old = {k: v for k, v in st.items() if k != "nut_k"}  # written before #332: 17 steps
+    with pytest.raises(ValueError, match="fresh run"):
+        E3MCCFR.from_state(old)
+    assert "nut_k" not in E3MCCFR(1, 11, 3, "full").state()  # other tiers unchanged

@@ -52,6 +52,7 @@
 //   equityVs(board, w) -> Float64Array(1326) equity vs range w (NaN on board collisions)
 //   boardNut(s, seat, ranges) -> 0..100 or null; evaluate(cards) -> score (higher wins)
 //   policy: a plain object {key: [p_action...]} or a Map.
+//   checkNutK(checkpoint.nut_k) -> throws if a pro table was built on another board.nut grid.
 //
 // Float arithmetic mirrors numpy (cumsum order, pairwise sum, quantile lerp, round-half-even), and
 // numpy's default_rng(seed).choice(..., replace=False) is reproduced bit for bit (SeedSequence,
@@ -671,7 +672,13 @@ export function payoff(s) {
 export const TIER_K = { beginner: 5, mid: 11, pro: 17 };
 export const TIER_DEPTH = { beginner: "basic", mid: "full", pro: "pro" };
 export const K_PRO = TIER_K.pro;
-export const NUT_K = K_PRO;          // board.nut grid (tp_key.nut_step: scale_step(v, K_PRO))
+// board.nut steps in the pro table: tp_key.NUT_K (5 since #332/#338). Pro checkpoints carry it as
+// "nut_k"; checkNutK refuses a table built on another grid, as E3MCCFR.from_state does. The node test
+// fails when this differs from the Python constant recorded in the vectors.
+export const NUT_K = 5;
+export function checkNutK(nutK) {
+  if (nutK !== undefined && nutK !== NUT_K) throw new Error(`policy board.nut has ${nutK} steps; tpgto.js uses ${NUT_K}: update NUT_K to stalker/e3/tp_key.py and rerun python -m stalker.tools.web_vectors`);
+}
 export const NUT_BASE = 1000;
 export const NUT_TOP = 0.10;
 const FOLDY_MIN_OPPS = 6, FOLDY_PRIOR = 0.5, FOLDY_PRIOR_N = 6.0;

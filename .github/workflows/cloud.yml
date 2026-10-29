@@ -22,9 +22,11 @@ on:
   schedule:
     - cron: "17 3 * * *"
 
-# One group, never cancelled: ledger read-modify-write must not interleave.
+# Never cancelled. Runs of different jobs go in parallel (#350): the ledger is union-merged on push
+# and the launcher re-checks the cap after its reservation lands; the same job stays serial.
+# check, reap and collect share one group.
 concurrency:
-  group: cloud-budget
+  group: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'run') && format('cloud-run-{0}', inputs.job) || 'cloud-budget' }}
   cancel-in-progress: false
 
 permissions:

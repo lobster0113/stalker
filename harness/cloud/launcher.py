@@ -57,7 +57,8 @@ RESULT_PORT = 8000
 RESULT_DIR = "/stalker-result"
 TOKEN_ENV = "STALKER_RESULT_TOKEN"
 # artifacts of a public repo are readable by anyone signed in; keep them small and checked
-RESULT_MAX_BYTES = 20 * 1024 * 1024
+# A pod training run returns its model in the result (#333): a pro checkpoint is tens of MB (#346).
+RESULT_MAX_BYTES = 256 * 1024 * 1024
 SECRET_PATTERNS = [re.compile(p) for p in (
     rb"gh[pousr]_[A-Za-z0-9]{30,}", rb"github_pat_[A-Za-z0-9_]{30,}", rb"rpa_[A-Za-z0-9]{20,}",
     rb"AKIA[0-9A-Z]{16}", rb"-----BEGIN [A-Z ]*PRIVATE KEY-----", rb"xox[abpr]-[A-Za-z0-9-]{10,}")]
@@ -321,7 +322,8 @@ def http_fetch(url: str, max_bytes: int) -> tuple[int, bytes]:
         return 0, b""
 
 
-def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int = RESULT_MAX_BYTES) -> None:
+def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int | None = None) -> None:
+    max_bytes = RESULT_MAX_BYTES if max_bytes is None else max_bytes
     if len(body) > max_bytes:
         raise LauncherError(f"result over {max_bytes} bytes; write a summary JSON and keep checkpoints small")
     try:
@@ -391,6 +393,14 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             sync()
         except Exception as e:
             raise LauncherError(f"ledger sync failed after creating {pod_id}: {e}; terminated") from e
+        # Runs of different jobs go in parallel (#350): two may pass check_budget before either's
+        # reservation is on ops. The sync pulled every reservation pushed before ours, and a later one
+        # sees ours, so at least one of two racing runs sees both here and stops its pod.
+        total = month_total(read_ledger(ledger), month)
+        if total > cap:
+            status = "over_cap"
+            raise BudgetExceeded(f"budget: {month} reserved ${total:.2f} > cap ${cap:.2f} after a parallel run "
+                                 f"reserved too; {pod_id} terminated. Dispatch it again when a run finishes.")
         if rate > job.hourly_usd:
             status = "rate_exceeded"
             raise LauncherError(f"pod {pod_id} costs ${rate}/h > job hourly_usd ${job.hourly_usd}; terminated")
