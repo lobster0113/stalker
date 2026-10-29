@@ -95,6 +95,7 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 .box h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
 .box .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
 .setting { display: grid; gap: 8px; padding-block: 14px; border-top: 1px solid var(--line-soft); }
+.setting[hidden], .tab-link[hidden] { display: none; }
 .setting:first-of-type { border-top: 0; padding-top: 4px; }
 .setting > label, .setting > .lab { font-size: 12px; color: var(--muted); letter-spacing: .02em; display: flex; justify-content: space-between; gap: 8px; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -326,7 +327,31 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .rrow .cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); }
 .good { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
 .conf { display: inline-block; vertical-align: middle; padding: 2px 7px; border-radius: 999px; font: 600 10.5px/1.3 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--warn); border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.1); white-space: nowrap; }
+.conf.model { color: var(--good); border-color: rgba(99,196,147,.45); background: rgba(99,196,147,.1); }
 .rrow.ref { border-style: dashed; }
+.size-free { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.size-free input[type="range"] { flex: 1; min-width: 0; }
+.size-num { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.size-num input { width: 76px; background: var(--ink); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 7px; font: 600 14px/1 var(--font-display); }
+.size-num input:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+.size-cap { font-size: 11.5px; color: var(--faint); margin-top: 5px; }
+.size-msg { font-size: 12px; color: var(--bad); margin-top: 5px; }
+.mixm { display: grid; gap: 4px; margin-top: 6px; }
+.mixm .r { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: center; gap: 8px; font-size: 12.5px; }
+.mixm .bar { position: relative; height: 20px; border-radius: 5px; background: var(--panel-3); overflow: hidden; }
+.mixm .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); opacity: .8; }
+.mixm .bar span { position: relative; padding: 0 8px; line-height: 20px; white-space: nowrap; color: var(--text); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.mixm .r.you .bar { box-shadow: inset 0 0 0 2px var(--text); }
+.mixm .pc { text-align: right; font-family: var(--font-display); font-weight: 600; }
+.model-line { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.model-status { display: grid; gap: 6px; margin-top: 10px; }
+.model-status .ms { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: var(--muted); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; }
+.model-status .ms b { color: var(--text); font-weight: 600; }
+.model-status .ms.on { border-color: rgba(99,196,147,.35); }
+.loadbox { display: grid; gap: 10px; }
+.loadbar { height: 6px; border-radius: 6px; background: var(--panel-3); overflow: hidden; }
+.loadbar i { display: block; height: 100%; background: var(--brass); width: var(--p, 0%); transition: width .25s; }
+.seat .persona.gto { color: var(--good); }
 .rrow.ref .cap { flex-wrap: wrap; gap: 2px 10px; }
 .itime { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; font-size: 12px; color: var(--muted); }
 .itime b { color: var(--text); font: 600 13px/1 var(--font-display); }
@@ -600,8 +625,8 @@ details.why[open] > summary { margin-bottom: 8px; }
     <button class="tab" role="tab" data-view="learn" aria-selected="false">학습 섹션</button>
     <button class="tab" role="tab" data-view="review" aria-selected="false">복기</button>
   </nav>
-  <a class="tab-link" href="strategy.html" target="_blank" rel="noopener" title="GTO 전략 브라우저 (#189)">전략 보기 ↗</a>
-  <span class="demo-pill" title="AI가 아직 연결되지 않았습니다. 정답은 규칙 기반 모의값입니다.">데모 · 모의 정답</span>
+  <a class="tab-link" id="strategy-link" href="strategy.html" target="_blank" rel="noopener" title="GTO 전략 브라우저 (#189)">전략 보기 ↗</a>
+  <span class="demo-pill" id="svc-pill" title="정답 출처">TP-GTO 불러오는 중</span>
 </header>
 
 <!-- ================= HOME ================= -->
@@ -619,11 +644,11 @@ details.why[open] > summary { margin-bottom: 8px; }
         <div class="setting">
           <div class="lab">설정 1 · 게임 종류</div>
           <div class="seg" id="set-mode">
-            <button data-v="tournament" aria-pressed="true">토너먼트</button>
-            <button data-v="cash" aria-pressed="false">캐시게임</button>
+            <button data-v="cash" aria-pressed="true">캐시게임 · TP-GTO</button>
+            <button data-v="tournament" aria-pressed="false">토너먼트 · 모의</button>
           </div>
         </div>
-        <div class="setting" id="set-tour">
+        <div class="setting" id="set-tour" hidden>
           <div class="lab">설정 1-1 · 토너먼트 조건</div>
           <div class="grid2">
             <label class="field"><span>형식</span><select id="t-format"><option value="6">6인 SNG</option><option value="9">9인 SNG</option><option value="mtt" selected>180인 MTT (6인 테이블)</option></select></label>
@@ -634,16 +659,18 @@ details.why[open] > summary { margin-bottom: 8px; }
             <label class="field"><span>평균 스택</span><select id="t-stack"><option value="15">15 BB</option><option value="30" selected>30 BB</option><option value="50">50 BB</option></select></label>
           </div>
         </div>
-        <div class="setting" id="set-cash" hidden>
+        <div class="setting" id="set-cash">
           <div class="lab">설정 1-2 · 캐시게임 조건</div>
           <div class="grid2">
-            <label class="field"><span>인원</span><select id="c-seats"><option value="2">헤즈업</option><option value="6" selected>6인</option><option value="9">9인</option></select></label>
+            <label class="field"><span>인원</span><select id="c-seats"><option value="6" selected>6인</option></select></label>
             <label class="field"><span>블라인드</span><select id="c-blinds"><option>1 / 2</option><option>2 / 5</option><option>5 / 10</option></select></label>
-            <label class="field"><span>시작 스택</span><select id="c-stack"><option value="40">40 BB (숏)</option><option value="100" selected>100 BB</option><option value="200">200 BB (딥)</option></select></label>
-            <label class="field"><span>리바이</span><select id="c-rebuy"><option>자동 (100 BB)</option><option>수동</option></select></label>
+            <label class="field"><span>스택</span><select id="c-stack"><option value="100" selected>100 BB (탑업)</option></select></label>
+            <label class="field"><span>베팅</span><select id="c-limit"><option selected>노리밋</option></select></label>
           </div>
+          <p class="sub" style="margin:8px 0 0">학습된 TP-GTO는 6인 100BB 캐시에서 학습했어요. 매 핸드 모든 좌석을 100BB로 맞추고(탑업·초과분 적립), 세션 손익은 따로 보여 줘요. 다른 인원·스택은 학습이 끝나면 열립니다.</p>
+          <div class="model-status" id="model-status" aria-live="polite"></div>
         </div>
-        <div class="setting">
+        <div class="setting" id="set-diff-row">
           <label class="lab" for="set-diff"><span>설정 2 · 난이도</span><span id="diff-desc">중수 테이블</span></label>
           <div class="diff-row"><span class="diff-num num" id="diff-num">9</span><input type="range" id="set-diff" min="1" max="20" step="1" value="9" aria-label="난이도 1에서 20"></div>
           <div class="persona-chips" id="persona-preview"></div>
@@ -674,7 +701,7 @@ details.why[open] > summary { margin-bottom: 8px; }
         </div>
         <div class="start-row">
           <button class="cta" id="start-btn">테이블에 앉기 <span aria-hidden="true">→</span></button>
-          <span class="note">다른 플레이어는 약 1.5초 간격으로 행동합니다.</span>
+          <span class="note" id="start-note">다른 플레이어는 약 1.5초 간격으로 행동합니다.</span>
         </div>
       </div>
 
@@ -698,7 +725,7 @@ details.why[open] > summary { margin-bottom: 8px; }
             <li><span><b>보드 읽기</b> · 누구 레인지에 유리한가, (고수) 넛은 누가 더 많은가 — 헤즈업 플랍 이후</span></li>
             <li><span><b>상대 읽기</b> · 성향 0–100(기회가 쌓인 뒤), 13×13 레인지, 방금 벳은 밸류 쪽인가</span></li>
             <li><span><b>내 핸드</b> · 쇼다운 에퀴티, 다음 카드 중 유리·불리해지는 비율</span></li>
-            <li><span><b>액션</b> · 폴드·체크·콜·레이즈와 사이즈 — 모의 혼합 전략은 참고로만 보여주고 점수에 넣지 않아요</span></li>
+            <li><span><b>액션</b> · 폴드·체크·콜, 벳·레이즈는 최소 레이즈부터 올인까지 원하는 금액 — 학습된 TP-GTO의 혼합 전략과 비교해요(참고용, 점수에 넣지 않음)</span></li>
             <li><span><b>액션 점검</b> · 고른 액션에 맞는 근거: 레이즈면 그 사이즈에 상대가 접을 확률, (토너먼트) 콜이면 상금 구조까지 생각한 필요 승률</span></li>
           </ol>
         </div>
@@ -995,17 +1022,20 @@ const DIFF_DESC = d => d >= 20 ? "최고 난이도 · TP-GTO 테이블" : d >= 1
 const NAMES = ["민준", "서연", "Viktor", "하루", "Maya", "도윤", "Kenji", "지아", "Lena", "Rafael", "윤서", "Theo", "은우", "Ines", "태오", "Sora"];
 
 /* ================= settings ================= */
-const S = { mode: "tournament", tier: "mid", diff: 9, play: "quick", eqab: "off" };
+const S = { mode: "cash", tier: "mid", diff: 9, play: "quick", eqab: "off" };
 function segBind(id, key, after) {
   $$(`#${id} button`).forEach(b => b.addEventListener("click", () => {
     $$(`#${id} button`).forEach(x => x.setAttribute("aria-pressed", x === b)); S[key] = b.dataset.v; after && after();
   }));
 }
-segBind("set-mode", "mode", () => { $("#set-tour").hidden = S.mode !== "tournament"; $("#set-cash").hidden = S.mode !== "cash"; });
-segBind("set-tier", "tier");
+segBind("set-mode", "mode", () => { $("#set-tour").hidden = S.mode !== "tournament"; $("#set-cash").hidden = S.mode !== "cash"; renderModelStatus(); });
+segBind("set-tier", "tier", () => { renderModelStatus(); if (S.mode === "cash") tpgLoad(S.tier); });
 const PLAY_DESC = { quick: "실전용. 내 차례에 액션부터 고르고 바로 진행해요. 원하면 '분석 보기'로 핵심 판단 1~3개를 답하고 TP-GTO와 비교해요.", guided: "집중 훈련용. 등급의 판단을 카드마다 전부 답한 뒤 액션을 고르고 채점해요." };
 const renderPlay = () => { $("#play-desc").textContent = PLAY_DESC[S.play]; };
 segBind("set-play", "play", renderPlay); renderPlay();
+setTimeout(() => { renderModelStatus(); tpgLoad(S.mode === "cash" ? S.tier : null); }, 0);
+// The strategy browser (#189) ships separately; hide its link where the page is not deployed.
+{ const sl = $("#strategy-link"), href = sl.getAttribute("href"); if (!/^https?:/.test(href) && location.protocol !== "file:") fetch(href, { method: "HEAD" }).then(r => { if (!r.ok) sl.hidden = true; }).catch(() => { sl.hidden = true; }); }
 const renderEqabDesc = () => { $("#eqab-desc").textContent = S.eqab === "on" ? "훈련 게임의 에퀴티 질문을 결정마다 A(이길 확률) 또는 B(상위 %) 형태로 무작위로 묻고, 입력 시간과 맞힌 칩을 이 기기에만 기록해요. 이 답은 채점하지 않아요." : "끄면 에퀴티 질문은 지금처럼 0–100 칩으로 묻고 채점해요."; };
 segBind("set-eqab", "eqab", renderEqabDesc); renderEqabDesc();
 function renderDiff() {
@@ -1068,9 +1098,9 @@ function exportRecords() {
 function parseRecords(text) {
   let d;
   try { d = JSON.parse(String(text).trim()); } catch { return { error: "JSON으로 읽을 수 없어요. 내보내기 칸의 텍스트를 처음부터 끝까지 그대로 붙여넣으세요." }; }
-  if (!d || typeof d !== "object" || d.schema !== RECORDS_SCHEMA) return { error: "STALKER 데모 기록이 아니에요(schema가 다름). '기록 옮기기'의 내보내기 텍스트를 붙여넣으세요." };
+  if (!d || typeof d !== "object" || d.schema !== RECORDS_SCHEMA) return { error: "STALKER 학습 기록이 아니에요(schema가 다름). '기록 옮기기'의 내보내기 텍스트를 붙여넣으세요." };
   if (!Number.isInteger(d.schema_version)) return { error: "schema_version이 없어요. 내보내기 텍스트를 다시 복사해 붙여넣으세요." };
-  if (d.schema_version > RECORDS_VERSION) return { error: `이 데모(v${RECORDS_VERSION})보다 새 기록(v${d.schema_version})이에요. 데모를 새로 고친 뒤 다시 가져오세요.` };
+  if (d.schema_version > RECORDS_VERSION) return { error: `이 버전(v${RECORDS_VERSION})보다 새 기록(v${d.schema_version})이에요. 페이지를 새로 고친 뒤 다시 가져오세요.` };
   const isStat = v => v && typeof v === "object" && Number.isInteger(v.n) && Number.isFinite(v.sum) && v.n >= 0;
   const weak = d.weak ?? {}, itimes = d.itimes ?? [], rankq = d.rankq ?? { n: 0, sum: 0 }, eqab = d.eqab ?? [];
   const chip = x => Number.isInteger(x) && x >= 0 && x <= 4;
@@ -1136,7 +1166,27 @@ function newSeat(i, isHero, stackBB) {
   return { i, isHero, persona: key, name: isHero ? "나" : pick(NAMES), stack: Math.round(stackBB * 100), cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100,
     stats: { hands: 0, vpip: 0, raises: 0, calls: 0, faced: 0, foldsFaced: 0, preOpp: 0, aggOpp: 0 }, out: false };
 }
-function startGame() {
+async function startGame() {
+  if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier) && !TPG.pol[S.tier]))) {
+    const tok = ++gameToken;
+    $("#infobar").innerHTML = `<span class="pill">캐시게임 · 6인</span><span>TP-GTO 준비 중</span>`;
+    $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp").classList.add("open");
+    const paint = () => { if (tok !== gameToken) return; $("#tp-body").innerHTML = TPG.state === "error" ? "" : `<div class="loadbox" role="status"><div>TP-GTO 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
+    const iv = setInterval(paint, 120); paint();
+    const ok = await tpgLoad(S.tier);
+    clearInterval(iv);
+    if (tok !== gameToken || !$("#view-train").classList.contains("active")) return;
+    if (!ok) {
+      $("#infobar").innerHTML = `<span class="pill">캐시게임 · 6인</span><span>TP-GTO 연결 실패</span>`;
+      $("#tp-body").innerHTML = `<div class="loadbox" role="alert"><div>${TPG.err}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta small" id="tpg-again">다시 시도</button><button class="cta small ghost" id="tpg-mock">모의 정답으로 계속</button></div></div>`;
+      $("#tpg-again").onclick = () => startGame();
+      $("#tpg-mock").onclick = () => startTable();
+      return;
+    }
+  }
+  startTable();
+}
+function startTable() {
   AB = null;
   const tour = S.mode === "tournament";
   const n = tour ? ($("#t-format").value === "9" ? 9 : 6) : +$("#c-seats").value;
@@ -1144,10 +1194,15 @@ function startGame() {
   G = { tour, n, bb: 100, sb: 50, ante: tour && $("#t-ante").value === "bb" ? 100 : 0, stage: $("#t-stage").value, seats: [], button: Math.floor(rand() * n),
     handNo: 0, board: [], pot: 0, street: 0, log: [], level: 7, levelLeft: 252, players: 47, field: 180, paid: 27, lastGrade: null };
   if (tour && $("#t-format").value !== "mtt") { G.players = n; G.field = n; G.paid = n === 9 ? 3 : 2; }
+  // Cash 6-max 100BB with a trained policy for the tier: every opponent plays that policy (#337).
+  const pol = !tour && n === 6 && avg === 100 && TPG.mod && TPG.pol[S.tier];
+  G.eng = pol ? { tier: S.tier, pol, meta: modelMeta(S.tier), ok: false } : null;
   const used = new Set();
   for (let i = 0; i < n; i++) {
     const st = tour ? Math.max(6, Math.round(avg * (0.45 + rand() * 1.1))) : avg;
     const s = newSeat(i, i === 0, st);
+    if (G.eng && !s.isHero) { s.persona = "gto"; s.tag = `TP-GTO ${TIERS[S.tier].name}`; }
+    s.bank = 0;
     while (used.has(s.name) && !s.isHero) s.name = pick(NAMES);
     used.add(s.name); G.seats.push(s);
   }
@@ -1194,7 +1249,8 @@ function renderSeats() {
     el.classList.toggle("folded", s.folded); el.classList.toggle("out", s.out);
     $(".nm", el).textContent = s.isHero ? "나 (Hero)" : s.name;
     $(".stk", el).textContent = s.out ? "—" : s.allin ? "올인" : bbf(s.stack) + " BB";
-    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[S.tier].name + " TP" : PERSONAS[s.persona].name);
+    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[S.tier].name + " TP" : s.tag || PERSONAS[s.persona].name);
+    $(".persona", el).classList.toggle("gto", !!s.tag);
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";
   }
@@ -1208,7 +1264,9 @@ function renderInfo() {
     const m = Math.floor(G.levelLeft / 60), s = String(G.levelLeft % 60).padStart(2, "0");
     el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
   } else {
-    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인</span><span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>시작 스택 <b class="num">${$("#c-stack").value} BB</b></span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
+    const hero = G.seats.find(x => x.isHero), net = hero ? hero.bank + hero.stack - 100 * G.bb : 0;
+    const src = G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" title="이 설정의 TP-GTO는 학습 중이에요">규칙 봇 · 모의 정답</span>`;
+    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span><span>세션 <b class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${net > 0 ? "+" : ""}${bbf(net)} BB</b></span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
   }
   $("#new-game").onclick = () => { G.dead = true; G = null; startGame(); };
 }
@@ -1252,6 +1310,8 @@ async function runLoop() {
 async function playHand(token) {
   const alive = () => G && token === gameToken;
   G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null;
+  // TP-GTO tables: every seat starts each hand at 100BB (top-up, excess banked into the session result)
+  if (G.eng) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
   // replenish
   for (const s of G.seats) {
     if (s.stack <= 0) {
@@ -1280,6 +1340,7 @@ async function playHand(token) {
   post(G.seats[sbI], G.sb); post(G.seats[bbI], G.bb);
   G.currentBet = G.bb; G.minRaise = G.bb; G.sbI = sbI; G.bbI = bbI;
   addLog("프리플랍", `${G.seats[sbI].name} SB, ${G.seats[bbI].name} BB${G.ante ? " (+BB앤티)" : ""}`);
+  if (G.eng) engStart();
   renderSeats();
   // streets
   for (let st = 0; st < 4; st++) {
@@ -1289,6 +1350,7 @@ async function playHand(token) {
       const cnt = st === 1 ? 3 : 1;
       for (let c = 0; c < cnt; c++) { const card = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(card); const e = cardEl(card); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(220); }
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
+      engCheckBoard();
       G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null;
       await sleep(500);
     }
@@ -1340,6 +1402,7 @@ function legal(s) {
 }
 function applyAction(s, a) {
   const L = legal(s), pre = G.street === 0, facing = L.toCall > 0;
+  if (G.eng) engApply(s, a, L);
   if (facing) { s.stats.faced++; if (a.type === "fold") s.stats.foldsFaced++; }
   if (L.canRaise) s.stats.aggOpp++;
   if (pre && !s.preSeen) { s.preSeen = true; s.stats.preOpp++; }
@@ -1367,6 +1430,7 @@ function applyAction(s, a) {
 async function botTurn(s) {
   const el = $("#seat-" + s.i); el.style.setProperty("--t", "1.5s"); el.classList.add("acting");
   await sleep(1500); el.classList.remove("acting");
+  if (G.eng) { const a = engBotAct(s); if (a) return a; }
   const p = PERSONAS[s.persona], L = legal(s), pot = potTotal(), cls = classOf(s.cards[0], s.cards[1]);
   if (G.street === 0) {
     const pct = cls.pct, facingRaise = G.currentBet > G.bb;
@@ -1391,7 +1455,214 @@ async function botTurn(s) {
   return eq > thr ? { type: "call" } : { type: "fold" };
 }
 
-/* ---------- mock TP-GTO (heuristic stand-in until D3) ---------- */
+/* ================= TP-GTO engine bridge (#337) =================
+   Cash 6-max 100BB tables run a mirror of the hand on web/app/tpgto.js (the E3 rules and TP keys,
+   exact to the Python trainer, #335). Opponent seats sample the trained policy of the chosen tier;
+   the hero's decisions are compared with that policy's mixed strategy and hand.equity is graded
+   against the equity the policy's own keys use (vs every opponent's public range). The table keeps
+   its own chip logic for display; if the two ever disagree on whose turn it is, the mirror switches
+   off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
+const APP_BASE = window.STALKER_APP_BASE || "../app/";
+const TPG = { mod: null, index: null, eq: false, pol: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
+const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
+const modelMeta = tier => TPG.index?.tiers?.[tier] || null;
+function modelLine(m) {
+  const lbr = m.lbr_bb != null ? ` · LBR ${m.lbr_bb.toFixed(2)}${m.lbr_stderr_bb != null ? "±" + m.lbr_stderr_bb.toFixed(2) : ""} bb/hand` : "";
+  return `반복 ${fmtIters(m.iterations)}회${lbr} · run ${m.run_id}`;
+}
+const modelTag = m => `<span class="conf model" title="정답 출처: 학습된 TP-GTO 정책(${TIERS[m.tier].name}, ${modelLine(m)}). 승인 상태: 미검증, Gate 판정 전 학습 중간본이에요.">TP-GTO · 학습 중간본</span>`;
+async function fetchJSON(url, onFrac) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url} 응답 ${r.status}`);
+  const total = +r.headers.get("content-length");
+  if (!onFrac || !r.body || !total) return r.json();
+  const rd = r.body.getReader(), parts = [];
+  let got = 0;
+  for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; onFrac(Math.min(1, got / total)); }
+  return JSON.parse(new TextDecoder().decode(await new Blob(parts).arrayBuffer()));
+}
+function tpgSet(state, step, pct) { TPG.state = state; if (step != null) TPG.step = step; if (pct != null) TPG.pct = pct; renderModelStatus(); }
+// Engine, equity table and the model index once; a tier's policy on demand.
+function tpgLoad(tier) {
+  if (TPG.busy) return TPG.busy.then(() => tier && modelMeta(tier) && !TPG.pol[tier] ? tpgLoad(tier) : TPG.state === "ready");
+  TPG.busy = (async () => {
+    try {
+      if (!TPG.mod) { tpgSet("loading", "계산 엔진", 5); TPG.mod = await import(APP_BASE + "tpgto.js"); }
+      if (!TPG.index) { tpgSet("loading", "모델 목록", 15); TPG.index = await fetchJSON(APP_BASE + "policy/index.json"); }
+      if (!TPG.eq) { tpgSet("loading", "프리플랍 에퀴티 표", 25); TPG.mod.setEquityTable(await fetchJSON(APP_BASE + "assets/hu_equity.json")); TPG.eq = true; }
+      const m = tier && modelMeta(tier);
+      if (m && !TPG.pol[tier]) {
+        const step = `${TIERS[tier].name} 정책 ${(m.bytes / 1e6).toFixed(1)}MB`;
+        tpgSet("loading", step, 35);
+        const doc = await fetchJSON(APP_BASE + "policy/" + m.file, f => tpgSet("loading", step, 35 + Math.round(f * 60)));
+        TPG.mod.checkNutK?.(doc.nut_k);   // a pro table built on another board.nut grid would mis-key
+        const q = doc.q || 255, pol = new Map();
+        for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
+        TPG.pol[tier] = pol;
+      }
+      TPG.err = null; tpgSet("ready", "", 100); return true;
+    } catch (e) {
+      console.warn("[tpgto] load failed", e);
+      TPG.err = location.protocol === "file:" ? "파일로 연 페이지에서는 정책을 불러올 수 없어요. 웹 서버로 열어 주세요(예: web 폴더에서 python -m http.server)."
+        : e instanceof TypeError ? `정책을 불러오지 못했어요. ${TPG.step || "파일"}을 받는 중에 연결이 끊겼어요. 네트워크를 확인하고 다시 시도하세요.`
+        : `정책을 불러오지 못했어요. ${e.message}`;
+      tpgSet("error"); return false;
+    } finally { TPG.busy = null; }
+  })();
+  return TPG.busy;
+}
+function renderModelStatus() {
+  const box = $("#model-status"), pill = $("#svc-pill"), m = modelMeta(S.tier);
+  if (pill) {
+    if (TPG.state === "loading") { pill.textContent = "TP-GTO 불러오는 중"; pill.title = TPG.step; }
+    else if (TPG.state === "error") { pill.textContent = "모의 정답 · 정책 연결 실패"; pill.title = TPG.err || ""; }
+    else if (S.mode === "cash" && m) { pill.textContent = `TP-GTO ${TIERS[S.tier].name} · 학습 중간본`; pill.title = modelLine(m); }
+    else { pill.textContent = S.mode === "cash" ? `${TIERS[S.tier].name} 정책 학습 중 · 모의 정답` : "토너먼트 · 모의 정답"; pill.title = "이 설정의 TP-GTO는 아직 학습 중이에요. 정답은 규칙 기반 모의값입니다."; }
+  }
+  const diff = $("#set-diff-row");
+  if (diff) diff.hidden = S.mode === "cash" && !!m;
+  const note = $("#start-note");
+  if (note) note.textContent = S.mode === "cash" && m ? "다른 플레이어(TP-GTO)는 약 1.5초 간격으로 행동합니다." : "다른 플레이어는 약 1.5초 간격으로 행동합니다.";
+  if (!box) return;
+  if (TPG.state === "loading") { box.innerHTML = `<div class="loadbox" role="status"><div class="ms">TP-GTO 불러오는 중 · ${TPG.step}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; return; }
+  if (TPG.state === "error") { box.innerHTML = `<div class="ms" role="alert"><span>${TPG.err}</span><button class="cta small ghost" id="tpg-retry">다시 시도</button></div>`; $("#tpg-retry").onclick = () => tpgLoad(S.tier); return; }
+  if (!TPG.index) { box.innerHTML = ""; return; }
+  box.innerHTML = ["beginner", "mid", "pro"].map(t => {
+    const mm = modelMeta(t);
+    return `<div class="ms${mm ? " on" : ""}"><b>${TIERS[t].name}</b>${mm ? `<span>상대 5명 = TP-GTO ${TIERS[t].name} 정책</span><span>${modelLine(mm)}</span>` : `<span>학습 중 · 이 등급은 규칙 봇 상대와 모의 정답으로 진행해요</span>`}</div>`;
+  }).join("");
+}
+// Table seat i -> engine seat (preflop order: 0 = UTG ... n-2 = SB, n-1 = BB).
+const engSeatOf = i => ((i - G.button - 3) % G.n + 2 * G.n) % G.n;
+const engOn = () => !!(G && G.eng && G.eng.ok && TPG.mod);
+function engBreak(e) {
+  if (!G?.eng) return;
+  if (G.eng.ok) console.warn("[tpgto] mirror off for this hand:", e?.message || e);
+  G.eng.ok = false;
+}
+function engStart() {
+  const E = G.eng, tg = TPG.mod;
+  E.ok = false; E.pending = null;
+  try {
+    const holes = new Array(G.n);
+    for (const s of G.seats) holes[engSeatOf(s.i)] = s.cards.slice();
+    const pool = G.deck.slice(), board = [];
+    for (let i = 0; i < 5; i++) board.push(G.rigBoard?.[i] ?? pool.pop()); // the order the table deals them
+    E.s = tg.newHand({ n: G.n, holes, board });
+    E.ranges = tg.initialRanges(G.n); E.ok = true;
+  } catch (e) { engBreak(e); }
+}
+function engTurn(s) {
+  if (!engOn()) return false;
+  const E = G.eng;
+  if (E.s.done || E.s.toAct !== engSeatOf(s.i)) { engBreak(new Error(`turn: engine seat ${E.s.toAct}, table seat ${engSeatOf(s.i)}`)); return false; }
+  return true;
+}
+function engBotAct(s) {
+  if (!engTurn(s)) return null;
+  const E = G.eng, tg = TPG.mod;
+  try {
+    const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier);
+    const tot = ap.probs.reduce((a, b) => a + b, 0);
+    let u = rand() * tot, i = 0;
+    while (i < ap.probs.length - 1 && (u -= ap.probs[i]) > 0) i++;
+    const a = ap.acts[i], L = legal(s);
+    E.pending = { d: ap };
+    TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: ap.fromTable, chosen: a });
+    if (TPG.botLog.length > 500) TPG.botLog.shift();
+    if (a === "f") return { type: L.canCheck ? "check" : "fold", menu: a };
+    if (a === "k") return { type: "check", menu: a };
+    if (a === "c") return { type: L.toCall > 0 ? "call" : "check", menu: a };
+    const to = tg.amountTo(E.s, a);
+    return to <= G.currentBet ? { type: "call", menu: a } : { type: "raise", to, menu: a };
+  } catch (e) { engBreak(e); return null; }
+}
+// Menu label for a table action at the engine's state; a hero's off-menu size is translated (#335).
+function engLabel(d, a, to) {
+  if (a.menu) return { label: a.menu };
+  const r = engLabelAt(G.eng.s, a.type, to);
+  return r.menuTo == null ? r : { label: r.label, tr: { to, menuTo: r.menuTo } };
+}
+function engApply(s, a, L) {
+  if (!engTurn(s)) return;
+  const E = G.eng, tg = TPG.mod;
+  try {
+    const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier);
+    const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
+    const { label } = engLabel(d, a, to);
+    const ns = a.type === "raise" && !a.menu ? tg.applyBet(E.s, to) : tg.apply(E.s, label);
+    E.ranges = tg.updateRanges(E.pol, d, E.ranges, label);
+    E.s = ns; E.pending = null;
+  } catch (e) { engBreak(e); }
+}
+function engCheckBoard() {
+  if (!engOn()) return;
+  const b = G.eng.s.board;
+  if (b.length < G.board.length || G.board.some((c, i) => b[i] !== c)) engBreak(new Error("board differs from the table"));
+}
+const MENU_COL = { f: "#5d6a6f", k: "#8d999c", c: "#5d8fd8", r: "#d6ab55", b33: "#b8913f", b75: "#d6ab55", a: "#e2705f" };
+const bbx = chips => (Math.round(chips / 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 }); // engine chips (BB = 100)
+function engMenuName(a, to, toCallNow, opening) {
+  if (a === "f") return "폴드";
+  if (a === "k") return "체크";
+  if (a === "c") return toCallNow > 0 ? "콜" : "체크";
+  if (a === "a") return `올인 ${bbx(to)}BB`;
+  if (a === "b33") return `벳 33% · ${bbx(to)}BB`;
+  if (a === "b75") return `벳 75% · ${bbx(to)}BB`;
+  return `${opening ? "오픈" : "레이즈"} ${bbx(to)}BB`;
+}
+// The policy's view of the actor at engine state s: mixed strategy over the menu, equity vs the public ranges.
+function engModelAt(s, ranges, pol, tier, meta) {
+  const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier), toCallNow = tg.toCall(s);
+  const opening = s.street === 0 && s.raises === 1;
+  const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
+  const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening) }; });
+  return { meta, mix, fromTable: ap.fromTable, step: ap.step, k: tg.TIER_K[tier], eq, d: ap, s };
+}
+// Menu label of a real action at engine state s (fold/check/call, or a bet/raise to street total `to`).
+function engLabelAt(s, type, to) {
+  const tg = TPG.mod;
+  if (type === "fold") return { label: "f" };
+  if (type === "check") return { label: tg.legal(s).includes("k") ? "k" : "c" };
+  if (type === "call") return { label: "c" };
+  const t = tg.translateBet(s, to);
+  return { label: t.action, menuTo: tg.amountTo(s, t.action) };
+}
+// Hero's model-backed answers: the policy row for the real hand, and hand.equity vs the public ranges.
+function engHeroTruth(hero, g) {
+  if (!engTurn(hero)) return;
+  const E = G.eng, tg = TPG.mod;
+  try {
+    const md = engModelAt(E.s, E.ranges, E.pol, E.tier, E.meta), toCallNow = tg.toCall(E.s), eq = md.eq;
+    E.pending = { d: md.d };
+    const cat = { fold: 0, check: 0, call: 0, raise: 0 };
+    for (const m of md.mix) cat[m.a === "f" ? "fold" : m.a === "k" || (m.a === "c" && !toCallNow) ? "check" : m.a === "c" ? "call" : "raise"] += m.p;
+    g.model = md;
+    g.src = { ...(g.src || {}), "act.choice": "model" };
+    g.v["act.choice"] = cat;
+    if (Number.isFinite(eq)) { g.v["hand.equity"] = Math.round(eq * 100); g.src["hand.equity"] = "model"; delete g.note["hand.equity"]; }
+    // share_better: of my public range (weights from the policy), the share with higher equity than my hand
+    // against the same opponents; ties count half. Chip 0 = top 20% (TP v0.2, form B).
+    const all = tg.multiEquity(E.s, md.d.seat, E.ranges), w = E.ranges[md.d.seat];
+    let tot = 0, better = 0;
+    for (let c = 0; c < all.length; c++) { if (!(w[c] > 0) || !Number.isFinite(all[c])) continue; tot += w[c]; better += all[c] > eq ? w[c] : all[c] === eq ? w[c] / 2 : 0; }
+    if (tot > 0 && Number.isFinite(eq)) { md.rankShare = better / tot; md.rankChip = Math.min(4, Math.floor(md.rankShare * 5)); }
+  } catch (e) { engBreak(e); g.model = null; }
+}
+// What the hero's choice is to the table: its menu label and, for an off-menu size, the translation.
+function engHeroChoice(g, action, to) {
+  if (!g.model) return null;
+  try {
+    const { label, tr } = engLabel(g.model.d, { type: action, to }, to);
+    const m = g.model.mix.find(x => x.a === label);
+    return { label, p: m ? m.p : 0, note: !tr || tr.menuTo === to ? "" : `AI 해석: ${bbx(to)}BB를 ${m ? m.name : label}로 간주` };
+  } catch (e) { return null; }
+}
+function modelMixHTML(model, you) {
+  return `<div class="mixm">${model.mix.map(m => { const me = you && m.a === you.label; return `<div class="r${me ? " you" : ""}"><div class="bar" style="--c:${MENU_COL[m.a] || "#8d999c"}"><i style="width:${(m.p * 100).toFixed(1)}%"></i><span>${m.name}${me ? " · 내 선택" : ""}</span></div><span class="pc num">${Math.round(m.p * 100)}%</span></div>`; }).join("")}</div>`;
+}
+
+/* ---------- mock TP-GTO (stand-in for the answers the model does not give) ---------- */
 const shrink = (k, n, prior, w) => (k + prior * w) / (n + w);
 function targetOpp(hero) {
   for (const k of [G.streetAgg, G.lastAgg]) if (k != null && k !== hero.i && !G.seats[k].folded) return G.seats[k];
@@ -1488,7 +1759,8 @@ function heroTurn(hero) {
     heroResolve = res;
     $("#seat-" + hero.i).classList.add("acting");
     const g = computeGTO(hero);
-    CUR = { hero, g, answers: {}, action: null, size: null };
+    if (G.eng) engHeroTruth(hero, g);
+    CUR = { hero, g, answers: {}, action: null, size: null, to: null };
     if (S.eqab === "on") { AB ||= abStart(); CUR.ab = abNext() < .5 ? "A" : "B"; }
     else if (S.tier === "beginner") { AB ||= abStart(); CUR.rank = true; } // eqabTruth("B") samples with AB's seed
     setTP("ask"); renderInfo();
@@ -1562,7 +1834,7 @@ function quickItems() {
   return MODES.quick.rule[spotType()].filter(k => tier.includes(k) && applies(k) && !naNow(k)).slice(0, MODES.quick.max_judgments);
 }
 const actionDone = () => !!CUR.action && (CUR.action !== "raise" || CUR.size != null);
-const actionLabel = () => CUR.action === "raise" ? (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + sizeOptions()[CUR.size].label : ACT_NM[CUR.action];
+const actionLabel = () => CUR.action === "raise" ? (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + curSize().label : ACT_NM[CUR.action];
 // Quick (TP §4.2): the action comes first and ends the decision; the core judgments are asked only on "분석 보기".
 function setQuick() {
   CUR.quick = "act";
@@ -1573,7 +1845,7 @@ function setQuick() {
     </section></div>`;
   const foot = $("#tp-foot"); foot.hidden = false;
   foot.innerHTML = `<div class="tpc-nav"><button class="cta ghost small" id="tp-analyze" disabled>분석 보기</button><span></span><button class="cta small" id="tp-go" disabled>진행</button></div>
-    <span class="tpc-note">진행하면 바로 넘어가요. 분석 보기는 핵심 판단 ${n}개를 묻고 TP-GTO(${CONF})와 비교해요. 내 차례에는 레벨 시계가 멈춰요.</span>`;
+    <span class="tpc-note">진행하면 바로 넘어가고 TP-GTO 혼합 전략과 비교해 보여 줘요. 분석 보기는 핵심 판단 ${n}개를 묻고 채점해요(${CUR.g.model ? modelTag(CUR.g.model.meta) + " · 출처가 없는 항목은 " + CONF : "정답 " + CONF}).${G.tour ? " 내 차례에는 레벨 시계가 멈춰요." : ""}</span>`;
   bindInputs($("#tp-body"));
   $("#tp-go").onclick = () => finishHero(null);
   $("#tp-analyze").onclick = quickAnalyze;
@@ -1584,11 +1856,11 @@ function quickAnalyze() {
   CUR.quick = "ask"; CUR.qkeys = quickItems();
   $("#tp-body").innerHTML = `${oppLine()}<div class="tpc-view"><section class="tpc" data-card="quick-ask" aria-label="분석 · 핵심 판단">
       <header class="tpc-h"><span class="tpc-letter">Q</span><span class="tpc-name">분석 · 핵심 판단</span><span class="tpc-count num">${CUR.qkeys.length}개</span></header>
-      <div class="hint">고른 액션(${actionLabel()})은 그대로 두고, 이 스팟의 핵심 판단만 답한 뒤 TP-GTO(모의)와 비교해요.</div>
+      <div class="hint">고른 액션(${actionLabel()})은 그대로 두고, 이 스팟의 핵심 판단만 답한 뒤 TP-GTO와 비교해요.</div>
       ${CUR.qkeys.map((k, i) => `<div class="q" data-k="${k}"><div class="n">${i + 1}</div><div class="body">${qInput(k, false)}</div></div>`).join("")}
     </section></div>`;
   $("#tp-foot").innerHTML = `<div class="tpc-nav"><span></span><span></span><button class="cta small" id="tp-submit" disabled>비교 보기</button></div>
-    <span class="tpc-note">비교하면 채점하고 고른 액션으로 진행해요(정답 ${CONF}).</span>`;
+    <span class="tpc-note">비교하면 채점하고 고른 액션으로 진행해요(${CUR.g.model ? "에퀴티·액션은 " + modelTag(CUR.g.model.meta) + ", 나머지는 " + CONF : "정답 " + CONF}).</span>`;
   bindInputs($("#tp-body"));
   if (CUR.qkeys.includes("hand.equity")) CUR.abShown = performance.now();
   $("#tp-submit").onclick = () => finishHero([...CUR.qkeys, "act.choice"]);
@@ -1603,7 +1875,7 @@ const isFollow = k => TP[k].stage[0] === "G";
 // Card G holds the checks that depend on the chosen action; it exists only while it has questions.
 function renderFollow() {
   const keys = itemsNow().filter(isFollow), sec = $('#tp-body .tpc[data-card="follow"]');
-  if (CUR.action === "raise" && CUR.size != null) { const o = sizeOptions()[CUR.size]; CUR.g.rep = o; CUR.g.v["plan.foldeq"] = CUR.g.foldeqAt(o.to); }
+  if (CUR.action === "raise" && CUR.size != null) { const o = curSize(); CUR.g.rep = o; CUR.g.v["plan.foldeq"] = CUR.g.foldeqAt(o.to); }
   CUR.cards = CUR.cards.slice(0, CUR.base);
   if (keys.length) CUR.cards.push({ stage: "G 액션 점검", keys });
   let n = CUR.qn;
@@ -1680,21 +1952,35 @@ function gridCells() {
   return cells.join("");
 }
 function paintGrid(grid, keys, gtoKeys) { $$("div", grid).forEach(d => { d.classList.toggle("on", keys.has(d.dataset.key)); if (gtoKeys) d.classList.toggle("gto", gtoKeys.has(d.dataset.key)); }); }
+// Shortcuts only (TP §6 size buckets, the same for every tier); any amount from the minimum raise to all in is allowed.
 function sizeOptions() {
-  const L = CUR.g.L, pre = G.street === 0, pot = CUR.g.pot, beg = S.tier === "beginner", pro = S.tier === "pro";
+  const L = CUR.g.L, pre = G.street === 0, pot = CUR.g.pot;
   let opts;
-  if (pre && G.currentBet === G.bb) opts = (beg ? [2.5, 3] : pro ? [2.2, 2.5, 3, 4] : [2.2, 2.5, 3]).map(x => ({ label: x + "x", to: x * G.bb }));
-  else if (pre || L.toCall > 0) opts = (beg ? [3] : pro ? [2.5, 3, 4] : [2.5, 3.5]).map(x => ({ label: x + "x", to: G.currentBet * x }));
-  else opts = (beg ? [50, 100] : pro ? [33, 50, 75, 100, 150] : [33, 50, 75, 100]).map(x => ({ label: x + "%", to: G.currentBet + pot * x / 100 }));
+  if (pre) opts = [2.2, 2.5, 3].map(x => ({ label: x + "x", to: Math.round(G.currentBet * x) }));
+  else opts = [33, 50, 75, 100, 150].map(x => ({ label: x + "%", to: Math.round(G.currentBet + (pot + L.toCall) * x / 100) }));
+  opts = opts.filter(o => o.to >= L.minTo && o.to < L.maxTo);
   opts.push({ label: "올인", to: L.maxTo });
-  return opts.filter(o => o.to <= L.maxTo + 1).filter((o, i, a) => o.label === "올인" || o.to < L.maxTo);
+  return opts;
 }
+function sizeLabel(to) {
+  const L = CUR.g.L, pot = CUR.g.pot;
+  if (to >= L.maxTo) return "올인 " + bbf(to) + "BB";
+  const o = sizeOptions().find(x => x.to === to);
+  if (o) return o.label + " · " + bbf(to) + "BB";
+  return bbf(to) + "BB" + (G.street > 0 ? ` (팟 ${Math.round((to - G.currentBet) / Math.max(pot + L.toCall, 1) * 100)}%)` : "");
+}
+const curSize = () => ({ label: sizeLabel(CUR.to), to: CUR.to });
 function actionInput() {
   const L = CUR.g.L;
   const btn = (t, label, dis) => `<button class="act" data-act="${t}" ${dis ? "disabled" : ""} aria-pressed="false">${label}</button>`;
   return `<div class="t"><span>액션</span><span class="val num" data-val>—</span></div>
     <div class="acts">${btn("fold", "폴드", L.canCheck)}${L.canCheck ? btn("check", "체크") : btn("call", "콜 " + bbf(L.toCall))}${btn("raise", L.toCall || G.street === 0 ? "레이즈" : "벳", !L.canRaise)}</div>
-    <div class="sizes" data-sizes hidden>${sizeOptions().map((o, i) => `<button class="size" data-size="${i}" aria-pressed="false">${o.label}</button>`).join("")}</div>`;
+    <div data-sizes hidden>
+      <div class="sizes">${sizeOptions().map((o, i) => `<button class="size" data-size="${i}" aria-pressed="false">${o.label}</button>`).join("")}</div>
+      <div class="size-free"><input type="range" data-size-range min="${L.minTo}" max="${L.maxTo}" step="10" value="${L.minTo}" aria-label="벳·레이즈 금액"><label class="size-num"><input type="number" data-size-num min="${L.minTo / G.bb}" max="${L.maxTo / G.bb}" step="0.1" inputmode="decimal" aria-label="벳·레이즈 금액 직접 입력 (BB)"><span>BB</span></label></div>
+      <div class="size-cap">최소 ${bbf(L.minTo)}BB · 최대 ${bbf(L.maxTo)}BB(올인) · 금액은 자유롭게 정할 수 있어요</div>
+      <div class="size-msg" data-size-msg role="alert" hidden></div>
+    </div>`;
 }
 function setFill(inp) { inp.style.setProperty("--fill", ((inp.value - inp.min) / (inp.max - inp.min) * 100) + "%"); }
 function bindInputs(root) {
@@ -1729,11 +2015,42 @@ function bindInputs(root) {
     }
   }
   $$("[data-act]", root).forEach(b => b.addEventListener("click", () => {
-    $$("[data-act]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.action = b.dataset.act; CUR.size = null;
+    $$("[data-act]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.action = b.dataset.act; CUR.size = null; CUR.to = null;
     const sz = $("[data-sizes]"); sz.hidden = CUR.action !== "raise"; $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", "false"));
     $("[data-val]", b.closest(".body")).textContent = b.textContent; delete CUR.answers["plan.foldeq"]; CUR.quick ? quickNav() : renderFollow();
   }));
-  $$("[data-size]", root).forEach(b => b.addEventListener("click", () => { $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", x === b)); CUR.size = +b.dataset.size; const o = sizeOptions()[CUR.size]; $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || CUR.g.L.toCall ? "레이즈 " : "벳 ") + o.label; delete CUR.answers["plan.foldeq"]; CUR.quick ? quickNav() : renderFollow(); }));
+  const setSize = (to, fromRange) => {
+    const L = CUR.g.L;
+    to = clamp(Math.round(to), L.minTo, L.maxTo);
+    CUR.to = to; CUR.size = "set";
+    const opts = sizeOptions();
+    $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", String(opts[+x.dataset.size]?.to === to)));
+    const rg = $("[data-size-range]"), num = $("[data-size-num]");
+    if (rg && !fromRange) rg.value = to;
+    if (rg) setFill(rg);
+    if (num && document.activeElement !== num) num.value = (to / G.bb).toFixed(1);
+    $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = (G.street === 0 || L.toCall ? "레이즈 " : "벳 ") + sizeLabel(to);
+    delete CUR.answers["plan.foldeq"]; CUR.quick ? quickNav() : renderFollow();
+  };
+  $$("[data-size]", root).forEach(b => b.addEventListener("click", () => { sizeMsg(""); setSize(sizeOptions()[+b.dataset.size].to); }));
+  $$("[data-size-range]", root).forEach(r => { setFill(r); r.addEventListener("input", () => { sizeMsg(""); setSize(+r.value, true); }); });
+  const sizeMsg = text => { const m = $("[data-size-msg]"); if (m) { m.textContent = text || ""; m.hidden = !text; } };
+  $$("[data-size-num]", root).forEach(n => {
+    n.addEventListener("change", () => {
+      const v = parseFloat(n.value), L = CUR.g.L, to = Math.round(v * G.bb);
+      if (!Number.isFinite(v)) { sizeMsg("금액을 숫자로 넣어 주세요(BB 단위)."); return; }
+      if (to < L.minTo || to > L.maxTo) {
+        // Refuse instead of clamping: the player must see why the amount did not take.
+        CUR.to = null; CUR.size = null; $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", "false"));
+        $("[data-act='raise']").closest(".body").querySelector("[data-val]").textContent = G.street === 0 || L.toCall ? "레이즈" : "벳";
+        sizeMsg(to < L.minTo ? `최소 레이즈는 ${bbf(L.minTo)}BB예요. ${bbf(to)}BB는 낼 수 없어요.` : `내 스택으로는 ${bbf(L.maxTo)}BB(올인)까지만 낼 수 있어요.`);
+        CUR.quick ? quickNav() : renderFollow();
+        return;
+      }
+      sizeMsg(""); setSize(to); n.value = (CUR.to / G.bb).toFixed(1);
+    });
+    n.addEventListener("keydown", e => { if (e.key === "Enter") n.blur(); });
+  });
 }
 // Inputs for the shared answer explanation, from what the mock teacher used for this decision.
 function trainWhyCtx(g) {
@@ -1758,7 +2075,8 @@ function finishHero(keys) {
   for (const k of keys || []) {
     if (naNow(k)) continue;
     if (k === "act.choice") {
-      refs.push({ k, kind: "action", mix: g.v[k], you: CUR.action });
+      if (g.model) refs.push({ k, kind: "model-action", model: g.model, you: engHeroChoice(g, CUR.action, CUR.to) });
+      else refs.push({ k, kind: "action", mix: g.v[k], you: CUR.action });
     } else if (TP[k].reflection) {
       if (CUR.answers[k] != null) refs.push({ k, kind: "reflect", you: CUR.answers[k] });
     } else if (k === "opp.range") {
@@ -1773,21 +2091,26 @@ function finishHero(keys) {
     } else if (k === "hand.equity" && CUR.rank) {
       // Chip 0 = top 20%; the bar runs weak -> strong like equity, so position = (4 - chip) * 25.
       if (CUR.answers[k] == null) continue;
-      const u = CUR.answers[k], t = eqabTruth("B", g, heroRangePct(CUR.hero)), pos = c => (4 - c) * 25;
-      rows.push({ k, kind: "scalar", you: pos(u), gto: pos(t), labels: EQAB_FORMS.B.chips, youL: EQAB_FORMS.B.chips[u], gtoL: EQAB_FORMS.B.chips[t], note: `순위형(초보): 내 레인지(모의: 상위 ${heroRangePct(CUR.hero)}%) 안에서 같은 상대에게 내 핸드보다 에퀴티가 높은 콤보 비율(표본 60)`, ...scoreScalar(pos(u), pos(t)) });
+      const mr = g.model?.rankChip, u = CUR.answers[k], t = mr ?? eqabTruth("B", g, heroRangePct(CUR.hero)), pos = c => (4 - c) * 25;
+      const note = mr != null
+        ? `순위형(초보): 내 레인지(TP-GTO 정책으로 좁힌 공개 레인지) 안에서 같은 상대들에게 내 핸드보다 에퀴티가 높은 콤보 비중 ${Math.round(g.model.rankShare * 100)}%`
+        : `순위형(초보): 내 레인지(모의: 상위 ${heroRangePct(CUR.hero)}%) 안에서 같은 상대에게 내 핸드보다 에퀴티가 높은 콤보 비율(표본 60)`;
+      rows.push({ k, kind: "scalar", you: pos(u), gto: pos(t), labels: EQAB_FORMS.B.chips, youL: EQAB_FORMS.B.chips[u], gtoL: EQAB_FORMS.B.chips[t], note, src: mr != null ? "model" : undefined, ...scoreScalar(pos(u), pos(t)) });
     } else if (g.v[k] != null) {
-      const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], note: g.note[k], ...scoreScalar(u, g.v[k]) });
+      const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], note: g.note[k], src: g.src?.[k], ...scoreScalar(u, g.v[k]) });
     }
   }
   rows.forEach(r => recordScore(r.k, r.score));
   const ctx = trainWhyCtx(g);
-  rows.forEach(r => r.why = whyHTML(r.k, { ...ctx, text: ctx.texts[r.k] }));
+  rows.forEach(r => r.why = r.src === "model" ? modelWhyHTML(r.k, g) : whyHTML(r.k, { ...ctx, text: ctx.texts[r.k] }));
   const total = rows.length ? Math.round(rows.reduce((a, r) => a + r.score, 0) / rows.length) : null;
   const worst = rows.slice().sort((a, b) => a.score - b.score)[0];
-  G.lastGrade = keys ? { rows, refs, total, worst, mode: CUR.quick ? "Quick" : "Guided", street: ["프리플랍", "플랍", "턴", "리버"][G.street], hand: CUR.hero.cards.map(cardTxt).join(" ") } : null;
+  const gstreet = ["프리플랍", "플랍", "턴", "리버"][G.street], ghand = CUR.hero.cards.map(cardTxt).join(" ");
+  G.lastGrade = keys ? { rows, refs, total, worst, mode: CUR.quick ? "Quick" : "Guided", street: gstreet, hand: ghand, meta: g.model?.meta }
+    : g.model ? { rows: [], refs: [{ k: "act.choice", kind: "model-action", model: g.model, you: engHeroChoice(g, CUR.action, CUR.to) }], total: null, mode: "Quick", street: gstreet, hand: ghand, meta: g.model.meta, actionOnly: true } : null;
   // resolve action
   let act;
-  if (CUR.action === "raise") act = { type: "raise", to: sizeOptions()[CUR.size].to };
+  if (CUR.action === "raise") act = { type: "raise", to: CUR.to };
   else act = { type: CUR.action };
   $("#seat-" + CUR.hero.i).classList.remove("acting");
   const res = heroResolve; heroResolve = null; CUR = null;
@@ -1803,18 +2126,37 @@ function mixRefHTML(mix, you, title) {
     <div class="mix">${order.filter(o => mix[o] > 0).map(o => `<span style="width:${mix[o] * 100}%;background:${ACT_COL[o]}">${mix[o] >= .12 ? ACT_NM[o] + " " + Math.round(mix[o] * 100) + "%" : ""}</span>`).join("")}</div>
     <div class="cap"><span>모의 참고: TP-GTO(모의) 혼합 전략 · 내 선택 빈도 ${p}%</span><span>EV 손실 미산출 · 점수 제외</span></div></div>`;
 }
+// The policy's mixed strategy for the hero's real hand (TP §5: no Q values yet, so reference only).
+function modelActionHTML(r) {
+  const m = r.model.meta, you = r.you;
+  return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 <b class="num">${you ? Math.round(you.p * 100) + "%" : "—"}</b></span>${modelTag(m)}</div>
+    ${modelMixHTML(r.model, you)}
+    ${you?.note ? `<div class="cap"><span>${you.note}</span></div>` : ""}
+    <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
+    <div class="model-line">TP-GTO · 학습 중간본 · ${modelLine(m)}</div></div>`;
+}
+function modelWhyHTML(k, g) {
+  const m = g.model;
+  if (k !== "hand.equity" || !m) return "";
+  return `<div class="why-head"><span>왜 이 답인가</span>${modelTag(m.meta)}</div><p>남은 상대 모두를 이길 확률이에요. 상대마다 지금까지의 액션으로 좁힌 <b>공개 레인지</b>(1326 조합, 각자 같은 TP-GTO 정책으로 액션마다 베이즈 갱신)를 쓰고, 상대별 에퀴티를 곱해요. 정책은 이 값을 ${m.k}단계 눈금으로 나눠 판단하고, 이번 핸드는 <b>${m.k}단계 중 ${m.step % 1000 + 1}단계</b>예요.</p>`;
+}
 function resultHTML(gr, compact) {
-  let html = `<div class="result-top"><div class="ring" style="--v:${gr.total ?? 0}"><b class="num">${gr.total ?? "—"}</b></div><div><div style="font-weight:600">${gr.street} 판단 채점${gr.mode === "Quick" ? " · Quick 분석" : ""} ${CONF}</div><div style="font-size:12px;color:var(--muted)">내 핸드 ${gr.hand} · 흰 막대 = 내 입력, 초록 막대 = TP-GTO(모의)${gr.total == null ? " · 이번에는 채점할 판단이 없었어요" : ""}</div></div></div>`;
+  const anyModel = gr.rows.some(r => r.src === "model") || (gr.refs || []).some(r => r.kind === "model-action");
+  const head = gr.actionOnly
+    ? `<div class="result-top"><div><div style="font-weight:600">${gr.street} 액션 비교 · Quick ${modelTag(gr.meta)}</div><div style="font-size:12px;color:var(--muted)">내 핸드 ${gr.hand} · 분석 보기를 누르면 핵심 판단도 채점해요</div></div></div>`
+    : `<div class="result-top"><div class="ring" style="--v:${gr.total ?? 0}"><b class="num">${gr.total ?? "—"}</b></div><div><div style="font-weight:600">${gr.street} 판단 채점${gr.mode === "Quick" ? " · Quick 분석" : ""} ${anyModel ? modelTag(gr.meta) : ""}${gr.rows.some(r => r.src !== "model") ? " " + CONF : ""}</div><div style="font-size:12px;color:var(--muted)">내 핸드 ${gr.hand} · 흰 막대 = 내 입력, 초록 막대 = TP-GTO${gr.total == null ? " · 이번에는 채점할 판단이 없었어요" : ""}</div></div></div>`;
+  let html = head;
   for (const r of gr.rows) {
-    const cls = r.score >= 80 ? "good" : r.score >= 55 ? "warn" : "bad";
+    const cls = r.score >= 80 ? "good" : r.score >= 55 ? "warn" : "bad", mdl = r.src === "model";
     const lo = Math.min(r.you, r.gto), hi = Math.max(r.you, r.gto);
-    html += `<div class="rrow"><div class="t"><span>${SHORT[r.k]}</span><b class="num ${cls}">${r.score}</b></div>
+    html += `<div class="rrow"><div class="t"><span>${SHORT[r.k]} ${mdl ? modelTag(gr.meta) : CONF}</span><b class="num ${cls}">${r.score}</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${r.gto}%"></div><div class="mk you" style="left:${r.you}%"></div></div>
-      <div class="cap"><span>나 ${r.youL ?? (r.kind === "range" ? "상위 " + r.you + "%" : r.you)}</span><span>${r.gtoL ? `참값 ${CONF} ${r.gtoL}` : `TP-GTO(모의) ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}`}</span></div>
-      ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}${r.why ? `<details class="why"><summary>왜 이 답인가 ${CONF}</summary>${r.why}</details>` : ""}</div>`;
+      <div class="cap"><span>나 ${r.youL ?? (r.kind === "range" ? "상위 " + r.you + "%" : r.you)}</span><span>${r.gtoL ? `참값 ${mdl ? modelTag(gr.meta) : CONF} ${r.gtoL}` : `${mdl ? "TP-GTO" : "TP-GTO(모의)"} ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}`}</span></div>
+      ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}${r.why ? `<details class="why"><summary>왜 이 답인가 ${mdl ? modelTag(gr.meta) : CONF}</summary>${r.why}</details>` : ""}</div>`;
   }
   for (const r of gr.refs || []) {
-    if (r.kind === "action") html += mixRefHTML(r.mix, r.you, SHORT[r.k]);
+    if (r.kind === "model-action") html += modelActionHTML(r);
+    else if (r.kind === "action") html += mixRefHTML(r.mix, r.you, SHORT[r.k]);
     else if (r.kind === "ab") { const f = EQAB_FORMS[r.f]; html += `<div class="rrow ref" data-ab><div class="t"><span>질문 형태 실험 · 형태 ${r.f} ${f.title}</span><span style="font-size:11px;color:var(--faint)">채점 안 함</span></div><div class="cap"><span>내 답 <b class="${r.a === r.t ? "good" : "bad"}">${f.chips[r.a]}</b></span><span>참값 ${CONF} ${f.chips[r.t]}</span></div><div class="cap"><span>입력 ${(r.ms / 1000).toFixed(1)}초 · 학습 섹션에서 형태별 결과를 볼 수 있어요.</span></div></div>`; }
     else html += `<div class="rrow ref"><div class="t"><span>${SHORT[r.k]} · 내 답 <b class="num">${r.you}</b></span><span style="font-size:11px;color:var(--faint)">채점 안 함</span></div><div class="cap"><span>정의가 확정되지 않은 성찰 질문이라 정답·점수가 없어요.</span></div></div>`;
   }
@@ -1828,6 +2170,7 @@ function resultHTML(gr, compact) {
 // middle, threshold = the next answer on the tier's grid toward the middle.
 function driversHTML(gr) {
   const step = TIERS[S.tier].step === 1 ? 5 : TIERS[S.tier].step;
+  if (gr.actionOnly) return "";
   const top = gr.rows.filter(r => r.kind !== "range").map(r => ({ r, c: Math.abs(r.gto - 50) }))
     .sort((a, b) => b.c - a.c).slice(0, 3);
   if (!top.length) return "";
@@ -1846,6 +2189,7 @@ $("#tp-handle").addEventListener("click", () => $("#tp").classList.toggle("open"
 
 /* ---------- showdown & payout ---------- */
 async function showdown(alive) {
+  if (G.eng) G.eng.lastHand = { hand: G.handNo, ok: G.eng.ok, done: !!G.eng.s?.done };
   const contenders = live();
   const banner = h("div", "banner");
   if (contenders.length === 1) {
@@ -2238,7 +2582,7 @@ function renderDrill() {
       <div class="t"><span>${qText}</span><span class="val num" id="dr-val">${LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val}</span></div>${scale}
     </div></div>
     <div id="dr-res"></div>
-    <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go" ${LM.answered || LM.val != null ? "" : "disabled"}>${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 ${CONF} 값이에요(몬테카를로 계산, 데모).</span></div>`;
+    <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go" ${LM.answered || LM.val != null ? "" : "disabled"}>${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 ${CONF} 값이에요(몬테카를로 계산).</span></div>`;
   bindDrillCommon();
   const qel = $(".dr-q", el), mark = () => { $$("[data-chip]", qel).forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.chip === LM.val))); $("#dr-val").textContent = LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val; $("#dr-go").disabled = !LM.answered && LM.val == null; };
   const setV = v => { if (LM.answered) return; LM.val = clamp(Math.round(v), isRange ? 2 : 0, 100); mark(); };
@@ -2304,7 +2648,7 @@ function explain(k, p) {
 // Steps: position → hand → preflop → flop → turn → river → showdown(if any) → compare.
 // Actions go through the same hand model as the learning tables, so only legal, in-order actions can be entered.
 const RV_STEPS = ["포지션", "핸드", "프리플랍", "플랍", "턴", "리버", "쇼다운", "비교"];
-const RV = { step: 0, mode: "tournament", heroPos: "BTN", stack: 25, hero: [null, null], acts: [], buf: [], sd: {}, sdSlot: null, sizing: false };
+const RV = { step: 0, mode: "cash", heroPos: "BTN", stack: 100, hero: [null, null], acts: [], buf: [], sd: {}, sdSlot: null, sizing: false };
 function rvRebuild() {
   const h = rhNew(RV.heroPos, RV.stack);
   for (const a of RV.acts) { if (a.deal) rhNextStreet(h, a.deal); else rhAct(h, a); }
@@ -2441,7 +2785,7 @@ function renderRvBody(h) {
     }
     return;
   }
-  b.innerHTML = `<h2>비교 결과 ${CONF}</h2><div id="rv-out"></div>`;
+  b.innerHTML = `<h2>비교 결과</h2><div id="rv-out"></div>`;
   analyzeReview();
 }
 const OPEN_PCT = { UTG: 15, HJ: 21, CO: 28, BTN: 42, SB: 38, BB: 50 };
@@ -2468,6 +2812,33 @@ function rvRange(log, pos) {
   }
   return [pct, steps];
 }
+// A cash 6-max 100BB review hand is replayed on the engine up to the hero's last decision, so the comparison
+// comes from the trained policy (the other seats' cards are unknown and do not enter any public key).
+function rvModel(h, di) {
+  const tier = S.tier, pol = TPG.pol[tier], tg = TPG.mod, meta = modelMeta(tier);
+  if (!pol || !tg || RV.mode !== "cash" || RV.stack !== 100) return null;
+  try {
+    const used = new Set([...RV.hero, ...h.board]), free = [];
+    for (let c = 51; c >= 0; c--) if (!used.has(c)) free.push(c);
+    const holes = RPOS.map(p => p === RV.heroPos ? RV.hero.slice() : [free.pop(), free.pop()]);
+    let st = tg.newHand({ n: 6, holes, board: h.board.slice() }), ranges = tg.initialRanges(6);
+    for (let i = 0; i <= di; i++) {
+      const l = h.log[i], seat = RPOS.indexOf(l.pos);
+      if (st.done || st.toAct !== seat || st.street !== l.st) return null;
+      if (i === di) {
+        const md = engModelAt(st, ranges, pol, tier, meta), to = l.type === "raise" ? Math.round(l.to * 100) : null;
+        const lab = engLabelAt(st, l.type, to), m = md.mix.find(x => x.a === lab.label);
+        md.you = { label: lab.label, p: m ? m.p : 0, note: lab.menuTo == null || lab.menuTo === to ? "" : `AI 해석: ${bbx(to)}BB를 ${m ? m.name : lab.label}로 간주` };
+        return md;
+      }
+      const d = tg.decisionKey(st, ranges, tier), to = l.type === "raise" ? Math.round(l.to * 100) : null;
+      const { label } = engLabelAt(st, l.type, to);
+      ranges = tg.updateRanges(pol, d, ranges, label);
+      st = l.type === "raise" ? tg.applyBet(st, to) : tg.apply(st, label);
+    }
+  } catch (e) { console.warn("[tpgto] review replay off:", e.message); }
+  return null;
+}
 function analyzeReview() {
   const out = $("#rv-out"), h = RV.h, log = h.log;
   const di = log.map((l, i) => l.isHero ? i : -1).filter(i => i >= 0).at(-1);
@@ -2483,12 +2854,20 @@ function analyzeReview() {
   const mix = facing ? (eq - odds > .2 ? { raise: .5, call: .45, fold: .05 } : eq - odds > 0 ? { call: .8, raise: .05, fold: .15 } : { fold: .85, call: .15 }) : (eq > .62 ? { raise: .7, check: .3 } : eq > .45 ? { check: .6, raise: .4 } : { check: .8, raise: .2 });
   const ctx = { hero: RV.hero, board, oppPct: pct, heroPct, steps };
   const why = k => `<details class="why"><summary>왜 이 답인가 ${CONF}</summary>${whyHTML(k, ctx)}</details>`;
-  out.innerHTML = `<p class="sub">마지막 내 결정(${ST_NM[d.st]} · ${d.label}) 기준으로, 상대 ${oppPos}에 대해 TP-GTO(모의)가 이 상황을 어떻게 봤는지 보여줘요. 복기에서는 상대 정책을 모르므로 공개 액션으로 추정한 레인지예요.</p>
+  const md = rvModel(h, di);
+  const eqRow = md && Number.isFinite(md.eq)
+    ? `<div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티 ${modelTag(md.meta)}</span><b class="num">${Math.round(md.eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${md.eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}<details class="why"><summary>왜 이 답인가 ${modelTag(md.meta)}</summary>${modelWhyHTML("hand.equity", { model: md })}</details></div>`
+    : `<div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티 ${CONF}</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}${why("hand.equity")}</div>`;
+  const actRow = md ? modelActionHTML({ k: "act.choice", model: md, you: md.you }).replace(SHORT["act.choice"], "4 · 액션") : mixRefHTML(mix, d.type, "4 · 액션");
+  const intro = md
+    ? `마지막 내 결정(${ST_NM[d.st]} · ${d.label})까지 이 핸드를 학습된 TP-GTO(${TIERS[S.tier].name})로 다시 재생해, 같은 상황에서 정책이 어떻게 두는지 보여줘요. 에퀴티는 각 좌석이 같은 정책으로 둔다고 보고 좁힌 공개 레인지 기준이에요. 레인지 추정·보드 읽기는 아직 ${CONF} 값이에요.`
+    : `마지막 내 결정(${ST_NM[d.st]} · ${d.label}) 기준으로, 상대 ${oppPos}에 대해 TP-GTO(모의)가 이 상황을 어떻게 봤는지 보여줘요. ${RV.mode === "cash" && RV.stack === 100 ? "" : "학습된 TP-GTO는 캐시게임 6인 100BB 핸드에서만 비교할 수 있어요. "}복기에서는 상대 정책을 모르므로 공개 액션으로 추정한 레인지예요.`;
+  out.innerHTML = `<p class="sub">${intro}</p>
     <div style="display:grid;gap:10px">
       <div class="rrow"><div class="t"><span>1 · ${oppPos} 레인지 추정</span><b class="num">상위 ${pct}%</b></div>${why("opp.range")}</div>
       ${adv != null ? `<div class="rrow"><div class="t"><span>2 · 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)</span><b class="num">${adv}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${adv}%"></div></div>${why("board.adv")}</div>` : ""}
-      <div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}${why("hand.equity")}</div>
-      ${mixRefHTML(mix, d.type, "4 · 액션")}
+      ${eqRow}
+      ${actRow}
     </div>
     <div class="start-row"><button class="cta" id="rv-train">비슷한 상황으로 훈련 시작</button><button class="cta ghost small" id="rv-new">새 핸드 복기</button></div>`;
   $("#rv-train").onclick = () => {

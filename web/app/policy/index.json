@@ -1,0 +1,52 @@
+{
+ "schema": "stalker.web.policy-index",
+ "schema_version": 1,
+ "tiers": {
+  "beginner": {
+   "file": "beginner-6.json",
+   "bytes": 62479,
+   "tier": "beginner",
+   "players": 6,
+   "k": 5,
+   "depth": "basic",
+   "iterations": 200000,
+   "run_id": "40783153094",
+   "sha": "2044ebd",
+   "lbr_bb": 1.1277,
+   "lbr_stderr_bb": 0.2215,
+   "field_worst": {
+    "name": "tag5",
+    "bb100": -54.9,
+    "ci95_low": -108.79
+   },
+   "job": "e3-tp-beginner",
+   "q": 255,
+   "min_visits": 0,
+   "keys": 1724,
+   "keys_dropped": 0
+  },
+  "mid": {
+   "file": "mid-6.json",
+   "bytes": 1611729,
+   "tier": "mid",
+   "players": 6,
+   "k": 11,
+   "depth": "full",
+   "iterations": 100000,
+   "run_id": "40780486937",
+   "sha": "2044ebd",
+   "lbr_bb": 0.721,
+   "lbr_stderr_bb": 0.224,
+   "field_worst": {
+    "name": "nit5",
+    "bb100": -33.32,
+    "ci95_low": -91.07
+   },
+   "job": "e3-tp-mid-w4",
+   "q": 255,
+   "min_visits": 0,
+   "keys": 43757,
+   "keys_dropped": 0
+  }
+ }
+}

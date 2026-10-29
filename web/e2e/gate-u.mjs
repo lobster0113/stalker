@@ -1,13 +1,25 @@
-// Gate U 센서: 데모 E2E 흐름 + 3종 화면 스크린샷 + 가로 스크롤/axe 검사. 사용법은 web/README.md.
+// Gate U 센서: 서비스 E2E 흐름 + 3종 화면 스크린샷 + 가로 스크롤/axe 검사. 사용법은 web/README.md.
 import { chromium } from "playwright";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { mkdirSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, extname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
+// The page loads the TP-GTO engine and policies with import()/fetch, which file:// blocks: serve web/.
+const webRoot = resolve(here, "..");
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json" };
+const server = createServer((req, res) => {
+  const path = resolve(webRoot, "." + decodeURIComponent(new URL(req.url, "http://x").pathname));
+  if (!path.startsWith(webRoot + sep) || !existsSync(path) || !statSync(path).isFile()) { res.writeHead(404); res.end(); return; }
+  const body = readFileSync(path);
+  res.writeHead(200, { "content-type": TYPES[extname(path)] || "application/octet-stream", "content-length": body.length });
+  res.end(body);
+});
+await new Promise(r => server.listen(0, "127.0.0.1", r));
 // abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass.
-const url = pathToFileURL(resolve(here, "../demo/index.html")).href + "?speed=30&abseed=1";
+const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1`;
 const shots = resolve(process.env.SCREENSHOT_DIR || resolve(here, "screenshots"));
 const axeSource = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const VIEWPORTS = [["phone", 390, 844], ["tablet", 820, 1180], ["laptop", 1440, 900]];
@@ -66,36 +78,107 @@ async function inspect(tag, focus) {
 // 1. 시작 → 테이블 → 내 차례(Quick: 액션 먼저 → 진행 / 분석 보기 → 비교) → Guided TP 입력 → 제출 → 채점
 await page.goto(url);
 must(await page.locator("#set-play [data-v='quick'][aria-pressed='true']").count() === 1, "시작 화면: 플레이 모드 기본값이 Quick이 아님");
+must(await page.locator("#set-mode [data-v='cash'][aria-pressed='true']").count() === 1, "시작 화면: 기본 게임이 캐시게임(TP-GTO)이 아님");
+// #337: the trained policy index loads and the header names the model, not a mock.
+await page.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 30_000 });
+must(!(await page.evaluate(() => document.body.innerText)).includes("데모"), "서비스 화면에 '데모' 문구가 남아 있음");
+must(await page.locator("#model-status .ms.on").count() >= 1, "시작 화면: 학습된 TP-GTO 모델 표시가 없음");
 await inspect("home");
 await page.click("#start-btn");
 const QUICK = "#tp-body [data-card='quick-act']";
 await page.waitForSelector(QUICK);
+must((await page.textContent("#infobar")).includes("상대 TP-GTO"), "훈련 게임: 상대가 TP-GTO 정책이 아님(정책 연결 실패)");
 await inspect("train-input", QUICK);
-// #163: the level clock is frozen while it is my turn (the TP panel is open).
-must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
-{
-  const before = (await page.textContent("#lv-left")).trim();
-  await page.waitForTimeout(2500);
-  must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
-}
 // #116 Quick: one decision ends in at most 3 inputs — action, size (only for a bet/raise), 진행. No judgment is required.
-{
+// #337/#341: the size is free no-limit — the amount box takes any size from the minimum raise to all in.
+let freeSized = false;
+for (let d = 0; d < 6 && !freeSized; d++) {
+  if (d) await page.waitForSelector(QUICK);
   let inputs = 0;
   const raise = page.locator(`${QUICK} [data-act='raise']:not([disabled])`);
   if (await raise.count()) {
     await raise.click(); inputs++;
-    await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click(); inputs++;
+    const num = page.locator("[data-sizes]:not([hidden]) [data-size-num]"), msg = page.locator("[data-size-msg]");
+    const lo = +(await num.getAttribute("min")), hi = +(await num.getAttribute("max"));
+    // Below the minimum raise and above the stack are refused with the reason on screen, not clamped.
+    for (const [bad, word] of [[Math.max(0.1, Math.round((lo - 0.5) * 10) / 10), "최소 레이즈"], [hi + 5, "올인"]]) {
+      await num.fill(String(bad)); await num.press("Enter");
+      must(await msg.isVisible() && (await msg.textContent()).includes(word), `노리밋 입력: ${bad}BB가 거부 이유(${word}) 없이 받아들여짐 (${await msg.textContent()})`);
+      must(!(await page.locator("#tp-go").isEnabled()), `노리밋 입력: 범위 밖 금액 ${bad}BB인데 진행 버튼이 켜짐`);
+    }
+    await inspect("train-size-refused", "[data-size-msg]");
+    // An amount that is neither a preset nor a menu size of the trained policy.
+    const menu = await page.evaluate(() => { const tg = TPG.mod, s = G.eng.s; return tg.legal(s).filter(a => !["f", "k", "c"].includes(a)).map(a => tg.amountTo(s, a)); });
+    let want = Math.round(((lo + hi) / 2.7) * 10) / 10;
+    while (menu.includes(Math.round(want * 100))) want = Math.round((want + 0.3) * 10) / 10;
+    await num.fill(String(want)); await num.press("Enter"); inputs++;
+    const to = await page.evaluate(() => CUR.to);
+    must(!(await msg.isVisible()), "노리밋 입력: 범위 안 금액인데 거부 메시지가 남아 있음");
+    must(Math.abs(to - Math.round(want * 100)) <= 10 && to >= lo * 100 && to <= hi * 100, `노리밋 입력: ${want}BB를 넣었는데 금액이 ${to / 100}BB`);
+    must(!menu.includes(to), `노리밋 입력: 메뉴 밖 금액을 고르려 했는데 ${to / 100}BB가 메뉴 금액`);
+    freeSized = await page.evaluate(() => G.handNo);
   } else { await page.locator(`${QUICK} [data-act]:not([disabled])`).last().click(); inputs++; }
   must(await page.locator("#tp-go").isEnabled(), "Quick: 액션을 골랐는데 진행 버튼이 비활성");
+  await page.evaluate(() => { window.__hold = true; });   // keep the waiting panel on screen while checking it
   await page.click("#tp-go"); inputs++;
   await page.waitForSelector("#tp-body .waiting");
   must(inputs <= 3, `Quick: 한 결정에 입력 ${inputs}개 (3개 이하여야 함)`);
+  // Quick without analysis still compares the action with the trained policy's mixed strategy.
+  must(await page.locator("#tp-body [data-model-action]").count() === 1 || !(await page.evaluate(() => G.eng?.ok)), "Quick: 진행 뒤 TP-GTO 혼합 전략 비교가 없음");
+  if (!freeSized) await page.evaluate(() => { window.__hold = false; });
+}
+must(freeSized, "노리밋 입력: 6번의 결정 동안 벳·레이즈 기회가 없었음");
+must((await page.textContent("#tp-body [data-model-action]")).includes("학습 중간본"), "액션 비교: 모델 라벨(학습 중간본·반복·LBR·run)이 없음");
+await inspect("train-quick-model", "#tp-body [data-model-action]");
+// The off-menu hand plays to its end with the engine mirror on (check/call/fold on my later turns).
+if (freeSized) {
+  for (let guard = 0; guard < 12; guard++) {
+    await page.waitForFunction(h => G.eng?.lastHand?.hand === h || (CUR && G.handNo === h), freeSized, { timeout: 60_000 });
+    if (await page.evaluate(h => G.eng?.lastHand?.hand === h, freeSized)) break;
+    await page.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click();
+    await page.click("#tp-go");
+  }
+  const end = await page.evaluate(() => G.eng?.lastHand);
+  must(end?.hand === freeSized && end.ok && end.done, `노리밋 입력: 메뉴 밖 금액 핸드가 엔진과 함께 끝나지 않음 (${JSON.stringify(end)})`);
+}
+// #337: AI seats play the trained policy. Every logged AI decision must be an action the policy file gives
+// weight to (read straight from web/app/policy/mid-6.json), with the same row, and at least one is the argmax.
+{
+  for (let guard = 0; guard < 20 && (await page.evaluate(() => TPG.botLog.length)) < 12; guard++) {
+    await page.waitForSelector(QUICK);
+    await page.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+    await page.click("#tp-go");
+  }
+  const file = JSON.parse(readFileSync(resolve(webRoot, "app/policy/mid-6.json"), "utf8"));
+  const log = await page.evaluate(() => TPG.botLog.filter(x => x.tier === "mid"));
+  let inTable = 0, argmax = 0;
+  for (const d of log) {
+    const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
+    must(i >= 0, `정책 상대: AI가 합법 메뉴 밖 액션 ${d.chosen}을 고름 (${d.key})`);
+    if (!row) { must(!d.fromTable, `정책 상대: 파일에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+    inTable++;
+    must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `정책 상대: 페이지가 쓴 확률이 정책 파일과 다름 (${d.key})`);
+    must(row[i] > 0, `정책 상대: 정책 확률 0인 액션 ${d.chosen}을 고름 (${d.key})`);
+    if (row[i] === Math.max(...row)) argmax++;
+  }
+  must(log.length >= 12 && inTable >= 6, `정책 상대: 검사할 AI 결정이 모자람 (전체 ${log.length}, 표에 있는 키 ${inTable})`);
+  must(argmax >= 1, `정책 상대: 고정 시드에서 정책 최대 확률 액션과 같은 AI 결정이 하나도 없음 (${inTable}개 중)`);
+  console.log(`정책 상대: AI 결정 ${log.length}개(표 ${inTable}) 모두 정책 지지 액션, 최대 확률 일치 ${argmax}개`);
 }
 // #116 Quick analysis: action first, then "분석 보기" asks 1–3 core judgments and shows the TP comparison.
 await page.waitForSelector(QUICK);
 await page.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
 await page.click("#tp-analyze");
 await page.waitForSelector("#tp-body [data-card='quick-ask']");
+const eqTruth = await page.evaluate(() => {
+  const tg = TPG.mod, E = G.eng;
+  if (!E?.ok || !CUR.g.model) return null;
+  const seat = E.s.toAct, eq = tg.multiEquity(E.s, seat, E.ranges)[tg.comboIndex(E.s.hole[seat])];
+  return { want: Math.round(eq * 100), got: CUR.g.v["hand.equity"], src: CUR.g.src?.["hand.equity"],
+           step: CUR.g.model.step, step2: tg.equityStepOf(E.s, seat, E.ranges, E.tier), key: CUR.g.model.d.key, key2: tg.decisionKey(E.s, E.ranges, E.tier).key };
+});
+must(eqTruth && eqTruth.src === "model" && eqTruth.got === eqTruth.want, `hand.equity 정답: 엔진 공개 레인지 에퀴티와 다름 (${JSON.stringify(eqTruth)})`);
+must(eqTruth && eqTruth.step === eqTruth.step2 && eqTruth.key === eqTruth.key2, `hand.equity 정답: 정책 키·단계가 엔진과 다름 (${JSON.stringify(eqTruth)})`);
 {
   const qs = await page.locator("#tp-body [data-card='quick-ask'] .q").all();
   must(qs.length >= 1 && qs.length <= 3, `Quick 분석: 핵심 판단 ${qs.length}개 (1~3개여야 함)`);
@@ -106,7 +189,13 @@ await inspect("train-quick-ask", "#tp-submit");
 await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
 must((await page.textContent("#tp-body .result-top")).includes("Quick 분석"), "Quick 분석: 채점 화면에 Quick 표시 없음");
-must((await page.locator("#tp-body .rrow.ref").count()) >= 1, "Quick 분석: 액션 비교(TP-GTO 모의 혼합 전략)가 없음");
+must((await page.locator("#tp-body .rrow.ref").count()) >= 1, "Quick 분석: 액션 비교(TP-GTO 혼합 전략)가 없음");
+must((await page.locator("#tp-body .result-top .conf.model").count()) === 1, "Quick 분석: 채점 화면에 TP-GTO 학습 중간본 라벨이 없음");
+{
+  const row = await page.evaluate(() => G.lastGrade.rows.find(r => r.k === "hand.equity"));
+  must(row && row.src === "model" && row.gto === eqTruth?.want, `hand.equity 채점: 정답이 엔진 값(${eqTruth?.want})이 아님 (${JSON.stringify(row && { gto: row.gto, src: row.src })})`);
+  if (row) must((await page.locator("#tp-body .rrow:not(.ref)", { hasText: "에퀴티 감각" }).textContent()).includes(`TP-GTO ${eqTruth.want}`), "hand.equity 채점: 결과 줄에 TP-GTO 정답 값이 없음");
+}
 await inspect("train-quick-result", "#tp-body .result-top");
 // Switch to Guided between decisions (hold the demo so the next turn waits), then do the full card deck.
 await page.evaluate(() => { window.__hold = true; });
@@ -179,6 +268,13 @@ await page.click(".tab[data-view='train']");
 await page.evaluate(() => { window.__hold = false; });
 {
   const forms = [];
+  for (let guard = 0; guard < 6; guard++) {   // a turn that began before the switch has no form drawn
+    await page.waitForSelector("#tp-body .tpc[data-card='0']:not([hidden])");
+    if (await page.evaluate(() => !!(CUR && CUR.ab))) break;
+    await answerDeck();
+    await page.click("#tp-submit");
+    await page.waitForSelector("#tp-body .waiting");
+  }
   for (let d = 0; d < 3; d++) {
     await page.waitForSelector("#tp-body .tpc[data-card='0']:not([hidden])");
     const title = (await page.textContent("#tp-form")).trim();
@@ -256,6 +352,22 @@ await page.click("#set-tier [data-v='mid']");
 await page.click(".tab[data-view='train']");
 await page.evaluate(() => { window.__hold = false; });
 
+// #163 토너먼트(모의): 내 차례에는 레벨 시계가 멈춘다.
+await page.evaluate(() => { window.__hold = true; });
+await page.click(".tab[data-view='home']");
+await page.click("#set-mode [data-v='tournament']");
+await page.click("#set-play [data-v='quick']");
+await page.evaluate(() => { window.__hold = false; });
+await page.click("#start-btn");
+await page.waitForSelector(QUICK);
+must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#lv-left)가 없음");
+{
+  const before = (await page.textContent("#lv-left")).trim();
+  await page.waitForTimeout(2500);
+  must((await page.textContent("#lv-left")).trim() === before, `내 차례인데 레벨 시계가 흐름: ${before} → ${(await page.textContent("#lv-left")).trim()}`);
+}
+must((await page.textContent("#svc-pill")).includes("모의"), "토너먼트: 학습 정책이 없는데 모의 표시가 없음");
+
 // 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
@@ -301,6 +413,7 @@ for (let guard = 0; guard < 12 && await page.locator("#rv-bar [data-rv]").count(
 for (let guard = 0; guard < 8 && await page.locator("#rv-next:not([disabled])").count(); guard++) await page.click("#rv-next");
 await page.waitForSelector("#rv-out .rrow");
 must((await page.textContent("#rv-body h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
+must(await page.locator("#rv-out [data-model-action]").count() === 1, "복기: 캐시 6인 100BB 핸드인데 TP-GTO 정책 비교가 없음");
 await inspect("review", "#rv-body h2");
 
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
@@ -328,6 +441,40 @@ must(await page.evaluate(() => window.STALKER_RECORDS.exportRecords()) === expor
 must(await page.evaluate(() => { renderEqab(); return document.querySelector("#ab-box").innerHTML; }) === abBefore, "기록 옮기기: 왕복 뒤 질문 형태 실험 표가 다름");
 await inspect("home-move", "#move");
 
+// 5. #337 정책을 못 불러올 때: 오류 화면(이유·다시 시도·모의로 계속) → 다시 시도 성공 / 모의로 계속
+{
+  const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p2.setDefaultTimeout(60_000);
+  p2.on("pageerror", e => must(false, `page error (정책 오류 경로): ${e.message}`));
+  const block = r => r.abort();
+  await p2.route("**/policy/mid-6.json", block);
+  await p2.goto(url);
+  await p2.waitForFunction(() => /연결 실패/.test(document.querySelector("#svc-pill")?.textContent || ""));
+  await p2.click("#start-btn");
+  await p2.waitForSelector("#tp-body [role='alert'] #tpg-again");
+  const alertText = await p2.textContent("#tp-body [role='alert']");
+  must(alertText.includes("정책을 불러오지 못했어요") && (await p2.locator("#tpg-mock").count()) === 1, `정책 오류: 이유·모의로 계속 버튼이 없음 (${alertText})`);
+  for (const [name, width, height] of VIEWPORTS) {
+    await p2.setViewportSize({ width, height });
+    await p2.locator("#tp-body [role='alert']").scrollIntoViewIfNeeded();
+    await p2.screenshot({ path: `${shots}/policy-error-${name}.png` });
+    const { sw, iw } = await p2.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
+    must(sw <= iw, `정책 오류 ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw})`);
+  }
+  await p2.setViewportSize({ width: 1440, height: 900 });
+  await p2.click("#tpg-again");                       // still blocked: the same screen comes back
+  await p2.waitForSelector("#tp-body [role='alert'] #tpg-mock");
+  await p2.click("#tpg-mock");
+  await p2.waitForSelector(QUICK);
+  must((await p2.textContent("#infobar")).includes("규칙 봇"), "정책 오류: 모의로 계속했는데 규칙 봇·모의 표시가 없음");
+  await p2.unroute("**/policy/mid-6.json", block);
+  await p2.click("#new-game");
+  await p2.waitForSelector(QUICK);
+  must((await p2.textContent("#infobar")).includes("상대 TP-GTO"), "정책 오류: 연결이 돌아온 뒤 새 게임에서 TP-GTO 정책을 불러오지 못함");
+  await p2.close();
+}
+
 await browser.close();
+server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
 console.log("Gate U ok");
