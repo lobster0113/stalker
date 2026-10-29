@@ -1,0 +1,15 @@
+# E3 parallel MCCFR scaling on a many-core RunPod CPU pod, once (#321): iterations/s and efficiency at
+# 1/4/8/16/32 workers from one warmed mid 6-max model (stalker/tools/parallel_bench.py, trainer #318).
+# Source is main's tarball; its commit lands in the result as "sha". cpu3c measured $0.06/h for 2 vCPU
+# (#264, run 40778103365), so 32 vCPU is about $0.96/h; the cap allows $1.20/h.
+# Worst case = hourly_usd * max_minutes / 60 = $0.80. At CI speed (6.45 it/s per core, the slowest seen)
+# the warm-up and all five rows take about 20 min with perfect scaling; 40 min covers 50% efficiency.
+name: e3-parallel-scaling
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.parallel_bench --workers 1,4,8,16,32 --warm 4000 --per-worker 300 --batch 300 --sha-file /src/SHA --out /result/e3-parallel-scaling.json
+cpu_flavor: cpu3c
+vcpu: 32
+disk_gb: 10
+max_minutes: 40
+hourly_usd: 1.2
+result_path: /result/e3-parallel-scaling.json
