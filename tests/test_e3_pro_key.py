@@ -1,5 +1,6 @@
 import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 
@@ -61,6 +62,17 @@ def test_board_nut_uses_the_coarse_table_grid():
     vals = {K.scale_step(v, K.NUT_K) for v in range(0, 101)}
     assert vals == set(range(K.NUT_K))
     assert K.theoretical_keys(6, K.K_PRO, "pro") < K.theoretical_keys(6, K.K_PRO, "full") * (2 + 17) / 3
+
+
+def test_grading_scale_for_board_nut_is_unchanged_by_the_table_grid():
+    # #332 review: NUT_K is the table's abstraction only; a person's board.nut answer is still graded on
+    # the TP spec's 0-100 scale within the pro tolerance (TP.md §4.1), and tp_key does not read the spec.
+    from stalker.tp.spec import load
+
+    spec = load()
+    assert spec.item("board.nut")["scale"] == "0-100" and "board.nut" in spec.tier_items("pro")
+    assert spec.data["tiers"]["pro"]["tolerance"] == 3
+    assert K.NUT_K < K.K_PRO and "tp.spec" not in Path(K.__file__).read_text(encoding="utf-8")
 
 
 def test_pro_key_extends_full_and_encodes_nut_with_the_equity_step():
