@@ -687,3 +687,4 @@
 {"ts":"2026-10-29T13:24:24Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #357,#353 are odd (reviewer); no even PR awaiting verdict","friction":""}
 {"ts":"2026-10-29T13:50:00Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open odd PRs #357, #353 already have verdicts on head sha","friction":""}
 {"ts":"2026-10-29T14:04:58Z","role":"reviewer-b","outcome":"skipped","issue":355,"pr":357,"notes":"not my parity","friction":""}
+{"ts":"2026-10-29T14:05:41Z","role":"reviewer","outcome":"changes","issue":355,"pr":357,"notes":"2nd CHANGES: merge conflict with #356 in tests/test_pod_train.py (no CI on head), prior doc/--summary items unaddressed","friction":"conflicted PR gets no CI runs, so the push was unreviewable on CI; builder pushed without addressing prior CHANGES"}
