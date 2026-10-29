@@ -205,11 +205,13 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
     # Same LBR deals for both policies.
     lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
            for k, pol in (("average", avg), ("current", cur))}
+    # #343: the same deals, the exploiter also allowed sizes off the menu (the plain LBR undercounts what it can take)
+    offmenu = exploitability_lb(cur, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth, extra_sizes=True)
     cov = coverage(m)
     t2 = time.monotonic()
     field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if m.n == 6 else None
     return {"field": field, "field_seconds": round(time.monotonic() - t2, 1), "infosets": len(m.regret),
-            "coverage": cov, "lbr": lbr["current"], "lbr_average": lbr["average"],
+            "coverage": cov, "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_offmenu": offmenu,
             "lbr_seconds": round(t2 - t1, 1),
             "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
 
@@ -307,6 +309,8 @@ def summarize(job: str, folder: Path) -> dict:
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
+        if all(r.get("lbr_offmenu") for r in runs):    # E3 (#343): exploiter with off-menu sizes, current policy
+            out["lbr_offmenu_bb_by_seed"] = [r["lbr_offmenu"]["lbr_bb"] for r in runs]
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set

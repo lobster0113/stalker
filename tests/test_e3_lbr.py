@@ -93,3 +93,86 @@ def test_current_policy_rows_are_distributions_over_the_legal_actions():
     zero = next(iter(m.regret))
     m.regret[zero][:] = 0
     assert np.allclose(m.current_policy()[zero], 1 / len(m.regret[zero]))
+
+
+# --- #343: off-menu sizes for the exploiter ---------------------------------------------------------
+
+def uniform(key, acts):
+    return [1.0 / len(acts)] * len(acts)
+
+
+def _flop(n=3, seed=7):
+    s = G.deal(np.random.default_rng(seed), n)
+    while s.street == 0:
+        s = G.apply(s, "c")
+    return s
+
+
+def test_default_lbr_is_bit_identical_to_before_extra_sizes():
+    # Golden values taken from main before #343 (uniform policy, k=3, 3 players, 30 hands, seed 3).
+    r1, r2 = L.lbr(uniform, 1, 30, seed=3, k=3, n=3), L.lbr(uniform, 2, 30, seed=3, k=3, n=3)
+    assert (r1.mean_bb, r1.stderr_bb) == (-3.6, 5.85659074653623)
+    assert (r2.mean_bb, r2.stderr_bb) == (6.116666666666666, 10.67725812164193)
+    assert L.lbr(uniform, 1, 30, seed=3, k=3, n=3, extra_sizes=False) == r1
+
+
+def test_translate_size_boundaries():
+    s = _flop()
+    p, pot = s.to_act, s.pot
+    for menu, frac in (("b33", 0.33), ("b75", 0.75)):                 # exactly a menu size
+        assert L.translate_size(s, s.bet[p] + int(round(pot * frac))) == menu
+    mid = s.bet[p] + int(round(pot * 0.54))                           # half way between 33% and 75%
+    assert L.translate_size(s, mid - 5) == "b33" and L.translate_size(s, mid + 5) == "b75"
+    assert L.translate_size(s, s.bet[p] + int(pot * 1.5)) == "b75"    # an overbet is nearest the biggest bet
+    room = s.stack[p] + s.bet[p]
+    assert L.translate_size(s, room) == "a" and L.translate_size(s, room + 500) == "a"   # at or past all in
+    facing = G.apply(s, "b75")
+    assert L.translate_size(facing, max(facing.bet) + facing.last_raise) == "r"
+
+
+def test_extra_actions_are_legal_and_conserve_chips():
+    checked = 0
+    for seed in range(12):
+        rng = np.random.default_rng(seed)
+        s = G.deal(rng, 4 if seed % 2 else 3)
+        while not s.done:
+            for x in L.extra_actions(s):
+                ns = G.apply_to(s, x.to, x.menu)
+                p = s.to_act
+                assert x.to >= max(s.bet) + s.last_raise and x.to < s.stack[p] + s.bet[p] - G.BB   # min raise, below all in
+                assert ns.stack[p] >= 0 and ns.bet[p] == x.to and ns.history[-1] == f"{p}:{x.menu}"
+                assert sum(ns.stack) + ns.pot == sum(s.stack) + s.pot                             # chips conserved
+                assert set(G.legal(ns)) <= {"f", "c", "r", "a"}                                   # the next seat has a legal menu
+                checked += 1
+            acts = G.legal(s)
+            s = G.apply(s, acts[int(rng.integers(len(acts)))])
+        assert int(G.payoff(s).sum()) == 0
+    assert checked > 10
+
+
+def test_extra_actions_offer_overbets_unopened_and_a_min_raise_facing_a_bet():
+    s = _flop()
+    assert [x.to - s.bet[s.to_act] for x in L.extra_actions(s)] == [int(round(s.pot * f)) for f in L.OVERBETS]
+    f = G.apply(s, "b33")
+    xs = L.extra_actions(f)
+    assert xs == [L.Extra(max(f.bet) + f.last_raise, "r")] and xs[0].to < G._amount_to(f, "r")
+    assert L.extra_actions(G.deal(np.random.default_rng(1))) == []        # preflop: none
+
+
+def test_apply_to_rejects_illegal_sizes():
+    s = _flop()
+    p = s.to_act
+    for to in (s.bet[p], s.bet[p] + G.BB - 1, s.stack[p] + s.bet[p] + 1):
+        try:
+            G.apply_to(s, to, "b75")
+        except ValueError:
+            continue
+        raise AssertionError(f"accepted {to}")
+
+
+def test_extra_sizes_lbr_is_not_below_the_menu_lbr():
+    # The exploiter has strictly more actions; same deals and policy. Tolerance: 3 standard errors.
+    base = L.exploitability_lb(uniform, 30, seed=3, k=3, n=3)
+    ext = L.exploitability_lb(uniform, 30, seed=3, k=3, n=3, extra_sizes=True)
+    assert ext["lbr_bb"] >= base["lbr_bb"] - 3 * max(base["stderr_bb"], ext["stderr_bb"])
+    assert ext == L.exploitability_lb(uniform, 30, seed=3, k=3, n=3, extra_sizes=True)   # reproducible

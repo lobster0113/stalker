@@ -177,6 +177,28 @@ def _after_close(s: State) -> State:
     return _deal_street(s)
 
 
+def _put_in(s: State, to: int, entry: str) -> State:
+    """The seat to act raises its street contribution to `to` (a check when `to` is what it has in)."""
+    p = s.to_act
+    add = to - s.bet[p]
+    stack, bet, total = list(s.stack), list(s.bet), list(s.total)
+    stack[p] -= add
+    bet[p] = to
+    total[p] += add
+    raised = to > max(s.bet)
+    acted = [False] * s.n if raised else list(s.acted)
+    acted[p] = True
+    return s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), acted=tuple(acted),
+                      history=s.history + (entry,), raises=s.raises + int(raised),
+                      last_raise=max(s.last_raise, to - max(s.bet)) if raised else s.last_raise)
+
+
+def _advance(ns: State, p: int) -> State:
+    if _street_closed(ns):
+        return _after_close(ns)
+    return ns._replace(to_act=_next_to_act(ns, p))
+
+
 def apply(s: State, a: str) -> State:
     if a not in legal(s):
         raise ValueError(f"illegal action {a!r} after {s.history}; legal: {legal(s)}")
@@ -189,21 +211,20 @@ def apply(s: State, a: str) -> State:
         if len(ns.live()) == 1:
             return ns._replace(done=True)
     else:
-        to = s.bet[p] if a == "k" else _amount_to(s, a)
-        add = to - s.bet[p]
-        stack, bet, total = list(s.stack), list(s.bet), list(s.total)
-        stack[p] -= add
-        bet[p] = to
-        total[p] += add
-        raised = to > max(s.bet)
-        acted = [False] * s.n if raised else list(s.acted)
-        acted[p] = True
-        ns = s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), acted=tuple(acted), history=hist,
-                     raises=s.raises + int(raised),
-                     last_raise=max(s.last_raise, to - max(s.bet)) if raised else s.last_raise)
-    if _street_closed(ns):
-        return _after_close(ns)
-    return ns._replace(to_act=_next_to_act(ns, p))
+        ns = _put_in(s, s.bet[p] if a == "k" else _amount_to(s, a), hist[-1])
+    return _advance(ns, p)
+
+
+def apply_to(s: State, to: int, label: str) -> State:
+    """A bet or raise to `to` chips on this street that is not on the menu (referee LBR, #343).
+    `label` is the menu action recorded in the history, so TP keys read it as that action. The size must
+    be a legal one: above the current bet by at least the last raise, below all in, with raises left."""
+    p = s.to_act
+    room = s.stack[p] + s.bet[p]
+    if (s.done or s.street == 0 or not max(s.bet) + s.last_raise <= to <= room
+            or s.raises >= RAISE_CAP or len([i for i in s.active() if i != p]) == 0):
+        raise ValueError(f"illegal bet/raise to {to} after {s.history}")
+    return _advance(_put_in(s, to, f"{p}:{label}"), p)
 
 
 def payoff(s: State) -> np.ndarray:
