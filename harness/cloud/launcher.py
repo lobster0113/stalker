@@ -57,7 +57,8 @@ RESULT_PORT = 8000
 RESULT_DIR = "/stalker-result"
 TOKEN_ENV = "STALKER_RESULT_TOKEN"
 # artifacts of a public repo are readable by anyone signed in; keep them small and checked
-RESULT_MAX_BYTES = 20 * 1024 * 1024
+# A pod training run returns its model in the result (#333): a pro checkpoint is tens of MB (#346).
+RESULT_MAX_BYTES = 256 * 1024 * 1024
 SECRET_PATTERNS = [re.compile(p) for p in (
     rb"gh[pousr]_[A-Za-z0-9]{30,}", rb"github_pat_[A-Za-z0-9_]{30,}", rb"rpa_[A-Za-z0-9]{20,}",
     rb"AKIA[0-9A-Z]{16}", rb"-----BEGIN [A-Z ]*PRIVATE KEY-----", rb"xox[abpr]-[A-Za-z0-9-]{10,}")]
@@ -321,7 +322,8 @@ def http_fetch(url: str, max_bytes: int) -> tuple[int, bytes]:
         return 0, b""
 
 
-def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int = RESULT_MAX_BYTES) -> None:
+def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int | None = None) -> None:
+    max_bytes = RESULT_MAX_BYTES if max_bytes is None else max_bytes
     if len(body) > max_bytes:
         raise LauncherError(f"result over {max_bytes} bytes; write a summary JSON and keep checkpoints small")
     try:
