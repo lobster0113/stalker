@@ -1,21 +1,21 @@
-# STATE (2026-10-29 05:25Z, planner)
+# STATE (2026-10-29 06:55Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 사용자 지시: 서비스에 실제 TP-GTO 정책 연결·노리밋 정상화(P0).** D1 종료, NH-3·NH-5 open(비차단), FEEDBACK.md 없음.
 D2 종료 조건 대비: Gate R 100%(캐시·토너먼트·E3) 유지 / TP v1: #262·#263 머지(ADR 0011) / 게이트: T1~T4·Q4(E0·E1)·S v0(+ADR 0016)·F v0 머지 / 비용 ADR 0017 / 설계 ADR 0009·0011·0015·0016·0017.
-05:18Z 머지: PR #331(#315 닫힘) TP v0.2 초보 hand.equity 순위형(share_better 정답식·bands, 데모 정답 = 내 레인지 표본). 04:0xZ 머지: PR #328(#321 1/2).
+06:47Z 머지: PR #334(#333 Refs, 기준 2 = 파드 실행 남음). 05:18Z 머지: PR #331(#315 닫힘) TP v0.2 초보 hand.equity 순위형(share_better 정답식·bands, 데모 정답 = 내 레인지 표본). 04:0xZ 머지: PR #328(#321 1/2).
 새 이슈(사용자 lobster0113, 04:14~04:46Z): #333 RunPod 32 vCPU 학습(PR #334 CHANGES: Closes→Refs), #335 JS E3 엔진·번역(PR #342), #336 정책 내보내기(PR #340), #337 서비스 화면 연결, #339 사이즈 메뉴 TP §6, #341 비정상 제약 전수 점검(추적).
-planner 이번 실행: #337·#339 계약 형식으로 재작성(#337 = Gate U 기준, #335·#336 선행이라 blocked; #339 = RAISE_CAP 제거 옵션·Gate R 검사 추가 포함), #343 새 이슈(LBR 메뉴 밖 사이즈, referee-change, #341 항목 6), #341 ready 제거(추적용, 항목 연결 코멘트), #332 ready→in-progress(PR #338).
+planner 06:55Z: #333 in-progress→ready(P0, e3-tp-pro-pod32 dispatch·결과 기록 인수인계), #337 blocked→in-progress(PR #344, #342·#340 머지 후 재리뷰), #339 PR #345. planner 05:25Z: #337·#339 계약 형식으로 재작성(#337 = Gate U 기준, #335·#336 선행이라 blocked; #339 = RAISE_CAP 제거 옵션·Gate R 검사 추가 포함), #343 새 이슈(LBR 메뉴 밖 사이즈, referee-change, #341 항목 6), #341 ready 제거(추적용, 항목 연결 코멘트), #332 ready→in-progress(PR #338).
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **실제 정책으로 서비스 화면(#335→#336→#337, P0)**: 사용자 직접 지시. 학습 중간본을 서비스에서 체험 가능해야 피드백 루프가 돈다. 열린 PR #342·#340 리뷰가 병목.
 2. **노리밋 정상화(#341: #339 메뉴·상한, #343 LBR 메뉴 밖)**: 착취도 과소평가는 판정 능력 결함 → #343 P1 referee-change 우선.
 3. **고수 체인 비용(#333 파드 학습, #332 키 폭증 PR #338, #320·#321 실측)**: ADR 0017 가정을 실측값으로 교체.
 ## 큐
-ready 5: #339 P1, #343 P1(referee-change), #320 P2, #240 P3, #327 P3.
-in-progress: #333 P0(PR #334), #335 P0(PR #342), #336 P0(PR #340), #332 P1(PR #338), #264 P2(PR #322 머지 → 마무리), #306 P2(builder-b, train run 40807006873 대기), #321 P2(2/2 32 vCPU 잡 대기).
-blocked: #337 P0(#335·#336 머지 대기), #105. 상태 라벨 없음: #341(추적), #189(GTO 브라우저 P1, D3), #323(P3, referee-change 판단 필요).
+ready 5: #333 P0(파드 실행만), #343 P1(referee-change), #320 P2, #240 P3, #327 P3.
+in-progress: #335 P0(PR #342), #336 P0(PR #340), #337 P0(PR #344), #339 P1(PR #345), #332 P1(PR #338), #264 P2(PR #322 머지 → 마무리), #306 P2(builder-b, train run 40807006873 대기), #321 P2(2/2 32 vCPU 잡 대기).
+blocked: #105. 상태 라벨 없음: #341(추적), #189(GTO 브라우저 P1, D3), #323(P3, referee-change 판단 필요).
 후보(이슈화 보류): 스택 분포 무작위화(#341 항목 7, #339 결과 후), E2 RAISE_CAP(#339 노트 후), Gate S·F 등급 표 CI 출력 경로(지표 등록 referee-change), ADR 0017 개정(#320·#321·#325·#333 결과 후), e3-tp-*9-w4·pro-w4 학습 결과 기록, Gate S·F 포스트플랍(E2), 커리큘럼 후속(#173 §7).
 ## 지표 요약 (최근 값과 추세)
-- CI 4a1237b(10-29 04:33Z): tests 1172(+29), failed 0, gate_r 1.0(224,269), gate_r_cash 1.0(224,636), gate_r_e3 1.0(37,462), gate_l 1.0(32), stalker_loc 11177(+281). bbe6d22(#331) CI 지표 대기.
+- CI bbe6d22(#331) success, 0bae91d(#334) 진행 중. CI 4a1237b(10-29 04:33Z): tests 1172(+29), failed 0, gate_r 1.0(224,269), gate_r_cash 1.0(224,636), gate_r_e3 1.0(37,462), gate_l 1.0(32), stalker_loc 11177(+281). bbe6d22(#331) CI 지표 대기.
 - E2 LBR(#259 후 CI): baseline −0.159, beginner −0.244, mid −0.234 bb/hand(하한 — 메뉴 안 착취자만, #343으로 보강 예정).
 - E1 분위 눈금: 초보 손실 0.244 → 0.018 bb/hand(노트). S v0 고수 분위 ADR 0016 기준 통과(record-only).
 - E0 CFR-BR(#311, 로컬 참고): Kuhn k=2 0.170→0.056, Leduc 1×1 2.36→0.98 → #327로 CI 기록 예정.
@@ -24,7 +24,7 @@ blocked: #337 P0(#335·#336 머지 대기), #105. 상태 라벨 없음: #341(추
 - **사용자가 계약 형식 아닌 ready 이슈를 직접 생성(#337·#339·#341)** → planner가 재작성. 내용 보존, 기준만 검증 가능하게.
 - **gh CLI 토큰 무효·GraphQL 403·guard 훅(gh api PATCH 차단)** → 전 역할 MCP 우회. 후보: 지침의 gh 예시를 MCP 기준으로.
 - **Actions 아티팩트 blob 호스트 프록시 403**: reviewer가 Gate U를 로컬로 대체(#331). train.yml 결과도 같은 문제 가능 — 후보(Auditor).
-- **"Closes #N" vs 실행 후 기준**(#334 CHANGES 재발): 머지 후에만 가능한 기준은 처음부터 별도 이슈로. 같은 sha 규칙 때문에 본문만 고친 PR은 재리뷰 불가(reviewer-b friction).
+- **"Closes #N" vs 실행 후 기준**(#334·#345 재발, builder friction 3회+ → area:harness 후보: planner가 머지 후 실행 기준을 별도 이슈로 쓰도록 지침 보강). #339 기준 4 "Gate R 검사 추가"가 referee-change 없이 쓰여 builder가 tests/로 우회 — planner 책임, 이후 이슈는 라벨 맞출 것: 머지 후에만 가능한 기준은 처음부터 별도 이슈로. 같은 sha 규칙 때문에 본문만 고친 PR은 재리뷰 불가(reviewer-b friction).
 - 동시 취소 run의 gates=failure(같은 sha), 게이트를 작업 트리에서 백그라운드로 돌리면 가짜 실패(builder friction → 별도 worktree 권장). gates full 약 20분·quick 448초(목표 90초).
 - 머지된 브랜치 삭제 도구 없음(#105, guard 훅이 push --delete 차단).
 - 실험 기록 규칙 누락 쉬움, 닫힌 이슈 in-progress 잔존, PR 소유 구분 불가(같은 로그인), ARCHITECTURE.md 충돌: 후보 유지.
