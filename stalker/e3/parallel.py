@@ -12,6 +12,7 @@ bit for bit.
 """
 from __future__ import annotations
 
+import time
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -19,13 +20,15 @@ import numpy as np
 from stalker.e3.mccfr import E3MCCFR
 
 
-def _work(args) -> tuple[dict, dict, dict, int]:
+def _work(args) -> tuple[dict, dict, dict, int, float]:
     k, n, depth, regret, iterations, seed, iters = args
     m = E3MCCFR(0, k, n, depth)
     m.rng = np.random.default_rng(seed)
     m.regret = {key: r.copy() for key, r in regret.items()}
     m.iterations = iterations
+    t0 = time.perf_counter()
     m.iterate(iters)
+    compute = time.perf_counter() - t0
     delta = {}
     for key, r in m.regret.items():
         base = regret.get(key)
@@ -33,7 +36,7 @@ def _work(args) -> tuple[dict, dict, dict, int]:
         if base is None or d.any():
             delta[key] = d
     avg = {key: v for key, v in m.avg.items() if v is not None}
-    return delta, avg, dict(m.visits), m.nodes
+    return delta, avg, dict(m.visits), m.nodes, compute
 
 
 def split(iters: int, workers: int) -> list[int]:
@@ -41,12 +44,23 @@ def split(iters: int, workers: int) -> list[int]:
     return [q + (w < r) for w in range(workers)]
 
 
-def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: ProcessPoolExecutor | None = None) -> None:
-    """Run `iters` more iterations of `m` on `workers` processes, syncing every `batch` iterations per worker."""
+def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: ProcessPoolExecutor | None = None,
+            timing: dict | None = None) -> None:
+    """Run `iters` more iterations of `m` on `workers` processes, syncing every `batch` iterations per worker.
+
+    `timing`, if given, accumulates seconds: `total` (wall), `compute` (per batch, the slowest worker's own
+    iterations: the part more cores cannot shrink further) and `merge` (the parent folding results in).
+    `total - compute` is the sync cost: snapshot pickling and transfer, merging and waiting on stragglers.
+    """
     if workers < 1 or batch < 1:
         raise ValueError(f"workers and batch must be >= 1, got workers={workers} batch={batch}")
     if workers == 1:
+        t0 = time.perf_counter()
         m.iterate(iters)
+        if timing is not None:
+            dt = time.perf_counter() - t0
+            for k, v in (("total", dt), ("compute", dt), ("merge", 0.0)):
+                timing[k] = timing.get(k, 0.0) + v
         return
     own = pool is None
     pool = pool or ProcessPoolExecutor(workers)
@@ -57,8 +71,11 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
             shares = [s for s in split(chunk, workers) if s > 0]
             seeds = m.rng.integers(0, 2**63, size=len(shares))
             jobs = [(m.k, m.n, m.depth, m.regret, m.iterations, int(sd), s) for sd, s in zip(seeds, shares)]
+            t0 = time.perf_counter()
             # All results first: the pool pickles `jobs` (which hold m.regret) in a feeder thread.
-            for delta, avg, visits, nodes in list(pool.map(_work, jobs)):
+            results = list(pool.map(_work, jobs))
+            t1 = time.perf_counter()
+            for delta, avg, visits, nodes, _ in results:
                 for key, d in delta.items():
                     base = m.regret.get(key)
                     m.regret[key] = np.maximum(d if base is None else base + d, 0)
@@ -68,6 +85,10 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
                 for key, c in visits.items():
                     m.visits[key] += c
                 m.nodes += nodes
+            if timing is not None:
+                t2 = time.perf_counter()
+                for k, v in (("total", t2 - t0), ("compute", max(r[4] for r in results)), ("merge", t2 - t1)):
+                    timing[k] = timing.get(k, 0.0) + v
             m.iterations += chunk
             left -= chunk
     finally:
