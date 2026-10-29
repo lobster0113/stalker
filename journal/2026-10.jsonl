@@ -644,3 +644,4 @@
 {"ts":"2026-10-29T07:35:00Z","role":"planner","outcome":"planned","issue":346,"pr":347,"notes":"#347(#346 기준1) 머지 반영: #346 기준2를 #333 결과로 연결, 6h+ in-progress #264·#321 ready로 회수, ready 8, STATE 갱신","friction":"gh CLI 대신 MCP; 머지 후 실행 기준이 이슈를 열어 둔 채 남는 패턴 반복(#333·#346·#264·#321)"}
 {"ts":"2026-10-29T07:38:41Z","role":"reviewer","outcome":"skipped","issue":332,"pr":338,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T07:42:43Z","role":"reviewer","outcome":"no_work","issue":339,"pr":345,"notes":"sweep: odd open PR #345 already has VERDICT MERGE on head ed89ab2; merge blocked by conflict with main (#334), awaiting builder merge-fix","friction":""}
+{"ts":"2026-10-29T07:47:30Z","role":"reviewer","outcome":"skipped","issue":333,"pr":348,"notes":"not my parity","friction":""}
