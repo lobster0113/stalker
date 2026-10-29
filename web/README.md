@@ -24,3 +24,6 @@ cd web/e2e && npm ci && npx playwright install chromium && npm test
 - 내 차례 대기는 테스트 전용 `?speed=30`(속도 배수)으로 줄인다. 데모 기본 진행(1.5초)은 그대로다.
 - 로컬에 Chromium이 이미 있으면 `CHROMIUM_PATH=/path/to/chrome npm test`.
 - 아직 없음: 성능 예산.
+
+## 정책 파일 (`stalker/tools/export_web_policy.py`, #336)
+`{schema: "stalker.web.policy", schema_version: 1, tier, players, k, depth, iterations, run_id, sha, lbr_bb, lbr_stderr_bb, field_worst, job, q: 255, min_visits, keys, keys_dropped, policy}`. `policy[key]`는 0..q 정수 배열이다(합 q, 상태의 합법 액션 순서). 확률은 값/q로 구한다. 확률 > 0인 액션은 최소 1을 보장한다. 파일에 없는 키(드물게 갱신돼 잘라낸 키)는 균등 분포로 둔다.
