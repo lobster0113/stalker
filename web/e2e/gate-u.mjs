@@ -311,7 +311,7 @@ await page.click("#set-tier [data-v='beginner']");
 await page.click(".tab[data-view='train']");
 await page.evaluate(() => { window.__hold = false; });
 {
-  for (let guard = 0; guard < 6; guard++) {   // a turn that began before the switch is still mid
+  for (let guard = 0; guard < 10; guard++) {   // the hand that was running at the switch is still mid (#364)
     await page.waitForSelector("#tp-body .tpc[data-card='0']:not([hidden])");
     if (await page.evaluate(() => CUR && CUR.rank === true)) break;
     await answerDeck();
@@ -515,6 +515,67 @@ await inspect("home-move", "#move");
   console.log(`고수 정책 상대: AI 결정 ${log.length}개(표 ${inTable}, 포스트플랍 ${post}) 모두 정책 지지 액션`);
   await p3.screenshot({ path: `${shots}/train-pro-laptop.png` });
   await p3.close();
+}
+
+// 7. #364 핸드 도중 등급 변경: 그 핸드는 중수 키로 끝나고, 다음 핸드부터 상대·질문·비교가 모두 고수 정책이다.
+{
+  const p4 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p4.setDefaultTimeout(90_000);
+  p4.on("pageerror", e => must(false, `page error (등급 변경): ${e.message}`));
+  await p4.goto(url);
+  await p4.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.mid);
+  await p4.click("#start-btn");
+  await p4.waitForSelector(QUICK);
+  const sw = await p4.evaluate(() => G.handNo);
+  await p4.evaluate(() => { window.__hold = true; });
+  await p4.click(".tab[data-view='home']");
+  await p4.click("#set-tier [data-v='pro']");
+  await p4.click(".tab[data-view='train']");
+  const note = p4.locator("#infobar [data-tier-next]");
+  must(await note.count() === 1 && (await note.textContent()).includes("다음 핸드부터 고수 정책으로 바뀝니다"), "등급 변경: 바꾼 직후 '다음 핸드부터 고수 정책으로 바뀝니다' 안내가 없음");
+  must(await p4.evaluate(() => G.tier === "mid" && G.eng.tier === "mid" && $("#tp-tier").textContent === "중수"), "등급 변경: 핸드 도중에 테이블 등급이 바뀜");
+  await p4.waitForTimeout(500);   // let the view fade in; __hold only pauses the demo's timers
+  await p4.screenshot({ path: `${shots}/train-tier-next-laptop.png` });
+  await p4.evaluate(() => { window.__hold = false; });
+  let proTurn = null;
+  for (let guard = 0; guard < 40 && !proTurn; guard++) {
+    await p4.waitForSelector(QUICK);
+    const st = await p4.evaluate(() => ({ hand: G.handNo, tier: G.tier, eng: G.eng?.tier, model: !!CUR?.g?.model, items: TIERS[tierNow()].items.length, proItems: TIERS.pro.items.length }));
+    if (st.hand === sw) must(st.tier === "mid" && st.eng === "mid", `등급 변경: 바꾼 핸드 #${sw}의 내 차례가 중수가 아님 (${JSON.stringify(st)})`);
+    else proTurn = st;
+    await p4.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+    await p4.click("#tp-go");
+  }
+  must(proTurn && proTurn.tier === "pro" && proTurn.eng === "pro" && proTurn.items === proTurn.proItems, `등급 변경: 다음 핸드의 내 차례가 고수 정책·질문이 아님 (${JSON.stringify(proTurn)})`);
+  must(proTurn?.model, "등급 변경: 다음 핸드 내 차례의 TP-GTO 비교(모델)가 없음");
+  // let the opponents act a few more turns in the pro hands
+  for (let guard = 0; guard < 20 && (await p4.evaluate(h => TPG.botLog.filter(x => x.hand > h).length, sw)) < 6; guard++) {
+    await p4.waitForSelector(QUICK);
+    await p4.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+    await p4.click("#tp-go");
+  }
+  const ui = await p4.evaluate(() => ({ info: $("#infobar").textContent, tag: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent), tp: $("#tp-tier").textContent, note: !!document.querySelector("#infobar [data-tier-next]") }));
+  must(ui.info.includes("상대 TP-GTO 고수") && ui.tp === "고수" && !ui.note && ui.tag.every(t => t.includes("TP-GTO 고수")), `등급 변경: 다음 핸드 헤더·좌석 태그·TP 등급이 고수가 아님 (${JSON.stringify(ui)})`);
+  const log = await p4.evaluate(() => TPG.botLog);
+  const before = log.filter(x => x.hand <= sw), after = log.filter(x => x.hand > sw);
+  must(before.length > 0 && before.every(x => x.tier === "mid"), `등급 변경: 바꾼 핸드의 AI 결정이 중수가 아님 (${[...new Set(before.map(x => x.tier))]})`);
+  must(after.length >= 6 && after.every(x => x.tier === "pro"), `등급 변경: 다음 핸드부터 AI 결정이 고수가 아님 (${after.length}개, ${[...new Set(after.map(x => x.tier))]})`);
+  const mid = JSON.parse(readFileSync(resolve(webRoot, "app/policy/mid-6.json"), "utf8"));
+  const pro = JSON.parse(readFileSync(resolve(webRoot, "app/policy/pro-6.json"), "utf8"));
+  const rowsMatch = (file, xs) => {
+    let n = 0;
+    for (const d of xs) {
+      const row = file.policy[d.key];
+      if (!row) { must(!d.fromTable, `등급 변경: 파일에 없는 키인데 표에서 읽었다고 함 (${d.tier} ${d.key})`); continue; }
+      n++;
+      must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `등급 변경: 페이지 확률이 ${d.tier} 정책 파일과 다름 (${d.key})`);
+    }
+    return n;
+  };
+  const nMid = rowsMatch(mid, before), nPro = rowsMatch(pro, after);
+  must(nPro >= 3, `등급 변경: 다음 핸드부터 pro-6.json 행과 대조한 AI 결정이 모자람 (${nPro}개, 전체 ${after.length})`);
+  console.log(`등급 변경: 바꾼 핸드 AI 결정 ${before.length}개(mid 표 ${nMid}), 다음 핸드부터 ${after.length}개(pro 표 ${nPro})`);
+  await p4.close();
 }
 
 await browser.close();

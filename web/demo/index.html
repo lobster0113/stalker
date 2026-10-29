@@ -1029,7 +1029,10 @@ function segBind(id, key, after) {
   }));
 }
 segBind("set-mode", "mode", () => { $("#set-tour").hidden = S.mode !== "tournament"; $("#set-cash").hidden = S.mode !== "cash"; renderModelStatus(); });
-segBind("set-tier", "tier", () => { renderModelStatus(); if (S.mode === "cash") tpgLoad(S.tier); });
+segBind("set-tier", "tier", () => {
+  renderModelStatus(); if (S.mode === "cash") tpgLoad(S.tier);
+  if (G) { if (G.tier !== S.tier) toast(tierNextMsg()); renderInfo(); }
+});
 const PLAY_DESC = { quick: "실전용. 내 차례에 액션부터 고르고 바로 진행해요. 원하면 '분석 보기'로 핵심 판단 1~3개를 답하고 TP-GTO와 비교해요.", guided: "집중 훈련용. 등급의 판단을 카드마다 전부 답한 뒤 액션을 고르고 채점해요." };
 const renderPlay = () => { $("#play-desc").textContent = PLAY_DESC[S.play]; };
 segBind("set-play", "play", renderPlay); renderPlay();
@@ -1195,19 +1198,54 @@ function startTable() {
     handNo: 0, board: [], pot: 0, street: 0, log: [], level: 7, levelLeft: 252, players: 47, field: 180, paid: 27, lastGrade: null };
   if (tour && $("#t-format").value !== "mtt") { G.players = n; G.field = n; G.paid = n === 9 ? 3 : 2; }
   // Cash 6-max 100BB with a trained policy for the tier: every opponent plays that policy (#337).
-  const pol = !tour && n === 6 && avg === 100 && TPG.mod && TPG.pol[S.tier];
-  G.eng = pol ? { tier: S.tier, pol, meta: modelMeta(S.tier), ok: false } : null;
+  G.polTable = !tour && n === 6 && avg === 100;
   const used = new Set();
   for (let i = 0; i < n; i++) {
     const st = tour ? Math.max(6, Math.round(avg * (0.45 + rand() * 1.1))) : avg;
     const s = newSeat(i, i === 0, st);
-    if (G.eng && !s.isHero) { s.persona = "gto"; s.tag = `TP-GTO ${TIERS[S.tier].name}`; }
     s.bank = 0;
     while (used.has(s.name) && !s.isHero) s.name = pick(NAMES);
     used.add(s.name); G.seats.push(s);
   }
-  $("#tp-tier").textContent = TIERS[S.tier].name;
+  setTableTier(S.tier, G.polTable && TPG.mod && TPG.pol[S.tier]);
   buildTable(); runLoop();
+}
+// One hand = one tier (#364): questions, grading, the opponents' policy, seat tags and the header switch together.
+function setTableTier(tier, pol) {
+  G.tier = tier;
+  G.eng = pol ? { tier, pol, meta: modelMeta(tier), ok: false } : null;
+  for (const s of G.seats) {
+    if (s.isHero) continue;
+    if (G.eng) { s.persona = "gto"; s.tag = `TP-GTO ${TIERS[tier].name}`; }
+    else if (s.tag) { s.persona = pick(personaPool(S.diff)); s.tag = null; }
+  }
+  $("#tp-tier").textContent = TIERS[tier].name;
+}
+const tierNow = () => G?.tier || S.tier;
+const tierNextMsg = () => `다음 핸드부터 ${TIERS[S.tier].name} 정책으로 바뀝니다`;
+// A tier picked mid-game applies when the next hand starts; a policy that fails to load offers the same
+// retry / mock choice as the game start.
+async function switchTier(alive) {
+  const tier = S.tier;
+  if (!G.polTable || !modelMeta(tier)) { setTableTier(tier, null); return; }
+  for (;;) {
+    if (!TPG.pol[tier]) {
+      $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true;
+      const paint = () => { if (alive() && TPG.state !== "error") $("#tp-body").innerHTML = `<div class="loadbox" role="status"><div>TP-GTO ${TIERS[tier].name} 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
+      const iv = setInterval(paint, 120); paint();
+      await tpgLoad(tier);
+      clearInterval(iv);
+      if (!alive()) return;
+    }
+    if (TPG.pol[tier]) { setTableTier(tier, TPG.pol[tier]); return; }
+    const mock = await new Promise(res => {
+      $("#tp-body").innerHTML = `<div class="loadbox" role="alert"><div>${TPG.err}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta small" id="tpg-again">다시 시도</button><button class="cta small ghost" id="tpg-mock">모의 정답으로 계속</button></div></div>`;
+      $("#tpg-again").onclick = () => res(false);
+      $("#tpg-mock").onclick = () => res(true);
+    });
+    if (!alive()) return;
+    if (mock) { setTableTier(tier, null); return; }
+  }
 }
 const posName = s => { const n = G.seats.filter(x => !x.out).length; const order = []; let k = G.button; for (let c = 0; c < G.n; c++) { if (!G.seats[k].out) order.push(k); k = (k + 1) % G.n; } return (POS6[n] || POS6[6])[order.indexOf(s.i)] || ""; };
 const bbf = chips => (Math.round(chips / G.bb * 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
@@ -1249,7 +1287,7 @@ function renderSeats() {
     el.classList.toggle("folded", s.folded); el.classList.toggle("out", s.out);
     $(".nm", el).textContent = s.isHero ? "나 (Hero)" : s.name;
     $(".stk", el).textContent = s.out ? "—" : s.allin ? "올인" : bbf(s.stack) + " BB";
-    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[S.tier].name + " TP" : s.tag || PERSONAS[s.persona].name);
+    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag || PERSONAS[s.persona].name);
     $(".persona", el).classList.toggle("gto", !!s.tag);
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";
@@ -1266,7 +1304,7 @@ function renderInfo() {
   } else {
     const hero = G.seats.find(x => x.isHero), net = hero ? hero.bank + hero.stack - 100 * G.bb : 0;
     const src = G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" title="이 설정의 TP-GTO는 학습 중이에요">규칙 봇 · 모의 정답</span>`;
-    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span><span>세션 <b class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${net > 0 ? "+" : ""}${bbf(net)} BB</b></span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
+    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span><span>세션 <b class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${net > 0 ? "+" : ""}${bbf(net)} BB</b></span>${G.tier !== S.tier ? `<span class="pill" data-tier-next>${tierNextMsg()}</span>` : ""}<span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
   }
   $("#new-game").onclick = () => { G.dead = true; G = null; startGame(); };
 }
@@ -1309,6 +1347,7 @@ async function runLoop() {
 }
 async function playHand(token) {
   const alive = () => G && token === gameToken;
+  if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
   G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null;
   // TP-GTO tables: every seat starts each hand at 100BB (top-up, excess banked into the session result)
   if (G.eng) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
@@ -1762,7 +1801,7 @@ function heroTurn(hero) {
     if (G.eng) engHeroTruth(hero, g);
     CUR = { hero, g, answers: {}, action: null, size: null, to: null };
     if (S.eqab === "on") { AB ||= abStart(); CUR.ab = abNext() < .5 ? "A" : "B"; }
-    else if (S.tier === "beginner") { AB ||= abStart(); CUR.rank = true; } // eqabTruth("B") samples with AB's seed
+    else if (tierNow() === "beginner") { AB ||= abStart(); CUR.rank = true; } // eqabTruth("B") samples with AB's seed
     setTP("ask"); renderInfo();
     CUR.t0 = performance.now(); // input time = hero's turn shown -> submit
   });
@@ -1781,11 +1820,11 @@ function applies(k) {
   if (k === "opp.value") return G.streetAgg != null && G.streetAgg !== hero.i;
   if (k === "plan.foldeq") return L.canRaise && CUR.action === "raise" && CUR.size != null;
   if (k === "plan.icm") return G.tour && L.toCall > 0 && CUR.action === "call";
-  if (k === "plan.pot") return S.tier !== "beginner" && !!CUR.action && CUR.action !== "fold";
+  if (k === "plan.pot") return tierNow() !== "beginner" && !!CUR.action && CUR.action !== "fold";
   return true;
 }
 function itemsNow() {
-  const ks = [...TIERS[S.tier].items, ...REFLECTION].filter(applies);
+  const ks = [...TIERS[tierNow()].items, ...REFLECTION].filter(applies);
   return ks.sort((a, b) => TP[a].stage < TP[b].stage ? -1 : TP[a].stage > TP[b].stage ? 1 : 0);
 }
 const naNow = k => { const d = TP[k]; return !!d.na && CUR.g.opp.stats[d.na.stat] < d.na.min; };
@@ -1830,7 +1869,7 @@ const oppLine = () => { const opp = CUR.g.opp; return `<div class="tpc-opp">판�
 // Spot type for the Quick rule: facing a bet/raise this street, otherwise preflop/postflop.
 const spotType = () => G.streetAgg != null && G.streetAgg !== CUR.hero.i ? "facing_bet" : G.street === 0 ? "preflop" : "postflop";
 function quickItems() {
-  const tier = TIERS[S.tier].items;
+  const tier = TIERS[tierNow()].items;
   return MODES.quick.rule[spotType()].filter(k => tier.includes(k) && applies(k) && !naNow(k)).slice(0, MODES.quick.max_judgments);
 }
 const actionDone = () => !!CUR.action && (CUR.action !== "raise" || CUR.size != null);
@@ -1920,12 +1959,12 @@ function chipRow(vals, fmt = v => v) { return `<div class="chiprow" style="--n:$
 function stepper(steps) { return `<div class="stepper">${steps.map(d => `<button class="step num" data-step="${d}" aria-label="${d > 0 ? "+" : "−"}${Math.abs(d)}">${d > 0 ? "+" + d : "−" + -d}</button>`).join("")}</div>`; }
 const RANGE_CHIPS = [5, 10, 15, 20, 25, 30, 40, 50, 70, 100];
 function qInput(k, na) {
-  const d = TP[k], tier = TIERS[S.tier];
+  const d = TP[k], tier = TIERS[tierNow()];
   if (d.type === "range") {
-    const edit = S.tier === "pro";
+    const edit = tierNow() === "pro";
     return `<div class="t"><span>${d.q}</span><span class="val num" data-val>—</span></div>
       <div class="presets">${[["타이트", 15], ["보통", 30], ["루즈", 50]].map(([t, v]) => `<button class="size" data-chip="${v}" aria-pressed="false">${t} <span class="num">${v}%</span></button>`).join("")}</div>
-      ${chipRow(RANGE_CHIPS, v => v + "%")}${S.tier === "beginner" ? "" : stepper([-5, -1, 1, 5])}
+      ${chipRow(RANGE_CHIPS, v => v + "%")}${tierNow() === "beginner" ? "" : stepper([-5, -1, 1, 5])}
       <div class="rgrid${edit ? " edit" : ""}" data-grid>${gridCells()}</div>
       <div class="hint">${edit ? "상위 %를 고른 뒤 칸을 눌러 넣고 뺄 수 있어요." : "대각선 위 = 수딧, 아래 = 오프수트, 대각선 = 페어"}</div>`;
   }
@@ -1984,7 +2023,7 @@ function actionInput() {
 }
 function setFill(inp) { inp.style.setProperty("--fill", ((inp.value - inp.min) / (inp.max - inp.min) * 100) + "%"); }
 function bindInputs(root) {
-  const minOf = k => TP[k].type === "range" ? (S.tier === "beginner" ? 5 : 2) : 0;
+  const minOf = k => TP[k].type === "range" ? (tierNow() === "beginner" ? 5 : 2) : 0;
   const setVal = (q, v, fromGrid) => {
     const k = q.dataset.k; v = clamp(Math.round(v), minOf(k), 100);
     CUR.answers[k] = v;
@@ -2066,7 +2105,7 @@ function trainWhyCtx(g) {
   };
   return { hero: hero.cards.slice(), board: G.board.slice(), oppPct: g.pct, heroPct: heroRangePct(hero), ov: g.ov, steps, note: g.note["opp.value"], texts };
 }
-function scoreScalar(u, g) { const tol = TIERS[S.tier].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * 2.4)) }; }
+function scoreScalar(u, g) { const tol = TIERS[tierNow()].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * 2.4)) }; }
 function submitTP() { finishHero(itemsNow()); }
 // keys = items to grade (Guided: every applicable item; Quick analysis: the core judgments + action). null = Quick without analysis.
 function finishHero(keys) {
@@ -2082,7 +2121,7 @@ function finishHero(keys) {
     } else if (k === "opp.range") {
       const gk = classesInTop(g.v[k]), uk = CUR.rangeKeys || classesInTop(30);
       let inter = 0, uni = 0; for (const c of CLASSES) { const a = uk.has(c.key), b = gk.has(c.key); if (a && b) inter += c.combos; if (a || b) uni += c.combos; }
-      const jac = uni ? inter / uni : 1, u = CUR.answers[k] ?? 30, sc = S.tier === "pro" ? Math.round(jac * 100) : scoreScalar(u, g.v[k]).score;
+      const jac = uni ? inter / uni : 1, u = CUR.answers[k] ?? 30, sc = tierNow() === "pro" ? Math.round(jac * 100) : scoreScalar(u, g.v[k]).score;
       rows.push({ k, kind: "range", you: u, gto: g.v[k], score: sc, uk, gk });
     } else if (k === "hand.equity" && CUR.ab) {
       if (CUR.answers[k] == null) continue;
@@ -2169,7 +2208,7 @@ function resultHTML(gr, compact) {
 // TP-GTO is connected the numbers are mock: contribution ~ distance of the TP-GTO(mock) answer from the
 // middle, threshold = the next answer on the tier's grid toward the middle.
 function driversHTML(gr) {
-  const step = TIERS[S.tier].step === 1 ? 5 : TIERS[S.tier].step;
+  const step = TIERS[tierNow()].step === 1 ? 5 : TIERS[tierNow()].step;
   if (gr.actionOnly) return "";
   const top = gr.rows.filter(r => r.kind !== "range").map(r => ({ r, c: Math.abs(r.gto - 50) }))
     .sort((a, b) => b.c - a.c).slice(0, 3);
