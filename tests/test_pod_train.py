@@ -71,3 +71,24 @@ def test_unpack_handles_tables_past_int16_offsets():
     st = P.unpack_state(P.pack(m), meta)
     assert st["regret"]["k11999"] == [1.0, 2.0, 11999.0] and st["avg"]["k11999"] == [11999.0, 1.0, 0.5]
     assert st["visits"]["k11999"] == 12000
+
+
+def test_unpack_reads_each_array_once(monkeypatch):
+    # #355: NpzFile decompresses on every z[name]; reading per key made a 195k-key pro table take hours
+    m = E3MCCFR(1, 5, 3, "basic")
+    for i in range(50):
+        m.regret[f"k{i}"], m.avg[f"k{i}"], m.visits[f"k{i}"] = np.array([1.0, 2.0]), np.array([0.5, 0.5]), 1
+    blob, reads, load = P.pack(m), [], np.load
+
+    class Counting:
+        def __init__(self, z):
+            self.z = z
+
+        def __getitem__(self, name):
+            reads.append(name)
+            return self.z[name]
+
+    monkeypatch.setattr(P.np, "load", lambda f: Counting(load(f)))
+    meta = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": 0, "nodes": 0, "rng": m.rng.bit_generator.state}
+    P.unpack_state(blob, meta)
+    assert sorted(reads) == sorted(set(reads)), reads
