@@ -154,6 +154,7 @@ def test_e3_job_records_both_policies_and_coverage(tmp_path, monkeypatch):
     assert r["lbr_offmenu"]["lbr_bb"] == 4.5          # #343
     s = T.summarize("e3-tp-beginner", tmp_path)
     assert s["lbr_offmenu_bb_by_seed"] == [4.5]
+    assert s["infosets_by_seed"] == [r["infosets"]] and r["infosets"] > 0   # #332
     assert s["field_worst_by_seed"] == [r["field"]["worst"]] and "self5" in s["field_bb100_by_seed"][0]
     pol = json.loads((tmp_path / "e3-tp-beginner-seed1.policy.json").read_text(encoding="utf-8"))
     assert set(pol) == {"average", "current"}
