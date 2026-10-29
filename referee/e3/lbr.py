@@ -50,41 +50,50 @@ class Extra(NamedTuple):
     menu: str
 
 
+def _top(s: G.State) -> float:
+    """The bet-to at or above which the state's rules count a size as all in (see `G._offered`)."""
+    room = s.stack[s.to_act] + s.bet[s.to_act]
+    return room - G.BB if s.raise_cap is not None else min(room - G.BB, G.ALLIN_MERGE * room)
+
+
 def translate_size(s: G.State, to: int) -> str:
     """The menu action the policy reads an off-menu bet or raise to `to` chips as (s = state before it).
 
-    Nearest menu size by pot fraction; a tie takes the larger. All in (or more) is "a"; facing a bet is
-    always "r" (the menu has one raise size). Nearest, not pseudo-harmonic: the key already carries the
-    real price through the pot-odds and SPR steps, so the label only has to place the action on the menu
-    for the initiative flag and the range update, and nearest is the simplest deterministic rule."""
+    Nearest size the state's menu offers (v1 or tp6, by chips); a tie takes the larger. All in (or more)
+    is "a"; with nothing to call the all-in is a candidate too. Facing a bet only the menu's raise sizes
+    compete (v1 has one, "r"). Nearest, not pseudo-harmonic: the key already carries the real price
+    through the pot-odds and SPR steps, so the label only has to place the action on the menu for the
+    initiative flag and the range update, and nearest is the simplest deterministic rule."""
     p = s.to_act
     room = s.stack[p] + s.bet[p]
     if to >= room:
         return "a"
-    if s.to_call() > 0:
-        return "r"
-    pot = max(s.pot, 1)
-    sizes = {"b33": 0.33, "b75": 0.75, "a": (room - s.bet[p]) / pot}
-    ratio = (to - s.bet[p]) / pot
-    return min(sizes, key=lambda m: (abs(sizes[m] - ratio), -sizes[m]))
+    sizes = dict(G._offered(s))
+    if s.to_call() == 0:
+        sizes["a"] = room
+    if not sizes:
+        return "a"
+    return min(sizes, key=lambda m: (abs(sizes[m] - to), -sizes[m]))
 
 
 def extra_actions(s: G.State) -> list[Extra]:
     """Off-menu postflop sizes for the seat to act: overbets with nothing to call, a minimum raise when
-    facing a bet. Only sizes the menu lacks and short of all in (the all-in covers the rest)."""
+    facing a bet. Only sizes the state's menu lacks (same chips as an offered size does not count) and
+    short of all in (the all-in covers the rest). Honors the state's `raise_cap`."""
     p = s.to_act
-    room = s.stack[p] + s.bet[p]
     call = s.to_call()
-    if (s.street == 0 or s.stack[p] <= call or s.raises >= G.RAISE_CAP
-            or not [i for i in s.active() if i != p]):
+    if (s.street == 0 or s.stack[p] <= call or not [i for i in s.active() if i != p]
+            or (s.raise_cap is not None and s.raises >= s.raise_cap)):
         return []
+    on_menu = {t for _, t in G._offered(s)}
+    top = _top(s)
     if call > 0:
         to = max(s.bet) + s.last_raise
-        return [Extra(to, "r")] if to < G._amount_to(s, "r") and to < room - G.BB else []
+        return [Extra(to, translate_size(s, to))] if to < top and to not in on_menu else []
     out = []
     for frac in OVERBETS:
         to = s.bet[p] + max(G.BB, int(round(s.pot * frac)))
-        if to < room - G.BB:
+        if to < top and to not in on_menu:
             out.append(Extra(to, translate_size(s, to)))
     return out
 

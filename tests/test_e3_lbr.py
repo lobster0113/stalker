@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from referee.e3 import lbr as L
 from stalker.e3 import game as G
@@ -189,3 +190,52 @@ def test_extra_sizes_lbr_is_not_below_the_menu_lbr(monkeypatch):
     tol = 3 * (base["stderr_bb"] ** 2 + ext["stderr_bb"] ** 2) ** 0.5
     assert ext["lbr_bb"] >= base["lbr_bb"] - tol
     assert ext == L.exploitability_lb(folds_a_lot, 60, seed=3, k=3, n=3, extra_sizes=True)   # reproducible
+
+
+# --- #343 review: the exploiter follows the state's own rules (tp6 menu, raise_cap=None) ------------
+
+def _flop6(**kw):
+    s = G.deal(np.random.default_rng(7), 3, **kw)
+    while s.street == 0:
+        s = G.apply(s, "c")
+    return s
+
+
+def test_translate_size_uses_the_tp6_menu():
+    s = _flop6(menu="tp6")
+    p, pot = s.to_act, s.pot
+    for name, to in G._offered(s):                                    # every offered size maps to itself
+        assert L.translate_size(s, to) == name
+    assert L.translate_size(s, s.bet[p] + int(pot * 2.0)) in {"b150", "a"}
+    assert L.translate_size(s, s.bet[p] + int(pot * 0.6)) in dict(G._offered(s))
+    facing = G.apply(s, "b50")
+    to = max(facing.bet) + facing.last_raise
+    assert L.translate_size(facing, to) in dict(G._offered(facing))   # a raise label of this menu, not v1's "r" blindly
+
+
+def test_extra_actions_skip_sizes_the_state_menu_has():
+    s = _flop6(menu="tp6")
+    on_menu = {t for _, t in G._offered(s)}
+    xs = L.extra_actions(s)
+    assert xs and all(x.to not in on_menu for x in xs)
+    assert all(x.menu in G.legal(s) for x in xs)
+    assert s.bet[s.to_act] + int(round(s.pot * 1.5)) in on_menu       # 150% is b150 here, so not extra
+
+
+def _raise_n(s, n):
+    for _ in range(n):
+        s = G.apply(s, "b50" if s.to_call() == 0 else "r4")
+    return s
+
+
+def test_extra_actions_and_apply_to_without_a_raise_cap():
+    free = _raise_n(_flop6(menu="tp6", raise_cap=None), 3)
+    assert free.raises == G.RAISE_CAP and not free.done
+    xs = L.extra_actions(free)                                        # past the default cap, still legal here
+    assert xs
+    for x in xs:
+        assert G.apply_to(free, x.to, x.menu).bet[free.to_act] == x.to
+    capped = _raise_n(_flop6(menu="tp6"), 3)
+    assert L.extra_actions(capped) == []
+    with pytest.raises(ValueError):
+        G.apply_to(capped, max(capped.bet) + capped.last_raise, "r")

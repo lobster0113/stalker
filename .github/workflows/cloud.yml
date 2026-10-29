@@ -19,6 +19,9 @@ on:
       collect_run:
         description: "mode=collect: run id of an earlier cloud.yml run whose result artifact is copied to ops"
         default: ""
+      resume_run:
+        description: "mode=run: run id of an earlier cloud.yml run of the same job; the pod continues its result (#354)"
+        default: ""
   schedule:
     - cron: "17 3 * * *"
 
@@ -31,7 +34,7 @@ concurrency:
 
 permissions:
   contents: write  # push ledger lines and results to ops
-  actions: read    # mode=collect: download an earlier run's cloud-result artifact (#264)
+  actions: read    # mode=collect / resume_run: download an earlier run's cloud-result artifact (#264, #354)
 
 defaults:
   run:
@@ -50,6 +53,7 @@ jobs:
       JOB: ${{ inputs.job }}
       DRY_RUN: ${{ inputs.dry_run }}
       COLLECT_RUN: ${{ inputs.collect_run }}
+      RESUME_RUN: ${{ inputs.resume_run }}
       LEDGER: ${{ github.workspace }}/ops/budget/ledger.jsonl
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +64,18 @@ jobs:
         run: |
           git fetch -q origin ops
           git worktree add ops origin/ops -B ops
+      - name: check resume_run
+        if: env.MODE == 'run'
+        run: '[[ -z "$RESUME_RUN" || "$RESUME_RUN" =~ ^[0-9]+$ ]] || { echo "resume_run must be a cloud.yml run id, got ''$RESUME_RUN''"; exit 1; }'
+      - name: fetch resume result
+        # the pod gets this file through its result server (launcher upload), never a GitHub credential
+        if: env.MODE == 'run' && env.RESUME_RUN != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: cloud-result-${{ env.RESUME_RUN }}
+          run-id: ${{ env.RESUME_RUN }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/resume/
       - name: launcher
         run: |
           case "$MODE" in
@@ -72,6 +88,7 @@ jobs:
                     --sync-cmd "bash harness/cloud/push_ledger.sh ops 'cloud: reserve run $GITHUB_RUN_ID'"
                     --result-out "$RUNNER_TEMP/cloud-result/result.json")
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
+              [[ -n "$RESUME_RUN" ]] && args+=(--resume-file "$RUNNER_TEMP/resume/result.json" --resume-run "$RESUME_RUN")
               python harness/cloud/launcher.py "${args[@]}" ;;
             collect) [[ "$COLLECT_RUN" =~ ^[0-9]+$ ]] || { echo "collect_run must be a cloud.yml run id, got '$COLLECT_RUN'"; exit 1; } ;;
             *) echo "mode must be check|run|reap|collect, got '$MODE'"; exit 1 ;;
