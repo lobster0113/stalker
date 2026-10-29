@@ -1,0 +1,105 @@
+{
+ "job": "e3-tp-beginner",
+ "runs": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "ref": "main",
+ "sha": "2044ebd6c2a02b5ed0529279391a6408a383ba9c",
+ "run_id": "40783153094",
+ "resumed_from_run": "40742518781",
+ "iters": 200000,
+ "iters_per_s_mean": 7.53,
+ "lbr_bb_mean": 1.0092,
+ "lbr_bb_by_seed": [
+  1.1277,
+  0.928,
+  0.9876,
+  0.9934
+ ],
+ "lbr_stderr_by_seed": [
+  0.2215,
+  0.1996,
+  0.2301,
+  0.2156
+ ],
+ "resumed_from_iters_by_seed": [
+  100000,
+  100000,
+  100000,
+  100000
+ ],
+ "field_sha256": "a509992d2140b5a1b02f15d191a8740edb26aa08951de1f68b9a5ac410e345b0",
+ "field_deals": 1000,
+ "field_worst_by_seed": [
+  {
+   "name": "tag5",
+   "bb100": -54.9,
+   "ci95_low": -108.79
+  },
+  {
+   "name": "tag5",
+   "bb100": -59.76,
+   "ci95_low": -112.15
+  },
+  {
+   "name": "lag5",
+   "bb100": -46.12,
+   "ci95_low": -108.11
+  },
+  {
+   "name": "lag5",
+   "bb100": -42.41,
+   "ci95_low": -95.58
+  }
+ ],
+ "field_bb100_by_seed": [
+  {
+   "tag5": -54.9,
+   "lag5": -19.81,
+   "nit5": -33.79,
+   "station5": 220.46,
+   "maniac5": 129.23,
+   "mixed_styles": 1.19,
+   "mixed_regs": 2.3,
+   "uniform5": 570.17,
+   "self5": 0.0
+  },
+  {
+   "tag5": -59.76,
+   "lag5": -18.17,
+   "nit5": -56.81,
+   "station5": 176.71,
+   "maniac5": 138.59,
+   "mixed_styles": 32.15,
+   "mixed_regs": -11.01,
+   "uniform5": 689.48,
+   "self5": 0.0
+  },
+  {
+   "tag5": -17.14,
+   "lag5": -46.12,
+   "nit5": -45.19,
+   "station5": 192.46,
+   "maniac5": 83.8,
+   "mixed_styles": 45.98,
+   "mixed_regs": -14.89,
+   "uniform5": 727.96,
+   "self5": 0.0
+  },
+  {
+   "tag5": -20.62,
+   "lag5": -42.41,
+   "nit5": -0.12,
+   "station5": 169.23,
+   "maniac5": 147.47,
+   "mixed_styles": 50.77,
+   "mixed_regs": 8.14,
+   "uniform5": 725.01,
+   "self5": 0.0
+  }
+ ]
+}
