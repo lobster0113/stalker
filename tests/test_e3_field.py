@@ -50,7 +50,21 @@ def test_tp_policy_self_table_is_zero_and_beliefs_do_not_break_play():
     pol = {}  # an empty TP table plays uniformly but still tracks its public ranges
     r = F.evaluate(pol, 3, configs=["self5", "tag5"])
     by = {c["name"]: c["bb100"] for c in r["configs"]}
-    assert by["self5"] == 0.0 and r["worst"]["name"] == min(by, key=by.get)
+    assert by["self5"] == 0.0 and r["worst"]["name"] == "tag5"
+
+
+def test_worst_ignores_the_all_self_configuration(monkeypatch):
+    # A policy that beats every non-self table: self5 is 0.0 but must not be reported as the worst.
+    def fake(target, opps, deal_seed, k=5, depth="basic"):
+        return np.zeros(6) if all(o is target for o in opps) else np.full(6, 0.5)
+
+    monkeypatch.setattr(F, "play_deal", fake)
+    r = F.evaluate(F.uniform, 3, configs=["self5", "tag5", "nit5"])
+    by = {c["name"]: c["bb100"] for c in r["configs"]}
+    assert by["self5"] == 0.0 and by["tag5"] > 0
+    assert r["worst"]["name"] in ("tag5", "nit5") and r["worst"]["bb100"] > 0
+    only_self = F.evaluate(F.uniform, 3, configs=["self5"])
+    assert only_self["worst"]["name"] == "self5"
 
 
 def test_results_are_seeded():

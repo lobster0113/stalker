@@ -101,16 +101,18 @@ def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = 
 
 def evaluate(target, hands: int, seed: int = 0, spec: dict | None = None, k: int = 5, depth: str = "basic",
              configs: list[str] | None = None) -> dict:
-    """The target's bb/100 per configuration (95% CI over deals) and the worst configuration."""
+    """The target's bb/100 per configuration (95% CI over deals) and the worst configuration
+    (all-self configurations are reported in `configs` but excluded from `worst`, #374)."""
     sha = None
     if spec is None:
         spec, sha = load()
     if hands < 2:
         raise ValueError("hands must be >= 2 (the CI resamples deals)")
-    rows = []
+    rows, matched = [], []
     for c in spec["configs"]:
         if configs and c["name"] not in configs:
             continue
+        matched.append(c)
         opps = [_actor(o, target) for o in c["opponents"]]
         res = np.array([play_deal(target, opps, seed * 1_000_003 + h, k, depth) for h in range(hands)])
         ci = bootstrap_ci(res.ravel() * 100, np.repeat(np.arange(hands), res.shape[1]), rng=np.random.default_rng(seed))
@@ -118,7 +120,9 @@ def evaluate(target, hands: int, seed: int = 0, spec: dict | None = None, k: int
                      "deals": hands, "by_seat_bb100": [round(float(x), 1) for x in res.mean(axis=0) * 100]})
     if not rows:
         raise FieldError(f"no config matched {configs}")
-    worst = min(rows, key=lambda r: r["bb100"])
+    # self-play is exactly 0 by symmetry (a sanity row); counting it would hide the real worst opponent set
+    rivals = [r for r, c in zip(rows, matched) if any(o != "self" for o in c["opponents"])] or rows
+    worst = min(rivals, key=lambda r: r["bb100"])
     return {"version": spec["version"], "sha256": sha, "seed": seed, "deals": hands, "configs": rows,
             "worst": {"name": worst["name"], "bb100": worst["bb100"], "ci95_low": worst["ci95"][0]}}
 
