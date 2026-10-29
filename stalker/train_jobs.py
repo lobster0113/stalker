@@ -193,7 +193,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
 
 def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) -> dict:
     """The CI E3 evaluation of a trained model: LBR of both policies, coverage, field (6-max only).
-    Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare."""
+    Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare.
+    `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation)."""
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3.mccfr import coverage
