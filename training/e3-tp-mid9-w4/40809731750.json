@@ -1,0 +1,35 @@
+{
+ "job": "e3-tp-mid9-w4",
+ "runs": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "ref": "main",
+ "sha": "102b61bf23b9df38cd2b6c0cadf13bc416d1c75a",
+ "run_id": "40809731750",
+ "resumed_from_run": null,
+ "iters": 100000,
+ "iters_per_s_mean": 18.95,
+ "lbr_bb_mean": 0.6822,
+ "lbr_bb_by_seed": [
+  0.8539,
+  0.8211,
+  0.4395,
+  0.6144
+ ],
+ "lbr_stderr_by_seed": [
+  0.1681,
+  0.1758,
+  0.1579,
+  0.158
+ ],
+ "resumed_from_iters_by_seed": [
+  0,
+  0,
+  0,
+  0
+ ]
+}
