@@ -24,7 +24,7 @@
   - `actions/download-artifact@v4`(run-id, github-token)로 `cloud-result-<id>`를 `$RUNNER_TEMP/resume/`에 받는다.
   - 런처에 `--resume-file`·`--resume-run`을 넘긴다. 원장·예산 동작은 그대로다.
 - `stalker/tools/pod_train.py`
-  - `--resume-result`(평문 또는 gzip JSON)를 받는다. 잡·tier·인원·`model.k/n/depth`·`nut_k`가 다르면 고치는 방법과 함께 거부한다.
+  - `--resume-result`(평문 또는 gzip JSON)를 받는다. 잡·tier·인원·`model.k/n/depth`·`nut_k`·게임 규칙(#339의 `menu`·`raise_cap`, 없으면 v1·3으로 읽음)이 다르면 고치는 방법과 함께 거부한다. 규칙은 `--menu`·`--no-raise-cap`으로 정하며 기본값은 v1·3이다.
   - 결과에 `resumed_from_run`을 남긴다. `iters`는 누적되고 `resumed_from`은 이어 받은 반복 수다.
   - 체크포인트는 float64가 업로드 한도(`RESUME_BUDGET` = 런처 상한, 테스트로 고정)를 넘으면 float32로 저장한다. float32로도 넘치면 결과 상한(250 MB) 안에서 저장하되 `checkpoint_note`에 "이어 달릴 수 없음"을 적는다.
   - 기존 `--resume`(CI ckpt)은 그대로다.
@@ -35,9 +35,24 @@
   - Linux bash: 신호 전에는 잡이 시작하지 않는다. 업로드 파일이 잡에 보인다. 신호가 없으면 97이다.
   - `pod_train`: 왕복(학습 → 결과 → 런처 페이로드 → 이어 학습, 반복 누적, `resumed_from_run`), 불일치 거부.
 ## 알려진 한계
-- 100 MB 한도는 Cloudflare 문서 기준의 가정이다. RunPod 프록시에서 실측하지 않았다. 첫 고수 체인 2회차가 실측이다(업로드 바이트 수는 run 로그 `resume: sent N bytes`).
+- 100 MB 한도는 Cloudflare 문서 기준의 가정이다. 실측은 실제 파드가 있어야 하므로 머지 후에만 할 수 있다(아래 "프록시 본문 한도 실측 계획").
 - float32로 이어 가면 비트 단위 재현은 아니다(pod_train 문서). float32로도 95 MB를 넘는 모델은 이 방법으로 넘길 수 없다. 그때는 (b) 네트워크 볼륨이나 분할 업로드를 다시 검토한다.
 - 신호를 기다리느라 잡 시작이 첫 폴링(최대 30초)만큼 늦어진다.
+## 프록시 본문 한도 실측 계획 (머지 후 첫 `resume_run` 실행)
+머지 전에는 실측할 수 없다. 실제 RunPod 파드와 그 프록시가 필요하고 비용이 든다. 그래서 #354 수용 기준(고수 체인 2회)의 2회차를 측정으로 쓴다.
+- 방법
+  - 런처 로그 `resume: sent N bytes`를 본다. 이 줄은 파드가 돌려준 바이트 수와 sha256이 보낸 값과 같을 때만 찍힌다(`_signal`).
+  - 같은 run 로그에서 dry run의 `dry run: resume upload N bytes ok`, 원장 `minutes`, 업로드 시간(신호 전후 로그 시각)을 함께 읽는다.
+  - 크기가 한도에 가까운지 보려면 1회차 결과의 npz 크기(결과 `checkpoint.b64` 길이 × 3/4)와 비교한다.
+- 기록 위치: 이슈 #354 코멘트. run id, N, sha 일치 여부, 업로드 시간, 상태를 적고, 이 문서의 "결과"에도 옮긴다.
+- 성공 판정: 상태 `completed`, 2회차 결과의 `resumed_from` = 1회차 `iters`.
+- 실패 시 대응
+  - 413(Cloudflare 또는 파드)이나 업로드 시간 초과로 `resume_failed`·`timeout`이 나면 다음 순서로 대응한다.
+  - (1) 이어 달릴 페이로드를 줄인다. `pod_train`이 float32로 저장하게 `RESUME_BUDGET`을 낮추고, 그래도 크면 regret만 담는 페이로드(average 합계 제외)를 넣는다.
+  - (2) 실측 한도 아래로 `RESUME_MAX_BYTES`와 `RESUME_BUDGET`을 함께 낮춘다. 같은 값이어야 한다는 것은 테스트로 고정돼 있다.
+  - (3) 그래도 안 되면 분할 업로드나 (b) 네트워크 볼륨을 새 이슈로 검토한다.
+  - 실패한 run의 비용과 원인은 #354 코멘트에 남긴다.
+
 ## 측정 지표와 측정창
 머지 후 `resume_run`을 쓴 파드 실행 5회 또는 14일 중 먼저 오는 쪽. 근거는 cloud.yml 로그, 결과 아티팩트·`ops:cloud/results`, `ops:budget/ledger.jsonl`뿐이다.
 - 이어 달린 실행의 `resumed_from` = 이전 결과의 `iters`, `resumed_from_run` = 이전 run id.
@@ -45,6 +60,7 @@
 - 신호 대기로 늘어난 시간: 원장 `minutes`와 학습 `train_seconds`의 차.
 ## 성공 기준 (수치)
 - 고수 파드 체인 2회 연속 성공(#354 수용 기준). 2회차의 `resumed_from` = 1회차 `iters`이고 `iters` > 1회차.
+- 같은 2회차에서 업로드 크기 N과 sha 일치가 #354 코멘트에 기록됨(프록시 한도 실측).
 - 측정창 안 `resume_failed` 0건, 신호 시간 초과(97) 0건.
 - 원장·예산 동작 변화 없음: 모든 start에 end가 있고 월 합계 ≤ 상한.
 ## 롤백 방법

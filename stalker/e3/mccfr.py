@@ -26,9 +26,11 @@ from stalker.e3 import tp_key as K
 
 
 class E3MCCFR:
-    def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full"):
+    def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
+                 raise_cap: int | None = G.RAISE_CAP):
         self.rng = np.random.default_rng(seed)
         self.k, self.n, self.depth = k, n, depth
+        self.menu, self.raise_cap = menu, raise_cap   # game rules (#339); v1 + cap 3 is every earlier run
         self.regret: dict[str, np.ndarray] = {}
         self.avg: dict[str, np.ndarray] = defaultdict(lambda: None)
         self.iterations = 0
@@ -58,7 +60,7 @@ class E3MCCFR:
     def iterate(self, iters: int = 1) -> None:
         for _ in range(iters):
             self.iterations += 1
-            s = G.deal(self.rng, self.n)
+            s = G.deal(self.rng, self.n, self.menu, self.raise_cap)
             for trav in range(self.n):
                 self._walk(s, K.initial_ranges(self.n), trav)
 
@@ -93,7 +95,7 @@ class E3MCCFR:
         """Everything `iterate` reads, as JSON data; `from_state` continues bit for bit (#301), so a run
         longer than one CI job (300 min) is chained from checkpoints."""
         return {"version": 1, "k": self.k, "n": self.n, "depth": self.depth, "iterations": self.iterations,
-                "nodes": self.nodes, "rng": self.rng.bit_generator.state,
+                "nodes": self.nodes, "menu": self.menu, "raise_cap": self.raise_cap, "rng": self.rng.bit_generator.state,
                 "regret": {k: v.tolist() for k, v in self.regret.items()},
                 "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}, "visits": dict(self.visits),
                 **self._grid()}
@@ -109,7 +111,7 @@ class E3MCCFR:
         if st["depth"] == "pro" and st.get("nut_k", K.K_PRO) != K.NUT_K:
             raise ValueError(f"checkpoint board.nut has {st.get('nut_k', K.K_PRO)} steps; this code uses {K.NUT_K} "
                              "(#332) - start a fresh run instead of resuming it")
-        m = cls(0, st["k"], st["n"], st["depth"])
+        m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP))
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
@@ -143,14 +145,19 @@ def main(argv=None) -> int:
     ap.add_argument("--iters", type=int, default=50)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--players", type=int, default=6)
+    ap.add_argument("--menu", choices=G.MENUS, default="v1")
+    ap.add_argument("--no-raise-cap", action="store_true")
     a = ap.parse_args(argv)
-    m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier])
+    m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier], a.menu,
+                None if a.no_raise_cap else G.RAISE_CAP)
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0
     print(json.dumps({"tier": a.tier, "players": a.players, "iters": a.iters, "seconds": round(dt, 1),
                       "iters_per_s": round(a.iters / dt, 3), "nodes_per_iter": round(m.nodes / a.iters, 1),
-                      "keys": len(m.regret), "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth)}))
+                      "keys": len(m.regret), "menu": m.menu, "raise_cap": m.raise_cap,
+                      # the bound counts the v1 legal-action sets only
+                      "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth) if m.menu == "v1" else None}))
     return 0
 
 

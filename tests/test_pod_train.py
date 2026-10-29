@@ -17,10 +17,10 @@ import launcher as L  # noqa: E402
 
 
 def test_pack_round_trips_the_model_state():
-    m = E3MCCFR(3, 5, 3, "basic")
+    m = E3MCCFR(3, 5, 3, "basic", "tp6", None)  # non-default rules must survive the trip (#339)
     m.iterate(3)
     meta = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
-            "rng": m.rng.bit_generator.state}
+            "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state}
     st = P.unpack_state(P.pack(m), meta)
     assert st == json.loads(json.dumps(m.state()))
     back, again = E3MCCFR.from_state(st), E3MCCFR.from_state(m.state())
@@ -33,6 +33,7 @@ def test_run_writes_a_checked_result_and_unpacks_to_the_ci_layout(tmp_path):
     r = P.run("beginner", 3, 2, minutes=0.001, seed=1, batch=1)
     assert r["iters"] >= 2 and r["checkpoint"]["dtype"] == "float64"
     assert r["lbr"] is not None and r["field"] is None  # field is 6-max only
+    assert (r["model"]["menu"], r["model"]["raise_cap"]) == ("v1", 3)
     body = json.dumps(r).encode()
     L.check_result(body)  # the launcher's own size and secret checks
     res = tmp_path / "r.json"
@@ -135,3 +136,38 @@ def test_checkpoint_stays_under_the_pod_upload_limit_when_float32_fits():
 def test_pod_jobs_take_the_resume_file():
     for spec in sorted((ROOT / "jobs").glob("e3-tp-*-pod32.yaml")):
         assert '${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}' in L.load_spec(spec).command, spec.name
+
+_BEGINNER3 = {"job": "e3-tp-beginner3-pod", "tier": "beginner", "players": 3, "checkpoint": {"b64": ""},
+              "model": {"k": 5, "n": 3, "depth": "basic", "menu": "v1", "raise_cap": 3}}
+
+
+@pytest.mark.parametrize("model,job,msg", [
+    ({"menu": "tp6"}, {}, "menu"),                        # result tp6, job v1
+    ({"raise_cap": None}, {}, "raise_cap"),               # result uncapped, job cap 3
+    ({}, {"menu": "tp6"}, "menu"),                        # job tp6, result v1
+    ({}, {"raise_cap": None}, "raise_cap"),               # job uncapped, result cap 3
+    ({"raise_cap": 4}, {}, "raise_cap"),
+], ids=["result-tp6", "result-nocap", "job-tp6", "job-nocap", "cap-4"])
+def test_resume_result_refuses_other_game_rules(tmp_path, model, job, msg):
+    # #339: the menu and raise cap change which actions a key has, so a table of other rules is refused
+    r = _BEGINNER3 | {"model": _BEGINNER3["model"] | model}
+    with pytest.raises(SystemExit, match=msg):
+        P.load_resume_result(_pod_result_file(tmp_path, r), "beginner", 3, **job)
+
+
+def test_resume_result_reads_a_result_from_before_the_rules_as_v1_cap3(tmp_path):
+    r = _BEGINNER3 | {"model": {k: v for k, v in _BEGINNER3["model"].items() if k not in ("menu", "raise_cap")}}
+    with pytest.raises(SystemExit, match="menu"):  # old = v1, so a tp6 job refuses it
+        P.load_resume_result(_pod_result_file(tmp_path, r), "beginner", 3, menu="tp6")
+
+
+def test_resume_result_keeps_non_default_rules_through_the_chain(tmp_path, no_eval):
+    first = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2, menu="tp6", raise_cap=None)
+    assert (first["model"]["menu"], first["model"]["raise_cap"]) == ("tp6", None)
+    f = _pod_result_file(tmp_path, first, run_id="9")
+    with pytest.raises(SystemExit, match="menu"):
+        P.load_resume_result(f, "beginner", 3)
+    st, _ = P.load_resume_result(f, "beginner", 3, menu="tp6", raise_cap=None)
+    second = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2, resume=st, menu="tp6", raise_cap=None)
+    assert (second["model"]["menu"], second["model"]["raise_cap"]) == ("tp6", None)
+    assert second["iters"] > first["iters"] == second["resumed_from"]

@@ -41,12 +41,15 @@ def job_name(tier: str, players: int) -> str:
     return f"e3-tp-{tier}{'' if players == 6 else players}-pod"
 
 
-def load_resume_result(path: Path, tier: str, players: int) -> tuple[dict, str | None]:
+def load_resume_result(path: Path, tier: str, players: int, menu: str = "v1",
+                       raise_cap: int | None | str = "default") -> tuple[dict, str | None]:
     """`E3MCCFR.state()` from an earlier pod result (plain or gzipped JSON), plus the run it came from.
 
     Refuses a result of another job: its keys would mean other things in this table."""
+    from stalker.e3 import game as G
     from stalker.e3 import tp_key as K
 
+    raise_cap = G.RAISE_CAP if raise_cap == "default" else raise_cap
     raw = path.read_bytes()
     r = json.loads(gzip.decompress(raw) if raw[:2] == GZIP_MAGIC else raw)
     if not r.get("checkpoint"):
@@ -57,6 +60,9 @@ def load_resume_result(path: Path, tier: str, players: int) -> tuple[dict, str |
     bad = [f"{k} {r.get(k)!r} != {v!r}" for k, v in want.items() if r.get(k) != v]
     bad += [f"model.{k} {model.get(k)!r} != {v!r}" for k, v in
             {"k": K.TIER_K[tier], "n": players, "depth": K.TIER_DEPTH[tier]}.items() if model.get(k) != v]
+    # the game rules (#339): a result from before them was v1 with cap 3, as E3MCCFR.from_state reads it
+    rules = {"menu": (model.get("menu", "v1"), menu), "raise_cap": (model.get("raise_cap", G.RAISE_CAP), raise_cap)}
+    bad += [f"{k} {got!r} != {want!r}" for k, (got, want) in rules.items() if got != want]
     if K.TIER_DEPTH[tier] == "pro" and model.get("nut_k", K.K_PRO) != K.NUT_K:
         bad.append(f"nut_k {model.get('nut_k', K.K_PRO)} != {K.NUT_K} (#332)")
     if bad:
@@ -100,12 +106,15 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
 
 
 def train(tier: str, players: int, workers: int, minutes: float, seed: int, batch: int,
-          resume: dict | None = None, log=lambda s: print(s, file=sys.stderr, flush=True)):
+          resume: dict | None = None, menu: str = "v1", raise_cap: int | None | str = "default",
+          log=lambda s: print(s, file=sys.stderr, flush=True)):
+    from stalker.e3 import game as G
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
-    m = E3MCCFR.from_state(resume) if resume else E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier])
+    m = E3MCCFR.from_state(resume) if resume else E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu,
+                                                         G.RAISE_CAP if raise_cap == "default" else raise_cap)
     start_iters, timing = m.iterations, {}
     t0 = time.monotonic()
     deadline, next_log = t0 + minutes * 60, t0 + PROGRESS_SECONDS
@@ -134,15 +143,17 @@ class _NoPool:
 
 
 def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch: int, resume: dict | None = None,
-        budget: int = RESULT_BUDGET, resume_budget: int = RESUME_BUDGET, resumed_from_run: str | None = None) -> dict:
+        budget: int = RESULT_BUDGET, resume_budget: int = RESUME_BUDGET, resumed_from_run: str | None = None,
+        menu: str = "v1", raise_cap: int | None | str = "default") -> dict:
     from stalker.train_jobs import e3_evaluate
 
-    m, stats = train(tier, players, workers, minutes, seed, batch, resume)
+    m, stats = train(tier, players, workers, minutes, seed, batch, resume, menu, raise_cap)
     res = {"job": job_name(tier, players), "tier": tier, "players": players, "seed": seed, "workers": workers,
            "batch": batch, "iters": m.iterations, "resumed_from_run": resumed_from_run, **stats}
     res.update(e3_evaluate(m, seed))
     res["model"] = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
-                    "rng": m.rng.bit_generator.state, **m._grid()}
+                    "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state,
+                    **m._grid()}
     res.update(_checkpoint(m, budget, resume_budget))
     res.update(max_rss_mb=max_rss_mb(), max_child_rss_mb=max_child_rss_mb(), machine=machine())
     return res
@@ -198,6 +209,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--batch", type=int, default=500, help="iterations per worker between syncs")
     ap.add_argument("--resume", type=Path, help="a CI-layout .ckpt.json to continue")
+    ap.add_argument("--menu", default="v1", choices=("v1", "tp6"), help="E3 action menu (#339): v1 or tp6")
+    ap.add_argument("--no-raise-cap", action="store_true", help="no raise cap (#339); default cap 3")
     ap.add_argument("--resume-result", type=Path, help="an earlier pod result (JSON, may be gzipped) to continue")
     ap.add_argument("--sha-file", type=Path, help="file holding the source commit (the pod reads it from the tarball)")
     ap.add_argument("--unpack", type=Path, help="instead of training: write this pod result's model to --out (a folder)")
@@ -212,9 +225,11 @@ def main(argv=None) -> int:
     if a.resume and a.resume_result:
         raise SystemExit("pass --resume or --resume-result, not both")
     resume, from_run = (json.loads(a.resume.read_text(encoding="utf-8")) if a.resume else None), None
+    cap = None if a.no_raise_cap else "default"
     if a.resume_result:
-        resume, from_run = load_resume_result(a.resume_result, a.tier, a.players)
-    res = run(a.tier, a.players, a.workers, a.minutes, a.seed, a.batch, resume, resumed_from_run=from_run)
+        resume, from_run = load_resume_result(a.resume_result, a.tier, a.players, a.menu, cap)
+    res = run(a.tier, a.players, a.workers, a.minutes, a.seed, a.batch, resume, resumed_from_run=from_run,
+              menu=a.menu, raise_cap=cap)
     res["sha"] = a.sha_file.read_text(encoding="utf-8").strip() if a.sha_file and a.sha_file.exists() else ""
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res), encoding="utf-8")
