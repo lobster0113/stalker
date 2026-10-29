@@ -25,15 +25,21 @@ import numpy as np
 from referee.anchors import icm_reference as R
 
 TIER_LEVELS = {"beginner": 5, "mid": 11, "pro": 101}
+TP_STEP = {"beginner": 25, "mid": 10, "pro": 1}   # points per scale step, as stalker.e1.tp_pushfold.TIER_STEP
 VIEWS = ("rank", "strongest", "per_opp", "composite")
 
 
-def _quantile(x: np.ndarray, w: np.ndarray, k: int) -> np.ndarray:
+def _qpos(x: np.ndarray, w: np.ndarray) -> np.ndarray:
+    """Mid-rank position in [0, 1] of each class under weights w (the continuous TP value)."""
     order = np.argsort(x, kind="stable")
     cum = np.cumsum(w[order]) / w.sum()
-    out = np.empty(len(x), dtype=int)
-    out[order] = np.minimum(((cum - w[order] / w.sum() / 2) * k).astype(int), k - 1)
+    out = np.empty(len(x))
+    out[order] = cum - w[order] / w.sum() / 2
     return out
+
+
+def _quantile(x: np.ndarray, w: np.ndarray, k: int) -> np.ndarray:
+    return np.minimum((_qpos(x, w) * k).astype(int), k - 1)
 
 
 def _eq_vs(tree, rng_w: np.ndarray) -> np.ndarray:
@@ -51,6 +57,7 @@ class Result:
     gains: np.ndarray          # per-seat exact best-response gain (share of prize pool / chips)
     exploitability: float      # sum of gains, as a share of the scale
     nash_gains: np.ndarray     # unconstrained fictitious play, same iteration count
+    strategy: R.Strategy | None = None   # the delivered policy
 
     @property
     def loss(self) -> float:
@@ -135,7 +142,76 @@ def train(spot: R.Spot, view: str = "rank", tier: str = "pro", value_model: str 
     gains = tree.evaluate(st).gains(st, n) / scale
     if nash_gains is None:
         nash_gains = baseline(spot, value_model, iters)
-    return Result(view, tier, value_model, gains, float(gains.sum()), nash_gains)
+    return Result(view, tier, value_model, gains, float(gains.sum()), nash_gains, st)
+
+
+def tp_values(tree, st: R.Strategy, n: int, view: str) -> dict[tuple, np.ndarray]:
+    """TP value 0-100 per class at each decision: the mid-rank percentile behind `_buckets`, so
+    bucket = min(int(value * k / 100), k - 1) and the bin edges are 100 j / k. per_opp has no scalar value."""
+    if view == "per_opp":
+        raise ValueError("per_opp reads a 2-D code, not one TP value; Gate S/F take rank, strongest or composite")
+    rank = _qpos(_eq_vs(tree, np.ones(R.N_CLASSES)), R.CLASS_COMBOS)
+    out = {}
+    for p in range(n - 1):
+        behind = list(range(p + 1, n))
+        if view == "rank":
+            out["push", p] = rank
+        else:
+            freq = np.array([R.PRIOR @ st.call[q, p] for q in behind])
+            if view == "strongest":
+                rng_w = st.call[behind[int(freq.argmax())], p]
+            else:
+                rng_w = sum(f * st.call[q, p] for f, q in zip(freq, behind))
+            out["push", p] = _qpos(_eq_vs(tree, rng_w), R.CLASS_COMBOS)
+        for q in behind:
+            out["call", q, p] = _qpos(_eq_vs(tree, st.push[p]), R.CLASS_COMBOS)
+    return {d: 100.0 * v for d, v in out.items()}
+
+
+def decision_policy(spot: R.Spot, view: str = "composite", tier: str = "beginner", value_model: str = "icm",
+                    iters: int = 1500) -> dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """The trained bottleneck policy as a map per decision: (TP value per class, bin edges, action
+    probability per bin). Bins no hand reads take the nearest occupied bin's action (the lower one
+    on a tie), as in the E1 Gate F policy, so a follower that misreads into them gets no artefact."""
+    r = train(spot, view, tier, value_model, iters, nash_gains=np.zeros(spot.n))
+    tree = R._Tree(spot, R._value_fn(spot, value_model, 0, R.BASELINE_TOL, iters))
+    k = TIER_LEVELS[tier]
+    edges = 100.0 * np.arange(1, k) / k
+    out = {}
+    for d, v in tp_values(tree, r.strategy, spot.n, view).items():
+        probs = r.strategy.push[d[1]] if d[0] == "push" else r.strategy.call[d[1], d[2]]
+        b = np.searchsorted(edges, v, side="right")
+        den = np.bincount(b, R.PRIOR, k)
+        occupied = np.flatnonzero(den > 0)
+        bin_probs = np.bincount(b, R.PRIOR * probs, k) / np.where(den > 0, den, 1)
+        nearest = occupied[np.abs(np.arange(k)[:, None] - occupied[None, :]).argmin(axis=1)]
+        out[d] = (v, edges, bin_probs[nearest])
+    return out
+
+
+def gate_s_policy(view: str = "composite", tier: str = "beginner", iters: int = 1500):
+    """E1m Gate S policy (#313): Spot -> {decision: (169 probs, TP bins)}; one ICM training per spot."""
+    cache: dict[R.Spot, dict] = {}
+
+    def policy(spot: R.Spot):
+        if spot not in cache:
+            cache[spot] = decision_policy(spot, view, tier, "icm", iters)
+        return {d: (bp[np.searchsorted(e, v, side="right")], np.searchsorted(e, v, side="right"))
+                for d, (v, e, bp) in cache[spot].items()}
+    policy.tp_step_points = TP_STEP[tier]
+    return policy
+
+
+def gate_f_policy(view: str = "composite", tier: str = "beginner", iters: int = 1500):
+    """E1m Gate F policy (#313): Spot -> {decision: FollowSpec}; one ICM training per spot."""
+    from referee.gate_f import FollowSpec
+    cache: dict[R.Spot, dict] = {}
+
+    def policy(spot: R.Spot):
+        if spot not in cache:
+            cache[spot] = decision_policy(spot, view, tier, "icm", iters)
+        return {d: FollowSpec(bp, v, e) for d, (v, e, bp) in cache[spot].items()}
+    return policy
 
 
 # The spots behind docs/research/data/2026-10-e1m-multiway.jsonl (BTN, SB, BB; blinds 50/100).
