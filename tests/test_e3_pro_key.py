@@ -55,6 +55,14 @@ def test_scale_and_foldy_steps():
     assert K.foldy_step(0, 1000) == "0" and K.foldy_step(1000, 1000) == "16"
 
 
+def test_board_nut_uses_the_coarse_table_grid():
+    # #332: 5 board.nut steps in the table, not the 17 used for hand.equity
+    assert K.NUT_K == 5
+    vals = {K.scale_step(v, K.NUT_K) for v in range(0, 101)}
+    assert vals == set(range(K.NUT_K))
+    assert K.theoretical_keys(6, K.K_PRO, "pro") < K.theoretical_keys(6, K.K_PRO, "full") * (2 + 17) / 3
+
+
 def test_pro_key_extends_full_and_encodes_nut_with_the_equity_step():
     s = _hu_flop()
     r = K.initial_ranges(6)

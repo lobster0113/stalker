@@ -35,8 +35,11 @@ The pro tier (`depth="pro"`, #325) is the full key plus the two items TP.md §4.
   receive (the protected referee evaluators call it without them), so it rides with the equity step:
   `equity_steps` returns `eq + NUT_BASE * (nut + 1)` and `key` renders it as `e<eq>|n<nut>`.
 - Scale: 0-100 graded within +-3 (TP.md §4.1). A step about twice the tolerance wide gives 17 steps
-  (100/17 = 5.9 points) for both hand.equity and board.nut, the same rule as the other tiers
-  (beginner +-12.5 -> 5 steps, mid +-5 -> 11).
+  (100/17 = 5.9 points) for hand.equity, the same rule as the other tiers (beginner +-12.5 -> 5
+  steps, mid +-5 -> 11). board.nut is graded on the same scale, but the table splits it into only
+  NUT_K = 5 steps (#332): at 17 it multiplied the heads-up postflop keys by 17 (87% of all pro keys at
+  2x10^4 iterations, #325) and they learn from few samples each. Grading a person's answer is a TP
+  matter and does not change; the table only acts the same across 20-point board.nut bins.
 
 Every feature except hand.equity is public, so one key covers the same TP situation reached by
 different histories — that is the "condition-insensitive" requirement (CHARTER), checked by Gate S.
@@ -57,6 +60,7 @@ TIER_DEPTH = {"beginner": "basic", "mid": "full", "pro": "pro"}
 # The step count names the tier for `equity_steps`: the referee evaluators pass it only k (#325).
 K_PRO = TIER_K["pro"]
 NUT_BASE = 1000                  # encoded pro step = eq + NUT_BASE * (nut + 1); eq < K_PRO < NUT_BASE
+NUT_K = 5                        # board.nut steps in the pro table (module doc, #332)
 NUT_TOP = 0.10                   # board.nut: share of combos counted as near-nut (TP.md §3)
 FOLDY_MIN_OPPS = 6               # opp.foldy is N/A below this many faced bets (TP.md §3)
 FOLDY_PRIOR, FOLDY_PRIOR_N = 0.5, 6.0   # shrinkage toward an even fold rate, worth 6 decisions
@@ -176,7 +180,7 @@ def scale_step(v: float, k: int) -> int:
 
 def nut_step(s: G.State, seat: int, ranges: list[np.ndarray]) -> int | None:
     v = board_nut(s, seat, ranges)
-    return None if v is None else scale_step(v, K_PRO)
+    return None if v is None else scale_step(v, NUT_K)
 
 
 def foldy_step(folds: int = 0, opportunities: int = 0) -> str:
@@ -233,7 +237,7 @@ def theoretical_keys(n: int, k: int, depth: str = "full") -> int:
            preflop has one initiative and one SPR value.
     basic: position group(3) x n_opp(2) x raise(3) x pot odds(5) x legal, per street.
     call:  n_opp(3) x pot odds(5) x legal(2), per street.
-    pro:   full, with every heads-up postflop key (call keys included) also carrying one of K_PRO
+    pro:   full, with every heads-up postflop key (call keys included) also carrying one of NUT_K
            board.nut steps (opp.foldy is always N/A in this table).
     Every key also carries one of k equity steps.
     """
@@ -246,9 +250,9 @@ def theoretical_keys(n: int, k: int, depth: str = "full") -> int:
         elif street == 0:
             total += n * 3 * 4 * po * legal
         else:
-            hu = K_PRO if depth == "pro" else 1  # n_opp = 1 of the 3 n_opp values
+            hu = NUT_K if depth == "pro" else 1  # n_opp = 1 of the 3 n_opp values
             total += n * (2 + hu) * 4 * 3 * po * (len(SPR_EDGES) + 1) * legal
-        hu = K_PRO if depth == "pro" and street > 0 else 1
+        hu = NUT_K if depth == "pro" and street > 0 else 1
         total += (2 + hu) * po * len(LEGAL_CALL)
     return total * k
 
