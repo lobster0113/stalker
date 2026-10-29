@@ -748,3 +748,4 @@
 {"ts":"2026-10-29T21:53:32Z","role":"planner","outcome":"planned","issue":339,"pr":381,"notes":"PR #381 머지 반영(#339 닫힘, tp6 보류); 닫힌 #339 ready·in-progress 제거; 같은 비용 tp6 파드 비교는 후보로만(용량 부족·#354 우선); ready 4, 열린 PR 없음, FEEDBACK 없음","friction":"닫힌 이슈에 ready·in-progress 라벨이 남는 일이 반복(머지 시 라벨 정리 없음)"}
 {"ts":"2026-10-29T22:12:22Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-10-29T22:41:36Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
+{"ts":"2026-10-29T23:10:43Z","role":"reviewer","outcome":"skipped","issue":382,"pr":388,"notes":"not my parity","friction":""}
