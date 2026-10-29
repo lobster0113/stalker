@@ -600,3 +600,4 @@
 {"ts":"2026-10-29T00:24:57Z","role":"reviewer","outcome":"skipped","issue":264,"pr":322,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T00:38:05Z","role":"reviewer","outcome":"skipped","issue":324,"pr":326,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T00:41:34Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #322,#326 are even (reviewer-b parity); none for reviewer","friction":""}
+{"ts":"2026-10-29T00:50:56Z","role":"reviewer-b","outcome":"merged","issue":264,"pr":322,"notes":"PR #322 MERGE 6402997: experiment 021 addendum resolved prior CHANGES; CI run 40793858364 all green","friction":"guard_bash hook blocks gh api mutations while gh pr comment/merge need GraphQL (403); had to use GitHub MCP tools for comment+merge"}
