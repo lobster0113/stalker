@@ -1,5 +1,5 @@
 {
-  "tp_version": "0.1",
+  "tp_version": "0.2",
   "note": "Hand-calculated cases for TP v0.1 definitions (Stage 0 Go/No-Go, ADR 0010). Each case's rationale is the hand calculation; tests/test_tp_examples.py checks stalker/tp/reference.py reproduces every expected value within tolerance.",
   "assumptions": {
     "A-explicit-range": "Opponent range given explicitly as weighted combos (TeacherContext stand-in); hidden cards never used",

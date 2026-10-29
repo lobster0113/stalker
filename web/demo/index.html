@@ -940,7 +940,7 @@ function nutShare(heroPct, oppPct, board, hero) {
   return hn + on ? Math.round(on / (hn + on) * 100) : 50;
 }
 
-/* ================= TP definition (docs/TP.md v0.1, stalker/tp/spec/tp_v0_1.json) ================= */
+/* ================= TP definition (docs/TP.md v0.2, stalker/tp/spec/tp_v0_2.json) ================= */
 // na: opportunity-count N/A (spec items[].na.min_opportunities); stat = counter in seat.stats.
 const TP = {
   "board.adv":   { stage: "B 보드 읽기", q: "이 보드는 누구 레인지에 유리한가?", ends: ["나", "상대"] },
@@ -966,7 +966,7 @@ const TIERS = {
   pro: { name: "고수", step: 1, tol: 3, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "opp.foldy", "board.nut", "act.choice"] },
 };
 const REFLECTION = ["plan.pot"]; // spec reflection_items: asked (Guided-like tiers) but never graded
-// Spec `modes.quick` (TP §4.2): the core judgments Quick asks per spot type. Kept JSON-equal to tp_v0_1.json by tests/test_tp_spec.py.
+// Spec `modes.quick` (TP §4.2): the core judgments Quick asks per spot type. Kept JSON-equal to tp_v0_2.json by tests/test_tp_spec.py.
 const MODES = {"quick": {"max_judgments": 3, "rule": {"preflop": ["hand.equity", "opp.range"], "postflop": ["hand.equity", "board.adv", "hand.outs"], "facing_bet": ["opp.value", "hand.equity"]}}};
 // Action has no Q(s,a) in the demo, so per TP §5 it is reference-only; plan.pot has no fixed definition.
 const isScored = k => !!TP[k] && k !== "act.choice" && !TP[k].reflection;
@@ -1031,6 +1031,9 @@ const EQAB_FORMS = {
   A: { title: "이길 확률", q: "상대가 이렇게 플레이할 때 내가 이길 확률", chips: ["0–20%", "20–40%", "40–60%", "60–80%", "80–100%"] },
   B: { title: "상위 %", q: "내 핸드는 이 상황에서 상위 몇 %", chips: ["상위 20%", "20–40%", "40–60%", "60–80%", "하위 20%"] },
 };
+// TP v0.2 (ADR 0011 #263): beginners answer hand.equity in form B by default, graded against the same
+// truth chip. Spec `items[hand.equity].question_forms.beginner`; the answer value itself is unchanged.
+const RANK_Q = "내 핸드는 이 상대 상황에서 내 레인지의 상위 몇 %인가?";
 let EQAB = store.get("eqab", []);
 // One seed per training session so a session's A/B sequence can be replayed; ?abseed=N pins it (tests).
 let AB = null;
@@ -1463,10 +1466,14 @@ function computeGTO(hero) {
 // Truth chip for the A/B question. A = win chance (hand.equity, 20%p bands); B = share of possible hands
 // that do better than mine against the same opponent ranges (sampled). The sampling swaps in its own
 // random state so the game's deal sequence is the same with the experiment on or off.
-function eqabTruth(form, g) {
+// myPct (beginner rank form, TP v0.2 share_better): sample from my range instead — the mock's top-myPct%
+// classes, uniform per combo — because the question asks for my rank within my range.
+function eqabTruth(form, g, myPct) {
   const eq = g.v["hand.equity"];
   if (form === "A") return Math.min(4, Math.floor(eq / 20));
-  const hero = CUR.hero.cards, board = G.board, dead = new Set([...hero, ...board]), pool = ALL_COMBOS.filter(([a, b]) => !dead.has(a) && !dead.has(b));
+  const hero = CUR.hero.cards, board = G.board, dead = new Set([...hero, ...board]);
+  let pool = myPct != null ? combosFor(classesInTop(myPct), dead) : [];
+  if (!pool.length) pool = ALL_COMBOS.filter(([a, b]) => !dead.has(a) && !dead.has(b));
   const saved = rngState; rngState = (AB.seed ^ Math.round(AB.state)) | 0;
   let better = 0;
   const N = 60;
@@ -1483,6 +1490,7 @@ function heroTurn(hero) {
     const g = computeGTO(hero);
     CUR = { hero, g, answers: {}, action: null, size: null };
     if (S.eqab === "on") { AB ||= abStart(); CUR.ab = abNext() < .5 ? "A" : "B"; }
+    else if (S.tier === "beginner") { AB ||= abStart(); CUR.rank = true; } // eqabTruth("B") samples with AB's seed
     setTP("ask"); renderInfo();
     CUR.t0 = performance.now(); // input time = hero's turn shown -> submit
   });
@@ -1656,6 +1664,8 @@ function qInput(k, na) {
   const nOpp = live().length - 1;
   if (k === "hand.equity" && CUR.ab) { const f = EQAB_FORMS[CUR.ab]; return `<div class="hint">질문 형태 실험 · 형태 ${CUR.ab}. 답은 기록만 하고 채점하지 않아요.</div><div class="t"><span>${f.q}${nOpp > 1 ? ` (${nOpp}명 상대)` : ""}</span><span class="val num" data-val>—</span></div>
     ${chipRow([0, 1, 2, 3, 4], i => f.chips[i])}`; }
+  if (k === "hand.equity" && CUR.rank) return `<div class="t"><span>${RANK_Q}${nOpp > 1 ? ` (${nOpp}명 상대)` : ""}</span><span class="val num" data-val>—</span></div>
+    ${chipRow([0, 1, 2, 3, 4], i => EQAB_FORMS.B.chips[i])}`;
   if (k === "hand.equity" && nOpp > 1) return `<div class="hint">멀티웨이 · 남은 ${nOpp}명을 <b>모두</b> 이겨 팟 전체를 가져갈 확률(+분할 몫)이에요. 헤즈업보다 낮게 나오고, 콜에 필요한 에퀴티와 바로 비교할 수 있어요.</div><div class="t"><span>${d.q} (${nOpp}명 상대)</span><span class="val num" data-val>—</span></div>
     <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
   const q = k === "plan.foldeq" && CUR.g.rep ? `고른 사이즈 ${CUR.g.rep.label}(${bbf(CUR.g.rep.to)}BB)로 ${G.street === 0 || CUR.g.L.toCall ? "레이즈" : "벳"}하면 상대가 ${live().length > 2 ? "모두 " : ""}접을 확률` : d.q;
@@ -1697,6 +1707,7 @@ function bindInputs(root) {
       if (!fromGrid) { CUR.rangeKeys = classesInTop(v); CUR.rangeEdited = false; paintGrid($("[data-grid]", q), CUR.rangeKeys); }
       $("[data-val]", q).textContent = fromGrid ? `약 ${v}% (편집)` : `상위 ${v}%`;
     } else if (k === "hand.equity" && CUR.ab) { $("[data-val]", q).textContent = EQAB_FORMS[CUR.ab].chips[v]; CUR.abAt = performance.now(); }
+    else if (k === "hand.equity" && CUR.rank) $("[data-val]", q).textContent = EQAB_FORMS.B.chips[v];
     else $("[data-val]", q).textContent = v;
     refreshNav();
   };
@@ -1759,6 +1770,11 @@ function finishHero(keys) {
       if (CUR.answers[k] == null) continue;
       const rec = { f: CUR.ab, ms: Math.round((CUR.abAt ?? performance.now()) - (CUR.abShown ?? CUR.t0)), a: CUR.answers[k], t: eqabTruth(CUR.ab, g), seed: AB.seed };
       recordEqab(rec); refs.push({ k, kind: "ab", ...rec });
+    } else if (k === "hand.equity" && CUR.rank) {
+      // Chip 0 = top 20%; the bar runs weak -> strong like equity, so position = (4 - chip) * 25.
+      if (CUR.answers[k] == null) continue;
+      const u = CUR.answers[k], t = eqabTruth("B", g, heroRangePct(CUR.hero)), pos = c => (4 - c) * 25;
+      rows.push({ k, kind: "scalar", you: pos(u), gto: pos(t), labels: EQAB_FORMS.B.chips, youL: EQAB_FORMS.B.chips[u], gtoL: EQAB_FORMS.B.chips[t], note: `순위형(초보): 내 레인지(모의: 상위 ${heroRangePct(CUR.hero)}%) 안에서 같은 상대에게 내 핸드보다 에퀴티가 높은 콤보 비율(표본 60)`, ...scoreScalar(pos(u), pos(t)) });
     } else if (g.v[k] != null) {
       const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], note: g.note[k], ...scoreScalar(u, g.v[k]) });
     }
@@ -1794,7 +1810,7 @@ function resultHTML(gr, compact) {
     const lo = Math.min(r.you, r.gto), hi = Math.max(r.you, r.gto);
     html += `<div class="rrow"><div class="t"><span>${SHORT[r.k]}</span><b class="num ${cls}">${r.score}</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${r.gto}%"></div><div class="mk you" style="left:${r.you}%"></div></div>
-      <div class="cap"><span>나 ${r.kind === "range" ? "상위 " + r.you + "%" : r.you}</span><span>TP-GTO(모의) ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}</span></div>
+      <div class="cap"><span>나 ${r.youL ?? (r.kind === "range" ? "상위 " + r.you + "%" : r.you)}</span><span>${r.gtoL ? `참값 ${CONF} ${r.gtoL}` : `TP-GTO(모의) ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}`}</span></div>
       ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}${r.why ? `<details class="why"><summary>왜 이 답인가 ${CONF}</summary>${r.why}</details>` : ""}</div>`;
   }
   for (const r of gr.refs || []) {
@@ -1817,7 +1833,8 @@ function driversHTML(gr) {
   if (!top.length) return "";
   const line = ({ r }) => {
     const hi = r.gto >= 50, thr = hi ? Math.floor((r.gto - 1) / step) * step : Math.ceil((r.gto + 1) / step) * step;
-    return `<li><b>${SHORT[r.k]}</b>: ${thr} ${hi ? "이하이면 덜 공격적인 액션" : "이상이면 더 공격적인 액션"}으로 바뀌어요</li>`;
+    const at = r.labels ? `'${r.labels[clamp(4 - Math.round(thr / 25), 0, 4)]}'` : thr;
+    return `<li><b>${SHORT[r.k]}</b>: ${at} ${hi ? "이하이면 덜 공격적인 액션" : "이상이면 더 공격적인 액션"}으로 바뀌어요</li>`;
   };
   return `<div class="drivers" data-drivers><div class="hd"><span>이 결정을 이끈 판단 Top ${top.length}</span>${CONF}</div>
     <ol>${top.map(line).join("")}</ol>

@@ -1,6 +1,6 @@
 {
-  "tp_version": "0.1",
-  "source": "docs/TP.md v0.1 (ADR 0010)",
+  "tp_version": "0.2",
+  "source": "docs/TP.md v0.2 (ADR 0010, ADR 0011 #263)",
   "status": "draft",
   "layers": {
     "facts": "DecisionContext: public or mechanically computed from public info; shown by the screen, not asked",
@@ -81,7 +81,16 @@
       "question": "내 쇼다운 에퀴티", "ends": ["0%", "100%"], "scale": "0-100",
       "applies": "always",
       "na": null,
-      "eligible_for_grading": true, "grading_condition": "always"
+      "eligible_for_grading": true, "grading_condition": "always",
+      "question_forms": {
+        "beginner": {"form": "rank", "question": "내 핸드는 이 상대 상황에서 내 레인지의 상위 몇 %인가?",
+                     "ends": ["하위", "상위"], "exception": "hand.eq_call",
+                     "answer": "share_better: 내 레인지(TeacherContext의 이 라인 내 정책 레인지)에서 카드 제거(내 카드·보드) 후 남은 콤보 중, hand.equity와 같은 상대 전체 대비 쇼다운 에퀴티가 내 핸드보다 높은 콤보의 질량 비율(같으면 절반). 0 = 레인지 최상위",
+                     "bands": [0.2, 0.4, 0.6, 0.8],
+                     "chips": ["상위 20%", "20–40%", "40–60%", "60–80%", "하위 20%"],
+                     "chip_rule": "chip = min(4, floor(share_better × 5)); 구간은 [하한, 상한)",
+                     "grading": "칩 c를 0-100 위치 (4 − c) × 25(약 → 강, tiers.beginner.steps)에 놓고 tiers.beginner.tolerance로 채점: 같은 칩만 만점"}
+      }
     },
     {
       "id": "board.adv", "module": "postflop", "kind": "computed",
