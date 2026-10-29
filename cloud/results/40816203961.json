@@ -1,0 +1,72 @@
+{
+ "job": "e3-parallel-scaling",
+ "tier": "mid",
+ "players": 6,
+ "seed": 1,
+ "warm_iters": 4000,
+ "warm_seconds": 11.7,
+ "keys": 12128,
+ "snapshot_mb": 1.04,
+ "snapshot_pickle_s": 0.025,
+ "per_worker": 300,
+ "batch": 300,
+ "rows": [
+  {
+   "workers": 1,
+   "iters": 300,
+   "seconds": 7.0,
+   "iters_per_s": 42.64,
+   "sync_frac": 0.0,
+   "merge_s": 0.0,
+   "efficiency": 1.0
+  },
+  {
+   "workers": 4,
+   "iters": 1200,
+   "seconds": 8.1,
+   "iters_per_s": 148.89,
+   "sync_frac": 0.048,
+   "merge_s": 0.05,
+   "efficiency": 0.873
+  },
+  {
+   "workers": 8,
+   "iters": 2400,
+   "seconds": 11.4,
+   "iters_per_s": 210.58,
+   "sync_frac": 0.015,
+   "merge_s": 0.04,
+   "efficiency": 0.617
+  },
+  {
+   "workers": 16,
+   "iters": 4800,
+   "seconds": 12.4,
+   "iters_per_s": 387.64,
+   "sync_frac": 0.048,
+   "merge_s": 0.09,
+   "efficiency": 0.568
+  },
+  {
+   "workers": 32,
+   "iters": 9600,
+   "seconds": 13.6,
+   "iters_per_s": 704.51,
+   "sync_frac": 0.089,
+   "merge_s": 0.17,
+   "efficiency": 0.516
+  }
+ ],
+ "max_rss_mb": 458.9,
+ "max_child_rss_mb": 394.7,
+ "machine": {
+  "cpu_model": "AMD EPYC 9655P 96-Core Processor",
+  "cpu_count": 192,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "max 100000",
+  "mem_total_mb": 773139,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.41"
+ },
+ "sha": "4a1237bdf89212a06f0cb18a1b07573f8ad55155"
+}
