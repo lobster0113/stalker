@@ -170,9 +170,22 @@ def test_apply_to_rejects_illegal_sizes():
         raise AssertionError(f"accepted {to}")
 
 
-def test_extra_sizes_lbr_is_not_below_the_menu_lbr():
-    # The exploiter has strictly more actions; same deals and policy. Tolerance: 3 standard errors.
-    base = L.exploitability_lb(uniform, 30, seed=3, k=3, n=3)
-    ext = L.exploitability_lb(uniform, 30, seed=3, k=3, n=3, extra_sizes=True)
-    assert ext["lbr_bb"] >= base["lbr_bb"] - 3 * max(base["stderr_bb"], ext["stderr_bb"])
-    assert ext == L.exploitability_lb(uniform, 30, seed=3, k=3, n=3, extra_sizes=True)   # reproducible
+def folds_a_lot(key, acts):
+    # 60% fold when allowed, the rest spread over the other actions: bigger bets win the pot more often.
+    rest = [a for a in acts if a != "f"]
+    return [0.6 if a == "f" else 0.4 / len(rest) for a in acts]
+
+
+def test_extra_sizes_lbr_is_not_below_the_menu_lbr(monkeypatch):
+    # Not paired: the policy's seats sample actions from the same rng as the deal, so a different exploiter
+    # line shifts later deals. Two independent estimates, tolerance 3 * sqrt(se_base^2 + se_ext^2).
+    chosen = []
+    step = L._step
+    monkeypatch.setattr(L, "_step", lambda s, a: (chosen.append(a) if isinstance(a, L.Extra) else None, step(s, a))[1])
+    base = L.exploitability_lb(folds_a_lot, 60, seed=3, k=3, n=3)
+    assert not chosen
+    ext = L.exploitability_lb(folds_a_lot, 60, seed=3, k=3, n=3, extra_sizes=True)
+    assert chosen, "no off-menu size was ever chosen: the test would compare the exploiter with itself"
+    tol = 3 * (base["stderr_bb"] ** 2 + ext["stderr_bb"] ** 2) ** 0.5
+    assert ext["lbr_bb"] >= base["lbr_bb"] - tol
+    assert ext == L.exploitability_lb(folds_a_lot, 60, seed=3, k=3, n=3, extra_sizes=True)   # reproducible

@@ -205,7 +205,8 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
     # Same LBR deals for both policies.
     lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
            for k, pol in (("average", avg), ("current", cur))}
-    # #343: the same deals, the exploiter also allowed sizes off the menu (the plain LBR undercounts what it can take)
+    # #343: an independent estimate (same seed, but deals drift once the exploiter picks another line) whose exploiter
+    # may also use sizes off the menu (the plain LBR undercounts what it can take)
     offmenu = exploitability_lb(cur, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth, extra_sizes=True)
     cov = coverage(m)
     t2 = time.monotonic()
