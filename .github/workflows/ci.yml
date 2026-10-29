@@ -101,6 +101,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/e2e/package-lock.json
+      # tpgto.js must match the Python trainer's keys/ranges exactly (#335); gates skip it without node (#349).
+      # A file path, not a directory: node 22+ --test does not take one.
+      - run: node --test web/app/test/tpgto.test.mjs
       - run: npm ci
         working-directory: web/e2e
       - run: npx playwright install --with-deps chromium
