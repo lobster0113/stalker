@@ -61,7 +61,14 @@ def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: s
     return {"tier": s.get("tier", tier), "players": model["n"], "k": model["k"], "depth": model["depth"],
             "iterations": model["iterations"], "run_id": str(run), "sha": sha or s.get("sha", ""),
             "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst if strategy == "current" else None, "job": s.get("job", ""),
-            "strategy": strategy}
+            "strategy": strategy, **nut_k(model)}
+
+
+def nut_k(model: dict) -> dict:
+    """Pro keys carry board.nut steps; tpgto.js checkNutK refuses a table built on another grid (#332)."""
+    from stalker.e3 import tp_key as K
+
+    return {"nut_k": model.get("nut_k", K.K_PRO)} if model.get("depth") == "pro" else {}
 
 
 def main(argv=None) -> int:

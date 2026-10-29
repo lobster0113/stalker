@@ -72,3 +72,12 @@ def test_average_strategy_and_pod_result_input(tmp_path):
     assert doc["iterations"] == r["iters"] and doc["field_worst"] is None
     m = E3MCCFR.from_state(P.unpack_state(__import__("base64").b64decode(r["checkpoint"]["b64"]), r["model"]))
     assert set(doc["policy"]) <= set(m.policy()) and doc["keys"] == len(m.policy())
+
+
+def test_pro_tables_name_their_board_nut_grid():
+    # tpgto.js checkNutK skips a missing nut_k, so the export must write it for pro (#332)
+    from stalker.e3 import tp_key as K
+
+    assert X.meta_from({"k": 17, "n": 6, "depth": "pro", "iterations": 1, "nut_k": K.NUT_K}, None, "1", "")["nut_k"] == K.NUT_K
+    assert X.meta_from({"k": 17, "n": 6, "depth": "pro", "iterations": 1}, None, "1", "")["nut_k"] == K.K_PRO
+    assert "nut_k" not in X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1}, None, "1", "")

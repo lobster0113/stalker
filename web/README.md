@@ -44,4 +44,4 @@ cd web/e2e && npm ci && npx playwright install chromium && npm test
 - 아직 없음: 성능 예산.
 
 ## 정책 파일 (`stalker/tools/export_web_policy.py`, #336)
-`{schema: "stalker.web.policy", schema_version: 1, tier, players, k, depth, iterations, run_id, sha, lbr_bb, lbr_stderr_bb, field_worst, job, q: 255, min_visits, keys, keys_dropped, policy}`. `policy[key]`는 0..q 정수 배열이다(합 q, 상태의 합법 액션 순서). 확률은 값/q로 구한다. 확률 > 0인 액션은 최소 1을 보장한다. 파일에 없는 키(드물게 갱신돼 잘라낸 키)는 균등 분포로 둔다.
+`{schema: "stalker.web.policy", schema_version: 1, tier, players, k, depth, iterations, run_id, sha, lbr_bb, lbr_stderr_bb, field_worst, job, strategy, nut_k?, q: 255, min_visits, keys, keys_dropped, policy}`. `strategy`는 `current`(regret matching, CI field가 평가하는 것) 또는 `average`(#355). `nut_k`는 pro 표에만 있다(board.nut 단계 수, `checkNutK`가 확인, #332). `policy[key]`는 0..q 정수 배열이다(합 q, 상태의 합법 액션 순서). 확률은 값/q로 구한다. 확률 > 0인 액션은 최소 1을 보장한다. 파일에 없는 키(드물게 갱신돼 잘라낸 키)는 균등 분포로 둔다.
