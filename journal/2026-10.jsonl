@@ -691,3 +691,4 @@
 {"ts":"2026-10-29T14:10:14Z","role":"builder-b","outcome":"waiting_ci","issue":343,"pr":353,"notes":"PR #353 2차 CHANGES 반영: main(#345) 병합, 확장 착취자가 tp6 메뉴·raise_cap 따르도록 수정+테스트, push a9c8f42","friction":"gates full 약 20분을 9분 단위 대기 루프로 두 번 나눠 기다려야 했음(첫 시도는 540s 제한에 걸려 재시작)"}
 {"ts":"2026-10-29T14:10:41Z","role":"reviewer-b","outcome":"skipped","issue":343,"pr":353,"notes":"not my parity","friction":""}
 {"ts":"2026-10-29T14:14:43Z","role":"reviewer-b","outcome":"skipped","issue":355,"pr":357,"notes":"not my parity","friction":""}
+{"ts":"2026-10-29T14:25:10Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":357,"notes":"not my parity","friction":""}
