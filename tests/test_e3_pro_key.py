@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from stalker import train_jobs as T
 from stalker.e2.eq_view import N
@@ -106,3 +107,16 @@ def test_pro_job_is_registered_and_resumable():
     assert "e3-tp-pro-w4" in T.JOBS and "e3-tp-pro-w4" in T.RESUMABLE
     kw = T.JOBS["e3-tp-pro-w4"].keywords
     assert kw["tier"] == "pro" and kw["workers"] == 4
+
+
+def test_pro_checkpoint_records_its_board_nut_grid_and_refuses_another():
+    # #332 review: a checkpoint from the 17-step board.nut table must not resume silently on 5 steps.
+    m = E3MCCFR(1, K.K_PRO, 3, "pro")
+    m.iterate(2)
+    st = json.loads(json.dumps(m.state()))
+    assert st["nut_k"] == K.NUT_K
+    assert E3MCCFR.from_state(st).regret.keys() == m.regret.keys()
+    old = {k: v for k, v in st.items() if k != "nut_k"}  # written before #332: 17 steps
+    with pytest.raises(ValueError, match="fresh run"):
+        E3MCCFR.from_state(old)
+    assert "nut_k" not in E3MCCFR(1, 11, 3, "full").state()  # other tiers unchanged
