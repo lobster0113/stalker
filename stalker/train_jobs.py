@@ -319,6 +319,8 @@ def summarize(job: str, folder: Path) -> dict:
         out.update({"iters": runs[0]["iters"], "iters_per_s_mean": round(sum(r["iters_per_s"] for r in runs) / len(runs), 2),
                     "lbr_bb_mean": round(sum(lb) / len(lb), 4), "lbr_bb_by_seed": lb,
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
+        if all("infosets" in r for r in runs):          # #332: key counts across tables/grids live only in artifacts otherwise
+            out["infosets_by_seed"] = [r["infosets"] for r in runs]
         if all(r.get("lbr_offmenu") for r in runs):    # E3 (#343): exploiter with off-menu sizes, current policy
             out["lbr_offmenu_bb_by_seed"] = [r["lbr_offmenu"]["lbr_bb"] for r in runs]
     if job in RESUMABLE and runs:
