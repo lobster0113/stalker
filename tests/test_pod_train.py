@@ -61,6 +61,15 @@ def test_job_spec_is_bounded_and_leaves_time_to_evaluate(spec):
     assert float(args[args.index("--minutes") + 1]) + 60 <= job.max_minutes
 
 
+def test_cpu5c_variant_matches_cpu3c_job_and_fits_the_measurement_budget():
+    # #373: only the flavor and the price cap differ, so it/s per $ compares hosts, not jobs
+    c3, c5 = (L.load_spec(ROOT / "jobs" / f) for f in ("e3-tp-mid9-pod32.yaml", "e3-tp-mid9-c5-pod32.yaml"))
+    assert (c3.cpu_flavor, c5.cpu_flavor) == ("cpu3c", "cpu5c")
+    assert c5.command == c3.command.replace(c3.result_path, c5.result_path)
+    assert (c5.vcpu, c5.max_minutes) == (c3.vcpu, c3.max_minutes)
+    assert 2 * c5.worst_case_usd <= 8.0, "two cpu5c runs are reserved against the issue budget of $8"
+
+
 def test_unpack_handles_tables_past_int16_offsets():
     # #355: offsets wrapped at 32767 in NumPy 2 (int + int16 stays int16); a real mid table has 54k keys
     m = E3MCCFR(1, 5, 3, "basic")
