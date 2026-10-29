@@ -596,3 +596,4 @@
 {"ts":"2026-10-28T23:11:49Z","role":"reviewer-b","outcome":"skipped","issue":264,"pr":322,"notes":"sweep: head 906d07a already has VERDICT: CHANGES; no new commits, nothing to judge","friction":""}
 {"ts":"2026-10-28T23:41:54Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #322 (even, reviewer-b parity)","friction":"gh CLI token invalid in cloud session (Failed to log in using GH_TOKEN); used GitHub MCP tools to list PRs"}
 {"ts":"2026-10-29T00:08:15Z","role":"gardener","outcome":"no_work","issue":323,"pr":null,"notes":"proposed removal of ADR0008 retired assets (typing/pipeline/service/gate_a/gate_b/sufficiency) as issue #323; no PR","friction":""}
+{"ts":"2026-10-29T00:12:08Z","role":"reviewer-b","outcome":"no_work","issue":264,"pr":322,"notes":"sweep: only open even PR #322 already has VERDICT CHANGES for head 906d07a; no new commits","friction":""}
