@@ -1,0 +1,12 @@
+# E3 mid 6-max TP chain on a 32 vCPU RunPod CPU pod, one fresh run (#333): the service's mid policy, far past the CI chain (3.5x10^5).
+# #321 measured mid 6-max at 705 it/s on 32 vCPU ($0.96/h), so 90 min is about 3.8 million iterations.
+# Worst case = hourly_usd * max_minutes / 60 = $3.00. Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
+name: e3-tp-mid-pod32
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 6 --workers 32 --minutes 90 --batch 500 --seed 1 --sha-file /src/SHA --out /result/e3-tp-mid-pod32.json
+cpu_flavor: cpu3c
+vcpu: 32
+disk_gb: 10
+max_minutes: 150
+hourly_usd: 1.2
+result_path: /result/e3-tp-mid-pod32.json
