@@ -16,6 +16,12 @@
 - **기록 옮기기**(#117): '내 약점'의 '기록 옮기기'에서 학습 기록(`weak`·`itimes`·`rankq`·`eqab`)을 JSON 텍스트로 보여주고 복사한다. 다른 기기에서 붙여넣어 가져온다. 파일 다운로드나 서버 동기화는 쓰지 않는다. 스키마는 `{schema: "stalker.demo.records", schema_version: 2, ...}`이고(v2에서 `eqab` 추가, v1 텍스트도 `eqab` 없이 가져온다), 잘못된 입력에는 고치는 법이 담긴 오류를 보여준다. 가져오기는 한 번 더 눌러야 덮어쓴다(뷰어에 `confirm()`이 없음). 검사: `tests/test_demo_records.py`(node로 `parseRecords`), Gate U 왕복(내보내기 → 초기화 → 가져오기 → 같은 통계·같은 질문 형태 표).
 - 사용자에게 보여줄 때: 대화 세션이 `<!doctype>`·`<html>`·`<head>`·`<body>` 태그를 뺀 사본을 Claude Artifact(비공개)로 게시한다. 현재 게시본: https://claude.ai/artifact/LpQTDzYgZgTjcY5T4BwcZb
 
+## app/ (E3 TP-GTO 브라우저 이식, #335)
+- `app/tpgto.js`: 의존성 없는 ES 모듈. E3 게임 규칙, TP 키(초보·중수·고수), 공개 레인지 갱신, 에퀴티를 Python(`stalker/e3/`, `stalker/e2/eq_view.py`)과 정확히 같게 계산한다. 그래서 학습된 정책 표(키 → 액션 확률)를 정적 페이지가 그대로 쓴다. API는 파일 첫머리 주석에 있다(`newHand`·`legal`·`apply`·`decisionKey`·`actionProbs`·`updateRanges`·`betRange`·`translateBet`·`applyBet`).
+- 프리플랍 에퀴티 표 `app/assets/hu_equity.json`을 먼저 넣는다: `await loadEquityTable(url)` 또는 인라인 객체로 `setEquityTable(obj)`.
+- 실제 노리밋: 사람 좌석은 최소 레이즈부터 올인까지 아무 금액이나 낸다(`applyBet`). 칩은 실제 금액으로 움직이고, 메뉴 밖 금액은 가까운 두 메뉴 크기 사이의 의사 조화 매핑(결정적, 확률 0.5 이상인 쪽)으로 메뉴 액션에 대응시켜 기록·키·레인지 갱신에 쓴다. 팟 오즈·SPR 단계는 실제 칩으로 계산한다. AI 좌석은 메뉴 액션만 고른다.
+- 검사: `python -m stalker.tools.web_vectors`(벡터·자산 다시 쓰기) 후 `node --test web/app/test/tpgto.test.mjs`. 결정 1천여 개의 legal·공개 키·1326 콤보 단계 배열·키·레인지 합이 모두 같아야 하고, 결정당 시간 P50/P95를 출력한다. `tests/test_web_vectors.py`가 벡터가 최신인지 확인하고 node가 있으면 이 테스트를 돌린다(CI 잡 `web` 연결은 후속 harness-change 이슈).
+
 ## e2e/ (Gate U, CI 잡 `web`)
 ```bash
 cd web/e2e && npm ci && npx playwright install chromium && npm test
