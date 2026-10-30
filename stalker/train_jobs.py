@@ -249,6 +249,13 @@ def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
     return {"iters": iters, "hands": NOISE_SIM_HANDS, "rows": rows, "wall_sim_seconds": round(time.monotonic() - t0, 1)}
 
 
+def _vcfr_fixed_point(iters: int, seed: int, out: Path) -> dict:
+    """#411: range-policy fixed point arms A-D on two river menus and Leduc, exact best response."""
+    from stalker.vcfr.fixed_point import run_seed
+
+    return run_seed(seed, games=("river-small", "river-real", "leduc"), iters=iters)
+
+
 JOBS = {"e2-mccfr": _e2_mccfr,
         "e2-tier-beginner": partial(_e2_mccfr, tier="beginner", name="e2-tier-beginner"),
         "e2-tier-mid": partial(_e2_mccfr, tier="mid", name="e2-tier-mid"),
@@ -282,6 +289,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
+        "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
         "e2-exploit-field-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-field-beginner", field=True)}
@@ -407,6 +415,10 @@ def summarize(job: str, folder: Path) -> dict:
                     "policy_iters_per_s_mean": round(sum(r["policy_iters_per_s"] for r in runs) / len(runs), 2),
                     "exploiter_iters_per_s_mean": round(sum(r["exploiter_iters_per_s"] for r in runs) / len(runs), 2),
                     "wall_seconds_max": max(r["wall_seconds"] for r in runs)})
+    if job == "vcfr-fixed-point" and runs:     # paired seeds: means, 95% t intervals, differences against arm A
+        from stalker.vcfr.fixed_point import aggregate, table
+        agg = aggregate(runs)
+        out.update({"aggregate": agg, "table": table(agg)})
     if job == "tp-noise-sim" and runs:
         out.update({"iters": runs[0]["iters"], "hands": runs[0]["hands"], "rows_by_seed": [r["rows"] for r in runs]})
     return out
