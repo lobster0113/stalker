@@ -27,11 +27,13 @@ export const TH = {
   size: { min: 20, rho: 0.5, mi: 0.15 },
   timing: { min: 20, perTercile: 5, rho: 0.45, ratio: 1.5, instantMs: 300 },
   cbet: { min: 10, high: 0.95, low: 0.15, gapMin: 4, gap: 0.2 },
-  xr: { min: 6, valueShare: 0.9 },
-  donk: { min: 6, valueShare: 0.9 },
+  xr: { min: 6, valueShare: 0.9, rateMin: 10 }, // min/valueShare: the raises; rateMin: the xr spots
+  donk: { min: 6, valueShare: 0.9, rateMin: 10 },
   river: { min: 8, bluffLow: 0.1, bluffHigh: 0.6 },
   checkCall: { min: 10, strongLow: 0.05 },
-  gto: { min: 10, diff: 0.3 },
+  // Hero frequency vs the policy's mean bet/raise probability in the same spots. Check-raise and donk
+  // frequencies are small next to c-bets, so a 20%p gap there is already a different strategy.
+  gto: { cbet: { min: 10, diff: 0.3 }, xr: { min: 10, diff: 0.2 }, donk: { min: 10, diff: 0.2 } },
   value: 0.6, // equity at or above which a bet is value
   bluff: 0.35, // equity below which a bet is a bluff
 };
@@ -116,11 +118,17 @@ export function tellMetrics(decisions = [], showdowns = []) {
   cbet.gap = cbet.gapEnough ? cbet.betEq - cbet.checkEq : null;
   cbet.leakFreq = cbet.enough && (cbet.rate >= TH.cbet.high || cbet.rate <= TH.cbet.low);
   cbet.leakGap = cbet.gapEnough && cbet.gap >= TH.cbet.gap;
-  const cg = cs.filter(d => Number.isFinite(d.gtoAgg));
-  const gto = { n: cg.length, min: TH.gto.min, enough: cg.length >= TH.gto.min, rate: share(cg, d => AGG.has(d.action)), policy: mean(cg.map(d => d.gtoAgg)) };
-  gto.leak = gto.enough && Math.abs(gto.rate - gto.policy) >= TH.gto.diff;
-  const xr = valueShare(ds.filter(d => d.spot === "xr" && d.action === "raise"), TH.xr.min); xr.leak = xr.enough && xr.valueShare >= TH.xr.valueShare;
-  const donk = valueShare(ds.filter(d => d.spot === "donk" && AGG.has(d.action)), TH.donk.min); donk.leak = donk.enough && donk.valueShare >= TH.donk.valueShare;
+  const xs = ds.filter(d => d.spot === "xr"), dk = ds.filter(d => d.spot === "donk");
+  const xr = valueShare(xs.filter(d => d.action === "raise"), TH.xr.min); xr.leak = xr.enough && xr.valueShare >= TH.xr.valueShare;
+  Object.assign(xr, { spots: xs.length, rateMin: TH.xr.rateMin, rateEnough: xs.length >= TH.xr.rateMin, rate: share(xs, d => d.action === "raise") });
+  const donk = valueShare(dk.filter(d => AGG.has(d.action)), TH.donk.min); donk.leak = donk.enough && donk.valueShare >= TH.donk.valueShare;
+  Object.assign(donk, { spots: dk.length, rateMin: TH.donk.rateMin, rateEnough: dk.length >= TH.donk.rateMin, rate: share(dk, d => AGG.has(d.action)) });
+  const vsPolicy = (pool, th) => {
+    const p = pool.filter(d => Number.isFinite(d.gtoAgg)), g = { n: p.length, min: th.min, diff: th.diff, enough: p.length >= th.min, rate: share(p, d => AGG.has(d.action)), policy: mean(p.map(d => d.gtoAgg)) };
+    g.leak = g.enough && Math.abs(g.rate - g.policy) >= th.diff;
+    return g;
+  };
+  const gto = { cbet: vsPolicy(cs, TH.gto.cbet), xr: vsPolicy(xs, TH.gto.xr), donk: vsPolicy(dk, TH.gto.donk) };
   const rb = ds.filter(d => d.street === 3 && AGG.has(d.action));
   const river = { n: rb.length, min: TH.river.min, enough: rb.length >= TH.river.min, value: rb.filter(d => d.strength >= TH.value).length, bluff: rb.filter(d => d.strength < TH.bluff).length };
   river.bluffShare = rb.length ? river.bluff / rb.length : null;
@@ -177,14 +185,16 @@ export function tellReport(decisions = [], showdowns = []) {
     if (c.leakGap) leaks.push({ id: "cbet-gap", text: `c-벳 여부로 강도가 드러납니다: ${text}`, fix: "강한 핸드도 일부 체크하고, 약한 핸드도 일부 벳해서 체크 레인지와 벳 레인지가 둘 다 섞이게 하세요." });
     if (c.leakFreq) leaks.push({ id: "cbet-freq", text: `c-벳 빈도가 한쪽으로 치우쳤습니다: ${pc(c.rate)}% (n=${c.n})`, fix: c.rate >= TH.cbet.high ? "보드가 상대 레인지에 유리할 때는 체크도 섞으세요." : "내 레인지에 유리한 보드에서는 더 자주 c-벳하세요." });
   }
-  const g = m.gto;
-  if (g.n) {
-    const text = `같은 스팟 c-벳: 나 ${pc(g.rate)}%, TP-GTO 정책 ${pc(g.policy)}% (n=${g.n})`;
-    rows.push({ id: "gto", name: "TP-GTO와 비교", text: g.enough ? text : `${text} · ${lack(g)}`, leak: g.leak });
-    if (g.leak) leaks.push({ id: "gto", text: `c-벳 빈도가 TP-GTO와 크게 다릅니다: ${text}`, fix: `c-벳 빈도를 정책의 ${pc(g.policy)}% 쪽으로 옮기세요.` });
+  for (const [id, what] of [["cbet", "c-벳"], ["xr", "체크레이즈"], ["donk", "돈크 벳"]]) {
+    const g = m.gto[id];
+    if (!g.n) continue; // only spots the engine mirror saw
+    const text = `같은 스팟 ${what}: 나 ${pc(g.rate)}%, TP-GTO 정책 ${pc(g.policy)}% (n=${g.n})`;
+    rows.push({ id: `gto-${id}`, name: `TP-GTO와 비교 · ${what}`, text: g.enough ? text : `${text} · ${lack(g)}`, leak: g.leak });
+    if (g.leak) leaks.push({ id: `gto-${id}`, text: `${what} 빈도가 TP-GTO와 크게 다릅니다: ${text}`, fix: `${what} 빈도를 정책의 ${pc(g.policy)}% 쪽으로 옮기세요.` });
   }
   for (const [id, name, subj, fix] of [["xr", "체크레이즈", "체크레이즈가", "체크레이즈에 드로·블러프도 섞으세요. 아니면 상대는 체크레이즈를 만나면 바로 접습니다."], ["donk", "돈크 벳", "돈크 벳이", "돈크 벳에 드로·블러프도 섞거나, 강한 핸드를 체크로도 두세요."]]) {
-    const x = m[id];
+    const x = m[id], fname = `${name} 빈도`;
+    rows.push({ id: `${id}-rate`, name: fname, text: x.rateEnough ? `${id === "xr" ? "체크한 뒤 벳을 마주했을 때 레이즈" : "앞 스트리트 공격자보다 먼저 벳"} ${pc(x.rate)}% (n=${x.spots})` : lack({ n: x.spots, min: x.rateMin }) });
     if (!x.enough) { rows.push({ id, name, text: lack(x) }); continue; }
     const text = `밸류(에퀴티 ${pc(TH.value)}% 이상) 비중 ${pc(x.valueShare)}% (n=${x.n})`;
     rows.push({ id, name, text, leak: x.leak });

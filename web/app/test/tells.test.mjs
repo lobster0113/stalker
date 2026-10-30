@@ -80,7 +80,7 @@ test("lines: c-bet gap, value-only check-raise, river without bluffs, capped che
   for (let i = 0; i < 8; i++) ds.push({ hand: "r" + i, street: 3, action: "bet", sizePct: 75, ms: 2000, strength: .9, madeClass: 2 });
   const m = T.tellMetrics(ds);
   assert.equal(m.cbet.rate, .5); assert.equal(m.cbet.leakGap, true); assert.equal(m.cbet.leakFreq, false);
-  assert.equal(m.gto.enough, true); assert.ok(Math.abs(m.gto.policy - .3) < 1e-9); assert.equal(m.gto.leak, false);
+  assert.equal(m.gto.cbet.enough, true); assert.ok(Math.abs(m.gto.cbet.policy - .3) < 1e-9); assert.equal(m.gto.cbet.leak, false);
   assert.equal(m.xr.leak, true); assert.equal(m.river.leakLow, true); assert.equal(m.checkCall.leak, true);
   assert.equal(m.donk.enough, false);
   const ids = T.tellReport(ds).leaks.map(l => l.id);
@@ -99,4 +99,38 @@ test("helpers: average ranks, terciles, bucket edges", () => {
   assert.deepEqual(T.terciles([.9, .1, .5, .2, .8, .6]), [2, 0, 1, 0, 2, 1]);
   assert.deepEqual([20, 40, 61, 62, 100, 125, 300].map(T.sizeBucket), [0, 1, 1, 2, 3, 4, 4]);
   assert.ok(Math.abs(T.spearman([1, 2, 3, 4], [4, 3, 2, 1]) + 1) < 1e-12);
+});
+
+const spotLog = (spot, n, aggEvery, gtoAgg) => Array.from({ length: n }, (_, i) => {
+  const agg = i % aggEvery === 0;
+  return { hand: spot + i, street: 2, action: agg ? (spot === "xr" ? "raise" : "bet") : (spot === "xr" ? "call" : "check"), sizePct: agg ? 75 : null, ms: 2000, strength: .5, madeClass: 1, spot, gtoAgg };
+});
+
+test("check-raise and donk frequencies carry n, a minimum and a report row", () => {
+  const m = T.tellMetrics([...spotLog("xr", 12, 4, null), ...spotLog("donk", 10, 2, null)]);
+  assert.equal(m.xr.spots, 12); assert.equal(m.xr.rateEnough, true); assert.ok(Math.abs(m.xr.rate - 3 / 12) < 1e-12);
+  assert.equal(m.donk.spots, 10); assert.equal(m.donk.rateEnough, true); assert.equal(m.donk.rate, .5);
+  const rows = T.tellReport([...spotLog("xr", 12, 4, null), ...spotLog("donk", 10, 2, null)]).rows;
+  assert.equal(rows.find(r => r.id === "xr-rate").text, "체크한 뒤 벳을 마주했을 때 레이즈 25% (n=12)");
+  assert.equal(rows.find(r => r.id === "donk-rate").text, "앞 스트리트 공격자보다 먼저 벳 50% (n=10)");
+  const few = T.tellReport(spotLog("xr", 3, 1, null)).rows;
+  assert.equal(few.find(r => r.id === "xr-rate").text, `데이터 부족 (n=3/최소 ${T.TH.xr.rateMin})`);
+  assert.equal(few.find(r => r.id === "donk-rate").text, `데이터 부족 (n=0/최소 ${T.TH.donk.rateMin})`);
+});
+
+test("TP-GTO comparison on check-raise and donk spots: flagged above the threshold, not below", () => {
+  for (const spot of ["xr", "donk"]) {
+    const th = T.TH.gto[spot];
+    // hero raises/bets 25% (every 4th); the policy's rate sits just above or below the threshold away
+    const far = T.tellMetrics(spotLog(spot, 12, 4, .25 + th.diff + .05)).gto[spot];
+    assert.equal(far.enough, true); assert.equal(far.leak, true, `${spot} far: ${far.rate} vs ${far.policy}`);
+    const near = T.tellMetrics(spotLog(spot, 12, 4, .25 + th.diff - .05)).gto[spot];
+    assert.equal(near.leak, false, `${spot} near: ${near.rate} vs ${near.policy}`);
+    const short = T.tellMetrics(spotLog(spot, th.min - 1, 4, .9)).gto[spot];
+    assert.equal(short.enough, false); assert.equal(short.leak, false);
+    const rep = T.tellReport(spotLog(spot, 12, 4, .25 + th.diff + .05));
+    assert.ok(rep.leaks.some(l => l.id === `gto-${spot}`), spot);
+    assert.ok(rep.rows.find(r => r.id === `gto-${spot}`).text.includes("나 25%, TP-GTO 정책"), spot);
+    assert.equal(T.tellMetrics(spotLog(spot, 12, 4, null)).gto[spot].n, 0, "no policy rows without the engine mirror");
+  }
 });
