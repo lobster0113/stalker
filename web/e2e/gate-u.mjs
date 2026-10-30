@@ -18,8 +18,8 @@ const server = createServer((req, res) => {
   res.end(body);
 });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
-// abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass.
-const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1`;
+// abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass; seed pins the deals.
+const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1&seed=20261027`;
 const shots = resolve(process.env.SCREENSHOT_DIR || resolve(here, "screenshots"));
 const axeSource = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const VIEWPORTS = [["phone", 390, 844], ["tablet", 820, 1180], ["laptop", 1440, 900]];
