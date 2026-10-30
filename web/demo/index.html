@@ -1547,7 +1547,7 @@ async function botTurn(s) {
   if (G.eng) { const a = engBotAct(s); if (a) return a; }
   return personaAct(s) || ruleBot(s);
 }
-// Only what this seat may see: the public action, pot and stacks, plus its own two cards.
+// Only what this seat may see: the public action, board, pot and stacks, plus its own two cards.
 function personaAct(s) {
   const pl = seatPlayer(s);
   if (!pl) return null;
@@ -1560,7 +1560,7 @@ function personaAct(s) {
       iRaised: mine.raised, openerPos: agg ? posName(agg) : null, openTo: G.currentBet },
     postflop: { aggressor: G.prevAgg === s.i, prevAggLive: G.prevAgg != null && G.prevAgg !== s.i && !G.seats[G.prevAgg].folded, prevBet: !!G.prevBet,
       betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises },
-    hand: { pct: classOf(s.cards[0], s.cards[1]).pct, eq: G.street ? eqVsPct(s.cards, G.board, 100, 160) : null },
+    hand: { cards: s.cards }, board: G.board,
   }, rand);
   if (a.type === "check") mine.checked = true;
   if (a.type === "raise") mine.raised = true;
