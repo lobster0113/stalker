@@ -854,3 +854,4 @@
 {"ts":"2026-10-30T11:52:00Z","role":"reviewer","outcome":"skipped","issue":411,"pr":442,"notes":"not my parity","friction":""}
 {"ts":"2026-10-30T11:52:45Z","role":"reviewer-b","outcome":"changes","issue":411,"pr":442,"notes":"2nd CHANGES on faeb6ae: CI numbers/conclusion verified vs ops summary; ARCHITECTURE.md conflict (no checks ran), criterion-1 E3 vs Leduc and VectorCFR.live dead code still unaddressed","friction":"dirty PR gets no check runs, so the builder pushed a docs commit that cannot be merged; builder addressed only item 1 of 3"}
 {"ts":"2026-10-30T12:07:46Z","role":"reviewer","outcome":"skipped","issue":411,"pr":442,"notes":"not my parity","friction":""}
+{"ts":"2026-10-30T12:12:35Z","role":"reviewer","outcome":"skipped","issue":426,"pr":432,"notes":"not my parity","friction":""}
