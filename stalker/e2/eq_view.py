@@ -84,8 +84,11 @@ def equity_vs(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
         num, den = _class_table()
         cls = _combo_classes()
         wc = np.bincount(cls, w, num.shape[0]) / _class_weights()
-        d = den @ wc
-        eq = np.divide(num @ wc, d, out=np.full(len(d), 0.5), where=d > 0)
+        # Not `den @ wc`: BLAS picks its kernel per CPU and each sums in its own order, so the last bits
+        # differed between CI runners and flipped E3 equity steps (#447). numpy's row reduction is the
+        # same pairwise order on every CPU.
+        d = (den * wc).sum(axis=1)
+        eq = np.divide((num * wc).sum(axis=1), d, out=np.full(len(d), 0.5), where=d > 0)
         return eq[cls]
     acc, cnt = np.zeros(N), np.zeros(N)
     if fast_eval.HAVE_NUMBA:

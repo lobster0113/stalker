@@ -40,7 +40,9 @@ def test_run_writes_a_checked_result_and_unpacks_to_the_ci_layout(tmp_path):
     res.write_bytes(body)
     ck, pol = P.unpack(res, tmp_path / "out")
     assert ck.name == "e3-tp-beginner3-pod-seed1.ckpt.json"
-    assert E3MCCFR.from_state(json.loads(ck.read_text(encoding="utf-8"))).iterations == r["iters"]
+    back = E3MCCFR.from_state(json.loads(ck.read_text(encoding="utf-8")))
+    assert back.iterations == r["iters"]
+    assert back.regret_hash() == r["regret_sha256"]    # #447: the float64 checkpoint carries the same bits
     assert json.loads(pol.read_text(encoding="utf-8"))["current"]
 
 

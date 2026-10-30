@@ -4,6 +4,7 @@ import pytest
 import yaml
 
 from stalker import train_jobs as T
+from stalker.e3.mccfr import E3MCCFR
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -156,6 +157,8 @@ def test_e3_job_records_both_policies_and_coverage(tmp_path, monkeypatch):
     assert s["lbr_offmenu_bb_by_seed"] == [4.5]
     assert s["infosets_by_seed"] == [r["infosets"]] and r["infosets"] > 0   # #332
     assert s["cpu_model_by_seed"] == [r["machine"]["cpu_model"]]           # #426
+    ck = json.loads((tmp_path / "e3-tp-beginner-seed1.ckpt.json").read_text(encoding="utf-8"))
+    assert s["regret_sha256_by_seed"] == [r["regret_sha256"]] == [E3MCCFR.from_state(ck).regret_hash()]  # #447
     assert s["field_worst_by_seed"] == [r["field"]["worst"]] and "self5" in s["field_bb100_by_seed"][0]
     pol = json.loads((tmp_path / "e3-tp-beginner-seed1.policy.json").read_text(encoding="utf-8"))
     assert set(pol) == {"average", "current"}
