@@ -61,7 +61,15 @@ def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: s
     return {"tier": s.get("tier", tier), "players": model["n"], "k": model["k"], "depth": model["depth"],
             "iterations": model["iterations"], "run_id": str(run), "sha": sha or s.get("sha", ""),
             "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst if strategy == "current" else None, "job": s.get("job", ""),
-            "strategy": strategy, **nut_k(model)}
+            "strategy": strategy, **nut_k(model), **rules(model)}
+
+
+def rules(model: dict) -> dict:
+    """The size menu and raise cap the table was trained on (#386): tpgto.js plays and translates the
+    hand under them (`menuOf`). Older checkpoints carry neither: v1 with cap 3, as E3MCCFR.from_state."""
+    from stalker.e3 import game as G
+
+    return {"menu": model.get("menu", "v1"), "raise_cap": model.get("raise_cap", G.RAISE_CAP)}
 
 
 def nut_k(model: dict) -> dict:

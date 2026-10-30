@@ -270,3 +270,15 @@ def test_demo_matches_spec():
     diffs = demo_differences()
     print("\n".join(diffs))
     assert not diffs
+
+
+def test_demo_size_shortcuts_are_the_spec_sizes():
+    # The training screen's size shortcuts (#386) are TP.md section 6's real-play sizes.
+    m = re.search(r"^const REAL_SIZES = (\{.*?\});$", DEMO, flags=re.M | re.S)
+    assert m, "web/demo/index.html: no `const REAL_SIZES = {...};`"
+    demo = json.loads(re.sub(r"(\w+):", r'"\1":', m.group(1)))
+    sizes = load().data["size_buckets"]
+    num = lambda xs: [x for x in xs if x != "all_in"]
+    assert demo == {"open": num(sizes["preflop_open_bb"]), "three": num(sizes["preflop_3bet_x"]),
+                    "four": num(sizes["preflop_4bet_x"]), "raise": num(sizes["postflop_raise_x"]),
+                    "bet": num(sizes["postflop_bet_pot_pct"])}

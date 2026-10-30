@@ -277,6 +277,11 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .sizes { display: flex; flex-wrap: wrap; gap: 5px; }
 .size { border: 1px solid var(--line); background: var(--ink); border-radius: 8px; padding: 5px 9px; font: 600 13px/1 var(--font-display); color: var(--muted); }
 .size[aria-pressed="true"] { border-color: var(--brass); color: var(--brass-hi); }
+.size[hidden] { display: none; }
+.size.more { border-style: dashed; color: var(--faint); }
+.ctx-seats { display: flex; flex-wrap: wrap; gap: 4px 10px; width: 100%; font-size: 11px; color: var(--faint); margin-top: 2px; }
+.ctx-seats > span { background: none; border: 0; padding: 0; }
+.ctx-seats b { color: var(--muted); font-weight: 600; }
 
 /* TP card news: one stage per card */
 .tpc-opp { font-size: 12px; color: var(--muted); }
@@ -1377,7 +1382,7 @@ async function playHand(token) {
   const n = G.n, sbI = n === 2 ? G.button : nextIdx(G.button), bbI = nextIdx(sbI);
   if (G.ante) { const s = G.seats[bbI]; const a = Math.min(G.ante, s.stack); s.stack -= a; s.contrib += a; G.pot += a; }
   post(G.seats[sbI], G.sb); post(G.seats[bbI], G.bb);
-  G.currentBet = G.bb; G.minRaise = G.bb; G.sbI = sbI; G.bbI = bbI;
+  G.currentBet = G.bb; G.minRaise = G.bb; G.sbI = sbI; G.bbI = bbI; G.streetRaises = 1; // the big blind counts as the first raise (stalker/e3/game.py)
   addLog("프리플랍", `${G.seats[sbI].name} SB, ${G.seats[bbI].name} BB${G.ante ? " (+BB앤티)" : ""}`);
   if (G.eng) engStart();
   renderSeats();
@@ -1390,7 +1395,7 @@ async function playHand(token) {
       for (let c = 0; c < cnt; c++) { const card = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(card); const e = cardEl(card); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(220); }
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
       engCheckBoard();
-      G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null;
+      G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null; G.streetRaises = 0;
       await sleep(500);
     }
     if (live().length > 1 && canAct().length > (G.currentBet > 0 ? 0 : 1)) {
@@ -1451,6 +1456,7 @@ function applyAction(s, a) {
   else if (a.type === "call") { const amt = L.toCall; s.stack -= amt; s.bet += amt; s.contrib += amt; if (!s.stack) s.allin = true; label = s.allin ? "올인" : "콜 " + bbf(s.bet); cls = "call"; s.stats.calls++; }
   else if (a.type === "raise") {
     const to = clamp(Math.round(a.to), L.minTo, L.maxTo), amt = to - s.bet;
+    if (to > G.currentBet) G.streetRaises++;
     if (to - G.currentBet >= G.minRaise) G.minRaise = to - G.currentBet;
     G.currentBet = Math.max(G.currentBet, to); s.stack -= amt; s.bet = to; s.contrib += amt; if (!s.stack) s.allin = true;
     raised = true; G.lastAgg = s.i; G.streetAgg = s.i; s.stats.raises++;
@@ -1502,7 +1508,7 @@ async function botTurn(s) {
    its own chip logic for display; if the two ever disagree on whose turn it is, the mirror switches
    off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
 const APP_BASE = window.STALKER_APP_BASE || "../app/";
-const TPG = { mod: null, index: null, eq: false, pol: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
+const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 const modelMeta = tier => TPG.index?.tiers?.[tier] || null;
 function modelLine(m) {
@@ -1535,6 +1541,7 @@ function tpgLoad(tier) {
         tpgSet("loading", step, 35);
         const doc = await fetchJSON(APP_BASE + "policy/" + m.file, f => tpgSet("loading", step, 35 + Math.round(f * 60)));
         TPG.mod.checkNutK?.(doc.nut_k);   // a pro table built on another board.nut grid would mis-key
+        TPG.rules[tier] = TPG.mod.menuOf(doc);   // the size menu the table was trained on (v1 when the file does not say)
         const q = doc.q || 255, pol = new Map();
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
         TPG.pol[tier] = pol;
@@ -1587,10 +1594,15 @@ function engStart() {
     for (const s of G.seats) holes[engSeatOf(s.i)] = s.cards.slice();
     const pool = G.deck.slice(), board = [];
     for (let i = 0; i < 5; i++) board.push(G.rigBoard?.[i] ?? pool.pop()); // the order the table deals them
-    E.s = tg.newHand({ n: G.n, holes, board });
+    E.s = tg.newHand({ n: G.n, holes, board, ...(TPG.rules[E.tier] || tg.menuOf(E.meta)) });
+    E.ent = engEntropy(holes, board); E.reads = [];
     E.ranges = tg.initialRanges(G.n); E.ok = true;
   } catch (e) { engBreak(e); }
 }
+// Seed of the AI's reading of a hero's bet (TP.md section 6): fixed by the deal and the decision, so the
+// same hand reads the same way on replay and the comparison shows the reading the table used.
+const engEntropy = (holes, board) => [20261030, ...holes.flat(), ...board];
+const engReadRng = (ent, s) => new TPG.mod.NumpyRng([...ent, s.history.length]);
 function engTurn(s) {
   if (!engOn()) return false;
   const E = G.eng;
@@ -1616,11 +1628,11 @@ function engBotAct(s) {
     return to <= G.currentBet ? { type: "call", menu: a } : { type: "raise", to, menu: a };
   } catch (e) { engBreak(e); return null; }
 }
-// Menu label for a table action at the engine's state; a hero's off-menu size is translated (#335).
+// Menu label for a table action at the engine's state; a hero's bet is read with the seeded split (#386).
 function engLabel(d, a, to) {
   if (a.menu) return { label: a.menu };
-  const r = engLabelAt(G.eng.s, a.type, to);
-  return r.menuTo == null ? r : { label: r.label, tr: { to, menuTo: r.menuTo } };
+  const r = engLabelAt(G.eng.s, a.type, to, engReadRng(G.eng.ent, G.eng.s));
+  return r.menuTo == null ? r : { label: r.label, tr: { to, menuTo: r.menuTo, split: r.split } };
 }
 function engApply(s, a, L) {
   if (!engTurn(s)) return;
@@ -1628,8 +1640,9 @@ function engApply(s, a, L) {
   try {
     const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier);
     const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
-    const { label } = engLabel(d, a, to);
-    const ns = a.type === "raise" && !a.menu ? tg.applyBet(E.s, to) : tg.apply(E.s, label);
+    const { label, tr } = engLabel(d, a, to);
+    if (tr) E.reads.push({ hand: G.handNo, at: E.s.history.length, to, split: tr.split, label, s: E.s });
+    const ns = a.type === "raise" && !a.menu ? tg.applyBet(E.s, to, label) : tg.apply(E.s, label);
     E.ranges = tg.updateRanges(E.pol, d, E.ranges, label);
     E.s = ns; E.pending = null;
   } catch (e) { engBreak(e); }
@@ -1639,33 +1652,47 @@ function engCheckBoard() {
   const b = G.eng.s.board;
   if (b.length < G.board.length || G.board.some((c, i) => b[i] !== c)) engBreak(new Error("board differs from the table"));
 }
-const MENU_COL = { f: "#5d6a6f", k: "#8d999c", c: "#5d8fd8", r: "#d6ab55", b33: "#b8913f", b75: "#d6ab55", a: "#e2705f" };
+// Every label of the v1, tp6 and real menus (tpgto.js SIZE_LABELS; Gate U checks the coverage).
+const MENU_COL = { f: "#5d6a6f", k: "#8d999c", c: "#5d8fd8", a: "#e2705f",
+  b20: "#9c7c36", b33: "#b8913f", b50: "#c69d48", b75: "#d6ab55", b100: "#ddb767", b150: "#e3c27a", b200: "#e8cc8c", b300: "#eed69f",
+  r2: "#b38a3c", r22: "#bb9241", r25: "#c49a46", r: "#d6ab55", r3: "#d9b05d", r35: "#dcb465", r4: "#dfb96e", r5: "#e2be77",
+  r6: "#e5c380", r7: "#e7c788", r8: "#e9cb90", r10: "#ecd099" };
 const bbx = chips => (Math.round(chips / 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 }); // engine chips (BB = 100)
-function engMenuName(a, to, toCallNow, opening) {
+function engMenuName(a, to, toCallNow, opening, cur = 0) {
   if (a === "f") return "폴드";
   if (a === "k") return "체크";
   if (a === "c") return toCallNow > 0 ? "콜" : "체크";
   if (a === "a") return `올인 ${bbx(to)}BB`;
-  if (a === "b33") return `벳 33% · ${bbx(to)}BB`;
-  if (a === "b75") return `벳 75% · ${bbx(to)}BB`;
-  return `${opening ? "오픈" : "레이즈"} ${bbx(to)}BB`;
+  if (a[0] === "b") return `벳 ${a.slice(1)}% · ${bbx(to)}BB`;
+  if (opening || !cur) return `${opening ? "오픈" : "레이즈"} ${bbx(to)}BB`;
+  return `레이즈 ${(Math.round(to / cur * 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}x · ${bbx(to)}BB`;
 }
 // The policy's view of the actor at engine state s: mixed strategy over the menu, equity vs the public ranges.
 function engModelAt(s, ranges, pol, tier, meta) {
   const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier), toCallNow = tg.toCall(s);
-  const opening = s.street === 0 && s.raises === 1;
+  const opening = s.street === 0 && s.raises === 1, cur = Math.max(...s.bet);
   const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
-  const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening) }; });
+  const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening, cur) }; });
   return { meta, mix, fromTable: ap.fromTable, step: ap.step, k: tg.TIER_K[tier], eq, d: ap, s };
 }
 // Menu label of a real action at engine state s (fold/check/call, or a bet/raise to street total `to`).
-function engLabelAt(s, type, to) {
+// A bet/raise is read with the seeded split (`rng`, TP.md section 6); `split` is kept for grading.
+function engLabelAt(s, type, to, rng) {
   const tg = TPG.mod;
   if (type === "fold") return { label: "f" };
   if (type === "check") return { label: tg.legal(s).includes("k") ? "k" : "c" };
   if (type === "call") return { label: "c" };
-  const t = tg.translateBet(s, to);
-  return { label: t.action, menuTo: tg.amountTo(s, t.action) };
+  const t = tg.translateBet(s, to, rng);
+  return { label: t.action, menuTo: tg.amountTo(s, t.action), split: t.split };
+}
+// The hero's choice against the policy mix. Between two menu sizes the frequency is the split-weighted
+// score f x p(A) + (1 - f) x p(B) (TP.md section 6), so the same bet always grades the same.
+function engYou(model, lab, to) {
+  const pOf = a => model.mix.find(x => x.a === a)?.p || 0, nameOf = a => model.mix.find(x => x.a === a)?.name || a;
+  if (!lab.split || lab.split.length < 2) return { label: lab.label, p: pOf(lab.label), note: lab.menuTo == null || lab.menuTo === to ? "" : `AI 해석: ${bbx(to)}BB를 ${nameOf(lab.label)}로 간주` };
+  const [A, B] = lab.split, pc = x => Math.round(x * 100);
+  return { label: lab.label, split: lab.split, p: TPG.mod.splitScore(lab.split, pOf),
+    note: `AI 해석: ${bbx(to)}BB = ${nameOf(A.a)} ${pc(A.p)}% · ${nameOf(B.a)} ${pc(B.p)}% (확률로 읽어요, 이번 핸드는 ${nameOf(lab.label)}) · 내 선택 빈도는 두 빈도의 가중 평균` };
 }
 // Hero's model-backed answers: the policy row for the real hand, and hand.equity vs the public ranges.
 function engHeroTruth(hero, g) {
@@ -1693,12 +1720,12 @@ function engHeroChoice(g, action, to) {
   if (!g.model) return null;
   try {
     const { label, tr } = engLabel(g.model.d, { type: action, to }, to);
-    const m = g.model.mix.find(x => x.a === label);
-    return { label, p: m ? m.p : 0, note: !tr || tr.menuTo === to ? "" : `AI 해석: ${bbx(to)}BB를 ${m ? m.name : label}로 간주` };
+    return engYou(g.model, tr ? { label, menuTo: tr.menuTo, split: tr.split } : { label }, to);
   } catch (e) { return null; }
 }
 function modelMixHTML(model, you) {
-  return `<div class="mixm">${model.mix.map(m => { const me = you && m.a === you.label; return `<div class="r${me ? " you" : ""}"><div class="bar" style="--c:${MENU_COL[m.a] || "#8d999c"}"><i style="width:${(m.p * 100).toFixed(1)}%"></i><span>${m.name}${me ? " · 내 선택" : ""}</span></div><span class="pc num">${Math.round(m.p * 100)}%</span></div>`; }).join("")}</div>`;
+  const share = a => !you ? 0 : you.split ? (you.split.find(x => x.a === a)?.p || 0) : a === you.label ? 1 : 0;
+  return `<div class="mixm">${model.mix.map(m => { const sh = share(m.a), me = sh > 0; return `<div class="r${me ? " you" : ""}"><div class="bar" style="--c:${MENU_COL[m.a] || "#8d999c"}"><i style="width:${(m.p * 100).toFixed(1)}%"></i><span>${m.name}${me ? " · 내 선택" + (sh < 1 ? " " + Math.round(sh * 100) + "%" : "") : ""}</span></div><span class="pc num">${Math.round(m.p * 100)}%</span></div>`; }).join("")}</div>`;
 }
 
 /* ---------- mock TP-GTO (stand-in for the answers the model does not give) ---------- */
@@ -1809,8 +1836,11 @@ function heroTurn(hero) {
 function ctxChips() {
   const hero = CUR.hero, L = CUR.g.L;
   const st = ["프리플랍", "플랍", "턴", "리버"][G.street];
-  const eff = Math.min(hero.stack + hero.bet, Math.max(...live().filter(s => s !== hero).map(s => s.stack + s.bet)));
-  return `<span><b>${st}</b></span><span>${posName(hero)}</span><span>유효 <b>${bbf(eff)}BB</b></span><span>팟 <b>${bbf(CUR.g.pot)}BB</b></span>${L.toCall ? `<span>콜 <b>${bbf(L.toCall)}BB</b></span>` : ""}${G.board.length ? `<span>SPR <b>${(eff / CUR.g.pot).toFixed(1)}</b></span>` : ""}`;
+  // Stacks are public: per live opponent its stack behind, the effective stack with me and that SPR (owner, #386).
+  const opps = live().filter(s => s !== hero), room = s => s.stack + s.bet, pot = Math.max(CUR.g.pot, 1);
+  const eff = Math.min(room(hero), Math.max(...opps.map(room)));
+  const seats = opps.map(s => { const e = Math.min(room(hero), room(s)); return `<span data-seat-stack>${posName(s)} <b>${bbf(s.stack)}BB</b> · 유효 ${bbf(e)} · SPR ${(e / pot).toFixed(1)}</span>`; }).join("");
+  return `<span><b>${st}</b></span><span>${posName(hero)}</span><span>내 스택 <b>${bbf(hero.stack)}BB</b></span><span>유효 <b>${bbf(eff)}BB</b></span><span>팟 <b>${bbf(CUR.g.pot)}BB</b></span>${L.toCall ? `<span>콜 <b>${bbf(L.toCall)}BB</b></span>` : ""}<span>SPR <b>${(eff / pot).toFixed(1)}</b></span><div class="ctx-seats" data-ctx-seats>${seats}</div>`;
 }
 // Spec `applies` per item; reflection items only in the deeper tiers (Guided/Deep stand-in).
 function applies(k) {
@@ -1991,21 +2021,42 @@ function gridCells() {
   return cells.join("");
 }
 function paintGrid(grid, keys, gtoKeys) { $$("div", grid).forEach(d => { d.classList.toggle("on", keys.has(d.dataset.key)); if (gtoKeys) d.classList.toggle("gto", gtoKeys.has(d.dataset.key)); }); }
-// Shortcuts only (TP §6 size buckets, the same for every tier); any amount from the minimum raise to all in is allowed.
+// Shortcuts only: the real-play sizes of TP.md section 6 (stalker/e3/game.py menu "real", the same for every
+// tier); any amount from the minimum raise to all in is allowed. Gate U checks the chips against tpgto.js
+// sizeMenu(s, "real", null). Preflop: opens in BB (+1BB per limper), 3-bets and 4-bets as x the bet, a 5-bet
+// is all in only; postflop: bets as % of the pot, raises as x the bet, no cap.
+const REAL_SIZES = { open: [2, 2.2, 2.5, 3, 3.5, 4, 5, 6, 8, 10], three: [2.5, 3, 3.5, 4, 5], four: [2, 2.2, 2.5, 3],
+  raise: [2.5, 3, 4, 5, 7, 10], bet: [20, 33, 50, 75, 100, 150, 200, 300] };
+// Shown before "더보기" (phone width): the sizes players use most.
+const COMMON_SIZES = { open: [2, 2.2, 2.5, 3], three: [3, 3.5, 4], four: [2.2, 2.5], raise: [2.5, 3, 4], bet: [33, 50, 75, 100] };
+const ALLIN_MERGE = 0.8; // postflop (no raise cap) a size within 20% of all in is the all in, as the engine
+const pyRound = x => { const f = Math.floor(x), d = x - f; return d > .5 ? f + 1 : d < .5 ? f : f % 2 === 0 ? f : f + 1; };
+function sizeSpot() {
+  if (G.street > 0) return CUR.g.L.toCall > 0 ? "raise" : "bet";
+  return G.streetRaises <= 1 ? "open" : G.streetRaises === 2 ? "three" : G.streetRaises === 3 ? "four" : "cap";
+}
 function sizeOptions() {
-  const L = CUR.g.L, pre = G.street === 0, pot = CUR.g.pot;
-  let opts;
-  if (pre) opts = [2.2, 2.5, 3].map(x => ({ label: x + "x", to: Math.round(G.currentBet * x) }));
-  else opts = [33, 50, 75, 100, 150].map(x => ({ label: x + "%", to: Math.round(G.currentBet + (pot + L.toCall) * x / 100) }));
-  opts = opts.filter(o => o.to >= L.minTo && o.to < L.maxTo);
-  opts.push({ label: "올인", to: L.maxTo });
+  const L = CUR.g.L, hero = CUR.hero, pot = CUR.g.pot, cur = G.currentBet, least = cur + G.minRaise, room = L.maxTo, bb = G.bb;
+  const spot = sizeSpot(), common = COMMON_SIZES[spot] || [];
+  const limpers = spot === "open" ? G.seats.filter(s => s.i !== G.bbI && s.bet === bb).length : 0;
+  const chips = x => spot === "open" ? Math.max(least, pyRound(x * bb) + bb * limpers)
+    : spot === "bet" ? hero.bet + Math.max(bb, pyRound(pot * (x / 100))) : Math.max(least, pyRound(x * cur));
+  const top = G.street === 0 ? room - bb : Math.min(room - bb, ALLIN_MERGE * room);
+  const opts = [];
+  for (const x of REAL_SIZES[spot] || []) {
+    const to = chips(x);
+    if (to >= top || opts.some(o => o.to === to)) continue;
+    const label = spot === "open" ? bbf(to) + "BB" : spot === "bet" ? x + "%" : x + "x";
+    opts.push({ label, full: spot === "open" ? label : `${label} · ${bbf(to)}BB`, to, common: common.includes(x) });
+  }
+  opts.push({ label: "올인", full: "올인 " + bbf(room) + "BB", to: room, common: true });
   return opts;
 }
 function sizeLabel(to) {
   const L = CUR.g.L, pot = CUR.g.pot;
   if (to >= L.maxTo) return "올인 " + bbf(to) + "BB";
   const o = sizeOptions().find(x => x.to === to);
-  if (o) return o.label + " · " + bbf(to) + "BB";
+  if (o) return o.full;
   return bbf(to) + "BB" + (G.street > 0 ? ` (팟 ${Math.round((to - G.currentBet) / Math.max(pot + L.toCall, 1) * 100)}%)` : "");
 }
 const curSize = () => ({ label: sizeLabel(CUR.to), to: CUR.to });
@@ -2015,7 +2066,7 @@ function actionInput() {
   return `<div class="t"><span>액션</span><span class="val num" data-val>—</span></div>
     <div class="acts">${btn("fold", "폴드", L.canCheck)}${L.canCheck ? btn("check", "체크") : btn("call", "콜 " + bbf(L.toCall))}${btn("raise", L.toCall || G.street === 0 ? "레이즈" : "벳", !L.canRaise)}</div>
     <div data-sizes hidden>
-      <div class="sizes">${sizeOptions().map((o, i) => `<button class="size" data-size="${i}" aria-pressed="false">${o.label}</button>`).join("")}</div>
+      <div class="sizes" data-size-list>${(() => { const o = sizeOptions(), more = o.filter(x => !x.common).length; return o.map((x, i) => `<button class="size" data-size="${i}" aria-pressed="false"${x.common ? "" : " data-size-extra hidden"}>${x.label}</button>`).join("") + (more ? `<button class="size more" data-size-more aria-expanded="false">더보기 +${more}</button>` : ""); })()}</div>
       <div class="size-free"><input type="range" data-size-range min="${L.minTo}" max="${L.maxTo}" step="10" value="${L.minTo}" aria-label="벳·레이즈 금액"><label class="size-num"><input type="number" data-size-num min="${L.minTo / G.bb}" max="${L.maxTo / G.bb}" step="0.1" inputmode="decimal" aria-label="벳·레이즈 금액 직접 입력 (BB)"><span>BB</span></label></div>
       <div class="size-cap">최소 ${bbf(L.minTo)}BB · 최대 ${bbf(L.maxTo)}BB(올인) · 금액은 자유롭게 정할 수 있어요</div>
       <div class="size-msg" data-size-msg role="alert" hidden></div>
@@ -2064,6 +2115,7 @@ function bindInputs(root) {
     CUR.to = to; CUR.size = "set";
     const opts = sizeOptions();
     $$("[data-size]").forEach(x => x.setAttribute("aria-pressed", String(opts[+x.dataset.size]?.to === to)));
+    if ($("[data-size-extra][aria-pressed='true']")) showMoreSizes();
     const rg = $("[data-size-range]"), num = $("[data-size-num]");
     if (rg && !fromRange) rg.value = to;
     if (rg) setFill(rg);
@@ -2072,6 +2124,8 @@ function bindInputs(root) {
     delete CUR.answers["plan.foldeq"]; CUR.quick ? quickNav() : renderFollow();
   };
   $$("[data-size]", root).forEach(b => b.addEventListener("click", () => { sizeMsg(""); setSize(sizeOptions()[+b.dataset.size].to); }));
+  const showMoreSizes = () => { $$("[data-size-extra]").forEach(x => x.hidden = false); const m = $("[data-size-more]"); if (m) m.remove(); };
+  $$("[data-size-more]", root).forEach(b => b.addEventListener("click", showMoreSizes));
   $$("[data-size-range]", root).forEach(r => { setFill(r); r.addEventListener("input", () => { sizeMsg(""); setSize(+r.value, true); }); });
   const sizeMsg = text => { const m = $("[data-size-msg]"); if (m) { m.textContent = text || ""; m.hidden = !text; } };
   $$("[data-size-num]", root).forEach(n => {
@@ -2860,20 +2914,20 @@ function rvModel(h, di) {
     const used = new Set([...RV.hero, ...h.board]), free = [];
     for (let c = 51; c >= 0; c--) if (!used.has(c)) free.push(c);
     const holes = RPOS.map(p => p === RV.heroPos ? RV.hero.slice() : [free.pop(), free.pop()]);
-    let st = tg.newHand({ n: 6, holes, board: h.board.slice() }), ranges = tg.initialRanges(6);
+    let st = tg.newHand({ n: 6, holes, board: h.board.slice(), ...(TPG.rules[tier] || tg.menuOf(meta)) }), ranges = tg.initialRanges(6);
+    const ent = engEntropy(holes, h.board);
     for (let i = 0; i <= di; i++) {
       const l = h.log[i], seat = RPOS.indexOf(l.pos);
       if (st.done || st.toAct !== seat || st.street !== l.st) return null;
       if (i === di) {
         const md = engModelAt(st, ranges, pol, tier, meta), to = l.type === "raise" ? Math.round(l.to * 100) : null;
-        const lab = engLabelAt(st, l.type, to), m = md.mix.find(x => x.a === lab.label);
-        md.you = { label: lab.label, p: m ? m.p : 0, note: lab.menuTo == null || lab.menuTo === to ? "" : `AI 해석: ${bbx(to)}BB를 ${m ? m.name : lab.label}로 간주` };
+        md.you = engYou(md, engLabelAt(st, l.type, to, engReadRng(ent, st)), to);
         return md;
       }
       const d = tg.decisionKey(st, ranges, tier), to = l.type === "raise" ? Math.round(l.to * 100) : null;
-      const { label } = engLabelAt(st, l.type, to);
+      const { label } = engLabelAt(st, l.type, to, engReadRng(ent, st));
       ranges = tg.updateRanges(pol, d, ranges, label);
-      st = l.type === "raise" ? tg.applyBet(st, to) : tg.apply(st, label);
+      st = l.type === "raise" ? tg.applyBet(st, to, label) : tg.apply(st, label);
     }
   } catch (e) { console.warn("[tpgto] review replay off:", e.message); }
   return null;

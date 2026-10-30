@@ -83,3 +83,11 @@ def test_pro_tables_name_their_board_nut_grid():
     assert X.meta_from({"k": 17, "n": 6, "depth": "pro", "iterations": 1, "nut_k": K.NUT_K}, None, "1", "")["nut_k"] == K.NUT_K
     assert X.meta_from({"k": 17, "n": 6, "depth": "pro", "iterations": 1}, None, "1", "")["nut_k"] == K.K_PRO
     assert "nut_k" not in X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1}, None, "1", "")
+
+
+def test_policy_names_its_size_menu():
+    # tpgto.js menuOf reads these (#386); a checkpoint without them is v1 with cap 3.
+    old = X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1}, None, "1", "")
+    assert (old["menu"], old["raise_cap"]) == ("v1", 3)
+    real = X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1, "menu": "real", "raise_cap": None}, None, "1", "")
+    assert (real["menu"], real["raise_cap"]) == ("real", None)
