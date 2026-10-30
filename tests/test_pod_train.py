@@ -190,7 +190,9 @@ _BEGINNER3 = {"job": "e3-tp-beginner3-pod", "tier": "beginner", "players": 3, "c
     ({}, {"menu": "tp6"}, "menu"),                        # job tp6, result v1
     ({}, {"raise_cap": None}, "raise_cap"),               # job uncapped, result cap 3
     ({"raise_cap": 4}, {}, "raise_cap"),
-], ids=["result-tp6", "result-nocap", "job-tp6", "job-nocap", "cap-4"])
+    ({"avg_rule": "own"}, {}, "avg_rule"),                # #426: the average-strategy rules never mix
+    ({}, {"avg_rule": "own"}, "avg_rule"),                # a result from before #426 is legacy
+], ids=["result-tp6", "result-nocap", "job-tp6", "job-nocap", "cap-4", "result-own", "job-own"])
 def test_resume_result_refuses_other_game_rules(tmp_path, model, job, msg):
     # #339: the menu and raise cap change which actions a key has, so a table of other rules is refused
     r = _BEGINNER3 | {"model": _BEGINNER3["model"] | model}
@@ -214,3 +216,15 @@ def test_resume_result_keeps_non_default_rules_through_the_chain(tmp_path, no_ev
     second = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2, resume=st, menu="tp6", raise_cap=None)
     assert (second["model"]["menu"], second["model"]["raise_cap"]) == ("tp6", None)
     assert second["iters"] > first["iters"] == second["resumed_from"]
+
+
+def test_own_avg_rule_survives_pack_and_the_resume_chain(tmp_path, no_eval):
+    first = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2, avg_rule="own")
+    assert first["model"]["avg_rule"] == "own"
+    f = _pod_result_file(tmp_path, first, run_id="7")
+    with pytest.raises(SystemExit, match="avg_rule"):
+        P.load_resume_result(f, "beginner", 3)
+    st, _ = P.load_resume_result(f, "beginner", 3, avg_rule="own")
+    assert (st["version"], st["avg_rule"]) == (3, "own")
+    second = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2, resume=st, avg_rule="own")
+    assert second["model"]["avg_rule"] == "own" and second["iters"] > first["iters"] == second["resumed_from"]
