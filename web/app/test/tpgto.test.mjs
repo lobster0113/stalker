@@ -24,7 +24,7 @@ function seqSum(a) { let s = 0.0; for (const v of a) s += v; return s; }
 
 test("schema and constants match the Python side", () => {
   assert.equal(V.schema, "stalker.web.tpgto.vectors");
-  assert.equal(V.schema_version, 2);
+  assert.equal(V.schema_version, 3);
   const c = V.constants;
   assert.deepEqual(c.TIER_K, T.TIER_K, "TIER_K differs: update tpgto.js to stalker/e3/tp_key.py");
   assert.deepEqual(c.TIER_DEPTH, T.TIER_DEPTH);
@@ -83,8 +83,8 @@ test("every decision: legal, public key, step array, key, range sums; plus final
   assert.deepEqual(fails, { legal: 0, public: 0, steps: 0, key: 0, sums: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
 });
 
-test("menus (real, real + cap 3, tp6): legal, sizes, public keys, translation split and seeded reading", () => {
-  const fails = { legal: 0, amounts: 0, public: 0, split: 0, read: 0, end: 0 };
+test("menus (real, real + cap 3, tp6, v1): legal, sizes, public keys, translation split, seeded reading, error flag", () => {
+  const fails = { legal: 0, amounts: 0, public: 0, split: 0, read: 0, hte: 0, end: 0 };
   const first = [];
   let total = 0, bets = 0, splits = 0;
   const DEPTHS = ["basic", "full", "pro"];
@@ -106,6 +106,7 @@ test("menus (real, real + cap 3, tp6): legal, sizes, public keys, translation sp
         ok.split = JSON.stringify(sp.map((x) => [x.a, x.p])) === JSON.stringify(d.split);
         ok.read = T.sampleBet(s, d.bet, new T.NumpyRng(d.entropy)) === d.read
           && T.translateBet(s, d.bet, new T.NumpyRng(d.entropy)).action === d.read;
+        ok.hte = T.translationError(s, d.bet) === d.hte;
       }
       for (const f in ok) if (!ok[f]) { fails[f]++; if (first.length < 5) first.push({ f, menu: h.menu, cap: h.raise_cap, n: h.n, hist: s.history.join(" "), want: d[f], got: f === "legal" ? acts : f === "amounts" ? amounts : f === "split" ? T.splitBet(s, d.bet) : undefined }); }
       s = d.bet !== undefined ? T.applyBet(s, d.bet, d.read) : T.apply(s, d.a);
@@ -114,7 +115,23 @@ test("menus (real, real + cap 3, tp6): legal, sizes, public keys, translation sp
   }
   console.log(`tpgto menus: ${total} decisions in ${V.menus.length} hands, ${bets} arbitrary bets (${splits} between two sizes); failures ${JSON.stringify(fails)}`);
   assert.ok(total >= 300 && bets >= 100 && splits >= 30, "too few menu vectors; regenerate with more hands");
-  assert.deepEqual(fails, { legal: 0, amounts: 0, public: 0, split: 0, read: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
+  assert.deepEqual(fails, { legal: 0, amounts: 0, public: 0, split: 0, read: 0, hte: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
+});
+
+test("high translation error (#417): translationError equals translate.high_translation_error at every 0.1BB", () => {
+  let n = 0, flagged = 0;
+  const bad = [];
+  for (const x of V.hte) {
+    let s = T.dealFromPermutation(x.perm, 6, { menu: x.menu, raiseCap: x.raise_cap });
+    s = { ...s, stack: s.bet.map((b) => x.stack_bb * T.BB - b) };
+    for (const a of x.line) s = T.apply(s, a);
+    for (const [to, want] of x.cases) {
+      n++; flagged += want ? 1 : 0;
+      if (T.translationError(s, to) !== want && bad.length < 5) bad.push({ menu: x.menu, line: x.line.join(" "), to, want });
+    }
+  }
+  assert.ok(n >= 5000 && flagged > 0 && flagged < n, "too few hte vectors; regenerate");
+  assert.deepEqual(bad, []);
 });
 
 test("real menu: the owner's size lists per spot, preflop cap, no postflop cap", () => {
@@ -156,6 +173,11 @@ test("a v1 policy reads a real-size bet on its own v1 labels; sizeMenu still lis
   assert.throws(() => T.applyBet(s, 400, "c"), /not a reading/);
   // Grading: the split weighs each label's score.
   assert.equal(T.splitScore(sp, (a) => (a === "r" ? 1 : 0)), f);
+  // #417: 4BB is read 72% as 2.5BB, 28% as all in; that reading is flagged, an exact or near-menu size is not.
+  assert.equal(T.translationError(s, 400), true);
+  assert.equal(T.translationError(s, 250), false);
+  assert.equal(T.translationError(s, 220), false);                               // below the smallest size: r only
+  assert.equal(T.translationError(s, 8000), false);                              // >= 80% of the stack: all in
 });
 
 test("actionProbs returns the table row for the actor's hole, uniform when missing", () => {

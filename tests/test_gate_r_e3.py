@@ -47,7 +47,7 @@ def test_edge_cases_cover_the_412_rules():
 
 def test_a_reopening_short_all_in_is_caught(monkeypatch):
     # Mutation: every raise reopens the betting, short all ins included (the bug fixed in #412).
-    monkeypatch.setattr(G, "_reopens", lambda s, to: True)
+    monkeypatch.setattr(G, "_locked", lambda s, p: False)
     t = E.run_edge_cases()
     assert t.counts["e3_raise"][0] < t.counts["e3_raise"][1]
     assert any("short all in does not reopen" in f and "PokerKit raise False" in f for f in t.failures)
