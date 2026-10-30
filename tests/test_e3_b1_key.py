@@ -9,7 +9,7 @@ from stalker import train_jobs as T
 from stalker.core.cards import cards, combo_index
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
-from stalker.e3.mccfr import E3MCCFR
+from stalker.e3.mccfr import E3MCCFR, coverage
 
 
 def _state(board_text, live=(0, 5)):
@@ -62,10 +62,20 @@ def test_spade_blocker_changes_the_key_in_the_deep_tier_only_for_a_blocker():
 def test_spade_blocker_changes_the_key_in_the_pro_tier_at_the_same_equity():
     s = _state("Ks7s9s")
     steps = K.equity_steps(s, 0, K.initial_ranges(6), K.K_PRO, "")
-    blocker, plain = "As3c", "2s2h"
-    assert steps[combo_index(*cards(blocker))] % K.NUT_BASE == steps[combo_index(*cards(plain))] % K.NUT_BASE
+    blocker, plain = "6dAs", "7cAd"   # same equity step, same outs and vuln; only the A of spades differs
+    ib, ip = combo_index(*cards(blocker)), combo_index(*cards(plain))
+    assert steps[ib] % K.NUT_BASE == steps[ip] % K.NUT_BASE
+    lb, lp = K.b1_label(_code(s, blocker, "pro")), K.b1_label(_code(s, plain, "pro"))
+    assert lb.split("k")[0] == lp.split("k")[0] and int(lb.split("k")[1]) > int(lp.split("k")[1])
     b1 = K.equity_steps(s, 0, K.initial_ranges(6), K.K_PRO, "b1")
-    assert b1[combo_index(*cards(blocker))] != b1[combo_index(*cards(plain))]
+    assert b1[ib] != b1[ip]
+
+
+def test_b1_coverage_groups_by_legal_action_set():
+    m = E3MCCFR(3, 11, 6, "full", key_variant="b1")
+    m.iterate(3)
+    legal = set(K.LEGAL_PREFLOP) | set(K.LEGAL_POSTFLOP) | set(K.LEGAL_CALL)
+    assert set(coverage(m)) <= legal
 
 
 def test_tiers_ask_only_their_own_items():

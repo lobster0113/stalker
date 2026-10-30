@@ -213,7 +213,10 @@ def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     fewer than 10 traverser updates — where the table is still close to its uniform start."""
     out: dict[str, dict[str, float]] = {}
     for k, v in m.visits.items():
-        f = k.split("|")[by]
+        fs = k.split("|")
+        if fs[-1].startswith("o"):   # b1 label (#398): a legal-action set never starts with "o"
+            fs.pop()
+        f = fs[by]
         d = out.setdefault(f, {"keys": 0, "under10": 0})
         d["keys"] += 1
         d["under10"] += v < 10
@@ -242,7 +245,7 @@ def main(argv=None) -> int:
                       "iters_per_s": round(a.iters / dt, 3), "nodes_per_iter": round(m.nodes / a.iters, 1),
                       "keys": len(m.regret), "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges,
                       # the bound counts the v1 legal-action sets only
-                      "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth) if m.menu == "v1" else None}))
+                      "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth, m.key_variant) if m.menu == "v1" else None}))
     return 0
 
 
