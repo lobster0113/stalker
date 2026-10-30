@@ -24,7 +24,7 @@ function seqSum(a) { let s = 0.0; for (const v of a) s += v; return s; }
 
 test("schema and constants match the Python side", () => {
   assert.equal(V.schema, "stalker.web.tpgto.vectors");
-  assert.equal(V.schema_version, 1);
+  assert.equal(V.schema_version, 2);
   const c = V.constants;
   assert.deepEqual(c.TIER_K, T.TIER_K, "TIER_K differs: update tpgto.js to stalker/e3/tp_key.py");
   assert.deepEqual(c.TIER_DEPTH, T.TIER_DEPTH);
@@ -83,6 +83,81 @@ test("every decision: legal, public key, step array, key, range sums; plus final
   assert.deepEqual(fails, { legal: 0, public: 0, steps: 0, key: 0, sums: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
 });
 
+test("menus (real, real + cap 3, tp6): legal, sizes, public keys, translation split and seeded reading", () => {
+  const fails = { legal: 0, amounts: 0, public: 0, split: 0, read: 0, end: 0 };
+  const first = [];
+  let total = 0, bets = 0, splits = 0;
+  const DEPTHS = ["basic", "full", "pro"];
+  for (const h of V.menus) {
+    let s = T.dealFromPermutation(h.perm, h.n, { menu: h.menu, raiseCap: h.raise_cap });
+    for (const d of h.decisions) {
+      total++;
+      const acts = T.legal(s);
+      const amounts = Object.fromEntries(acts.filter((a) => !["f", "c", "k"].includes(a)).map((a) => [a, T.amountTo(s, a)]));
+      const ok = {
+        legal: acts.join() === d.legal.join(),
+        amounts: JSON.stringify(amounts) === JSON.stringify(d.amounts),
+        public: DEPTHS.every((depth, i) => T.publicKey(s, s.toAct, depth) === d.public[i]),
+      };
+      if (d.bet !== undefined) {
+        bets++;
+        const sp = T.splitBet(s, d.bet);
+        if (sp.length === 2) splits++;
+        ok.split = JSON.stringify(sp.map((x) => [x.a, x.p])) === JSON.stringify(d.split);
+        ok.read = T.sampleBet(s, d.bet, new T.NumpyRng(d.entropy)) === d.read
+          && T.translateBet(s, d.bet, new T.NumpyRng(d.entropy)).action === d.read;
+      }
+      for (const f in ok) if (!ok[f]) { fails[f]++; if (first.length < 5) first.push({ f, menu: h.menu, cap: h.raise_cap, n: h.n, hist: s.history.join(" "), want: d[f], got: f === "legal" ? acts : f === "amounts" ? amounts : f === "split" ? T.splitBet(s, d.bet) : undefined }); }
+      s = d.bet !== undefined ? T.applyBet(s, d.bet, d.read) : T.apply(s, d.a);
+    }
+    if (!s.done || s.history.join() !== h.history.join() || s.board.join() !== h.board.join() || T.payoff(s).join() !== h.payoff.join()) fails.end++;
+  }
+  console.log(`tpgto menus: ${total} decisions in ${V.menus.length} hands, ${bets} arbitrary bets (${splits} between two sizes); failures ${JSON.stringify(fails)}`);
+  assert.ok(total >= 300 && bets >= 100 && splits >= 30, "too few menu vectors; regenerate with more hands");
+  assert.deepEqual(fails, { legal: 0, amounts: 0, public: 0, split: 0, read: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
+});
+
+test("real menu: the owner's size lists per spot, preflop cap, no postflop cap", () => {
+  const real = (n = 6, raiseCap = null) => T.newHand({ n, holes: holes6.slice(0, n), menu: "real", raiseCap });
+  const play = (s, ...acts) => acts.reduce((x, a) => T.apply(x, a), s);
+  const sz = (s) => Object.fromEntries(T.sizeMenu(s).map(({ a, to }) => [a, to]));
+  assert.deepEqual(sz(real()), { r2: 200, r22: 220, r: 250, r3: 300, r35: 350, r4: 400, r5: 500, r6: 600, r8: 800, r10: 1000, a: T.STACK });
+  assert.deepEqual(Object.values(sz(play(real(), "c"))).slice(0, 10), [300, 320, 350, 400, 450, 500, 600, 700, 900, 1100]);
+  assert.deepEqual(sz(play(real(), "r")), { r25: 625, r: 750, r35: 875, r4: 1000, r5: 1250, a: T.STACK });
+  assert.deepEqual(sz(play(real(), "r", "r")), { r2: 1500, r22: 1650, r25: 1875, r: 2250, a: T.STACK });
+  for (const cap of [null, 3, 4]) assert.deepEqual(T.legal(play(real(6, cap), "r", "r25", "r25")), ["f", "c", "a"]);   // 5-bet: all in
+  assert.deepEqual(T.legal(play(real(2), "r3", "c")), ["k", "b20", "b33", "b50", "b75", "b100", "b150", "b200", "b300", "a"]);
+  const war = play(real(2), "r", "c", "b20", "r25", "r25", "r25");
+  assert.ok(T.legal(war).includes("r25"));                                      // no postflop cap
+  assert.ok(T.sizeMenu(war).every(({ a, to }) => a === "a" || to < T.ALLIN_MERGE * T.STACK));
+  assert.throws(() => T.newHand({ n: 6, holes: holes6, menu: "v9" }), /menu "v9"/);
+});
+
+test("menuOf: policy metadata picks the rules, v1 with cap 3 by default", () => {
+  assert.deepEqual(T.menuOf({}), { menu: "v1", raiseCap: 3 });
+  assert.deepEqual(T.menuOf(null), { menu: "v1", raiseCap: 3 });
+  assert.deepEqual(T.menuOf({ menu: "real", raise_cap: null }), { menu: "real", raiseCap: null });
+  assert.throws(() => T.menuOf({ menu: "zz" }), /policy menu "zz"/);
+});
+
+test("a v1 policy reads a real-size bet on its own v1 labels; sizeMenu still lists the real sizes", () => {
+  const s = T.newHand({ n: 6, holes: holes6 });                                  // v1 hand (served policies)
+  assert.deepEqual(T.sizeMenu(s).map((m) => m.a), ["r", "a"]);
+  assert.deepEqual(T.sizeMenu(s, "real", null).map((m) => m.to), [200, 220, 250, 300, 350, 400, 500, 600, 800, 1000, T.STACK]);
+  const sp = T.splitBet(s, 400);                                                 // a real 4BB open
+  assert.deepEqual(sp.map((x) => x.a), ["r", "a"]);
+  const f = ((9900 / 250 - 300 / 250) * (1 + 150 / 250)) / ((9900 / 250 - 150 / 250) * (1 + 300 / 250));
+  assert.equal(sp[0].p, f);
+  const reads = new Set();
+  for (let seed = 0; seed < 40; seed++) reads.add(T.applyBet(s, 400, new T.NumpyRng([seed])).history[0]);
+  assert.deepEqual([...reads].sort(), ["0:a", "0:r"]);                           // both readings occur
+  assert.equal(T.applyBet(s, 400, new T.NumpyRng([7])).history[0], T.applyBet(s, 400, new T.NumpyRng([7])).history[0]);
+  assert.throws(() => T.applyBet(s, 400), /seeded NumpyRng/);
+  assert.throws(() => T.applyBet(s, 400, "c"), /not a reading/);
+  // Grading: the split weighs each label's score.
+  assert.equal(T.splitScore(sp, (a) => (a === "r" ? 1 : 0)), f);
+});
+
 test("actionProbs returns the table row for the actor's hole, uniform when missing", () => {
   const h = V.hands.find((x) => x.tier === "mid");
   const policy = V.policies[`${h.n}/${h.tier}`];
@@ -111,16 +186,19 @@ const chipsOk = (s) => s.stack.every((x, i) => x + s.total[i] === T.STACK && x >
 test("off-menu: min-raise and 5x open preflop", () => {
   const s = T.newHand({ n: 6, holes: holes6 });
   assert.deepEqual(T.betRange(s), { min: 200, max: T.STACK });
-  assert.throws(() => T.applyBet(s, 199), /min raise/);
-  assert.throws(() => T.applyBet(s, T.STACK + 1), /all in/);
+  const rng = new T.NumpyRng([386]);
+  assert.throws(() => T.applyBet(s, 199, rng), /min raise/);
+  assert.throws(() => T.applyBet(s, T.STACK + 1, rng), /all in/);
   const mr = T.translateBet(s, 200);
   assert.equal(mr.action, "r");                       // below the 2.5BB open: the smallest menu size
-  const s1 = T.applyBet(s, 200);
+  assert.deepEqual(mr.split, [{ a: "r", p: 1 }]);
+  const s1 = T.applyBet(s, 200, rng);
   assert.equal(s1.bet[0], 200); assert.equal(T.pot(s1), 350); assert.ok(chipsOk(s1));
   assert.deepEqual(s1.history, ["0:r"]); assert.equal(s1.log[0].real, true);
-  const five = T.translateBet(s, 500);              // between r (250) and all in: PHM picks r
+  const five = T.translateBet(s, 500);              // between r (250) and all in: PHM likelier on r
   assert.equal(five.action, "r"); assert.ok(five.prob >= 0.5 && five.prob <= 1);
-  const s2 = T.applyBet(s, 500);
+  assert.equal(five.split[0].p + five.split[1].p, 1);
+  const s2 = T.applyBet(s, 500, "r");
   assert.equal(T.toCall(s2, 1), 500); assert.ok(chipsOk(s2));
   // The next min raise follows the real raise size (500 - 100 = 400): 900.
   assert.equal(T.betRange(s2).min, 900);
@@ -143,7 +221,7 @@ test("off-menu: 150% pot bet postflop, keys from real chips, hand settles", () =
   const ranges = T.initialRanges(6);
   const d0 = T.decisionKey(s, ranges, "pro");
   const r1 = T.updateRanges({}, d0, ranges, tr.action);
-  s = T.applyBet(s, to);
+  s = T.applyBet(s, to, tr.action);
   assert.equal(T.pot(s), 500); assert.ok(chipsOk(s));
   const d1 = T.decisionKey(s, r1, "pro");            // BB faces the real 300 into 200
   assert.equal(d1.public.split("|")[7], String(T.potOddsStep(s, 5)));
@@ -152,7 +230,7 @@ test("off-menu: 150% pot bet postflop, keys from real chips, hand settles", () =
   // A raise to an arbitrary size, then calls to the end.
   const r = T.betRange(s);
   assert.equal(r.min, 600);
-  s = T.applyBet(s, 1234);
+  s = T.applyBet(s, 1234, new T.NumpyRng([1234]));
   assert.ok(chipsOk(s));
   while (!s.done) s = T.apply(s, T.legal(s).includes("c") ? "c" : "k");
   assert.equal(T.payoff(s).reduce((x, y) => x + y, 0), 0);

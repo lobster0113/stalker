@@ -8,6 +8,13 @@ table has no entry, as `E3MCCFR._sigma`). The policy rows the hands look up are 
 test needs nothing else. Also written: numpy runout draws (`default_rng([20261028, *board])`) to
 test the RNG port alone, and the 169-class preflop table as web/app/assets/hu_equity.json.
 
+`menus` (#386): seeded random hands under the wider size menus (real with and without the postflop cap,
+tp6) at 2, 6 and 9 players. Per decision: legal actions, every size's street total, the public key at
+each depth and, when the actor bets an arbitrary amount (min raise, any amount, an exact menu size, all
+in), the translation split (stalker/e3/translate.split) and the seeded reading
+(translate.sample with default_rng([seed, hand, decision])). Equity steps do not depend on the menu, so
+these hands carry none.
+
     python -m stalker.tools.web_vectors            # rewrite web/app/test/vectors.json and the asset
     node --test web/app/test/                     # check the JS port against them
 """
@@ -25,17 +32,21 @@ from stalker.core.cards import HAND_CLASSES
 from stalker.e2.eq_view import EQ_RUNOUTS, N
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
+from stalker.e3 import translate as X
 from stalker.e3.mccfr import E3MCCFR
 
 ROOT = Path(__file__).resolve().parents[2]
 VECTORS = ROOT / "web" / "app" / "test" / "vectors.json"
 ASSET = ROOT / "web" / "app" / "assets" / "hu_equity.json"
 SCHEMA = "stalker.web.tpgto.vectors"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: "menus" block (#386)
 TIERS = ("beginner", "mid", "pro")
 PLAYERS = (6, 9)
 FOLD_WEIGHTS = (0.15, 1.0, 4.0)   # per hand: deep multiway hands, plain random, fold-heavy (heads-up postflop)
 DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
+MENU_RULES = (("real", None), ("real", 3), ("tp6", 3))   # (menu, raise_cap); real + None is the training job
+MENU_PLAYERS = (2, 6, 9)
+DEPTHS = ("basic", "full", "pro")
 
 
 def equity_table() -> dict:
@@ -96,6 +107,54 @@ def _play(policy: dict, n: int, tier: str, rng: np.random.Generator, fold_w: flo
             "board": list(s.board), "payoff": [int(x) for x in G.payoff(s)]}
 
 
+def _bet_to(s: G.State, rng: np.random.Generator) -> int:
+    # Min raise, any amount, an exact menu size or all in, so every branch of the translation is hit.
+    p = s.to_act
+    room = s.stack[p] + s.bet[p]
+    least = min(max(s.bet) + s.last_raise, room)
+    u = rng.random()
+    if u < 0.2:
+        return least
+    if u < 0.35:
+        menu = [t for _, t in G._offered(s)] or [room]
+        return int(menu[int(rng.integers(len(menu)))])
+    if u < 0.45:
+        return room
+    return int(rng.integers(least, room + 1))
+
+
+def _play_menu(menu: str, cap, n: int, seed: int, h: int, rng: np.random.Generator) -> dict:
+    s = G.deal(rng, n, menu, cap)
+    perm = [c for hl in s.hole for c in hl] + list(s.deck)
+    decisions = []
+    while not s.done:
+        acts, p = G.legal(s), s.to_act
+        d = {"legal": acts, "amounts": {a: G._amount_to(s, a) for a in acts if a not in ("f", "c", "k")},
+             "public": [K.public_key(s, p, depth) for depth in DEPTHS]}
+        if any(a not in ("f", "c", "k") for a in acts) and rng.random() < 0.5:
+            to = _bet_to(s, rng)
+            entropy = [seed, h, len(decisions)]
+            read = X.sample(s, to, np.random.default_rng(entropy))
+            d.update(bet=to, split=[[a, f] for a, f in X.split(s, to)], entropy=entropy, read=read)
+            s = G._advance(G._put_in(s, to, f"{p}:{read}"), p)   # chips by `to`, history by the reading
+        else:
+            wts = np.array([0.3 if a == "f" else 0.1 if a == "a" else 1.0 for a in acts])
+            d["a"] = acts[int(rng.choice(len(acts), p=wts / wts.sum()))]
+            s = G.apply(s, d["a"])
+        decisions.append(d)
+    return {"menu": menu, "raise_cap": cap, "n": n, "perm": perm, "decisions": decisions,
+            "history": list(s.history), "board": list(s.board), "payoff": [int(x) for x in G.payoff(s)]}
+
+
+def menu_vectors(hands: int, seed: int) -> list[dict]:
+    out = []
+    for r, (menu, cap) in enumerate(MENU_RULES):
+        for n in MENU_PLAYERS:
+            rng = np.random.default_rng([seed, 386, r, n])
+            out.extend(_play_menu(menu, cap, n, seed, len(out), rng) for _ in range(hands))
+    return out
+
+
 def rng_vectors(count: int, seed: int) -> list[dict]:
     rng = np.random.default_rng(seed)
     out = []
@@ -108,7 +167,8 @@ def rng_vectors(count: int, seed: int) -> list[dict]:
     return out
 
 
-def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, tiers=TIERS, rng_count: int = 60) -> dict:
+def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, tiers=TIERS, rng_count: int = 60,
+          menu_hands: int = 10) -> dict:
     out_hands, policy_used = [], {}
     for n in players:
         for tier in tiers:
@@ -122,7 +182,8 @@ def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, ti
             "constants": {"TIER_K": K.TIER_K, "TIER_DEPTH": K.TIER_DEPTH, "NUT_BASE": K.NUT_BASE, "NUT_TOP": K.NUT_TOP,
                           "NUT_K": K.NUT_K, "EQ_RUNOUTS": EQ_RUNOUTS},
             "params": {"hands": hands, "iters": iters, "seed": seed},
-            "policies": policy_used, "hands": out_hands, "rng": rng_vectors(rng_count, seed)}
+            "policies": policy_used, "hands": out_hands, "rng": rng_vectors(rng_count, seed),
+            "menus": menu_vectors(menu_hands, seed)}
 
 
 def summary(v: dict) -> dict:
@@ -133,7 +194,10 @@ def summary(v: dict) -> dict:
             "call_keys": sum(1 for _, d in ds if d["public"].startswith("call|")),
             "board_nut": sum(1 for _, d in ds if d["nut"] is not None),
             "by_n": {n: sum(1 for h, _ in ds if h["n"] == n) for n in PLAYERS},
-            "by_tier": {t: sum(1 for h, _ in ds if h["tier"] == t) for t in TIERS}}
+            "by_tier": {t: sum(1 for h, _ in ds if h["tier"] == t) for t in TIERS},
+            "menu_decisions": sum(len(h["decisions"]) for h in v["menus"]),
+            "menu_bets": sum(1 for h in v["menus"] for d in h["decisions"] if "bet" in d),
+            "menu_bets_split": sum(1 for h in v["menus"] for d in h["decisions"] if len(d.get("split", ())) == 2)}
 
 
 def _write(path: Path, obj) -> None:
