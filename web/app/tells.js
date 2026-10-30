@@ -159,18 +159,20 @@ export function lineOf(ds) {
 const pc = x => Math.round(x * 100);
 const f2 = x => x.toFixed(2);
 const lack = m => `데이터 부족 (n=${m.n}/최소 ${m.min})`;
+// A row below its minimum sample: `need` lets the page fold these into one progress line (#445).
+const short = (id, name, m, extra = "") => ({ id, name, text: lack(m) + extra, need: { n: m.n, min: m.min } });
 // Korean report: each leak with numbers and one fix; below the minimum it says so instead of judging.
 export function tellReport(decisions = [], showdowns = []) {
   const m = tellMetrics(decisions, showdowns), leaks = [], rows = [];
   m.size.forEach((s, st) => {
     const name = `${STREETS[st]} 벳 크기`;
-    if (!s.enough) { rows.push({ id: `size${st}`, name, text: lack(s) }); return; }
+    if (!s.enough) { rows.push(short(`size${st}`, name, s)); return; }
     const text = `강할 때 평균 팟 ${Math.round(s.strongPct)}%, 약할 때 ${Math.round(s.weakPct)}% · 순위상관 ${f2(s.rho)} · 정보량 ${f2(s.mi)}비트 (n=${s.n})`;
     rows.push({ id: `size${st}`, name, text, leak: s.leak });
     if (s.leak) leaks.push({ id: `size${st}`, text: `${STREETS[st]}에서 벳 크기로 핸드 강도가 드러납니다: ${text}`, fix: `${STREETS[st]}에서는 밸류와 블러프에 같은 크기를 쓰세요. 크기를 바꾸려면 강도가 아니라 보드에 따라 바꾸세요.` });
   });
   const t = m.timing;
-  if (!t.enough) rows.push({ id: "timing", name: "결정 시간", text: lack(t) + (t.n ? " · 강도 3구간마다 최소 " + TH.timing.perTercile + "회" : "") });
+  if (!t.enough) rows.push(short("timing", "결정 시간", t, t.n ? " · 강도 3구간마다 최소 " + TH.timing.perTercile + "회" : ""));
   else {
     const s = x => x == null ? "—" : (x / 1000).toFixed(1) + "초";
     const text = `약한 핸드 ${s(t.medians[0])}, 중간 ${s(t.medians[1])}, 강한 핸드 ${s(t.medians[2])} (중앙값) · 순위상관 ${f2(t.rho)} (n=${t.n}, 강제·0.3초 미만·Guided 제외 ${t.excluded})`;
@@ -178,7 +180,7 @@ export function tellReport(decisions = [], showdowns = []) {
     if (t.leak) leaks.push({ id: "timing", text: `결정 시간으로 핸드 강도가 드러납니다: ${text}`, fix: "강하든 약하든 비슷한 시간(예: 매번 2~3초)을 두고 행동하세요." });
   }
   const c = m.cbet;
-  if (!c.enough && !c.gapEnough) rows.push({ id: "cbet", name: "c-벳", text: lack(c) });
+  if (!c.enough && !c.gapEnough) rows.push(short("cbet", "c-벳", c));
   else {
     const text = `c-벳 ${c.rate == null ? "—" : pc(c.rate) + "%"} (n=${c.n})` + (c.gapEnough ? ` · 벳할 때 평균 에퀴티 ${pc(c.betEq)}%, 체크할 때 ${pc(c.checkEq)}%` : "");
     rows.push({ id: "cbet", name: "c-벳", text, leak: c.leakFreq || c.leakGap });
@@ -189,19 +191,19 @@ export function tellReport(decisions = [], showdowns = []) {
     const g = m.gto[id];
     if (!g.n) continue; // only spots the engine mirror saw
     const text = `같은 스팟 ${what}: 나 ${pc(g.rate)}%, TP-GTO 정책 ${pc(g.policy)}% (n=${g.n})`;
-    rows.push({ id: `gto-${id}`, name: `TP-GTO와 비교 · ${what}`, text: g.enough ? text : `${text} · ${lack(g)}`, leak: g.leak });
+    rows.push({ id: `gto-${id}`, name: `TP-GTO와 비교 · ${what}`, text: g.enough ? text : `${text} · ${lack(g)}`, leak: g.leak, ...(g.enough ? {} : { need: { n: g.n, min: g.min } }) });
     if (g.leak) leaks.push({ id: `gto-${id}`, text: `${what} 빈도가 TP-GTO와 크게 다릅니다: ${text}`, fix: `${what} 빈도를 정책의 ${pc(g.policy)}% 쪽으로 옮기세요.` });
   }
   for (const [id, name, subj, fix] of [["xr", "체크레이즈", "체크레이즈가", "체크레이즈에 드로·블러프도 섞으세요. 아니면 상대는 체크레이즈를 만나면 바로 접습니다."], ["donk", "돈크 벳", "돈크 벳이", "돈크 벳에 드로·블러프도 섞거나, 강한 핸드를 체크로도 두세요."]]) {
     const x = m[id], fname = `${name} 빈도`;
-    rows.push({ id: `${id}-rate`, name: fname, text: x.rateEnough ? `${id === "xr" ? "체크한 뒤 벳을 마주했을 때 레이즈" : "앞 스트리트 공격자보다 먼저 벳"} ${pc(x.rate)}% (n=${x.spots})` : lack({ n: x.spots, min: x.rateMin }) });
-    if (!x.enough) { rows.push({ id, name, text: lack(x) }); continue; }
+    rows.push(x.rateEnough ? { id: `${id}-rate`, name: fname, text: `${id === "xr" ? "체크한 뒤 벳을 마주했을 때 레이즈" : "앞 스트리트 공격자보다 먼저 벳"} ${pc(x.rate)}% (n=${x.spots})` } : short(`${id}-rate`, fname, { n: x.spots, min: x.rateMin }));
+    if (!x.enough) { rows.push(short(id, name, x)); continue; }
     const text = `밸류(에퀴티 ${pc(TH.value)}% 이상) 비중 ${pc(x.valueShare)}% (n=${x.n})`;
     rows.push({ id, name, text, leak: x.leak });
     if (x.leak) leaks.push({ id, text: `${subj} 거의 항상 밸류입니다: ${text}`, fix });
   }
   const r = m.river;
-  if (!r.enough) rows.push({ id: "river", name: "리버 벳 밸류:블러프", text: lack(r) });
+  if (!r.enough) rows.push(short("river", "리버 벳 밸류:블러프", r));
   else {
     const text = `밸류 ${r.value} : 블러프 ${r.bluff} (블러프 ${pc(r.bluffShare)}%, n=${r.n})`;
     rows.push({ id: "river", name: "리버 벳 밸류:블러프", text, leak: r.leakLow || r.leakHigh });
@@ -209,13 +211,13 @@ export function tellReport(decisions = [], showdowns = []) {
     if (r.leakHigh) leaks.push({ id: "river", text: `리버 벳에 블러프가 너무 많습니다: ${text}`, fix: "리버 블러프를 줄이고 밸류 벳 쪽으로 옮기세요." });
   }
   const k = m.checkCall;
-  if (!k.enough) rows.push({ id: "checkcall", name: "체크-콜 강도", text: lack(k) });
+  if (!k.enough) rows.push(short("checkcall", "체크-콜 강도", k));
   else {
     const text = `평균 에퀴티 ${pc(k.meanEq)}%, 강한 핸드(${pc(TH.value)}% 이상) ${pc(k.strongShare)}% (n=${k.n})`;
     rows.push({ id: "checkcall", name: "체크-콜 강도", text, leak: k.leak });
     if (k.leak) leaks.push({ id: "checkcall", text: `체크-콜 레인지에 강한 핸드가 없습니다: ${text}`, fix: "강한 핸드도 가끔 체크-콜해서 체크-콜 레인지가 약하다고 읽히지 않게 하세요." });
   }
   const sd = m.showdown;
-  rows.push({ id: "showdown", name: "쇼다운 증거", text: sd.n ? `상대가 쇼다운에서 본 핸드 ${sd.n}개 · ` + sd.lines.slice(0, 3).map(l => `${l.line}: ${l.made.map(x => HAND_NAMES[x] ?? "?").join(", ")}`).join(" / ") : "아직 쇼다운이 없어요." });
+  rows.push({ id: "showdown", name: "쇼다운 증거", text: sd.n ? `상대가 쇼다운에서 본 핸드 ${sd.n}개 · ` + sd.lines.slice(0, 3).map(l => `${l.line}: ${l.made.map(x => HAND_NAMES[x] ?? "?").join(", ")}`).join(" / ") : "아직 쇼다운이 없어요.", ...(sd.n ? {} : { empty: true }) });
   return { metrics: m, rows, leaks };
 }
