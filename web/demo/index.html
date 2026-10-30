@@ -353,6 +353,11 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .model-status .ms { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: var(--muted); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; }
 .model-status .ms b { color: var(--text); font-weight: 600; }
 .model-status .ms.on { border-color: rgba(99,196,147,.35); }
+.model-status .ms.known-leak { border-color: rgba(226,112,95,.45); }
+.model-status .ms.known-leak a, .leak-note a { color: var(--brass-hi); }
+.leak-note { display: grid; gap: 4px; font-size: 12px; color: var(--muted); border: 1px solid rgba(226,112,95,.55); background: rgba(226,112,95,.1); border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
+.leak-note b { color: #f3b3a8; font-weight: 600; }
+.leak-note.soft { border-color: rgba(214,171,85,.4); background: rgba(214,171,85,.08); }
 .loadbox { display: grid; gap: 10px; }
 .loadbar { height: 6px; border-radius: 6px; background: var(--panel-3); overflow: hidden; }
 .loadbar i { display: block; height: 100%; background: var(--brass); width: var(--p, 0%); transition: width .25s; }
@@ -1600,7 +1605,7 @@ function ruleBot(s) {
    its own chip logic for display; if the two ever disagree on whose turn it is, the mirror switches
    off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
 const APP_BASE = window.STALKER_APP_BASE || "../app/";
-const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
+const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 const modelMeta = tier => TPG.index?.tiers?.[tier] || null;
 function modelLine(m) {
@@ -1638,6 +1643,11 @@ function tpgLoad(tier) {
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
         TPG.pol[tier] = pol;
       }
+      if (m && !(tier in TPG.leaks)) {
+        // A missing leaks file must not block play: every strong preflop spot then gets the soft note.
+        try { TPG.leaks[tier] = await fetchJSON(APP_BASE + "policy/" + m.file.replace(/\.json$/, ".leaks.json")); }
+        catch (e) { console.warn("[tpgto] leaks file:", e.message); TPG.leaks[tier] = null; }
+      }
       TPG.err = null; tpgSet("ready", "", 100); return true;
     } catch (e) {
       console.warn("[tpgto] load failed", e);
@@ -1668,7 +1678,35 @@ function renderModelStatus() {
   box.innerHTML = ["beginner", "mid", "pro"].map(t => {
     const mm = modelMeta(t);
     return `<div class="ms${mm ? " on" : ""}"><b>${TIERS[t].name}</b>${mm ? `<span>상대 5명 = TP-GTO ${TIERS[t].name} 정책</span><span>${modelLine(mm)}</span>` : `<span>학습 중 · 이 등급은 규칙 봇 상대와 모의 정답으로 진행해요</span>`}</div>`;
-  }).join("");
+  }).join("") + (["beginner", "mid", "pro"].some(modelMeta) ? `<div class="ms known-leak" data-known-leak><span><b>아직 GTO가 아니에요.</b> 지금 정책은 학습 중간본이고, 프리플랍에 알려진 결함이 있어요: 일부 강한 핸드(AA·KK 등)를 림프하거나 오픈에 플랫해서 손해를 봐요. 검증에서 손해로 확인된 스팟은 비교 화면에 경고를 띄우고 채점하지 않아요.</span><a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391 결함 보기</a></div>` : "");
+}
+// #441: where the served policy is known to be wrong (probe #413, web/app/policy/<tier>-6.leaks.json), the
+// comparison must warn instead of presenting the row as GTO. Pure (node test: web/app/test/leaks.test.mjs).
+// hist: engine s.history before the actor's first preflop action; group: 169-class name; top: Set of classes
+// that get the soft note when the probe did not measure that (spot, seat, group).
+function leakVerdict(leaks, hist, seat, group, top) {
+  if (hist.includes("/")) return null;
+  const acts = hist.map(x => x.split(":"));
+  if (acts.some(([q]) => +q === seat)) return null;
+  const moves = acts.filter(([, a]) => a !== "f");
+  const spot = !moves.length ? "first_in" : moves.length === 1 && /^r/.test(moves[0][1]) ? "vs_open" : null;
+  if (!spot) return null;
+  const same = c => c.spot === spot && c.seat === seat && c.group === group;
+  const cell = leaks?.leaks?.find(same);
+  if (cell) return { kind: "leak", spot, cell };
+  if (top.has(group) && !leaks?.cells?.some(c => same(c) && c.measured)) return { kind: "soft", spot };
+  return null;
+}
+const LEAK_ISSUE = "https://github.com/lobster0113/stalker/issues/391";
+const LEAK_TOP_PCT = 3;
+const leakActName = a => a === "c" ? "림프/콜이" : a === "f" ? "폴드가" : a === "a" ? "오픈/레이즈(올인)가" : "오픈/레이즈가";
+function leakHTML(v) {
+  if (!v) return "";
+  if (v.kind === "soft") return `<div class="leak-note soft" data-leak-soft>프리플랍 강한 핸드 구간은 정책 결함 조사 중 (<a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391</a>) · 이 스팟은 아직 검증하지 않았어요. 정책 답을 정답으로 믿지 마세요.</div>`;
+  const c = v.cell, ol = Object.entries(c.open_minus_limp || {}).sort((a, b) => b[1].bb - a[1].bb)[0];
+  return `<div class="leak-note" role="alert" data-leak-warn><b>이 스팟의 정책 답은 검증에서 손해로 확인됨 (<a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391</a>): ${leakActName(c.best)} +${c.gain_bb} bb</b>
+    <span>${c.spot === "first_in" ? "퍼스트 인" : "오픈을 마주함"} · ${c.pos} · ${c.group} · 정책 혼합 대비 +${c.gain_bb}bb (95% CI ${c.gain_ci[0]}–${c.gain_ci[1]})${ol ? ` · 오픈−림프 ${ol[1].bb >= 0 ? "+" : ""}${ol[1].bb}bb (95% CI ${ol[1].ci[0]}–${ol[1].ci[1]})` : ""} · 딜 ${c.deals}회 프로브</span>
+    <span>그래서 이 결정은 정책 행과 비교해 채점하지 않아요.</span></div>`;
 }
 // Table seat i -> engine seat (preflop order: 0 = UTG ... n-2 = SB, n-1 = BB).
 const engSeatOf = i => ((i - G.button - 3) % G.n + 2 * G.n) % G.n;
@@ -1765,7 +1803,8 @@ function engModelAt(s, ranges, pol, tier, meta) {
   const opening = s.street === 0 && s.raises === 1, cur = Math.max(...s.bet);
   const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
   const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening, cur) }; });
-  return { meta, mix, fromTable: ap.fromTable, step: ap.step, k: tg.TIER_K[tier], eq, d: ap, s };
+  const leak = s.street === 0 ? leakVerdict(TPG.leaks[tier], s.history, ap.seat, classOf(...s.hole[ap.seat]).key, classesInTop(LEAK_TOP_PCT)) : null;
+  return { meta, mix, fromTable: ap.fromTable, step: ap.step, k: tg.TIER_K[tier], eq, d: ap, s, leak };
 }
 // Menu label of a real action at engine state s (fold/check/call, or a bet/raise to street total `to`).
 // A bet/raise is read with the seeded split (`rng`, TP.md section 6); `split` is kept for grading.
@@ -2315,9 +2354,11 @@ function mixRefHTML(mix, you, title) {
 }
 // The policy's mixed strategy for the hero's real hand (TP §5: no Q values yet, so reference only).
 function modelActionHTML(r) {
-  const m = r.model.meta, you = r.you;
-  return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 <b class="num">${you ? Math.round(you.p * 100) + "%" : "—"}</b></span>${modelTag(m)}</div>
-    ${modelMixHTML(r.model, you)}
+  const m = r.model.meta, you = r.you, leak = r.model.leak;
+  // In a known leak cell the row is wrong, so the hero's frequency in it is not shown as a grade.
+  const freq = leak?.kind === "leak" ? `<span style="font-size:11px;color:var(--faint)">채점 안 함</span>` : `<b class="num">${you ? Math.round(you.p * 100) + "%" : "—"}</b>`;
+  return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 ${freq}</span>${modelTag(m)}</div>
+    ${leakHTML(leak)}${modelMixHTML(r.model, you)}
     ${you?.note ? `<div class="cap"><span>${you.note}</span></div>` : ""}
     <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
     <div class="model-line">TP-GTO · 학습 중간본 · ${modelLine(m)}</div></div>`;
