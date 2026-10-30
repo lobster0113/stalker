@@ -97,3 +97,25 @@ def test_reference_rejects_impossible_inputs():
         R.next_card_shift(_c("AhAd"), _c("Kc7d2s9h3c"), [R.parse_range([["KsKd", 1]])])
     with pytest.raises(ValueError, match="cover the call"):
         R.icm_risk_premium([500, 0, 1000], [50, 30, 20], 0, 1, 1000, 1000)
+
+
+def test_hand_block_nut_flush_blocker_vs_plain_ace():
+    # River Ks 7s 9s 2c 3d: the opponent's near-nut combos are flushes and sets, and A♠ sits in the spade
+    # flushes. A♠3c and A♦3c are the same ace-high hand, so only the removed cards differ (#395).
+    from stalker.core.cards import COMBOS, cards
+    from stalker.tp.reference import hand_block
+    board = tuple(cards("Ks7s9s2c3d"))
+    opp = [(c, 1.0) for c in COMBOS if not set(c) & set(board)]
+    blocker = hand_block(cards("As3c"), board, opp)
+    plain = hand_block(cards("Ad3c"), board, opp)
+    assert blocker > plain + 10 and 0 < plain < 50
+    assert hand_block(cards("As3c"), board, [(tuple(cards("2h4h")), 1.0)]) == 50.0   # no near-nut mass: neutral
+
+
+def test_nut_flush_draw_outs_beat_made_hand_with_same_equity():
+    board = _c("Ks7s2d")
+    rng = [R.parse_range([["QhJh", 1], ["Td9d", 1], ["JcTc", 1], ["8h8d", 1], ["AhQd", 1], ["QcQd", 1]])]
+    draw = R.next_card_shift(_c("As5s"), board, rng)
+    made = R.next_card_shift(_c("9h9c"), board, rng)
+    assert abs(draw["equity_now"] - made["equity_now"]) < 0.03  # same equity: only the draw's suit tells them apart
+    assert draw["outs"] > made["outs"] + 10

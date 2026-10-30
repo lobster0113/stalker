@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SPEC_DIR = Path(__file__).resolve().parent / "spec"
-LATEST = "0.2"
+LATEST = "0.3"
 KINDS = {"judgment", "computed", "decision", "reflection"}
 MODULES = {"common", "postflop", "plan", "decision"}
 GRADING_CONDITIONS = {

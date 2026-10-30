@@ -1,6 +1,6 @@
 {
-  "tp_version": "0.2",
-  "source": "docs/TP.md v0.2 (ADR 0010, ADR 0011 #263)",
+  "tp_version": "0.3",
+  "source": "docs/TP.md v0.3 (ADR 0010, ADR 0011 #263, #395)",
   "status": "draft",
   "layers": {
     "facts": "DecisionContext: public or mechanically computed from public info; shown by the screen, not asked",
@@ -121,6 +121,13 @@
       "eligible_for_grading": true, "grading_condition": "tier_mid_or_above"
     },
     {
+      "id": "hand.block", "module": "postflop", "kind": "computed",
+      "question": "내 카드가 상대의 강한 핸드를 얼마나 지우는가?", "ends": ["덜 지움", "더 지움"], "scale": "0-100",
+      "applies": "postflop",
+      "na": null, "near_nut_top": 0.10, "average": "uniform_over_live_hero_combos",
+      "eligible_for_grading": true, "grading_condition": "tier_mid_or_above"
+    },
+    {
       "id": "plan.foldeq", "module": "plan", "kind": "computed",
       "question": "대표 후보 사이즈로 벳·레이즈하면 상대가 접을 확률", "ends": ["0%", "100%"], "scale": "0-100",
       "applies": "bet_or_raise_legal",
@@ -157,12 +164,12 @@
     "mid": {
       "name": "중수", "steps": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], "tolerance": 5, "range_input": "top_percent_plus_cells",
       "items": ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs",
-                "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "act.choice"]
+                "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm", "act.choice"]
     },
     "pro": {
       "name": "고수", "steps": "0-100", "tolerance": 3, "range_input": "preset_plus_cells",
       "items": ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs",
-                "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm",
+                "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm",
                 "opp.foldy", "board.nut", "act.choice"]
     }
   },

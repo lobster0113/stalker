@@ -120,3 +120,31 @@ def test_pro_checkpoint_records_its_board_nut_grid_and_refuses_another():
     with pytest.raises(ValueError, match="fresh run"):
         E3MCCFR.from_state(old)
     assert "nut_k" not in E3MCCFR(1, 11, 3, "full").state()  # other tiers unchanged
+
+
+def _board_state(board_text, live=(0, 5)):
+    from types import SimpleNamespace
+    from stalker.core.cards import cards
+    b = cards(board_text)
+    return SimpleNamespace(street=len(b) - 2, board=b, live=lambda: list(live))
+
+
+def test_hand_block_flush_blocker_beats_the_same_hand_without_it():
+    # Three spades, no A♠: A♠3c removes nut-flush combos from the opponent, A♦3c does not (hand.block, #395).
+    from stalker.core.cards import cards, combo_index
+    s = _board_state("Ks7s9s")
+    v = K.hand_block(s, 0, K.initial_ranges(6))
+    blocker, plain = (v[combo_index(*cards(h))] for h in ("As3c", "Ad3c"))
+    assert blocker > plain + 5 and abs(np.nanmean(v) - 50) < 15
+    assert np.isnan(v[combo_index(*cards("Ks3c"))])               # board collision
+    assert K.hand_block(G.deal(np.random.default_rng(0)), 0, K.initial_ranges(6)) is None   # preflop
+
+
+def test_hand_block_ignores_an_opponent_range_without_near_nut_combos():
+    from stalker.core.cards import combo_index, cards
+    s = _board_state("Ks7s9s")
+    r = K.initial_ranges(6)
+    r[5] = np.zeros(N)
+    r[5][combo_index(*cards("2c3d"))] = 1.0                        # nothing near the nuts
+    v = K.hand_block(s, 0, r)
+    assert np.allclose(v[~np.isnan(v)], 50.0)

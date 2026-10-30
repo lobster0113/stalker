@@ -972,7 +972,7 @@ function nutShare(heroPct, oppPct, board, hero) {
   return hn + on ? Math.round(on / (hn + on) * 100) : 50;
 }
 
-/* ================= TP definition (docs/TP.md v0.2, stalker/tp/spec/tp_v0_2.json) ================= */
+/* ================= TP definition (docs/TP.md v0.3, stalker/tp/spec/tp_v0_3.json) ================= */
 // na: opportunity-count N/A (spec items[].na.min_opportunities); stat = counter in seat.stats.
 const TP = {
   "board.adv":   { stage: "B 보드 읽기", q: "이 보드는 누구 레인지에 유리한가?", ends: ["나", "상대"] },
@@ -985,20 +985,21 @@ const TP = {
   "hand.equity": { stage: "D 내 핸드", q: "내 쇼다운 에퀴티", ends: ["0%", "100%"] },
   "hand.outs":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 유리해지는 비율", ends: ["0%", "100%"] },
   "hand.vuln":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 불리해지는 비율", ends: ["0%", "100%"] },
+  "hand.block":  { stage: "D 내 핸드", q: "내 카드가 상대의 강한 핸드를 얼마나 지우는가?", ends: ["덜 지움", "더 지움"] },
   // Plan items follow the chosen action (card G): fold equity only after choosing a bet/raise size, ICM only after choosing to call.
   "plan.foldeq": { stage: "G 액션 점검", q: "이 사이즈로 벳·레이즈하면 상대가 접을 확률", ends: ["0%", "100%"] },
   "plan.icm":    { stage: "G 액션 점검", q: "상금 구조(ICM)까지 생각하면 이 콜에 필요한 승률은?", ends: ["0%", "100%"] },
   "plan.pot":    { stage: "G 액션 점검", q: "팟을 키울 것인가?", ends: ["억제", "증가"], reflection: true },
   "act.choice":  { stage: "F 액션", q: "액션", type: "action" },
 };
-const SHORT = { "board.adv": "보드 읽기", "board.nut": "넛 우위", "opp.loose": "상대 성향(루즈)", "opp.aggr": "상대 성향(공격성)", "opp.foldy": "폴드 성향", "opp.range": "레인지 추정", "opp.value": "밸류/블러프 판단", "hand.equity": "에퀴티 감각", "hand.outs": "유리해지는 카드", "hand.vuln": "불리해지는 카드", "plan.foldeq": "폴드 에퀴티", "plan.icm": "ICM 압박", "plan.pot": "팟 컨트롤(성찰)", "act.choice": "액션 선택" };
+const SHORT = { "board.adv": "보드 읽기", "board.nut": "넛 우위", "opp.loose": "상대 성향(루즈)", "opp.aggr": "상대 성향(공격성)", "opp.foldy": "폴드 성향", "opp.range": "레인지 추정", "opp.value": "밸류/블러프 판단", "hand.equity": "에퀴티 감각", "hand.outs": "유리해지는 카드", "hand.vuln": "불리해지는 카드", "hand.block": "블로커", "plan.foldeq": "폴드 에퀴티", "plan.icm": "ICM 압박", "plan.pot": "팟 컨트롤(성찰)", "act.choice": "액션 선택" };
 const TIERS = {
   beginner: { name: "초보", step: 25, tol: 12.5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "act.choice"] },
-  mid: { name: "중수", step: 10, tol: 5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "act.choice"] },
-  pro: { name: "고수", step: 1, tol: 3, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "opp.foldy", "board.nut", "act.choice"] },
+  mid: { name: "중수", step: 10, tol: 5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm", "act.choice"] },
+  pro: { name: "고수", step: 1, tol: 3, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm", "opp.foldy", "board.nut", "act.choice"] },
 };
 const REFLECTION = ["plan.pot"]; // spec reflection_items: asked (Guided-like tiers) but never graded
-// Spec `modes.quick` (TP §4.2): the core judgments Quick asks per spot type. Kept JSON-equal to tp_v0_2.json by tests/test_tp_spec.py.
+// Spec `modes.quick` (TP §4.2): the core judgments Quick asks per spot type. Kept JSON-equal to tp_v0_3.json by tests/test_tp_spec.py.
 const MODES = {"quick": {"max_judgments": 3, "rule": {"preflop": ["hand.equity", "opp.range"], "postflop": ["hand.equity", "board.adv", "hand.outs"], "facing_bet": ["opp.value", "hand.equity"]}}};
 // Action has no Q(s,a) in the demo, so per TP §5 it is reference-only; plan.pot has no fixed definition.
 const isScored = k => !!TP[k] && k !== "act.choice" && !TP[k].reflection;
@@ -1847,6 +1848,7 @@ function applies(k) {
   const L = CUR.g.L, hero = CUR.hero, post = G.board.length >= 3, hu = live().length === 2;
   if (k === "board.adv" || k === "board.nut") return post && hu;
   if (k === "hand.outs" || k === "hand.vuln") return G.board.length === 3 || G.board.length === 4;
+  if (k === "hand.block") return false; // TP v0.3 item; the demo does not compute or ask it yet (#395 spec only)
   if (k === "opp.value") return G.streetAgg != null && G.streetAgg !== hero.i;
   if (k === "plan.foldeq") return L.canRaise && CUR.action === "raise" && CUR.size != null;
   if (k === "plan.icm") return G.tour && L.toCall > 0 && CUR.action === "call";
