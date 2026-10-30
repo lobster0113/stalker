@@ -98,7 +98,7 @@ def test_cli_exits_nonzero_when_t2_fails(monkeypatch, capsys):
     monkeypatch.setattr(gate_t, "REGISTRY", {"off": lambda: _agent(off)})
     assert gate_t.main() == 1
     out = capsys.readouterr().out
-    assert "T2 [off] 0/" in out and "tp_spec 0.2 sha256" in out
+    assert "T2 [off] 0/" in out and "tp_spec 0.3 sha256" in out
 
 
 def test_tolerance_is_in_the_spec():

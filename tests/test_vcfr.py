@@ -107,15 +107,14 @@ def test_quantile_steps():
     assert st[1] == st[2] and st[0] <= st[1] <= st[3] and st.max() <= 1
 
 
-def test_tp_features_from_average_ranges_settle(small):
-    # #393 finding: reading hand.equity against the current iteration's ranges (as E3 MCCFR does) keeps
-    # moving the keys under the regrets; reading it against the average strategy's ranges settles.
-    out = {}
+def test_tp_features_from_current_ranges_settle(small):
+    # #414 correction of #393: "current" ranges drifted (1.3% pot at 300 iterations) only because the
+    # traverser's own strategy was not applied to its range on the way down, so the other player's key
+    # read a stale range. With the reach carried, current and average ranges both settle under 0.5% pot.
     for kr in ("current", "average"):
         m = S.VectorCFR(small, S.tp_keyer(17), key_ranges=kr)
         m.iterate(300)
-        out[kr] = S.exploitability(small, m.materialize())
-    assert out["average"] < out["current"]
+        assert S.exploitability(small, m.materialize()) < 0.005, kr
 
 
 def test_key_ranges_must_be_known(small):

@@ -17,6 +17,7 @@ from stalker.core.icm import icm_equity
 
 STREET_BOARD = {"preflop": 0, "flop": 3, "turn": 4, "river": 5}
 OUTS_THRESHOLD = 0.10
+NEAR_NUT_TOP = 0.10   # hand.block: share of live combos counted as near-nut (same as board.nut)
 
 
 def parse_range(rng) -> list[tuple[tuple[int, int], float]]:
@@ -133,6 +134,46 @@ def next_card_shift(hero, board, ranges) -> dict[str, float]:
     return {"equity_now": now, "outs": 100.0 * outs / tot, "vuln": 100.0 * vuln / tot}
 
 
+def river_strength(board) -> dict[tuple[int, int], int]:
+    """Showdown rank of every live combo on a 5-card board; on the river it orders equity vs a random hand."""
+    if len(board) != 5:
+        raise ValueError("river_strength needs a 5-card board; pass `strength` for earlier streets")
+    dead = set(board)
+    return {c: evaluate(list(c) + list(board)) for c in map(tuple, combinations(range(N_CARDS), 2))
+            if not dead & set(c)}
+
+
+def hand_block(hero, board, opp_range, strength=None) -> float:
+    """hand.block (0 blocks less - 100 blocks more): how many of the opponent's near-nut combos my cards remove.
+
+    r(h) = opp near-nut mass on combos sharing a card with `h` / total near-nut mass; the value is
+    100 x r(hero) / (r(hero) + r(average over all live hero holdings)), 50 = an average hand.
+    Near-nut = the top NEAR_NUT_TOP of live combos by `strength` (ties at the cut stay in), default
+    river showdown rank. One opponent; average per opponent for several.
+    """
+    hero, board = tuple(hero), tuple(board)
+    strength = river_strength(board) if strength is None else {tuple(sorted(c)): v for c, v in strength.items()}
+    ranked = sorted(strength.values())
+    cut = ranked[min(len(ranked) - 1, int(len(ranked) * (1 - NEAR_NUT_TOP)))]
+    top = {c for c, v in strength.items() if v >= cut}
+    mass = {}
+    for c, w in opp_range:
+        c = tuple(sorted(c))
+        if c in top and not set(c) & set(board):
+            mass[c] = mass.get(c, 0.0) + w
+    total = sum(mass.values())
+    if total == 0:
+        return 50.0
+
+    def r(h):
+        return sum(w for c, w in mass.items() if set(c) & set(h)) / total
+
+    holdings = [c for c in combinations(range(N_CARDS), 2) if not set(c) & set(board)]
+    avg = sum(r(h) for h in holdings) / len(holdings)
+    mine = r(hero)
+    return 50.0 if mine + avg == 0 else 100.0 * mine / (mine + avg)
+
+
 def opp_value(bet_range, my_calling_range, board) -> float:
     """Share (0-100) of the opponent's betting range with > 50% showdown equity against my calling range.
 
@@ -245,6 +286,8 @@ def not_applicable(item: str, ctx: dict, min_opportunities: dict[str, int]) -> s
         return "postflop heads-up only"
     if item in ("hand.outs", "hand.vuln") and street not in ("flop", "turn"):
         return "flop or turn only"
+    if item == "hand.block" and street not in ("flop", "turn", "river"):
+        return "postflop only"
     if item == "opp.value" and not ctx.get("opponent_bet_this_street"):
         return "no opponent bet or raise this street"
     if item == "plan.foldeq" and not ctx.get("bet_or_raise_legal"):

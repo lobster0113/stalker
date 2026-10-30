@@ -33,8 +33,8 @@ def _doc_tiers() -> dict[str, list[str]]:
 
 
 def test_spec_loads_with_stable_hash():
-    a, b = load(), load("0.2")
-    assert a.version == "0.2" and a.sha256 == b.sha256 and len(a.sha256) == 64
+    a, b = load(), load("0.3")
+    assert a.version == "0.3" and a.sha256 == b.sha256 and len(a.sha256) == 64
 
 
 def test_doc_items_equal_spec_items():
@@ -211,7 +211,7 @@ def test_beginner_rank_answer_and_scale_are_in_the_contract():
 
 
 def test_unknown_version_lists_available():
-    with pytest.raises(SpecError, match="available: tp_v0_2.json"):
+    with pytest.raises(SpecError, match="available: tp_v0_3.json"):
         load("9.9")
 
 

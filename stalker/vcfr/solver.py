@@ -39,7 +39,8 @@ POT_ODDS_EDGES = (0.2, 0.3, 0.4)     # stalker/e3/tp_key.py
 SPR_EDGES = (1.0, 3.0, 6.0)
 
 # keyer(game, node, r_own, r_opp) -> (table id, row per combo, rows in the table)
-# Which public ranges TP features are read from during training (#393 finding: "current" does not settle).
+# Which public ranges TP features are read from during training (#393; the "current does not settle"
+# finding there was a reach bug, corrected in #414).
 #   current: the ranges of this iteration's strategy, as stalker/e3/mccfr.py does
 #   average: the ranges of the average strategy (the deployed policy), refreshed every `refresh` iterations
 #   initial: the subgame's starting ranges (a fixed bucketing of hands)
@@ -93,6 +94,10 @@ class VectorCFR:
         self.avg: dict[object, np.ndarray] = {}
         self.key_reach: dict[int, list[np.ndarray]] = {}    # node -> ranges the TP features are read from
         self.t = 0
+        # Chance weight of my combo: its own range for the regret, times the opponent's live range mass for
+        # the average. Uniform ranges make both a constant, but a TP key merging combos of unequal weight
+        # needs them, or the scatter counts every combo as equally likely (#414).
+        self.live = [game.sd.card_mass(game.init[1]), game.sd.card_mass(game.init[0])]
 
     def _rows(self, node: Node, r_own, r_opp):
         if self.keyer is None:
@@ -125,11 +130,13 @@ class VectorCFR:
         q = node.player
         tid, rows, nrows, sigma = self._sigma(node, r)
         if q == p:
-            vals = np.stack([self._walk(ch, p, r) for ch in node.children], axis=1)
+            # Own reach rides down too: the average below weights by it, and the opponent's TP key reads it.
+            vals = np.stack([self._walk(ch, p, self._down(r, q, sigma[:, i])) for i, ch in enumerate(node.children)],
+                            axis=1)
             v = (sigma * vals).sum(axis=1)
-            diff = vals - v[:, None]
+            diff = g.init[p][:, None] * (vals - v[:, None])
             reg = self.regret[tid]
-            contrib = r[q][:, None] * sigma * self.t        # linear averaging (CFR+)
+            contrib = (r[q] * self.live[q])[:, None] * sigma * self.t        # linear averaging (CFR+)
             avg = self._table(self.avg, tid, nrows, len(node.children))
             if rows is None:
                 reg += diff
@@ -141,10 +148,14 @@ class VectorCFR:
             return v
         out = np.zeros(g.sd.n)
         for i, ch in enumerate(node.children):
-            rr = list(r)
-            rr[q] = r[q] * sigma[:, i]
-            out += self._walk(ch, p, rr)
+            out += self._walk(ch, p, self._down(r, q, sigma[:, i]))
         return out
+
+    @staticmethod
+    def _down(r: list[np.ndarray], q: int, s: np.ndarray) -> list[np.ndarray]:
+        rr = list(r)
+        rr[q] = r[q] * s
+        return rr
 
     def iterate(self, iters: int = 1) -> None:
         for _ in range(iters):
