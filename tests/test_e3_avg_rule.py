@@ -42,6 +42,19 @@ def test_three_handed_own_rule_changes_only_the_average():
     assert all((v >= 0).all() and v.sum() > 0 for v in b.avg.values())
 
 
+def test_six_max_job_table_and_sampling_do_not_depend_on_the_rule(pool):
+    # #426 CI: one seed-2 run of e3-tp-mid-ownavg-w4 ended with another table than e3-tp-mid-w4, and a rerun of
+    # the same commit matched it again; the rule itself must never be the cause. Same tier, seat count, seed
+    # and parallel path as the jobs (locally the two stayed identical through 18k iterations of seed 2).
+    from stalker.e3.tp_key import TIER_DEPTH, TIER_K
+
+    a, b = (E3MCCFR(2, TIER_K["mid"], 6, TIER_DEPTH["mid"], "v1", 3, avg_rule=r) for r in ("legacy", "own"))
+    for m in (a, b):
+        parallel.iterate(m, 16, workers=2, batch=4, pool=pool)
+    assert _tables_equal(a.regret, b.regret) and a.rng.bit_generator.state == b.rng.bit_generator.state
+    assert a.visits == b.visits and a.nodes == b.nodes and not _tables_equal(dict(a.avg), dict(b.avg))
+
+
 def test_unknown_avg_rule_is_refused():
     with pytest.raises(ValueError, match="avg_rule"):
         E3MCCFR(0, 3, 3, avg_rule="x")

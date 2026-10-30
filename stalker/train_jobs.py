@@ -175,6 +175,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
+    from stalker.tools.pod_bench import machine
 
     ckpt = f"{name}-seed{seed}.ckpt.json"
     if resume is None:
@@ -199,6 +200,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
             "avg_rule": m.avg_rule,
+            # #426: the same job and seed gave different tables on different runners, so record which one ran it
+            "machine": machine(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
 
@@ -360,6 +363,8 @@ def summarize(job: str, folder: Path) -> dict:
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
         if all("infosets" in r for r in runs):          # #332: key counts across tables/grids live only in artifacts otherwise
             out["infosets_by_seed"] = [r["infosets"] for r in runs]
+        if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
+            out["cpu_model_by_seed"] = [r["machine"]["cpu_model"] for r in runs]
         if all(r.get("lbr_offmenu") for r in runs):    # E3 (#343): exploiter with off-menu sizes, current policy
             out["lbr_offmenu_bb_by_seed"] = [r["lbr_offmenu"]["lbr_bb"] for r in runs]
         if all(r.get("lbr_average") for r in runs):    # E3 (#426): the served (average) policy lived only in artifacts
