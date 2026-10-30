@@ -1683,7 +1683,8 @@ function renderModelStatus() {
 // #441: where the served policy is known to be wrong (probe #413, web/app/policy/<tier>-6.leaks.json), the
 // comparison must warn instead of presenting the row as GTO. Pure (node test: web/app/test/leaks.test.mjs).
 // hist: engine s.history before the actor's first preflop action; group: 169-class name; top: Set of classes
-// that get the soft note when the probe did not measure that (spot, seat, group).
+// that get the soft note in every cell the probe did not flag: a measured cell with no flag is unproven,
+// not verified (mid HJ AA first in: screen CI crosses 0, the CI test flags it).
 function leakVerdict(leaks, hist, seat, group, top) {
   if (hist.includes("/")) return null;
   const acts = hist.map(x => x.split(":"));
@@ -1694,7 +1695,7 @@ function leakVerdict(leaks, hist, seat, group, top) {
   const same = c => c.spot === spot && c.seat === seat && c.group === group;
   const cell = leaks?.leaks?.find(same);
   if (cell) return { kind: "leak", spot, cell };
-  if (top.has(group) && !leaks?.cells?.some(c => same(c) && c.measured)) return { kind: "soft", spot };
+  if (top.has(group)) return { kind: "soft", spot, measured: !!leaks?.cells?.some(c => same(c) && c.measured) };
   return null;
 }
 const LEAK_ISSUE = "https://github.com/lobster0113/stalker/issues/391";
@@ -1702,7 +1703,7 @@ const LEAK_TOP_PCT = 3;
 const leakActName = a => a === "c" ? "림프/콜이" : a === "f" ? "폴드가" : a === "a" ? "오픈/레이즈(올인)가" : "오픈/레이즈가";
 function leakHTML(v) {
   if (!v) return "";
-  if (v.kind === "soft") return `<div class="leak-note soft" data-leak-soft>프리플랍 강한 핸드 구간은 정책 결함 조사 중 (<a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391</a>) · 이 스팟은 아직 검증하지 않았어요. 정책 답을 정답으로 믿지 마세요.</div>`;
+  if (v.kind === "soft") return `<div class="leak-note soft" data-leak-soft>프리플랍 강한 핸드 구간은 정책 결함 조사 중 (<a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391</a>) · ${v.measured ? "이 스팟은 검증에서 손해가 확인되지 않았지만 결함이 없다는 증명도 아니에요" : "이 스팟은 아직 검증하지 않았어요"}. 정책 답을 정답으로 믿지 마세요.</div>`;
   const c = v.cell, ol = Object.entries(c.open_minus_limp || {}).sort((a, b) => b[1].bb - a[1].bb)[0];
   return `<div class="leak-note" role="alert" data-leak-warn><b>이 스팟의 정책 답은 검증에서 손해로 확인됨 (<a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391</a>): ${leakActName(c.best)} +${c.gain_bb} bb</b>
     <span>${c.spot === "first_in" ? "퍼스트 인" : "오픈을 마주함"} · ${c.pos} · ${c.group} · 정책 혼합 대비 +${c.gain_bb}bb (95% CI ${c.gain_ci[0]}–${c.gain_ci[1]})${ol ? ` · 오픈−림프 ${ol[1].bb >= 0 ? "+" : ""}${ol[1].bb}bb (95% CI ${ol[1].ci[0]}–${ol[1].ci[1]})` : ""} · 딜 ${c.deals}회 프로브</span>

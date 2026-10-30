@@ -47,11 +47,16 @@ test("only first-in and single-open spots, before the actor has acted, preflop",
   assert.equal(leakVerdict(LEAKS, [], 0, "AA", TOP)?.kind, "soft", "seat 0 AA first in was not measured here");
 });
 
-test("top-3% hands in an unmeasured cell get the soft note; measured non-leaks and weaker hands get nothing", () => {
+test("top-3% hands in any unflagged cell get the soft note, measured or not; weaker hands get nothing", () => {
   const s = leakVerdict(LEAKS, ["0:f", "1:f"], 2, "AJs", TOP);
   assert.equal(s.kind, "soft");
   assert.ok(text(leakHTML(s)).includes("프리플랍 강한 핸드 구간은 정책 결함 조사 중"));
-  assert.equal(leakVerdict(LEAKS, ["0:f"], 1, "KK", TOP), null, "measured, no leak");
+  assert.ok(text(leakHTML(s)).includes("아직 검증하지 않았어요"));
+  const m = leakVerdict(LEAKS, ["0:f"], 1, "KK", TOP);
+  assert.equal(m.kind, "soft", "measured, not flagged: unproven, so still the soft note");
+  assert.equal(m.measured, true);
+  assert.ok(text(leakHTML(m)).includes("프리플랍 강한 핸드 구간은 정책 결함 조사 중") && text(leakHTML(m)).includes("증명도 아니에요"));
+  assert.ok(!leakHTML(m).includes("data-leak-warn"), "no strong warning outside flagged cells");
   assert.equal(leakVerdict(LEAKS, ["0:f"], 1, "T9o", TOP), null, "not a top hand");
   assert.equal(leakVerdict(null, ["0:f"], 1, "AA", TOP).kind, "soft", "no leaks file: soft note, never a silent grade");
   assert.equal(leakHTML(null), "");
@@ -66,6 +71,11 @@ test("the shipped leaks files match their policies and every leak cell triggers 
     assert.equal(L.schema, "stalker.web.policy-leaks"); assert.equal(L.tier, tier); assert.equal(L.policy, m.file);
     assert.equal(L.policy_run_id, m.run_id, `${tier}: leaks were probed on another policy run; re-run the probe`);
     assert.ok(L.evidence && L.settings.deals_per_cell > 0);
+    // Every measured top-3% cell the probe did not flag still gets the soft note (e.g. mid HJ AA first in).
+    for (const c of L.cells.filter(c => c.measured && !c.leak && TOP.has(c.group))) {
+      const before = Array.from({ length: c.seat }, (_, q) => `${q}:${c.spot === "vs_open" && q === 0 ? "r" : "f"}`);
+      assert.equal(leakVerdict(L, before, c.seat, c.group, TOP)?.kind, "soft", `${tier} ${c.spot} ${c.pos} ${c.group}`);
+    }
     for (const c of L.leaks) {
       const before = Array.from({ length: c.seat }, (_, q) => `${q}:${c.spot === "vs_open" && q === 0 ? "r" : "f"}`);
       const v = leakVerdict(L, before, c.seat, c.group, TOP);
