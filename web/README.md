@@ -31,7 +31,7 @@
 - 메뉴(#386): 엔진은 Python의 세 메뉴(`v1`·`tp6`·`real`)와 레이즈 캡 규칙(`streetCap`: real은 프리플랍 캡 3, 포스트플랍은 정책의 `raise_cap`, 없으면 ALLIN_MERGE)을 그대로 안다. 핸드의 메뉴는 정책 파일 메타의 `menu`·`raise_cap`(`menuOf`, 없으면 v1·캡 3)으로 정한다. 지금 내보낸 세 정책은 v1이라 사람의 실전 사이즈는 v1 라벨(`r`·`b33`·`b75`·`a`)로 번역된다. `export_web_policy`는 체크포인트의 메뉴를 메타에 적는다.
 - 프리플랍 에퀴티 표 `app/assets/hu_equity.json`을 먼저 넣는다: `await loadEquityTable(url)` 또는 인라인 객체로 `setEquityTable(obj)`.
 - 실제 노리밋: 사람 좌석은 최소 레이즈부터 올인까지 아무 금액이나 낸다(`applyBet`). 칩은 실제 금액으로 움직이고, 메뉴 밖 금액은 TP §6 번역(`stalker/e3/translate.py`와 같은 `splitBet`: 이웃한 두 메뉴 크기 사이 의사 조화 분할)을 시드 `NumpyRng`로 한 번 뽑은 라벨(`sampleBet`, numpy `Generator.random()`과 같은 난수)로 기록·키·레인지 갱신에 쓴다. 채점은 분할을 가중치로 쓴다(`splitScore`). 팟 오즈·SPR 단계는 실제 칩으로 계산한다. AI 좌석은 메뉴 액션만 고른다.
-- 검사: `python -m stalker.tools.web_vectors`(벡터·자산 다시 쓰기) 후 `node --test web/app/test/tpgto.test.mjs`. 결정 1천여 개의 legal·공개 키·1326 콤보 단계 배열·키·레인지 합이 모두 같아야 하고, 결정당 시간 P50/P95를 출력한다. `menus` 블록(#386)은 real(캡 없음·캡 3)·tp6 메뉴의 2·6·9인 무작위 핸드 90개로 legal·크기별 칩·세 깊이의 공개 키와, 아무 금액 벳(최소 레이즈·임의·메뉴 크기·올인)의 번역 분할(정확히 같은 실수)·시드 해석·최종 칩을 대조한다. `tests/test_web_vectors.py`가 벡터가 최신인지 확인하고 node가 있으면 이 테스트를 돌린다(CI 잡 `web`이 같은 node 테스트를 돌린다, #349).
+- 검사: `python -m stalker.tools.web_vectors`(벡터·자산 다시 쓰기) 후 `node --test web/app/test/tpgto.test.mjs`. 결정 1천여 개의 legal·공개 키·1326 콤보 단계 배열·키·레인지 합이 모두 같아야 하고, 결정당 시간 P50/P95를 출력한다. `menus` 블록(#386)은 real(캡 없음·캡 3)·tp6 메뉴의 2·6·9인 무작위 핸드 90개로 legal·크기별 칩·세 깊이의 공개 키와, 아무 금액 벳(최소 레이즈·임의·메뉴 크기·올인)의 번역 분할(정확히 같은 실수)·시드 해석·최종 칩을 대조한다. `tests/test_web_vectors.py`가 벡터가 최신인지 확인하고 node가 있으면 이 테스트를 돌린다(CI 잡 `web`이 `node --test web/app/test/*.test.mjs`로 모든 web node 테스트를 돌린다, #349·#436. 래퍼는 `CI=true`에서 node가 없으면 실패한다).
 
 ## e2e/ (Gate U, CI 잡 `web`)
 ```bash
