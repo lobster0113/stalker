@@ -164,18 +164,20 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
-           workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current") -> dict:
+           workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
+           key_variant: str = "") -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
-    `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own."""
+    `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
+    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`); likewise kept on resume."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
     ckpt = f"{name}-seed{seed}.ckpt.json"
     if resume is None:
-        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges)
+        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, key_variant=key_variant)
     elif (resume / ckpt).is_file():
         m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")))
     else:
@@ -183,6 +185,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
                          "(its train-<seed> artifact holds the checkpoint); leave resume_run empty to start fresh")
     if m.ranges != ranges:
         raise SystemExit(f"{resume / ckpt} trained with {m.ranges} ranges, but {name} uses {ranges} (#405)")
+    if m.key_variant != key_variant:
+        raise SystemExit(f"{resume / ckpt} trained with key variant {m.key_variant!r}, but {name} uses {key_variant!r} (#398)")
     prev = m.iterations
     t0 = time.monotonic()
     parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
@@ -192,7 +196,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
-            "players": players, "workers": workers, "train_seconds": round(train_s, 1),
+            "key_variant": m.key_variant, "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
 
 
@@ -203,13 +207,14 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3 import game as G
+    from stalker.e3 import tp_key as K
     from stalker.e3.mccfr import coverage
 
     avg = m.policy() if avg is None else avg
     cur = m.current_policy() if cur is None else cur
     t1 = time.monotonic()
     # Same LBR deals for both policies.
-    with G.rules(m.menu, m.raise_cap):
+    with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant):
         lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
                for k, pol in (("average", avg), ("current", cur))}
         # #343: an independent estimate (same seed, but deals drift once the exploiter picks another line) whose
@@ -262,6 +267,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #405: TP-feature ranges from the average strategy vs e3-tp-mid-w4 (current strategy)
         "e3-tp-mid-avgrange-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-avgrange-w4", workers=4,
                                          ranges="average"),
+        # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
+        "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -270,7 +277,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
-             "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4"}   # #301
+             "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4",
+             "e3-tp-mid-b1-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:

@@ -40,7 +40,9 @@ RANGE_EVERY = 2000
 
 class E3MCCFR:
     def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
-                 raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY):
+                 raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY, key_variant: str = ""):
+        if key_variant not in K.VARIANTS:
+            raise ValueError(f"key_variant must be one of {K.VARIANTS}, got {key_variant!r}")
         if ranges not in RANGES:
             raise ValueError(f"ranges must be one of {RANGES}, got {ranges!r}")
         if range_every < 1:
@@ -54,6 +56,7 @@ class E3MCCFR:
         self.nodes = 0
         self.visits: dict[str, int] = defaultdict(int)  # traverser updates per key (coverage diagnostics)
         self.ranges, self.range_every = ranges, range_every
+        self.key_variant = key_variant   # "b1" (#398): suit-aware outs/vuln/block in the key; "" is every earlier table
         # average mode: normalized average rows as of iteration `snap_at`; keys not in it use the current strategy
         self.snap: dict[str, np.ndarray] = {}
         self.snap_at = 0
@@ -105,7 +108,7 @@ class E3MCCFR:
         self.nodes += 1
         acts = G.legal(s)
         p = s.to_act
-        steps = K.equity_steps(s, p, ranges, self.k)
+        steps = K.equity_steps(s, p, ranges, self.k, self.key_variant, self.depth)
         public = K.public_key(s, p, self.depth)
         key = K.key(public, K.my_step(steps, s, p))
         sigma = self._sigma(key, len(acts))
@@ -134,10 +137,12 @@ class E3MCCFR:
                 "regret": {k: v.tolist() for k, v in self.regret.items()},
                 "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}, "visits": dict(self.visits),
                 **self._grid()}
-        if self.ranges == "average":
+        if self.ranges == "average" or self.key_variant:
             # version 2: code that predates #405 would resume this as a current-range run, so it must refuse it
             st.update(version=2, ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()})
+        if self.key_variant:   # version 3: code that predates #398 would resume this with plain keys
+            st.update(version=3, key_variant=self.key_variant)
         return st
 
     def _grid(self) -> dict:
@@ -146,13 +151,13 @@ class E3MCCFR:
 
     @classmethod
     def from_state(cls, st: dict) -> "E3MCCFR":
-        if st.get("version") not in (1, 2):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 and 2")
+        if st.get("version") not in (1, 2, 3):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1, 2 and 3")
         if st["depth"] == "pro" and st.get("nut_k", K.K_PRO) != K.NUT_K:
             raise ValueError(f"checkpoint board.nut has {st.get('nut_k', K.K_PRO)} steps; this code uses {K.NUT_K} "
                              "(#332) - start a fresh run instead of resuming it")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
-                st.get("ranges", "current"), st.get("range_every", RANGE_EVERY))
+                st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), st.get("key_variant", ""))
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
@@ -191,10 +196,11 @@ def main(argv=None) -> int:
     ap.add_argument("--menu", choices=G.MENUS, default="v1")
     ap.add_argument("--no-raise-cap", action="store_true")
     ap.add_argument("--ranges", choices=RANGES, default="current", help="strategy that moves the TP-feature ranges (#405)")
+    ap.add_argument("--key-variant", choices=K.VARIANTS, default="", help="b1: suit-aware outs/vuln/block key (#398)")
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
     a = ap.parse_args(argv)
     m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier], a.menu,
-                None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every)
+                None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every, a.key_variant)
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0
