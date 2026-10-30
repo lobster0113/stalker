@@ -78,7 +78,8 @@ import numpy as np
 
 from stalker.core.cards import COMBOS, N_CARDS
 from stalker.e2.abstraction import quantile_buckets
-from stalker.e2.eq_view import N, combo_index, equity_vs
+from stalker.core import fast_eval
+from stalker.e2.eq_view import COMBO_ARR, N, _board_dead, _flat_runouts, combo_index, equity_vs
 from stalker.e3 import game as G
 
 TIER_K = {"beginner": 5, "mid": 11, "pro": 17}
@@ -201,6 +202,36 @@ def _equity_cached(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
     return eq
 
 
+_NEXT_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray]] = {}
+_HAS_CARD = np.stack([(COMBO_ARR == c).any(axis=1) for c in range(52)])
+
+
+def _next_card_eq(board: tuple[int, ...], w: np.ndarray, cards: list[int]) -> np.ndarray:
+    """Row i = `equity_vs(board + (cards[i],), w)`, bit for bit, in one batch (b1 outs/vuln, #454).
+
+    Per-card calls spent most of their time in Python between the compiled kernels (49 cards x opponents
+    x nodes); here the kernels run back to back and the nan mask and divide happen once. Cached per
+    (board, range object) like `_equity_cached`: siblings in a walk share the opponents' ranges.
+    """
+    key = (board, id(w))
+    hit = _NEXT_CACHE.get(key)
+    if hit is not None and hit[0] is w:
+        return hit[1]
+    if not fast_eval.HAVE_NUMBA:
+        out = np.stack([equity_vs(board + (c,), w) for c in cards])
+    else:
+        wc = np.ascontiguousarray(w, dtype=np.float64)
+        acc, cnt = np.zeros((len(cards), N)), np.zeros((len(cards), N))
+        for i, c in enumerate(cards):
+            fast_eval.equity_segments(wc, *_flat_runouts(board + (c,)), acc[i], cnt[i])
+        out = np.divide(acc, cnt, out=np.full(acc.shape, 0.5), where=cnt > 0)
+        out[_board_dead(board)[None, :] | _HAS_CARD[cards]] = np.nan
+    if len(_NEXT_CACHE) >= 64:  # 49 x 1326 floats = ~0.5 MB each
+        _NEXT_CACHE.clear()
+    _NEXT_CACHE[key] = (w, out)
+    return out
+
+
 def _multi_eq(board: tuple[int, ...], opps: list[int], ranges: list[np.ndarray]) -> np.ndarray:
     eq = np.ones(N)
     for q in opps:
@@ -321,7 +352,10 @@ def hand_outs_vuln(s: G.State, seat: int, ranges: list[np.ndarray]) -> tuple[np.
         np.add.at(by_card, pair[:, 1], mass)
         free = free * (1.0 - by_card / mass.sum() if mass.sum() > 0 else 1.0)
     cards = [c for c in range(N_CARDS) if c not in board]
-    gain = np.stack([_multi_eq(board + (c,), opps, ranges) for c in cards]) - now[None, :]
+    nxt = np.ones((len(cards), N))
+    for q in opps:
+        nxt = nxt * _next_card_eq(board, ranges[q], cards)
+    gain = nxt - now[None, :]
     w = free[cards][:, None] * ~np.isnan(gain)
     total = w.sum(axis=0)
     ok = (total > 0) & ~np.isnan(now)
