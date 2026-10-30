@@ -43,7 +43,7 @@ def split(s: G.State, to: int) -> list[tuple[str, float]]:
     p = s.to_act
     room = s.stack[p] + s.bet[p]
     call = s.to_call()
-    if s.done or s.stack[p] <= call or s.acted[p] or not [i for i in s.active() if i != p]:
+    if s.done or s.stack[p] <= call or G._locked(s, p) or not G._can_cover(s):
         raise ValueError(f"no bet or raise possible after {s.history}; legal: {G.legal(s)}")
     least = min(max(s.bet) + s.last_raise, room)
     if to > room:
