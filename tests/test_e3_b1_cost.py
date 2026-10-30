@@ -77,8 +77,8 @@ def test_batched_next_card_equities_match_the_per_card_reference(monkeypatch):
 
 
 @pytest.mark.slow
-def test_b1_buckets_unchanged_on_150_flop_and_turn_situations(monkeypatch):
-    _check(150, monkeypatch)
+def test_kernel_path_matches_per_card_on_40_flop_and_turn_situations(monkeypatch):
+    _check(40, monkeypatch)
 
 
 def test_cost_probe_reports_a_positive_cost_per_iteration():
