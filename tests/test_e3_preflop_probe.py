@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -5,6 +7,7 @@ from referee.e3 import preflop_probe as P
 from stalker.core.cards import hand_class
 
 K5 = 5
+SERVED_MID = Path(__file__).resolve().parents[1] / "web" / "app" / "policy" / "mid-6.json"
 
 
 def _parts(key):
@@ -77,9 +80,24 @@ def test_vs_open_reaches_only_single_raised_pots():
 
 
 def test_probe_is_reproducible_and_worker_independent():
-    t = _table(_policy(limp_top=True))
-    a = P.probe(t, 6, seed=2, spots=("first_in",), seats=[1], groups=("KK",))
-    assert a == P.probe(t, 6, seed=2, spots=("first_in",), seats=[1], groups=("KK",))
+    # Two chunks (CHUNK deals each) so that workers=2 really splits the cell; chunk seeds depend only on
+    # the cell and the chunk index. A loaded policy file, because worker processes must pickle the table.
+    t = P.load(SERVED_MID)
+    kw = dict(seed=2, spots=("first_in",), seats=[1], groups=("KK",))
+    a = P.probe(t, 2 * P.CHUNK, **kw)
+    assert a == P.probe(t, 2 * P.CHUNK, **kw)
+    assert a == P.probe(t, 2 * P.CHUNK, workers=2, **kw)
+
+
+
+def test_probe_flags_the_served_mid_policy_limping_aces():
+    # #413 criterion 1 / #391: the served mid policy (average strategy) limps AA first in from HJ/CO most
+    # of the time. Pre-registered cells: first_in, HJ and CO, AA, 300 deals, seed 1. If the served file
+    # changes and the leak is gone, this fails on purpose: re-register the cells or close #391.
+    assert SERVED_MID.exists(), f"{SERVED_MID} missing: the served policy moved; update this test"
+    r = P.probe(P.load(SERVED_MID), 300, seed=1, spots=("first_in",), seats=[1, 2], groups=("AA",))
+    assert r["leaks"] >= 1, P.table(r)
+    assert any(c["open_minus_limp"]["r"]["ci"][0] > 0 for c in r["cells"] if c["leak"]), P.table(r)
 
 
 def test_flag_needs_both_the_threshold_and_the_corrected_bound():
