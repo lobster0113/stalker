@@ -164,20 +164,27 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
-           workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current") -> dict:
+           workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
+           avg_rule: str = "legacy") -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
-    `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own."""
+    `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
+    `avg_rule` (#426): how the average strategy is accumulated (stalker/e3/mccfr.py); a checkpoint of the
+    other rule is refused."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
+    from stalker.tools.pod_bench import machine
 
     ckpt = f"{name}-seed{seed}.ckpt.json"
     if resume is None:
-        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges)
+        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, avg_rule=avg_rule)
     elif (resume / ckpt).is_file():
-        m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")))
+        try:
+            m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")), avg_rule)
+        except ValueError as e:
+            raise SystemExit(f"{resume / ckpt}: {e}") from None
     else:
         raise SystemExit(f"{resume / ckpt} not found: resume_run must be an earlier {name} run with this seed "
                          "(its train-<seed> artifact holds the checkpoint); leave resume_run empty to start fresh")
@@ -192,6 +199,9 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
+            "avg_rule": m.avg_rule,
+            # #426: the same job and seed gave different tables on different runners, so record which one ran it
+            "machine": machine(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
 
@@ -262,6 +272,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #405: TP-feature ranges from the average strategy vs e3-tp-mid-w4 (current strategy)
         "e3-tp-mid-avgrange-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-avgrange-w4", workers=4,
                                          ranges="average"),
+        # #426: e3-tp-mid-w4 with the average strategy weighted by own reach only (existing jobs stay legacy)
+        "e3-tp-mid-ownavg-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4", workers=4, avg_rule="own"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -270,7 +282,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
-             "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4"}   # #301
+             "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
@@ -311,11 +323,30 @@ def summary_text(job: str, folder: Path) -> str:
     if not s["runs"]:
         raise SystemExit(f"no successful {job} runs under {folder}; nothing to push (see the run jobs' logs)")
     text = json.dumps(s, indent=1)
+    if len(text.encode("utf-8")) > SUMMARY_MAX_BYTES and s.pop("preflop_first_in_average_by_seed", None):
+        text = json.dumps(s, indent=1)   # a wide table (9-max, pro steps) keeps its rows in the artifacts only
     if len(text.encode("utf-8")) > SUMMARY_MAX_BYTES:
         raise SystemExit(f"summary is {len(text.encode())} bytes > {SUMMARY_MAX_BYTES}; keep per-seed detail in the "
                          "artifacts and only aggregates in the summary")
     check_clean(text, "summary")
     return text
+
+
+def _first_in_rows(folder: Path, job: str, r: dict) -> dict | None:
+    """#391/#426: the average policy's first-in preflop rows (`stalker.tools.preflop_rows`, hand AhQh), so the
+    summary on ops carries them; artifacts are not reachable from every agent session."""
+    from stalker.e3.tp_key import TIER_DEPTH, TIER_K
+    from stalker.tools.preflop_rows import first_in
+
+    found = sorted(folder.rglob(f"{job}-seed{r['seed']}.policy.json"))
+    if not found or r.get("tier") not in TIER_K:
+        return None
+    pol = json.loads(found[0].read_text(encoding="utf-8"))["average"]
+    t = {"policy": pol, "k": TIER_K[r["tier"]], "depth": TIER_DEPTH[r["tier"]], "players": r.get("players", 6),
+         "menu": r.get("menu", "v1"), "raise_cap": r.get("raise_cap", 3)}
+    return {sp["position"]: {"actions": sp["actions"], "hand_step": sp["hand_step"],
+                             "rows": [[round(p, 3) for p in row["probs"]] for row in sp["rows"]]}
+            for sp in first_in(t)}
 
 
 def summarize(job: str, folder: Path) -> dict:
@@ -332,8 +363,17 @@ def summarize(job: str, folder: Path) -> dict:
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
         if all("infosets" in r for r in runs):          # #332: key counts across tables/grids live only in artifacts otherwise
             out["infosets_by_seed"] = [r["infosets"] for r in runs]
+        if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
+            out["cpu_model_by_seed"] = [r["machine"]["cpu_model"] for r in runs]
         if all(r.get("lbr_offmenu") for r in runs):    # E3 (#343): exploiter with off-menu sizes, current policy
             out["lbr_offmenu_bb_by_seed"] = [r["lbr_offmenu"]["lbr_bb"] for r in runs]
+        if all(r.get("lbr_average") for r in runs):    # E3 (#426): the served (average) policy lived only in artifacts
+            out["lbr_average_bb_by_seed"] = [r["lbr_average"]["lbr_bb"] for r in runs]
+            out["lbr_average_stderr_by_seed"] = [r["lbr_average"].get("stderr_bb") for r in runs]
+    if job.startswith("e3-tp-") and runs:
+        rows = [_first_in_rows(folder, job, r) for r in runs]
+        if all(rows):
+            out["preflop_first_in_average_by_seed"] = rows
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set
