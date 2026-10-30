@@ -66,6 +66,6 @@ def test_a_step_pool_is_the_combos_of_that_step_at_the_spot():
 def test_loads_the_web_policy_file_and_reads_its_scale(tmp_path):
     f = tmp_path / "p.json"
     f.write_text(json.dumps({"schema": "stalker.web.policy", "k": 11, "depth": "full", "players": 6, "q": 255,
-                             "policy": {"3|0|2|0|0|4|0|fcra|e10": [0, 255, 0, 0]}}))
+                             "policy": {"3|0|2|0|0|4|0|fcra|e10": [0, 255, 0, 0]}}), encoding="utf-8")
     t = P.load(f)
     assert t["policy"]["3|0|2|0|0|4|0|fcra|e10"] == [0.0, 1.0, 0.0, 0.0] and t["menu"] == "v1"
