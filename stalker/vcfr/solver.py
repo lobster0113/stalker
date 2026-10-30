@@ -107,10 +107,6 @@ class VectorCFR:
         self.key_reach: dict[int, list[np.ndarray]] = {}    # node -> ranges the TP features are read from
         self.t = 0
         self.refreshes = 0                                   # snapshots taken (average / snapshot)
-        # Chance weight of my combo: its own range for the regret, times the opponent's live range mass for
-        # the average. Uniform ranges make both a constant, but a TP key merging combos of unequal weight
-        # needs them, or the scatter counts every combo as equally likely (#414).
-        self.live = [game.sd.card_mass(game.init[1]), game.sd.card_mass(game.init[0])]
 
     def _rows(self, node: Node, r_own, r_opp):
         if self.keyer is None:
