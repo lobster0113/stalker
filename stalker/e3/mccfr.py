@@ -50,7 +50,9 @@ RANGE_EVERY = 2000
 class E3MCCFR:
     def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
                  raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY,
-                 avg_rule: str = "legacy"):
+                 avg_rule: str = "legacy", key_variant: str = ""):
+        if key_variant not in K.VARIANTS:
+            raise ValueError(f"key_variant must be one of {K.VARIANTS}, got {key_variant!r}")
         if ranges not in RANGES:
             raise ValueError(f"ranges must be one of {RANGES}, got {ranges!r}")
         if range_every < 1:
@@ -67,6 +69,7 @@ class E3MCCFR:
         self.nodes = 0
         self.visits: dict[str, int] = defaultdict(int)  # traverser updates per key (coverage diagnostics)
         self.ranges, self.range_every = ranges, range_every
+        self.key_variant = key_variant   # "b1" (#398): suit-aware outs/vuln/block in the key; "" is every earlier table
         # average mode: normalized average rows as of iteration `snap_at`; keys not in it use the current strategy
         self.snap: dict[str, np.ndarray] = {}
         self.snap_at = 0
@@ -119,7 +122,7 @@ class E3MCCFR:
         self.nodes += 1
         acts = G.legal(s)
         p = s.to_act
-        steps = K.equity_steps(s, p, ranges, self.k)
+        steps = K.equity_steps(s, p, ranges, self.k, self.key_variant, self.depth)
         public = K.public_key(s, p, self.depth)
         key = K.key(public, K.my_step(steps, s, p))
         sigma = self._sigma(key, len(acts))
@@ -155,13 +158,15 @@ class E3MCCFR:
                 "regret": {k: v.tolist() for k, v in self.regret.items()},
                 "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}, "visits": dict(self.visits),
                 **self._grid()}
-        if self.ranges == "average":
+        if self.ranges == "average" or self.key_variant:
             # version 2: code that predates #405 would resume this as a current-range run, so it must refuse it
             st.update(version=2, ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()})
         if self.avg_rule == "own":
             # version 3 (#426): code that predates avg_rule would resume an "own" checkpoint as legacy, so it must refuse it
             st["version"] = 3
+        if self.key_variant:   # version 4 (#398): code that predates it would resume this with plain keys
+            st.update(version=4, key_variant=self.key_variant)
         return st
 
     def _grid(self) -> dict:
@@ -171,10 +176,10 @@ class E3MCCFR:
     @classmethod
     def from_state(cls, st: dict, avg_rule: str | None = None) -> "E3MCCFR":
         """`avg_rule`, if given, is the rule the caller means to continue with; a checkpoint of the other is refused."""
-        if st.get("version") not in (1, 2, 3):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 3")
+        if st.get("version") not in (1, 2, 3, 4):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 4")
         rule = st.get("avg_rule", "legacy")    # checkpoints before #426 are all legacy
-        if (rule == "own") != (st["version"] == 3):
+        if st["version"] < 4 and (rule == "own") != (st["version"] == 3):
             raise ValueError(f"checkpoint version {st['version']} with avg_rule {rule!r}: an avg_rule 'own' "
                              "checkpoint is version 3, a legacy one version 1 or 2")
         if avg_rule is not None and avg_rule != rule:
@@ -185,7 +190,7 @@ class E3MCCFR:
             raise ValueError(f"checkpoint board.nut has {st.get('nut_k', K.K_PRO)} steps; this code uses {K.NUT_K} "
                              "(#332) - start a fresh run instead of resuming it")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
-                st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule)
+                st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""))
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
@@ -208,7 +213,10 @@ def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     fewer than 10 traverser updates — where the table is still close to its uniform start."""
     out: dict[str, dict[str, float]] = {}
     for k, v in m.visits.items():
-        f = k.split("|")[by]
+        fs = k.split("|")
+        if fs[-1].startswith("o"):   # b1 label (#398): a legal-action set never starts with "o"
+            fs.pop()
+        f = fs[by]
         d = out.setdefault(f, {"keys": 0, "under10": 0})
         d["keys"] += 1
         d["under10"] += v < 10
@@ -224,11 +232,12 @@ def main(argv=None) -> int:
     ap.add_argument("--menu", choices=G.MENUS, default="v1")
     ap.add_argument("--no-raise-cap", action="store_true")
     ap.add_argument("--ranges", choices=RANGES, default="current", help="strategy that moves the TP-feature ranges (#405)")
+    ap.add_argument("--key-variant", choices=K.VARIANTS, default="", help="b1: suit-aware outs/vuln/block key (#398)")
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
     ap.add_argument("--avg-rule", choices=AVG_RULES, default="legacy")
     a = ap.parse_args(argv)
     m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier], a.menu,
-                None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every, a.avg_rule)
+                None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every, a.avg_rule, a.key_variant)
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0
@@ -236,7 +245,7 @@ def main(argv=None) -> int:
                       "iters_per_s": round(a.iters / dt, 3), "nodes_per_iter": round(m.nodes / a.iters, 1),
                       "keys": len(m.regret), "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges,
                       # the bound counts the v1 legal-action sets only
-                      "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth) if m.menu == "v1" else None}))
+                      "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth, m.key_variant) if m.menu == "v1" else None}))
     return 0
 
 
