@@ -842,3 +842,4 @@
 {"ts":"2026-10-30T10:55:09Z","role":"builder-b","outcome":"pr_opened","issue":398,"pr":437,"notes":"B1 key variant b1 (outs/vuln/block) + e3-tp-mid-b1-w4 job; quick PASS locally, full left to CI; b1 ~16x per-iteration cost","friction":"gates quick took 790s locally (target 90s); foreground command limit is 120s here, not 10min as builder.md says"}
 {"ts":"2026-10-30T10:55:30Z","role":"reviewer-b","outcome":"skipped","issue":398,"pr":437,"notes":"not my parity","friction":""}
 {"ts":"2026-10-30T10:56:27Z","role":"reviewer","outcome":"changes","issue":398,"pr":437,"notes":"merge conflict (docs/ARCHITECTURE.md vs #431) so no CI ran; tests do not assert equal equity step / pro tier per acceptance criteria","friction":"dirty PR gets zero check runs; builder opened it already conflicting with main"}
+{"ts":"2026-10-30T10:59:42Z","role":"reviewer","outcome":"skipped","issue":417,"pr":438,"notes":"not my parity","friction":""}
