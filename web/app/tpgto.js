@@ -28,6 +28,8 @@
 //   betRange(s) -> {min, max} street totals, or null (only fold/call/check).
 //   splitBet(s, to) -> [{a, p}]; sampleBet(s, to, rng) -> label; translateBet(s, to, rng?) ->
 //   {split, action, prob, lower, upper}; splitScore(split, scoreFn); applyBet(s, to, rng | label).
+//   translationError(s, to) -> true when the split is a poor reading (translate.high_translation_error,
+//   #417): grading shows that size as approximate, not as a full score.
 //   Chips always move by the real amount. The table knows only its menu, so any size is translated
 //   as stalker/e3/translate.py (TP.md section 6): the pseudo-harmonic split (Ganzfried & Sandholm
 //   2013) between the two neighbouring legal menu sizes A < B, sizes as pot fractions after calling
@@ -755,6 +757,24 @@ export function splitScore(split, score) {
   let v = 0.0;
   for (const { a, p } of split) v += p * score(a);
   return v;
+}
+
+// stalker/e3/translate.py pre-registered rule (#417); the constants and their calibration live there.
+export const TV_HIGH = 0.25, GAP_HIGH = 2.0, F_BAND = [0.2, 0.8];
+
+/**
+ * stalker/e3/translate.high_translation_error: true when the split of a bet/raise to `to` is not a
+ * trustworthy reading. One neighbour all in and the other not, below ALLIN_MERGE of the stack; or the
+ * size far from both (F_BAND) with neighbours more than GAP_HIGH apart as pot fractions.
+ */
+export function translationError(s, to) {
+  const split = splitBet(s, to);
+  if (split.length < 2) return false;
+  const [A, B] = split, p = s.toAct;
+  if (B.a === "a") return to < ALLIN_MERGE * (s.stack[p] + s.bet[p]);
+  if (!(F_BAND[0] < A.p && A.p < F_BAND[1])) return false;
+  const menu = sizeMenu(s), ta = menu.find((m) => m.a === A.a).to, tb = menu.find((m) => m.a === B.a).to;
+  return potFraction(s, tb) > GAP_HIGH * potFraction(s, ta);
 }
 
 /**

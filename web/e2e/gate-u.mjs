@@ -133,7 +133,8 @@ for (let d = 0; d < 6 && !freeSized; d++) {
       const again = tg.translateBet(r.s, r.to, engReadRng(E.ent, r.s)).action;
       return { split: r.split, label: r.label, again, fresh: tg.splitBet(r.s, r.to), hist: E.s.history[r.at], seat: r.s.toAct, you,
         weighted: you && G.lastGrade.refs[0].model ? tg.splitScore(r.split, a => G.lastGrade.refs[0].model.mix.find(m => m.a === a)?.p || 0) : null,
-        note: document.querySelector("#tp-body [data-model-action]")?.textContent || "" };
+        note: document.querySelector("#tp-body [data-model-action]")?.textContent || "",
+        hte: tg.translationError(r.s, r.to), tag: !!document.querySelector("#tp-body [data-model-action] [data-approx]") };
     });
     must(!!rd, "번역: 메뉴 밖 금액의 AI 해석 기록(G.eng.reads)이 없음");
     if (rd) {
@@ -144,7 +145,11 @@ for (let d = 0; d < 6 && !freeSized; d++) {
       must(rd.hist === `${rd.seat}:${rd.label}`, `번역: 엔진 기록 ${rd.hist}가 AI 해석 ${rd.label}과 다름`);
       must(rd.you && Math.abs(rd.you.p - rd.weighted) < 1e-12, `번역: 내 선택 빈도 ${rd.you?.p}가 분할 가중 점수 ${rd.weighted}가 아님`);
       must(/AI 해석: .*% · .*%/.test(rd.note) && rd.note.includes("확률로 읽어요"), `번역: 비교 화면에 분할 해석 문구가 없음 (${rd.note.slice(0, 200)})`);
-      console.log(`번역: ${JSON.stringify(rd.split)} → ${rd.label}, 내 선택 빈도 ${rd.you.p.toFixed(3)}`);
+      // #417: a split the pre-registered rule flags is shown as approximate, never as a full score.
+      must(!!rd.you?.approx === rd.hte && rd.tag === rd.hte, `번역 오차: translationError ${rd.hte}인데 근사 표시 ${rd.tag}·채점 ${rd.you?.approx}`);
+      if (rd.hte) must(rd.note.includes("근사(번역)") && rd.note.includes("≈") && rd.note.includes("만점으로 채점하지 않아요")
+        && rd.split.every(x => rd.note.includes(`${Math.round(x.p * 100)}%`)), `번역 오차: 근사(번역)·두 이웃 비중·만점 아님 문구가 없음 (${rd.note.slice(0, 300)})`);
+      console.log(`번역: ${JSON.stringify(rd.split)} → ${rd.label}, 내 선택 빈도 ${rd.you.p.toFixed(3)}${rd.hte ? " · 근사(번역)" : ""}`);
     }
   }
   // Quick without analysis still compares the action with the trained policy's mixed strategy.

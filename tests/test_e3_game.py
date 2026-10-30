@@ -109,3 +109,81 @@ def test_tie_split_gives_all_odd_chips_to_the_first_winner_in_postflop_order():
     # 350 / 3 = 116 rest 2: postflop order is BB, UTG, BTN, so both odd chips go to the BB (TDA rule, the
     # same as Gate R's settlement and PokerKit; #203 changed this from one chip each).
     assert list(G.payoff(s)) == [16, 16, -50, 18]
+
+
+def test_default_deal_keeps_equal_stacks_and_rng_draws():
+    a, b = G.deal(np.random.default_rng(5)), G.deal(np.random.default_rng(5), stacks=(G.STACK,) * 6)
+    assert a == b and a.stack[0] == G.STACK
+
+
+@pytest.mark.parametrize("bad", [(10000,) * 5, (150,) + (10000,) * 5])
+def test_deal_rejects_bad_stacks(bad):
+    with pytest.raises(ValueError):
+        G.deal(np.random.default_rng(0), 6, stacks=bad)
+
+
+def test_sample_stacks_cover_range_and_both_table_kinds():
+    rng = np.random.default_rng(7)
+    tables = [G.sample_stacks(rng, 6) for _ in range(400)]
+    flat = [x for t in tables for x in t]
+    lo, hi = G.STACK_RANGE_BB
+    assert all(lo * G.BB <= x <= hi * G.BB and x % G.BB == 0 for x in flat)
+    assert min(flat) <= 25 * G.BB and max(flat) >= 200 * G.BB
+    assert any(len(set(t)) == 1 for t in tables) and any(len(set(t)) > 1 for t in tables)
+    assert G.sample_stacks(np.random.default_rng(3), 6) == G.sample_stacks(np.random.default_rng(3), 6)
+
+
+def test_side_pots_three_different_all_ins_conserve_and_pay_layers():
+    for seed in range(40):
+        s = G.deal(np.random.default_rng(seed), 4, stacks=(2000, 5000, 9000, 20000))
+        while not s.done:
+            s = G.apply(s, "a" if "a" in G.legal(s) else "c")
+        pay = G.payoff(s)
+        assert pay.sum() == 0
+        assert s.total == (2000, 5000, 9000, 9000)   # the 20000 stack's uncalled excess is never put in
+        # a seat that put in less than another can never win more than the layers it reached
+        for i in range(4):
+            reached = sum(min(t, s.total[i]) for t in s.total)
+            assert pay[i] + s.total[i] <= reached
+
+
+def test_uncalled_top_layer_goes_back():
+    s = G.deal(np.random.default_rng(2), 3, stacks=(3000, 3000, 40000))
+    while not s.done:
+        s = G.apply(s, "a" if "a" in G.legal(s) else "c")
+    assert G.payoff(s).sum() == 0 and max(s.total) <= 3000
+
+
+@pytest.mark.parametrize("n", [2, 6, 9])
+def test_random_unequal_stack_hands_conserve_chips(n):
+    rng = np.random.default_rng(n + 100)
+    for _ in range(600):
+        stacks = G.sample_stacks(rng, n, equal_p=0.0)
+        s = G.random_playout(rng, n, stacks=stacks)
+        pay = G.payoff(s)
+        assert pay.sum() == 0 and s.done
+        assert all(s.total[i] <= stacks[i] and s.stack[i] + s.total[i] == stacks[i] for i in range(n))
+        assert all(-stacks[i] <= pay[i] for i in range(n))
+
+
+def test_raise_nobody_can_match_is_not_offered():
+    # The 200BB button shoves; the 60BB blinds cannot cover it, so re-raising is only a call (PokerKit agrees).
+    s = G.apply(G.deal(np.random.default_rng(4), 3, stacks=(20000, 6000, 6000)), "a")
+    assert G.legal(s) == ["f", "c"]
+    s = G.apply(s, "c")
+    assert G.legal(s) == ["f", "c"]
+
+
+def test_short_all_ins_that_add_up_to_a_full_raise_reopen_the_betting():
+    s = G.deal(np.random.default_rng(9), 4, stacks=(20000, 450, 560, 20000))
+    s = G.apply_to(s, 300, "r")          # UTG opens to 300: a raise of 200
+    s = G.apply(G.apply(s, "a"), "a")    # BTN all in for 450 (+150) and SB for 560 (+110): 260 >= 200
+    s = G.apply(s, "c")                  # BB calls
+    assert s.to_act == 0 and "a" in G.legal(s)   # the opener acted, but the betting is open again
+
+
+def test_a_lone_short_all_in_does_not_reopen():
+    s = G.deal(np.random.default_rng(9), 4, stacks=(20000, 450, 20000, 20000))
+    s = G.apply(G.apply_to(s, 300, "r"), "a")
+    s = G.apply(G.apply(s, "c"), "c")     # SB and BB call
+    assert s.to_act == 0 and G.legal(s) == ["f", "c"]   # the opener may not raise over a single short all in
