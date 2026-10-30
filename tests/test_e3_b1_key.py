@@ -27,8 +27,13 @@ def test_nut_flush_draw_and_weak_made_hand_get_different_keys_at_the_same_equity
     idx = {h: combo_index(*cards(h)) for h in ("As4s", "Kd3c")}
     outs, vuln = ov
     assert outs[idx["As4s"]] > 20 > outs[idx["Kd3c"]]      # the spade cards (and an ace) help the draw
-    assert _code(s, "As4s") != _code(s, "Kd3c")
-    assert K.b1_label(_code(s, "As4s")) != K.b1_label(_code(s, "Kd3c"))
+    steps = K.equity_steps(s, 0, K.initial_ranges(6), 11, "")
+    draw, made = "As4s", "7c4c"                              # top pair-less nut draw vs a weak made pair
+    assert steps[combo_index(*cards(draw))] == steps[combo_index(*cards(made))]
+    assert _code(s, draw) != _code(s, made)
+    assert K.b1_label(_code(s, draw)) != K.b1_label(_code(s, made))
+    b1 = K.equity_steps(s, 0, K.initial_ranges(6), 11, "b1", "full")
+    assert b1[combo_index(*cards(draw))] != b1[combo_index(*cards(made))]
 
 
 def test_outs_count_the_suit_of_the_draw_not_just_the_rank():
@@ -52,6 +57,15 @@ def test_spade_blocker_changes_the_key_in_the_deep_tier_only_for_a_blocker():
     k_block = K.b1_label(blocker).split("k")[1]
     k_plain = K.b1_label(plain).split("k")[1]
     assert int(k_block) > int(k_plain)
+
+
+def test_spade_blocker_changes_the_key_in_the_pro_tier_at_the_same_equity():
+    s = _state("Ks7s9s")
+    steps = K.equity_steps(s, 0, K.initial_ranges(6), K.K_PRO, "")
+    blocker, plain = "As3c", "2s2h"
+    assert steps[combo_index(*cards(blocker))] % K.NUT_BASE == steps[combo_index(*cards(plain))] % K.NUT_BASE
+    b1 = K.equity_steps(s, 0, K.initial_ranges(6), K.K_PRO, "b1")
+    assert b1[combo_index(*cards(blocker))] != b1[combo_index(*cards(plain))]
 
 
 def test_tiers_ask_only_their_own_items():
