@@ -155,9 +155,29 @@ def test_e3_job_records_both_policies_and_coverage(tmp_path, monkeypatch):
     s = T.summarize("e3-tp-beginner", tmp_path)
     assert s["lbr_offmenu_bb_by_seed"] == [4.5]
     assert s["infosets_by_seed"] == [r["infosets"]] and r["infosets"] > 0   # #332
+    assert s["cpu_model_by_seed"] == [r["machine"]["cpu_model"]]           # #426
     assert s["field_worst_by_seed"] == [r["field"]["worst"]] and "self5" in s["field_bb100_by_seed"][0]
     pol = json.loads((tmp_path / "e3-tp-beginner-seed1.policy.json").read_text(encoding="utf-8"))
     assert set(pol) == {"average", "current"}
+    # #426: the average policy's LBR and first-in preflop rows reach the ops summary (artifacts may be unreachable)
+    assert s["lbr_average_bb_by_seed"] == [3.0] and "lbr_average_stderr_by_seed" in s
+    from stalker.e3.tp_key import TIER_K
+    from stalker.tools.preflop_rows import first_in
+    want = first_in({"policy": pol["average"], "k": TIER_K["beginner"], "depth": "basic", "players": 6, "menu": "v1", "raise_cap": 3})
+    rows = s["preflop_first_in_average_by_seed"][0]
+    assert list(rows) == ["UTG", "HJ", "CO", "BTN", "SB"] == [sp["position"] for sp in want]
+    assert rows["BTN"]["rows"] == [[round(p, 3) for p in r["probs"]] for r in want[3]["rows"]]
+
+
+def test_summary_drops_the_preflop_rows_before_refusing_an_oversize_summary(monkeypatch):
+    big = {"job": "e3-tp-mid-w4", "runs": 1, "preflop_first_in_average_by_seed": ["x" * 100]}
+    monkeypatch.setattr(T, "SUMMARY_MAX_BYTES", 80)
+    monkeypatch.setattr(T, "summarize", lambda job, folder: dict(big))
+    assert "preflop_first_in" not in T.summary_text("e3-tp-mid-w4", Path("."))
+    monkeypatch.setattr(T, "summarize", lambda job, folder: {**big, "preflop_first_in_average_by_seed": None,
+                                                             "note": "y" * 100})
+    with pytest.raises(SystemExit, match="bytes"):
+        T.summary_text("e3-tp-mid-w4", Path("."))
 
 
 def test_league_job_records_generations_and_the_champion(tmp_path, monkeypatch):

@@ -89,3 +89,11 @@ def test_node_port_matches_vectors():
     r = subprocess.run([node, "--test", str(W.ROOT / "web" / "app" / "test" / "tpgto.test.mjs")],
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert r.returncode == 0, r.stdout[-4000:] + r.stderr[-2000:]
+
+
+def test_committed_hte_vectors_are_current(committed):
+    # #417: the page's translationError is checked against these; rebuilding them is cheap (no equity).
+    assert committed["hte"] == W.hte_vectors(committed["params"]["seed"]), \
+        "web/app/test/vectors.json hte block is stale: run `python -m stalker.tools.web_vectors`"
+    flags = [f for x in committed["hte"] for _, f in x["cases"]]
+    assert any(flags) and not all(flags)
