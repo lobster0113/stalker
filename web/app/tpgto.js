@@ -28,6 +28,8 @@
 //   betRange(s) -> {min, max} street totals, or null (only fold/call/check).
 //   splitBet(s, to) -> [{a, p}]; sampleBet(s, to, rng) -> label; translateBet(s, to, rng?) ->
 //   {split, action, prob, lower, upper}; splitScore(split, scoreFn); applyBet(s, to, rng | label).
+//   translationError(s, to) -> true when the split is a poor reading (translate.high_translation_error,
+//   #417): grading shows that size as approximate, not as a full score.
 //   Chips always move by the real amount. The table knows only its menu, so any size is translated
 //   as stalker/e3/translate.py (TP.md section 6): the pseudo-harmonic split (Ganzfried & Sandholm
 //   2013) between the two neighbouring legal menu sizes A < B, sizes as pot fractions after calling
@@ -588,7 +590,7 @@ export function legal(s) {
   const acts = [];
   if (call > 0) acts.push("f");
   acts.push(call > 0 || s.street === 0 ? "c" : "k");
-  if (s.stack[p] > call && others.length) {
+  if (s.stack[p] > call && others.length && !s.acted[p]) {   // acted and still to act: a short all in did not reopen
     const cap = streetCap(s);
     if (cap === null || s.raises < cap + (s.street === 0 ? 1 : 0)) for (const [name] of offered(s)) acts.push(name);
     acts.push("a");
@@ -654,6 +656,9 @@ export function apply(s, a) {
   return act(s, a, a === "k" ? s.bet[s.toAct] : amountTo(s, a));
 }
 
+/** A full raise (at least the last raise) reopens the betting; a short all in below it does not (G._reopens). */
+function reopens(s, to) { return to - max(s.bet) >= s.lastRaise; }
+
 // One action with its real street total `to` (null for a fold); `label` is the menu action that
 // goes into the history (for an off-menu bet, its translation).
 function act(s, label, to, real = null) {
@@ -670,7 +675,7 @@ function act(s, label, to, real = null) {
     const stack = s.stack.slice(), bet = s.bet.slice(), total = s.total.slice();
     stack[p] -= add; bet[p] = to; total[p] += add;
     const top = max(s.bet), raised = to > top;
-    const acted = raised ? new Array(s.n).fill(false) : s.acted.slice();
+    const acted = raised && reopens(s, to) ? new Array(s.n).fill(false) : s.acted.slice();
     acted[p] = true;
     ns = { ...s, stack, bet, total, acted, history: hist, log, raises: s.raises + (raised ? 1 : 0),
       lastRaise: raised ? Math.max(s.lastRaise, to - top) : s.lastRaise };
@@ -688,7 +693,7 @@ function act(s, label, to, real = null) {
 export function betRange(s) {
   if (s.done) return null;
   const p = s.toAct, call = toCall(s), room = s.stack[p] + s.bet[p];
-  if (!(s.stack[p] > call && active(s).some((i) => i !== p))) return null;
+  if (!(s.stack[p] > call && !s.acted[p] && active(s).some((i) => i !== p))) return null;
   const min = max(s.bet) + Math.max(s.lastRaise, BB);
   return { min: Math.min(min, room), max: room };
 }
@@ -752,6 +757,24 @@ export function splitScore(split, score) {
   let v = 0.0;
   for (const { a, p } of split) v += p * score(a);
   return v;
+}
+
+// stalker/e3/translate.py pre-registered rule (#417); the constants and their calibration live there.
+export const TV_HIGH = 0.25, GAP_HIGH = 2.0, F_BAND = [0.2, 0.8];
+
+/**
+ * stalker/e3/translate.high_translation_error: true when the split of a bet/raise to `to` is not a
+ * trustworthy reading. One neighbour all in and the other not, below ALLIN_MERGE of the stack; or the
+ * size far from both (F_BAND) with neighbours more than GAP_HIGH apart as pot fractions.
+ */
+export function translationError(s, to) {
+  const split = splitBet(s, to);
+  if (split.length < 2) return false;
+  const [A, B] = split, p = s.toAct;
+  if (B.a === "a") return to < ALLIN_MERGE * (s.stack[p] + s.bet[p]);
+  if (!(F_BAND[0] < A.p && A.p < F_BAND[1])) return false;
+  const menu = sizeMenu(s), ta = menu.find((m) => m.a === A.a).to, tb = menu.find((m) => m.a === B.a).to;
+  return potFraction(s, tb) > GAP_HIGH * potFraction(s, ta);
 }
 
 /**
@@ -985,4 +1008,61 @@ export function updateRanges(policy, d, ranges, action) {
   const col = new Float64Array(N);
   for (let i = 0; i < N; i++) col[i] = P[i * m + a];
   return updateRange(ranges, d.seat, col);
+}
+
+// ---------------------------------------------------------------- teacher answers (web only, no Python twin)
+// TP items the policy key does not read but the screen grades (#445). They use the same public ranges and
+// equity as the key, so a graded answer never contradicts what the policy itself saw.
+
+// Range weights are products of action probabilities, so after a sized bet (one of many menu sizes) every
+// combo can carry a small weight. Width and grid are read relative to the heaviest combo, as a solver does.
+function relWeights(s, w) {
+  const dead = boardDead(s.board);
+  let top = 0.0;
+  for (let i = 0; i < N; i++) if (!dead[i] && w[i] > top) top = w[i];
+  return { dead, top };
+}
+
+/** Public width of seat's range: board-free combos weighted relative to its heaviest combo, in %. */
+export function rangeWidth(s, seat, ranges) {
+  const w = ranges[seat], { dead, top } = relWeights(s, w);
+  let tot = 0.0, n = 0;
+  for (let i = 0; i < N; i++) if (!dead[i]) { tot += w[i]; n++; }
+  return n && top > 0 ? 100.0 * tot / top / n : 0.0;
+}
+
+/** board.adv: 100 x (1 - seat's range-average equity against opp's range). 0 = seat's board, 100 = opp's. */
+export function boardAdvantage(s, seat, opp, ranges) {
+  const e = equityCached(s.board, ranges[opp]), w = ranges[seat];
+  let acc = 0.0, tot = 0.0;
+  for (let i = 0; i < N; i++) if (w[i] > 0 && !Number.isNaN(e[i])) { acc += w[i] * e[i]; tot += w[i]; }
+  return tot > 0 ? 100.0 * (1 - acc / tot) : 50.0;
+}
+
+/**
+ * hand.outs / hand.vuln: deal each unseen card (seat's view: not on the board, not in its hole) as the next
+ * card and compare seat's equity against the live opponents' public ranges with the current one.
+ * A card that moves it by at least `thr` is an out (up) or a bad card (down). Flop and turn only.
+ */
+export function nextCardShift(s, seat, ranges, thr = 0.10) {
+  if (s.board.length !== 3 && s.board.length !== 4) return null;
+  const hole = s.hole[seat], ci = comboIndex(hole), eq = multiEquity(s, seat, ranges)[ci];
+  const up = [], down = [];
+  let total = 0;
+  for (let c = 0; c < 52; c++) {
+    if (s.board.includes(c) || hole.includes(c)) continue;
+    total++;
+    const d = multiEquity({ ...s, board: s.board.concat([c]) }, seat, ranges)[ci] - eq;
+    if (d >= thr - 1e-12) up.push({ c, d }); else if (d <= -thr + 1e-12) down.push({ c, d });
+  }
+  return { eq, total, up, down, outs: Math.round(100 * up.length / total), vuln: Math.round(100 * down.length / total) };
+}
+
+/** Hand classes whose mean relative weight is at least thr: the range drawn as a 13x13 grid. */
+export function rangeClasses(s, seat, ranges, thr = 0.5) {
+  const w = ranges[seat], { dead, top } = relWeights(s, w), acc = new Float64Array(NC), cnt = new Float64Array(NC);
+  for (let i = 0; i < N; i++) if (!dead[i]) { acc[COMBO_CLS[i]] += w[i]; cnt[COMBO_CLS[i]] += 1; }
+  const out = new Set();
+  for (let c = 0; c < NC; c++) if (top > 0 && cnt[c] > 0 && acc[c] / cnt[c] >= thr * top) out.add(HAND_CLASSES[c]);
+  return out;
 }

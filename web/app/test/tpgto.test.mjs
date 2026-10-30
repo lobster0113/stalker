@@ -24,7 +24,7 @@ function seqSum(a) { let s = 0.0; for (const v of a) s += v; return s; }
 
 test("schema and constants match the Python side", () => {
   assert.equal(V.schema, "stalker.web.tpgto.vectors");
-  assert.equal(V.schema_version, 2);
+  assert.equal(V.schema_version, 3);
   const c = V.constants;
   assert.deepEqual(c.TIER_K, T.TIER_K, "TIER_K differs: update tpgto.js to stalker/e3/tp_key.py");
   assert.deepEqual(c.TIER_DEPTH, T.TIER_DEPTH);
@@ -83,8 +83,8 @@ test("every decision: legal, public key, step array, key, range sums; plus final
   assert.deepEqual(fails, { legal: 0, public: 0, steps: 0, key: 0, sums: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
 });
 
-test("menus (real, real + cap 3, tp6): legal, sizes, public keys, translation split and seeded reading", () => {
-  const fails = { legal: 0, amounts: 0, public: 0, split: 0, read: 0, end: 0 };
+test("menus (real, real + cap 3, tp6, v1): legal, sizes, public keys, translation split, seeded reading, error flag", () => {
+  const fails = { legal: 0, amounts: 0, public: 0, split: 0, read: 0, hte: 0, end: 0 };
   const first = [];
   let total = 0, bets = 0, splits = 0;
   const DEPTHS = ["basic", "full", "pro"];
@@ -106,6 +106,7 @@ test("menus (real, real + cap 3, tp6): legal, sizes, public keys, translation sp
         ok.split = JSON.stringify(sp.map((x) => [x.a, x.p])) === JSON.stringify(d.split);
         ok.read = T.sampleBet(s, d.bet, new T.NumpyRng(d.entropy)) === d.read
           && T.translateBet(s, d.bet, new T.NumpyRng(d.entropy)).action === d.read;
+        ok.hte = T.translationError(s, d.bet) === d.hte;
       }
       for (const f in ok) if (!ok[f]) { fails[f]++; if (first.length < 5) first.push({ f, menu: h.menu, cap: h.raise_cap, n: h.n, hist: s.history.join(" "), want: d[f], got: f === "legal" ? acts : f === "amounts" ? amounts : f === "split" ? T.splitBet(s, d.bet) : undefined }); }
       s = d.bet !== undefined ? T.applyBet(s, d.bet, d.read) : T.apply(s, d.a);
@@ -114,7 +115,23 @@ test("menus (real, real + cap 3, tp6): legal, sizes, public keys, translation sp
   }
   console.log(`tpgto menus: ${total} decisions in ${V.menus.length} hands, ${bets} arbitrary bets (${splits} between two sizes); failures ${JSON.stringify(fails)}`);
   assert.ok(total >= 300 && bets >= 100 && splits >= 30, "too few menu vectors; regenerate with more hands");
-  assert.deepEqual(fails, { legal: 0, amounts: 0, public: 0, split: 0, read: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
+  assert.deepEqual(fails, { legal: 0, amounts: 0, public: 0, split: 0, read: 0, hte: 0, end: 0 }, `first mismatches: ${JSON.stringify(first)}`);
+});
+
+test("high translation error (#417): translationError equals translate.high_translation_error at every 0.1BB", () => {
+  let n = 0, flagged = 0;
+  const bad = [];
+  for (const x of V.hte) {
+    let s = T.dealFromPermutation(x.perm, 6, { menu: x.menu, raiseCap: x.raise_cap });
+    s = { ...s, stack: s.bet.map((b) => x.stack_bb * T.BB - b) };
+    for (const a of x.line) s = T.apply(s, a);
+    for (const [to, want] of x.cases) {
+      n++; flagged += want ? 1 : 0;
+      if (T.translationError(s, to) !== want && bad.length < 5) bad.push({ menu: x.menu, line: x.line.join(" "), to, want });
+    }
+  }
+  assert.ok(n >= 5000 && flagged > 0 && flagged < n, "too few hte vectors; regenerate");
+  assert.deepEqual(bad, []);
 });
 
 test("real menu: the owner's size lists per spot, preflop cap, no postflop cap", () => {
@@ -156,6 +173,11 @@ test("a v1 policy reads a real-size bet on its own v1 labels; sizeMenu still lis
   assert.throws(() => T.applyBet(s, 400, "c"), /not a reading/);
   // Grading: the split weighs each label's score.
   assert.equal(T.splitScore(sp, (a) => (a === "r" ? 1 : 0)), f);
+  // #417: 4BB is read 72% as 2.5BB, 28% as all in; that reading is flagged, an exact or near-menu size is not.
+  assert.equal(T.translationError(s, 400), true);
+  assert.equal(T.translationError(s, 250), false);
+  assert.equal(T.translationError(s, 220), false);                               // below the smallest size: r only
+  assert.equal(T.translationError(s, 8000), false);                              // >= 80% of the stack: all in
 });
 
 test("actionProbs returns the table row for the actor's hole, uniform when missing", () => {
@@ -243,4 +265,83 @@ test("off-menu: no bet possible when calling puts the actor all in", () => {
   for (const a of ["f", "f", "f", "f"]) s = T.apply(s, a);
   assert.equal(T.betRange(s), null);
   assert.throws(() => T.translateBet(s, 500), /no bet or raise/);
+});
+
+// #412: every xN size is a raise-to (street total); a short all in does not reopen the betting.
+test("menu sizes are raise-to totals (TP.md section 6)", () => {
+  const d = Array.from({ length: 52 }, (_, i) => i);
+  let s = T.dealFromPermutation(d, 6, { menu: "real", raiseCap: null });
+  assert.equal(T.amountTo(s, "r3"), 300);                   // open to 3BB
+  s = T.apply(s, "r");                                      // open to 250
+  assert.equal(T.amountTo(s, "r"), 750);                    // 3-bet to 3 x 250, not 250 + 750
+  s = T.apply(s, "r");
+  assert.equal(T.amountTo(s, "r2"), 1500);                  // 4-bet to 2 x 750
+  let h = T.dealFromPermutation(d, 2, { menu: "real", raiseCap: null });
+  h = T.apply(T.apply(T.apply(h, "c"), "c"), "b20");        // flop, bet 100 into 200
+  assert.equal(T.amountTo(h, "r"), 300);                    // raise to 3 x 100, not 100 + 300
+});
+
+test("a short all in does not reopen the betting (G._reopens)", () => {
+  const d = Array.from({ length: 52 }, (_, i) => i);
+  let s = T.dealFromPermutation(d, 3);                      // BTN 0, SB 1, BB 2
+  s = { ...s, stack: [s.stack[0], 450 - s.bet[1], s.stack[2]] };
+  s = T.applyBet(s, 300, "r");                              // BTN opens to 300 (raise 200)
+  s = T.apply(s, "a");                                      // SB all in to 450: +150 < 200
+  assert.deepEqual(T.betRange(s), { min: 650, max: 10000 }); // BB has not acted: min raise by the full 200
+  s = T.apply(s, "c");
+  assert.equal(s.toAct, 0);
+  assert.deepEqual(T.legal(s), ["f", "c"]);                 // BTN already acted: call or fold only
+  assert.equal(T.betRange(s), null);
+});
+
+// ---------------------------------------------------------------- teacher answers (#445)
+function flopHU(hero, villain, board) {
+  const C = (t) => T.card(t);
+  let s = T.newHand({ n: 2, holes: [hero.map(C), villain.map(C)], board: board.map(C) });
+  while (s.street === 0) s = T.apply(s, T.legal(s).includes("k") ? "k" : "c");
+  return s;
+}
+
+test("rangeWidth: full range 100%, half the combos 50%", () => {
+  const s = flopHU(["Ah", "Kh"], ["2c", "3d"], ["2h", "7h", "Tc", "9s", "4d"]);
+  const r = T.initialRanges(2);
+  assert.ok(Math.abs(T.rangeWidth(s, 1, r) - 100) < 1e-9);
+  const half = new Float64Array(T.N).map((_, i) => (i % 2 ? 1 : 0));
+  assert.ok(Math.abs(T.rangeWidth(s, 1, [r[0], half]) - 50) < 3);
+  assert.equal(T.rangeClasses(s, 1, r).size, 169);
+  const small = new Float64Array(T.N).fill(0.05);   // e.g. every combo bets this one size 5% of the time
+  assert.ok(Math.abs(T.rangeWidth(s, 1, [r[0], small]) - 100) < 1e-9);
+  assert.equal(T.rangeClasses(s, 1, [r[0], small]).size, 169);
+  const aces = new Float64Array(T.N).map((_, i) => (T.COMBO_HI[i] >> 2 === 12 && T.COMBO_LO[i] >> 2 === 12 ? 1 : 0));
+  assert.deepEqual([...T.rangeClasses(s, 1, [r[0], aces])], ["AA"]);
+});
+
+test("boardAdvantage: equal ranges near 50, a range of aces on an ace-high board is the opponent's", () => {
+  const s = flopHU(["Kd", "Qd"], ["2c", "3d"], ["As", "7h", "2s", "9c", "4d"]);
+  const r = T.initialRanges(2);
+  assert.ok(Math.abs(T.boardAdvantage(s, 0, 1, r) - 50) < 2);
+  const aces = new Float64Array(T.N).map((_, i) => (T.COMBO_HI[i] >> 2 === 12 || T.COMBO_LO[i] >> 2 === 12 ? 1 : 0));
+  assert.ok(T.boardAdvantage(s, 0, 1, [r[0], aces]) > 70);
+});
+
+test("nextCardShift: every unseen heart is an out for a nut flush draw; counts and equity are consistent", () => {
+  const s = flopHU(["Ah", "Kh"], ["2c", "3d"], ["2h", "7h", "Tc", "9s", "4d"]);
+  const r = T.initialRanges(2), x = T.nextCardShift(s, 0, r);
+  assert.equal(x.total, 47);
+  assert.equal(x.eq, T.multiEquity(s, 0, r)[T.comboIndex(s.hole[0])]);
+  const hearts = [...Array(52).keys()].filter((c) => (c & 3) === T.SUITS.indexOf("h") && !s.board.includes(c) && !s.hole[0].includes(c));
+  assert.equal(hearts.length, 9);
+  for (const c of hearts) assert.ok(x.up.some((u) => u.c === c), `${T.cardStr(c)} should be an out`);
+  assert.equal(x.outs, Math.round(100 * x.up.length / 47));
+  assert.equal(x.vuln, Math.round(100 * x.down.length / 47));
+  assert.equal(T.nextCardShift({ ...s, board: s.board.concat([0, 1]) }, 0, r), null);
+});
+
+test("nextCardShift: against a range of flush draws every unseen heart is a bad card for top pair", () => {
+  const s = flopHU(["As", "Jd"], ["2c", "3d"], ["Jh", "Th", "8c", "2s", "4d"]);
+  const h = T.SUITS.indexOf("h"), draws = new Float64Array(T.N).map((_, i) => ((T.COMBO_HI[i] & 3) === h && (T.COMBO_LO[i] & 3) === h ? 1 : 0));
+  const x = T.nextCardShift(s, 0, [T.initialRanges(2)[0], draws]);
+  const hearts = [...Array(52).keys()].filter((c) => (c & 3) === h && !s.board.includes(c) && !s.hole[0].includes(c));
+  for (const c of hearts) assert.ok(x.down.some((u) => u.c === c), `${T.cardStr(c)} should be a bad card`);
+  assert.ok(x.down.every((u) => u.d <= -0.1 + 1e-12) && x.up.every((u) => u.d >= 0.1 - 1e-12));
 });

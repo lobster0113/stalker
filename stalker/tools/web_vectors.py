@@ -9,10 +9,12 @@ test needs nothing else. Also written: numpy runout draws (`default_rng([2026102
 test the RNG port alone, and the 169-class preflop table as web/app/assets/hu_equity.json.
 
 `menus` (#386): seeded random hands under the wider size menus (real with and without the postflop cap,
-tp6) at 2, 6 and 9 players. Per decision: legal actions, every size's street total, the public key at
+tp6, and v1 as served) at 2, 6 and 9 players. Per decision: legal actions, every size's street total, the public key at
 each depth and, when the actor bets an arbitrary amount (min raise, any amount, an exact menu size, all
-in), the translation split (stalker/e3/translate.split) and the seeded reading
-(translate.sample with default_rng([seed, hand, decision])). Equity steps do not depend on the menu, so
+in), the translation split (stalker/e3/translate.split), the seeded reading
+(translate.sample with default_rng([seed, hand, decision])) and the high-translation-error flag
+(translate.high_translation_error, #417). `hte` (#417): that flag on every 0.1BB size at fixed lines
+(HTE_LINES) where each branch of the rule fires. Equity steps do not depend on the menu, so
 these hands carry none.
 
     python -m stalker.tools.web_vectors            # rewrite web/app/test/vectors.json and the asset
@@ -39,12 +41,13 @@ ROOT = Path(__file__).resolve().parents[2]
 VECTORS = ROOT / "web" / "app" / "test" / "vectors.json"
 ASSET = ROOT / "web" / "app" / "assets" / "hu_equity.json"
 SCHEMA = "stalker.web.tpgto.vectors"
-SCHEMA_VERSION = 2   # 2: "menus" block (#386)
+SCHEMA_VERSION = 3   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417)
 TIERS = ("beginner", "mid", "pro")
 PLAYERS = (6, 9)
 FOLD_WEIGHTS = (0.15, 1.0, 4.0)   # per hand: deep multiway hands, plain random, fold-heavy (heads-up postflop)
 DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
-MENU_RULES = (("real", None), ("real", 3), ("tp6", 3))   # (menu, raise_cap); real + None is the training job
+MENU_RULES = (("real", None), ("real", 3), ("tp6", 3), ("v1", 3))   # (menu, raise_cap); real + None is the training job;
+# v1 (the served tables) is last so the earlier blocks keep their seeds
 MENU_PLAYERS = (2, 6, 9)
 DEPTHS = ("basic", "full", "pro")
 
@@ -135,7 +138,8 @@ def _play_menu(menu: str, cap, n: int, seed: int, h: int, rng: np.random.Generat
             to = _bet_to(s, rng)
             entropy = [seed, h, len(decisions)]
             read = X.sample(s, to, np.random.default_rng(entropy))
-            d.update(bet=to, split=[[a, f] for a, f in X.split(s, to)], entropy=entropy, read=read)
+            d.update(bet=to, split=[[a, f] for a, f in X.split(s, to)], entropy=entropy, read=read,
+                     hte=X.high_translation_error(s, to))
             s = G._advance(G._put_in(s, to, f"{p}:{read}"), p)   # chips by `to`, history by the reading
         else:
             wts = np.array([0.3 if a == "f" else 0.1 if a == "a" else 1.0 for a in acts])
@@ -152,6 +156,32 @@ def menu_vectors(hands: int, seed: int) -> list[dict]:
         for n in MENU_PLAYERS:
             rng = np.random.default_rng([seed, 386, r, n])
             out.extend(_play_menu(menu, cap, n, seed, len(out), rng) for _ in range(hands))
+    return out
+
+
+# Fixed lines for the high-translation-error rule (#417): every 0.1BB from the min raise to all in at
+# spots where each branch of the rule fires (v1 open and 3-bet: the all-in neighbour; v1 flop: b33|b75,
+# the gap rule; real: the all-in above the top size; short stacks: the ALLIN_MERGE exemption).
+HTE_LINES = (("v1", 3, 100, ()), ("v1", 3, 100, ("f", "f", "r")), ("v1", 3, 100, ("f", "f", "f", "r", "f", "c")),
+             ("v1", 3, 15, ("f", "f", "f")), ("real", None, 100, ()), ("real", None, 100, ("f", "f", "r")),
+             ("real", None, 100, ("f", "f", "f", "r", "f", "c")), ("tp6", 3, 100, ("f", "f", "f", "r", "f", "c")))
+
+
+def hte_vectors(seed: int) -> list[dict]:
+    out = []
+    for i, (menu, cap, stack_bb, line) in enumerate(HTE_LINES):
+        s = G.deal(np.random.default_rng([seed, 417, i]), 6, menu, cap)
+        perm = [c for hl in s.hole for c in hl] + list(s.deck)
+        s = s._replace(stack=tuple(stack_bb * G.BB - b for b in s.bet))
+        for a in line:
+            s = G.apply(s, a)
+        p = s.to_act
+        room = s.stack[p] + s.bet[p]
+        least = min(max(s.bet) + s.last_raise, room)
+        cases = [[to, X.high_translation_error(s, to)]
+                 for to in sorted({least, room} | set(range(-(-least // 10) * 10, room + 1, 10)))]
+        out.append({"menu": menu, "raise_cap": cap, "stack_bb": stack_bb, "perm": perm, "line": list(line),
+                    "cases": cases})
     return out
 
 
@@ -183,7 +213,7 @@ def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, ti
                           "NUT_K": K.NUT_K, "EQ_RUNOUTS": EQ_RUNOUTS},
             "params": {"hands": hands, "iters": iters, "seed": seed},
             "policies": policy_used, "hands": out_hands, "rng": rng_vectors(rng_count, seed),
-            "menus": menu_vectors(menu_hands, seed)}
+            "menus": menu_vectors(menu_hands, seed), "hte": hte_vectors(seed)}
 
 
 def summary(v: dict) -> dict:
@@ -197,7 +227,12 @@ def summary(v: dict) -> dict:
             "by_tier": {t: sum(1 for h, _ in ds if h["tier"] == t) for t in TIERS},
             "menu_decisions": sum(len(h["decisions"]) for h in v["menus"]),
             "menu_bets": sum(1 for h in v["menus"] for d in h["decisions"] if "bet" in d),
-            "menu_bets_split": sum(1 for h in v["menus"] for d in h["decisions"] if len(d.get("split", ())) == 2)}
+            "menu_bets_split": sum(1 for h in v["menus"] for d in h["decisions"] if len(d.get("split", ())) == 2),
+            "hte_cases": sum(len(x["cases"]) for x in v.get("hte", ())),
+            "hte_flagged": sum(f for x in v.get("hte", ()) for _, f in x["cases"]),
+            "menu_bets_hte": sum(1 for h in v["menus"] for d in h["decisions"] if d.get("hte")),
+            "menu_bets_hte_gap": sum(1 for h in v["menus"] for d in h["decisions"]
+                                     if d.get("hte") and d["split"][1][0] != "a")}
 
 
 def _write(path: Path, obj) -> None:

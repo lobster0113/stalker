@@ -39,11 +39,14 @@ POT_ODDS_EDGES = (0.2, 0.3, 0.4)     # stalker/e3/tp_key.py
 SPR_EDGES = (1.0, 3.0, 6.0)
 
 # keyer(game, node, r_own, r_opp) -> (table id, row per combo, rows in the table)
-# Which public ranges TP features are read from during training (#393 finding: "current" does not settle).
+# Which public ranges TP features are read from during training (#393; the "current does not settle"
+# finding there was a reach bug, corrected in #414).
 #   current: the ranges of this iteration's strategy, as stalker/e3/mccfr.py does
 #   average: the ranges of the average strategy (the deployed policy), refreshed every `refresh` iterations
+#   snapshot: the ranges of the current strategy taken every `refresh` iterations and frozen in between
+#             (an epoch; #411 arm C)
 #   initial: the subgame's starting ranges (a fixed bucketing of hands)
-KEY_RANGES = ("current", "average", "initial")
+KEY_RANGES = ("current", "average", "snapshot", "initial")
 Keyer = Callable[[RiverGame, Node, np.ndarray, np.ndarray], tuple[object, np.ndarray, int]]
 
 
@@ -67,12 +70,22 @@ def identity_keyer(game: RiverGame, node: Node, r_own, r_opp):
     return node.id, np.arange(game.sd.n), game.sd.n
 
 
-def tp_keyer(k: int, public: str = "node") -> Keyer:
+def abs_steps(x: np.ndarray, k: int) -> np.ndarray:
+    """k equal steps of [0, 1]."""
+    return np.minimum((x * k).astype(np.int64), k - 1)
+
+
+def tp_keyer(k: int, public: str = "node", scale: str = "quantile") -> Keyer:
+    """scale="quantile" over my combos, as E3; "abs" on the 0-1 equity scale itself (for games with so few
+    private states that the quantile order of equities never changes, e.g. Leduc's three ranks)."""
     if public not in ("node", "tp"):
         raise ValueError(f"public={public!r}; use 'node' or 'tp'")
+    if scale not in ("quantile", "abs"):
+        raise ValueError(f"scale={scale!r}; use 'quantile' or 'abs'")
+    step = quantile_steps if scale == "quantile" else abs_steps
 
     def keyer(game: RiverGame, node: Node, r_own, r_opp):
-        steps = quantile_steps(game.sd.equity(r_opp), k)
+        steps = step(game.equity(node, r_opp), k)
         return (node.id if public == "node" else public_tp_key(node)), steps, k
     return keyer
 
@@ -93,6 +106,7 @@ class VectorCFR:
         self.avg: dict[object, np.ndarray] = {}
         self.key_reach: dict[int, list[np.ndarray]] = {}    # node -> ranges the TP features are read from
         self.t = 0
+        self.refreshes = 0                                   # snapshots taken (average / snapshot)
 
     def _rows(self, node: Node, r_own, r_opp):
         if self.keyer is None:
@@ -100,7 +114,7 @@ class VectorCFR:
         q = node.player
         if self.key_ranges == "initial":
             r_own, r_opp = self.game.init[q], self.game.init[1 - q]
-        elif self.key_ranges == "average" and node.id in self.key_reach:
+        elif self.key_ranges in ("average", "snapshot") and node.id in self.key_reach:
             r = self.key_reach[node.id]
             r_own, r_opp = r[q], r[1 - q]
         return self.keyer(self.game, node, r_own, r_opp)
@@ -120,16 +134,20 @@ class VectorCFR:
 
     def _walk(self, node: Node, p: int, r: list[np.ndarray]) -> np.ndarray:
         g = self.game
+        if node.kind == "chance":
+            return sum(self._walk(ch, p, r) for ch in node.children)
         if node.kind != "act":
             return g.terminal_value(node, p, r[1 - p])
         q = node.player
         tid, rows, nrows, sigma = self._sigma(node, r)
         if q == p:
-            vals = np.stack([self._walk(ch, p, r) for ch in node.children], axis=1)
+            # Own reach rides down too: the average below weights by it, and the opponent's TP key reads it.
+            vals = np.stack([self._walk(ch, p, self._down(r, q, sigma[:, i])) for i, ch in enumerate(node.children)],
+                            axis=1)
             v = (sigma * vals).sum(axis=1)
-            diff = vals - v[:, None]
+            diff = g.init[p][:, None] * (vals - v[:, None])
             reg = self.regret[tid]
-            contrib = r[q][:, None] * sigma * self.t        # linear averaging (CFR+)
+            contrib = (r[q] * g.own_mass(node, q))[:, None] * sigma * self.t        # linear averaging (CFR+)
             avg = self._table(self.avg, tid, nrows, len(node.children))
             if rows is None:
                 reg += diff
@@ -141,15 +159,24 @@ class VectorCFR:
             return v
         out = np.zeros(g.sd.n)
         for i, ch in enumerate(node.children):
-            rr = list(r)
-            rr[q] = r[q] * sigma[:, i]
-            out += self._walk(ch, p, rr)
+            out += self._walk(ch, p, self._down(r, q, sigma[:, i]))
         return out
+
+    @staticmethod
+    def _down(r: list[np.ndarray], q: int, s: np.ndarray) -> list[np.ndarray]:
+        rr = list(r)
+        rr[q] = r[q] * s
+        return rr
 
     def iterate(self, iters: int = 1) -> None:
         for _ in range(iters):
-            if self.keyer is not None and self.key_ranges == "average" and self.t % self.refresh == 0 and self.avg:
-                self.materialize(record=True)
+            if self.keyer is not None and self.t % self.refresh == 0:
+                if self.key_ranges == "average" and self.avg:
+                    self.materialize(record=True)
+                    self.refreshes += 1
+                elif self.key_ranges == "snapshot":
+                    self.materialize(average=False, record=True)
+                    self.refreshes += 1
             self.t += 1
             for p in (0, 1):
                 self._walk(self.game.root, p, list(self.game.init))
@@ -161,22 +188,35 @@ class VectorCFR:
             out[tid] = np.where(tot > 0, a / np.where(tot > 0, tot, 1.0), 1.0 / a.shape[1])
         return out
 
-    def materialize(self, average: bool = True, record: bool = False) -> dict[int, np.ndarray]:
-        """Per-combo strategy at every decision node, keys read from the policy's own public ranges.
+    def materialize(self, average: bool = True, record: bool = False, keys: str = "train",
+                    keys_out: dict[int, np.ndarray] | None = None) -> dict[int, np.ndarray]:
+        """Per-combo strategy at every decision node.
 
-        `record` stores those ranges as the ones training reads TP features from (key_ranges="average")."""
+        keys="train" reads TP features from the ranges training reads them from (`key_ranges`); "policy"
+        from this strategy's own public ranges (the info contract, docs/TP.md section 2). `record` implies
+        "policy" and stores those ranges as the ones training reads (key_ranges="average"/"snapshot").
+        `keys_out` collects the row of every combo per node."""
+        if keys not in ("train", "policy"):
+            raise ValueError(f"keys={keys!r}; use 'train' or 'policy'")
         tables = self.average_rows() if average else {t: regret_match(v) for t, v in self.regret.items()}
         out: dict[int, np.ndarray] = {}
 
         def rec(node: Node, r: list[np.ndarray]):
+            if node.kind == "chance":
+                for ch in node.children:
+                    rec(ch, r)
+                return
             if node.kind != "act":
                 return
             q = node.player
             if record:
                 self.key_reach[node.id] = r
+            if self.keyer is not None and (record or keys == "policy"):
                 tid, rows, nrows = self.keyer(self.game, node, r[q], r[1 - q])
             else:
                 tid, rows, nrows = self._rows(node, r[q], r[1 - q])
+            if keys_out is not None:
+                keys_out[node.id] = rows
             tab = tables.get(tid)
             if tab is None:
                 tab = np.full((nrows, len(node.children)), 1.0 / len(node.children))
@@ -194,6 +234,8 @@ def _value(game: RiverGame, strat: dict[int, np.ndarray], p: int, br: bool) -> f
     """Player p's expected value per deal: following `strat` (br=False) or best-responding to it."""
 
     def rec(node: Node, r_opp: np.ndarray, r_own: np.ndarray) -> np.ndarray:
+        if node.kind == "chance":
+            return sum(rec(ch, r_opp, r_own) for ch in node.children)
         if node.kind != "act":
             return game.terminal_value(node, p, r_opp)
         s = strat[node.id]

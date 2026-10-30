@@ -13,6 +13,9 @@ Pod chains (#354): `cloud.yml resume_run=<id>` hands run <id>'s result to the ne
 gzipped), which passes it as `--resume-result`; the job, tier, players and board.nut grid must match.
 The checkpoint is kept under RESUME_BUDGET (the proxy's upload limit) when float32 fits, so a chain
 can continue; above that the result still carries it, but only for `--unpack`.
+
+`--ranges average` (#405) trains with TP-feature ranges from the average-strategy snapshot; the npz then also
+carries the snapshot rows, and a chain resumes only a result trained with the same ranges.
 """
 from __future__ import annotations
 
@@ -42,7 +45,8 @@ def job_name(tier: str, players: int) -> str:
 
 
 def load_resume_result(path: Path, tier: str, players: int, menu: str = "v1",
-                       raise_cap: int | None | str = "default") -> tuple[dict, str | None]:
+                       raise_cap: int | None | str = "default", ranges: str = "current",
+                       avg_rule: str = "legacy") -> tuple[dict, str | None]:
     """`E3MCCFR.state()` from an earlier pod result (plain or gzipped JSON), plus the run it came from.
 
     Refuses a result of another job: its keys would mean other things in this table."""
@@ -61,7 +65,9 @@ def load_resume_result(path: Path, tier: str, players: int, menu: str = "v1",
     bad += [f"model.{k} {model.get(k)!r} != {v!r}" for k, v in
             {"k": K.TIER_K[tier], "n": players, "depth": K.TIER_DEPTH[tier]}.items() if model.get(k) != v]
     # the game rules (#339): a result from before them was v1 with cap 3, as E3MCCFR.from_state reads it
-    rules = {"menu": (model.get("menu", "v1"), menu), "raise_cap": (model.get("raise_cap", G.RAISE_CAP), raise_cap)}
+    rules = {"menu": (model.get("menu", "v1"), menu), "raise_cap": (model.get("raise_cap", G.RAISE_CAP), raise_cap),
+             "ranges": (model.get("ranges", "current"), ranges),
+             "avg_rule": (model.get("avg_rule", "legacy"), avg_rule)}    # #426: a result before it was legacy
     bad += [f"{k} {got!r} != {want!r}" for k, (got, want) in rules.items() if got != want]
     if K.TIER_DEPTH[tier] == "pro" and model.get("nut_k", K.K_PRO) != K.NUT_K:
         bad.append(f"nut_k {model.get('nut_k', K.K_PRO)} != {K.NUT_K} (#332)")
@@ -78,12 +84,17 @@ def pack(m, dtype=np.float64) -> bytes:
     zero = np.zeros(0)
     reg = [m.regret.get(k, zero) for k in keys]
     avg = [m.avg[k] if m.avg.get(k) is not None else zero for k in keys]
+    extra = {}
+    if m.ranges == "average":  # the snapshot rows (#405); its keys are a subset of the average's
+        snap = [m.snap.get(k, zero) for k in keys]
+        extra = {"snap_len": np.array([len(r) for r in snap], dtype=np.int16),
+                 "snap": np.concatenate(snap + [zero]).astype(dtype)}
     buf = io.BytesIO()
     np.savez_compressed(buf, keys=np.array("\n".join(keys).encode()),
                         reg_len=np.array([len(r) for r in reg], dtype=np.int16),
                         avg_len=np.array([len(a) for a in avg], dtype=np.int16),
                         reg=np.concatenate(reg + [zero]).astype(dtype), avg=np.concatenate(avg + [zero]).astype(dtype),
-                        visits=np.array([m.visits.get(k, 0) for k in keys], dtype=np.int64))
+                        visits=np.array([m.visits.get(k, 0) for k in keys], dtype=np.int64), **extra)
     return buf.getvalue()
 
 
@@ -105,19 +116,29 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
         if v:
             visits[k] = int(v)
         ri, ai = ri + rl, ai + al
-    return {"version": 1, **meta, "regret": regret, "avg": avg, "visits": visits}
+    version = 3 if meta.get("avg_rule") == "own" else 1   # a result before #426 has no avg_rule: legacy
+    if meta.get("ranges", "current") != "average":
+        return {"version": version, "avg_rule": "legacy", **meta, "regret": regret, "avg": avg, "visits": visits}
+    snap, si, sv = {}, 0, z["snap"].astype(float).tolist()
+    for k, sl in zip(keys, z["snap_len"].tolist()):
+        if sl:
+            snap[k] = sv[si:si + sl]
+        si += sl
+    return {"version": max(version, 2), "avg_rule": "legacy", **meta, "regret": regret, "avg": avg, "visits": visits,
+            "snap": snap}
 
 
 def train(tier: str, players: int, workers: int, minutes: float, seed: int, batch: int,
           resume: dict | None = None, menu: str = "v1", raise_cap: int | None | str = "default",
-          log=lambda s: print(s, file=sys.stderr, flush=True)):
+          ranges: str = "current", avg_rule: str = "legacy", log=lambda s: print(s, file=sys.stderr, flush=True)):
     from stalker.e3 import game as G
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
-    m = E3MCCFR.from_state(resume) if resume else E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu,
-                                                         G.RAISE_CAP if raise_cap == "default" else raise_cap)
+    m = E3MCCFR.from_state(resume, avg_rule) if resume else E3MCCFR(
+        seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, G.RAISE_CAP if raise_cap == "default" else raise_cap,
+        ranges, avg_rule=avg_rule)
     start_iters, timing = m.iterations, {}
     t0 = time.monotonic()
     deadline, next_log = t0 + minutes * 60, t0 + PROGRESS_SECONDS
@@ -147,16 +168,19 @@ class _NoPool:
 
 def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch: int, resume: dict | None = None,
         budget: int = RESULT_BUDGET, resume_budget: int = RESUME_BUDGET, resumed_from_run: str | None = None,
-        menu: str = "v1", raise_cap: int | None | str = "default") -> dict:
+        menu: str = "v1", raise_cap: int | None | str = "default", ranges: str = "current",
+        avg_rule: str = "legacy") -> dict:
     from stalker.train_jobs import e3_evaluate
 
-    m, stats = train(tier, players, workers, minutes, seed, batch, resume, menu, raise_cap)
+    m, stats = train(tier, players, workers, minutes, seed, batch, resume, menu, raise_cap, ranges, avg_rule)
     res = {"job": job_name(tier, players), "tier": tier, "players": players, "seed": seed, "workers": workers,
            "batch": batch, "iters": m.iterations, "resumed_from_run": resumed_from_run, **stats}
     res.update(e3_evaluate(m, seed))
     res["model"] = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
-                    "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state,
+                    "menu": m.menu, "raise_cap": m.raise_cap, "avg_rule": m.avg_rule, "rng": m.rng.bit_generator.state,
                     **m._grid()}
+    if m.ranges == "average":  # absent for current ranges, so those results stay as before #405
+        res["model"].update(ranges=m.ranges, range_every=m.range_every, snap_at=m.snap_at)
     res.update(_checkpoint(m, budget, resume_budget))
     res.update(max_rss_mb=max_rss_mb(), max_child_rss_mb=max_child_rss_mb(), machine=machine())
     return res
@@ -215,6 +239,10 @@ def main(argv=None) -> int:
     ap.add_argument("--menu", default="v1", choices=("v1", "tp6", "real"),
                     help="E3 action menu: v1, tp6 (#339) or real (#382)")
     ap.add_argument("--no-raise-cap", action="store_true", help="no raise cap (#339); default cap 3")
+    ap.add_argument("--ranges", default="current", choices=("current", "average"),
+                    help="strategy that moves the TP-feature ranges (#405)")
+    ap.add_argument("--avg-rule", default="legacy", choices=("legacy", "own"),
+                    help="average-strategy accumulation (#426): legacy (every run before it) or own reach")
     ap.add_argument("--resume-result", type=Path, help="an earlier pod result (JSON, may be gzipped) to continue")
     ap.add_argument("--sha-file", type=Path, help="file holding the source commit (the pod reads it from the tarball)")
     ap.add_argument("--unpack", type=Path, help="instead of training: write this pod result's model to --out (a folder)")
@@ -231,9 +259,9 @@ def main(argv=None) -> int:
     resume, from_run = (json.loads(a.resume.read_text(encoding="utf-8")) if a.resume else None), None
     cap = None if a.no_raise_cap else "default"
     if a.resume_result:
-        resume, from_run = load_resume_result(a.resume_result, a.tier, a.players, a.menu, cap)
+        resume, from_run = load_resume_result(a.resume_result, a.tier, a.players, a.menu, cap, a.ranges, a.avg_rule)
     res = run(a.tier, a.players, a.workers, a.minutes, a.seed, a.batch, resume, resumed_from_run=from_run,
-              menu=a.menu, raise_cap=cap)
+              menu=a.menu, raise_cap=cap, ranges=a.ranges, avg_rule=a.avg_rule)
     res["sha"] = a.sha_file.read_text(encoding="utf-8").strip() if a.sha_file and a.sha_file.exists() else ""
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res), encoding="utf-8")

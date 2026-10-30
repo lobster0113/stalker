@@ -31,9 +31,12 @@ play), whatever `raise_cap` says; `raise_cap` caps the postflop streets. Any oth
 these labels with stalker/e3/translate.py.
 
 Seats are numbered in preflop order: 0 = UTG ... n-3 = BTN, n-2 = SB, n-1 = BB. Postflop the SB
-acts first. Heads-up (n = 2) the SB is the button: first preflop, last postflop. Every player starts with the same stack, so an all-in is the largest possible
-contribution and no side pot can arise; showdowns split one pot (odd chips to the first winner
-in postflop order). Chips are integers with BB = 100. The state is immutable.
+acts first. Heads-up (n = 2) the SB is the button: first preflop, last postflop. By default every player starts with STACK; `deal(stacks=...)` (#396) gives each seat its own
+starting stack (`sample_stacks` draws 20-250BB tables). Then an all-in can be larger than another player's
+whole stack, and `payoff` settles side pots in layers by all-in level (an uncalled top layer goes back to
+its owner; ties split a pot, odd chips to the first winner in postflop order). Chips are integers with BB = 100. The state is immutable. The betting rules still hold
+for any stacks (short all ins that do not add up to a full raise do not reopen the betting, `_locked`): Gate R
+(referee/gate_r/e3_suite.py) replays them in PokerKit, side pots included.
 """
 from __future__ import annotations
 
@@ -47,6 +50,7 @@ from stalker.core.evaluator import evaluate
 BB = 100
 SB = 50
 STACK = 100 * BB
+STACK_RANGE_BB = (20, 250)   # sample_stacks: log-uniform whole-BB stacks in this range
 RAISE_CAP = 3
 PREFLOP_RAISE = (2.5, 3.0, 2.2)
 MENUS = ("v1", "tp6", "real")
@@ -101,6 +105,7 @@ class State(NamedTuple):
     done: bool = False
     menu: str = "v1"
     raise_cap: int | None = RAISE_CAP
+    short_raise: int = 0                  # chips of short all-in raises since the last full raise (they add up, TDA)
 
     @property
     def pot(self) -> int:
@@ -133,9 +138,24 @@ def rules(menu: str = "v1", raise_cap: int | None = RAISE_CAP):
         _DEFAULT.update(old)
 
 
-def deal(rng: np.random.Generator, n: int = 6, menu: str | None = None, raise_cap=_UNSET) -> State:
+def sample_stacks(rng: np.random.Generator, n: int, equal_p: float = 0.5) -> tuple[int, ...]:
+    """Starting stacks (chips) for a training table: with probability `equal_p` every seat gets one
+    stack, otherwise each seat draws its own; stacks are log-uniform whole BBs in STACK_RANGE_BB, so
+    short, deep and mixed-depth tables (and the side pots they make) all occur."""
+    lo, hi = np.log(STACK_RANGE_BB[0]), np.log(STACK_RANGE_BB[1])
+    k = 1 if rng.random() < equal_p else n
+    bbs = [int(round(float(np.exp(x)))) for x in rng.uniform(lo, hi, size=k)]
+    return tuple(b * BB for b in (bbs * n if k == 1 else bbs))
+
+
+def deal(rng: np.random.Generator, n: int = 6, menu: str | None = None, raise_cap=_UNSET,
+         stacks: tuple[int, ...] | None = None) -> State:
+    """`stacks`: each seat's starting stack before the blinds (default STACK for all, one rng draw order
+    unchanged so seeded results do not move)."""
     if not 2 <= n <= 9:
         raise ValueError(f"n={n}: E3 supports 2..9 players")
+    if stacks is not None and (len(stacks) != n or min(stacks) < 2 * BB):
+        raise ValueError(f"stacks={stacks}: need {n} starting stacks of at least {2 * BB} chips")
     menu = _DEFAULT["menu"] if menu is None else menu
     raise_cap = _DEFAULT["raise_cap"] if raise_cap is _UNSET else raise_cap
     if menu not in MENUS:
@@ -144,7 +164,7 @@ def deal(rng: np.random.Generator, n: int = 6, menu: str | None = None, raise_ca
     hole = tuple((d[2 * i], d[2 * i + 1]) for i in range(n))
     bet = [0] * n
     bet[n - 2], bet[n - 1] = SB, BB
-    stack = tuple(STACK - b for b in bet)
+    stack = tuple((STACK if stacks is None else stacks[i]) - b for i, b in enumerate(bet))
     return State(n=n, hole=hole, deck=tuple(d[2 * n:]), stack=stack, bet=tuple(bet), total=tuple(bet),
                  folded=(False,) * n, acted=(False,) * n, to_act=0, menu=menu, raise_cap=raise_cap)
 
@@ -212,17 +232,24 @@ def _offered(s: State) -> list[tuple[str, int]]:
     return out
 
 
+def _can_cover(s: State) -> list[int]:
+    """Other players who could still call a raise: a raise nobody can match is only a call (PokerKit
+    agrees; the uncalled excess would come back). With equal stacks this is just the other active players."""
+    top = max(s.bet)
+    return [i for i in s.active() if i != s.to_act and s.stack[i] + s.bet[i] > top]
+
+
 def legal(s: State) -> list[str]:
     if s.done:
         return []
     p = s.to_act
     call = s.to_call()
-    others = [i for i in s.active() if i != p]
+    others = _can_cover(s)
     acts: list[str] = []
     if call > 0:
         acts.append("f")
     acts.append("c" if (call > 0 or s.street == 0) else "k")
-    if s.stack[p] > call and others:
+    if s.stack[p] > call and others and not _locked(s, p):   # acted and still to act: short all ins did not reopen
         cap = street_cap(s)
         if cap is None or s.raises < cap + (1 if s.street == 0 else 0):
             acts.extend(name for name, _ in _offered(s))
@@ -254,7 +281,7 @@ def _street_closed(s: State) -> bool:
 def _deal_street(s: State) -> State:
     k = 3 if s.street == 0 else 1
     ns = s._replace(street=s.street + 1, board=s.board + s.deck[:k], deck=s.deck[k:], bet=(0,) * s.n,
-                 raises=0, last_raise=BB, acted=(False,) * s.n, history=s.history + ("/",))
+                 raises=0, last_raise=BB, short_raise=0, acted=(False,) * s.n, history=s.history + ("/",))
     first = next((i for i in postflop_order(s.n) if not s.folded[i] and s.stack[i] > 0), s.n - 2)
     return ns._replace(to_act=first)
 
@@ -271,6 +298,14 @@ def _after_close(s: State) -> State:
     return _deal_street(s)
 
 
+def _locked(s: State, p: int) -> bool:
+    """`p` may call or fold but not raise: either it already acted and faces only short all-in raises that
+    do not add up to a full raise, or what it owes is less than a full raise (TDA; PokerKit agrees,
+    referee/gate_r/e3_suite.py)."""
+    raised = s.raises > (s.street == 0)   # the big blind is not a raise: the small blind may raise its 50 up
+    return (s.acted[p] and s.short_raise > 0) or (raised and 0 < s.to_call(p) < s.last_raise)
+
+
 def _put_in(s: State, to: int, entry: str) -> State:
     """The seat to act raises its street contribution to `to` (a check when `to` is what it has in)."""
     p = s.to_act
@@ -280,11 +315,14 @@ def _put_in(s: State, to: int, entry: str) -> State:
     bet[p] = to
     total[p] += add
     raised = to > max(s.bet)
-    acted = [False] * s.n if raised else list(s.acted)
+    full = raised and to - max(s.bet) >= s.last_raise
+    acted = [False] * s.n if full else list(s.acted)
     acted[p] = True
+    last_raise = max(s.last_raise, to - max(s.bet)) if raised else s.last_raise
+    short = 0 if full else s.short_raise + (to - max(s.bet) if raised else 0)   # short all-ins add up (TDA)
     return s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), acted=tuple(acted),
-                      history=s.history + (entry,), raises=s.raises + int(raised),
-                      last_raise=max(s.last_raise, to - max(s.bet)) if raised else s.last_raise)
+                      history=s.history + (entry,), raises=s.raises + int(raised), last_raise=last_raise,
+                      short_raise=0 if short >= last_raise else short)
 
 
 def _advance(ns: State, p: int) -> State:
@@ -310,14 +348,16 @@ def apply(s: State, a: str) -> State:
 
 
 def apply_to(s: State, to: int, label: str) -> State:
-    """A bet or raise to `to` chips on this street that is not on the menu (referee LBR, #343).
-    `label` is the menu action recorded in the history, so TP keys read it as that action. The size must
-    be a legal one: above the current bet by at least the last raise, below all in, with raises left."""
+    """A bet or raise to `to` chips on this street that is not on the menu (referee LBR #343, a person's
+    real size #412). `label` is the menu action recorded in the history (stalker/e3/translate.py), so TP
+    keys read it as that action. Any legal no-limit size is accepted, on any street and past the menu's
+    raise cap (the cap, the all-in-only 5-bet and ALLIN_MERGE are menu rules, TP.md section 6): from the
+    current bet plus the last raise up to all in, or all in when that is less."""
     p = s.to_act
     room = s.stack[p] + s.bet[p]
-    if (s.done or s.street == 0 or not max(s.bet) + s.last_raise <= to <= room
-            or (street_cap(s) is not None and s.raises >= street_cap(s))
-            or len([i for i in s.active() if i != p]) == 0):
+    least = min(max(s.bet) + s.last_raise, room)
+    if (s.done or not least <= to <= room or s.stack[p] <= s.to_call() or _locked(s, p)
+            or not _can_cover(s)):
         raise ValueError(f"illegal bet/raise to {to} after {s.history}")
     return _advance(_put_in(s, to, f"{p}:{label}"), p)
 
@@ -332,18 +372,25 @@ def payoff(s: State) -> np.ndarray:
         out[live[0]] += s.pot
         return out
     score = {i: evaluate(list(s.hole[i]) + list(s.board)) for i in live}
-    best = max(score.values())
-    winners = [i for i in postflop_order(s.n) if i in score and score[i] == best]
-    share, odd = divmod(s.pot, len(winners))
-    for i in winners:
-        out[i] += share
-    out[winners[0]] += odd  # all odd chips to the first winner (TDA, as referee/gate_r/settlement.py; #203)
+    order = postflop_order(s.n)
+    prev = 0
+    for level in sorted({s.total[i] for i in live}):
+        amount = sum(min(t, level) - min(t, prev) for t in s.total)
+        prev = level
+        seats = [i for i in live if s.total[i] >= level]
+        best = max(score[i] for i in seats)
+        winners = [i for i in order if i in seats and score[i] == best]
+        share, odd = divmod(amount, len(winners))
+        for i in winners:
+            out[i] += share
+        out[winners[0]] += odd  # all odd chips to the first winner (TDA, as referee/gate_r/settlement.py; #203)
+    out += np.maximum(np.array(s.total, dtype=np.int64) - prev, 0)   # a bet above every live stack is returned
     return out
 
 
 def random_playout(rng: np.random.Generator, n: int = 6, menu: str | None = None,
-                   raise_cap=_UNSET) -> State:
-    s = deal(rng, n, menu, raise_cap)
+                   raise_cap=_UNSET, stacks: tuple[int, ...] | None = None) -> State:
+    s = deal(rng, n, menu, raise_cap, stacks)
     while not s.done:
         acts = legal(s)
         s = apply(s, acts[int(rng.integers(len(acts)))])

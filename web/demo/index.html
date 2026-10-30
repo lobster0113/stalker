@@ -137,6 +137,16 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .infobar .pill { padding: 3px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line-soft); }
 .infobar .pill.hot { color: var(--brass-hi); border-color: rgba(214,171,85,.4); }
 .infobar .spacer { flex: 1; }
+.sess { position: relative; }
+.sess summary { cursor: pointer; list-style: none; }
+.sess summary::-webkit-details-marker { display: none; }
+.sess summary::after { content: " ▾"; color: var(--faint); }
+.sess-pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(320px, 86vw); max-height: 320px; overflow: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; box-shadow: 0 12px 30px rgba(0,0,0,.45); font-size: 12px; }
+.sess-pop table { width: 100%; border-collapse: collapse; }
+.sess-pop td { padding: 3px 4px; border-top: 1px solid var(--line-soft); white-space: nowrap; }
+.sess-pop td.r { text-align: right; }
+@media (max-width: 760px) { .sess-pop { position: fixed; left: 16px; right: 16px; top: 132px; width: auto; } }
+.sess-pop p { margin: 8px 0 0; color: var(--muted); line-height: 1.45; white-space: normal; }
 .lvclock .frz { margin-left: 6px; font-size: 10.5px; color: var(--blue); border: 1px solid rgba(93,143,216,.45); border-radius: 999px; padding: 1px 7px; }
 .iconbtn { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 10px; padding: 6px 10px; font-size: 12px; }
 
@@ -164,7 +174,13 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 
 .board { position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%); display: flex; gap: calc(var(--cw) * .12); }
 .board .slot { width: var(--cw); aspect-ratio: 5 / 7; border-radius: 6px; border: 1px dashed rgba(255,255,255,.08); }
-.pot { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tell-progress { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin: 6px 0 10px; }
+.tell-progress b { color: var(--text); }
+.tell-wait { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.tell-wait summary { cursor: pointer; }
+.tell-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tell-chips span { background: var(--panel-2); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.pot { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; }
 .pot .amt { font: 600 clamp(12px, 1.3vw, 16px)/1 var(--font-display); background: rgba(0,0,0,.42); padding: 4px 10px; border-radius: 999px; letter-spacing: .03em; white-space: nowrap; }
 .pot .amt small { color: var(--muted); font-size: .8em; margin-right: 4px; }
 
@@ -185,11 +201,14 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 
 /* seats */
 .seat { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; width: clamp(92px, 12vw, 150px); transition: opacity .4s; }
-.seat .hole { display: flex; gap: 2px; height: calc(var(--cw) * 1.4 * .82); margin-bottom: calc(var(--cw) * -.42); position: relative; z-index: 1; }
+/* #445: the cards only touch the pod's rim, so they never cover the name or the stack. */
+.seat .hole { display: flex; gap: 2px; height: calc(var(--cw) * 1.4 * .82); margin-bottom: calc(var(--cw) * -.1); position: relative; z-index: 1; }
+.seat.folded:not(.hero) .hole { visibility: hidden; }
+.seat.hero.folded .hole { opacity: .45; }
 .seat .hole .card { --cw: calc(clamp(30px, 3.6vw, 54px) * .82); }
 .seat .hole .card:nth-child(1) { transform: rotate(-6deg) translateX(3px); }
 .seat .hole .card:nth-child(2) { transform: rotate(6deg) translateX(-3px); }
-.seat.hero .hole { height: calc(var(--cw) * 1.4 * 1.12); margin-bottom: calc(var(--cw) * -.5); }
+.seat.hero .hole { height: calc(var(--cw) * 1.4 * 1.12); margin-bottom: calc(var(--cw) * -.12); }
 .seat.hero .hole .card { --cw: calc(clamp(30px, 3.6vw, 54px) * 1.12); }
 .pod { --p: 0; position: relative; z-index: 2; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 6px 10px 6px 6px; border-radius: 999px; background: linear-gradient(180deg, #222c33, #12191d); border: 1px solid #000; box-shadow: 0 8px 20px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07); }
 .pod::before { content: ""; position: absolute; inset: -3px; border-radius: 999px; padding: 2px; background: conic-gradient(var(--brass-hi) calc(var(--p) * 1turn), transparent 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity .2s; }
@@ -234,6 +253,7 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .ctx span { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--ink-2); color: var(--muted); border: 1px solid var(--line-soft); }
 .ctx span b { color: var(--text); font-weight: 600; }
 .handle { display: none; }
+.tp-strip { display: none; }
 .tp-body { overflow: auto; padding: 12px 16px 16px; display: grid; gap: 12px; align-content: start; min-height: 0; }
 .tp-foot { padding: 12px 16px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
 .tp-foot[hidden] { display: none; } /* author display:grid would otherwise override [hidden] and leave a stale submit button */
@@ -353,6 +373,11 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .model-status .ms { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: var(--muted); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; }
 .model-status .ms b { color: var(--text); font-weight: 600; }
 .model-status .ms.on { border-color: rgba(99,196,147,.35); }
+.model-status .ms.known-leak { border-color: rgba(226,112,95,.45); }
+.model-status .ms.known-leak a, .leak-note a { color: var(--brass-hi); }
+.leak-note { display: grid; gap: 4px; font-size: 12px; color: var(--muted); border: 1px solid rgba(226,112,95,.55); background: rgba(226,112,95,.1); border-radius: 10px; padding: 8px 10px; margin: 6px 0; }
+.leak-note b { color: #f3b3a8; font-weight: 600; }
+.leak-note.soft { border-color: rgba(214,171,85,.4); background: rgba(214,171,85,.08); }
 .loadbox { display: grid; gap: 10px; }
 .loadbar { height: 6px; border-radius: 6px; background: var(--panel-3); overflow: hidden; }
 .loadbar i { display: block; height: 100%; background: var(--brass); width: var(--p, 0%); transition: width .25s; }
@@ -366,6 +391,10 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .ab-table th, .ab-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .ab-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .ab-table th:first-child, .ab-table td:first-child { text-align: left; }
+.tell-table td { text-align: left; white-space: normal; }
+.tell-table tr.leak th, .tell-table tr.leak td { color: var(--bad); }
+.tell-leaks { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; }
+.tell-leaks span { display: block; color: var(--muted); margin-top: 2px; }
 .drivers { display: grid; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); font-size: 13px; }
 .drivers .hd { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
 .drivers ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
@@ -450,9 +479,9 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .mt .board { gap: calc(var(--mcw) * .12); }
 .mt .board .card, .mt .board .slot { --cw: var(--mcw); width: var(--mcw); }
 .mt .seat { width: clamp(68px, 20cqi, 124px); }
-.mt .seat .hole { height: calc(var(--mcw) * 1.4 * .82); margin-bottom: calc(var(--mcw) * -.4); }
+.mt .seat .hole { height: calc(var(--mcw) * 1.4 * .82); margin-bottom: calc(var(--mcw) * -.1); }
 .mt .seat .hole .card { --cw: calc(var(--mcw) * .82); }
-.mt .seat.hero .hole { height: calc(var(--mcw) * 1.4 * 1.02); margin-bottom: calc(var(--mcw) * -.45); }
+.mt .seat.hero .hole { height: calc(var(--mcw) * 1.4 * 1.02); margin-bottom: calc(var(--mcw) * -.12); }
 .mt .seat.hero .hole .card { --cw: calc(var(--mcw) * 1.02); }
 .mt .pod { padding: 4px 8px 4px 4px; gap: 6px; }
 .mt .avatar { width: clamp(26px, 2.5vw, 32px); font-size: clamp(9px, .8vw, 11px); letter-spacing: -.02em; background: #4a565b; color: var(--text); }
@@ -613,7 +642,21 @@ details.why[open] > summary { margin-bottom: 8px; }
   .pod { padding: 4px 8px 4px 4px; gap: 6px; }
   .tp { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 45; border-radius: 18px 18px 0 0; max-height: 72vh; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); transform: translateY(calc(100% - 78px - env(safe-area-inset-bottom, 0px))); transition: transform .45s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -20px 50px rgba(0,0,0,.55); }
   .tp.open { transform: none; }
-  .handle { display: block; width: 44px; height: 5px; border-radius: 5px; background: var(--line); margin: 0 auto 2px; border: 0; padding: 0; }
+  /* #440: the open sheet covers the hero's seat, so its head repeats what the decision needs (cards, board,
+     pot, to call, last action) and stays short by default; the full context is one drag/tap away. */
+  .tp.open:not(.full) { max-height: 64vh; }
+  .tp.open:not(.full) .ctx-seats { display: none; }
+  .tp.open.full { max-height: 92vh; }
+  .handle { display: block; width: 84px; height: 21px; padding: 8px 20px; box-sizing: border-box; border-radius: 12px; background: var(--line) content-box; margin: -8px auto -6px; border: 0; touch-action: none; cursor: grab; }
+  .tp-strip:not([hidden]) { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tp-strip .grp { display: flex; gap: 3px; align-items: center; }
+  .tp-strip .card { --cw: 30px; }
+  .tp-strip .grp.sboard .card { --cw: 24px; }
+  .tp-strip .grp.sboard .none { font-size: 11px; color: var(--faint); }
+  .tp-strip .nums { display: grid; gap: 1px; font-size: 11.5px; color: var(--muted); }
+  .tp-strip .nums b { color: var(--text); font-weight: 600; }
+  .tp-strip .last { flex: 1 1 100%; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tp-strip .last b { color: var(--text); font-weight: 600; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -755,7 +798,8 @@ details.why[open] > summary { margin-bottom: 8px; }
     </div>
     <aside class="tp" id="tp" aria-label="Thinking Process">
       <div class="tp-head">
-        <button class="handle" id="tp-handle" aria-label="패널 펼치기"></button>
+        <button class="handle" id="tp-handle" aria-label="패널 펼치기" aria-expanded="false"></button>
+        <div class="tp-strip" id="tp-strip" data-hero-strip hidden></div>
         <div class="row"><h2>Thinking Process</h2><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="tier" id="tp-form" hidden></span><span class="tier" id="tp-tier">중수</span></span></div>
         <div class="ctx" id="tp-ctx"></div>
       </div>
@@ -778,6 +822,7 @@ details.why[open] > summary { margin-bottom: 8px; }
       <div class="box drill" id="drill" hidden></div>
     </div>
     <div class="box ab-box" id="ab-box" hidden></div>
+    <div class="box ab-box" id="tell-box" data-tell-report></div>
   </div>
 </section>
 
@@ -787,7 +832,7 @@ details.why[open] > summary { margin-bottom: 8px; }
     <div class="hero-title">
       <span class="eyebrow">복기용 Training Game</span>
       <h1>실전 핸드를 입력하면, 갈린 판단을 찾아드려요.</h1>
-      <p class="lede">포지션 → 핸드 → 프리플랍 → 플랍 → 턴 → 리버 → 쇼다운 순서로, 테이블 위에서 자리마다 액션을 눌러 입력하세요. 마지막 내 결정을 TP-GTO(모의)의 판단과 비교하고, 비슷한 상황으로 바로 훈련할 수 있어요.</p>
+      <p class="lede">포지션 → 핸드 → 프리플랍 → 플랍 → 턴 → 리버 → 쇼다운 순서로, 테이블 위에서 자리마다 액션을 눌러 입력하세요. 마지막 내 결정을 TP-GTO(학습된 정책이 없는 설정은 규칙 기반 모의 교사)의 판단과 비교하고, 비슷한 상황으로 바로 훈련할 수 있어요.</p>
     </div>
     <div class="review">
       <div class="box rv-left"><div id="rv-table" class="mt-host"></div><div class="rv-bar" id="rv-bar"></div></div>
@@ -972,7 +1017,7 @@ function nutShare(heroPct, oppPct, board, hero) {
   return hn + on ? Math.round(on / (hn + on) * 100) : 50;
 }
 
-/* ================= TP definition (docs/TP.md v0.2, stalker/tp/spec/tp_v0_2.json) ================= */
+/* ================= TP definition (docs/TP.md v0.3, stalker/tp/spec/tp_v0_3.json) ================= */
 // na: opportunity-count N/A (spec items[].na.min_opportunities); stat = counter in seat.stats.
 const TP = {
   "board.adv":   { stage: "B 보드 읽기", q: "이 보드는 누구 레인지에 유리한가?", ends: ["나", "상대"] },
@@ -985,24 +1030,38 @@ const TP = {
   "hand.equity": { stage: "D 내 핸드", q: "내 쇼다운 에퀴티", ends: ["0%", "100%"] },
   "hand.outs":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 유리해지는 비율", ends: ["0%", "100%"] },
   "hand.vuln":   { stage: "D 내 핸드", q: "다음 카드 중 나에게 불리해지는 비율", ends: ["0%", "100%"] },
+  "hand.block":  { stage: "D 내 핸드", q: "내 카드가 상대의 강한 핸드를 얼마나 지우는가?", ends: ["덜 지움", "더 지움"] },
   // Plan items follow the chosen action (card G): fold equity only after choosing a bet/raise size, ICM only after choosing to call.
   "plan.foldeq": { stage: "G 액션 점검", q: "이 사이즈로 벳·레이즈하면 상대가 접을 확률", ends: ["0%", "100%"] },
   "plan.icm":    { stage: "G 액션 점검", q: "상금 구조(ICM)까지 생각하면 이 콜에 필요한 승률은?", ends: ["0%", "100%"] },
   "plan.pot":    { stage: "G 액션 점검", q: "팟을 키울 것인가?", ends: ["억제", "증가"], reflection: true },
   "act.choice":  { stage: "F 액션", q: "액션", type: "action" },
 };
-const SHORT = { "board.adv": "보드 읽기", "board.nut": "넛 우위", "opp.loose": "상대 성향(루즈)", "opp.aggr": "상대 성향(공격성)", "opp.foldy": "폴드 성향", "opp.range": "레인지 추정", "opp.value": "밸류/블러프 판단", "hand.equity": "에퀴티 감각", "hand.outs": "유리해지는 카드", "hand.vuln": "불리해지는 카드", "plan.foldeq": "폴드 에퀴티", "plan.icm": "ICM 압박", "plan.pot": "팟 컨트롤(성찰)", "act.choice": "액션 선택" };
+const SHORT = { "board.adv": "보드 읽기", "board.nut": "넛 우위", "opp.loose": "상대 성향(루즈)", "opp.aggr": "상대 성향(공격성)", "opp.foldy": "폴드 성향", "opp.range": "레인지 추정", "opp.value": "밸류/블러프 판단", "hand.equity": "에퀴티 감각", "hand.outs": "유리해지는 카드", "hand.vuln": "불리해지는 카드", "hand.block": "블로커", "plan.foldeq": "폴드 에퀴티", "plan.icm": "ICM 압박", "plan.pot": "팟 컨트롤(성찰)", "act.choice": "액션 선택" };
 const TIERS = {
   beginner: { name: "초보", step: 25, tol: 12.5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "act.choice"] },
-  mid: { name: "중수", step: 10, tol: 5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "act.choice"] },
-  pro: { name: "고수", step: 1, tol: 3, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "plan.foldeq", "plan.icm", "opp.foldy", "board.nut", "act.choice"] },
+  mid: { name: "중수", step: 10, tol: 5, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm", "act.choice"] },
+  pro: { name: "고수", step: 1, tol: 3, items: ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm", "opp.foldy", "board.nut", "act.choice"] },
 };
 const REFLECTION = ["plan.pot"]; // spec reflection_items: asked (Guided-like tiers) but never graded
-// Spec `modes.quick` (TP §4.2): the core judgments Quick asks per spot type. Kept JSON-equal to tp_v0_2.json by tests/test_tp_spec.py.
+// Spec `modes.quick` (TP §4.2): the core judgments Quick asks per spot type. Kept JSON-equal to tp_v0_3.json by tests/test_tp_spec.py.
 const MODES = {"quick": {"max_judgments": 3, "rule": {"preflop": ["hand.equity", "opp.range"], "postflop": ["hand.equity", "board.adv", "hand.outs"], "facing_bet": ["opp.value", "hand.equity"]}}};
 // Action has no Q(s,a) in the demo, so per TP §5 it is reference-only; plan.pot has no fixed definition.
 const isScored = k => !!TP[k] && k !== "act.choice" && !TP[k].reflection;
+// Points lost per point of error past the tolerance. At 2.4 an equity answer of 0 against a true 18 still
+// scored 69 (#445); at 4 it scores 48 and anything 25+ points out of tolerance scores 0.
+const SCORE_SLOPE = 4;
 const CONF = `<span class="conf" title="정답 출처 승인 상태: 모의 = 규칙 기반 대체값 (TP §5)">모의</span>`;
+// Why an answer is still the rule-based stand-in (#445): the policy does not produce it, or no policy is loaded.
+const MOCK_WHY = {
+  "opp.loose": "관측 빈도를 사전값과 섞은 규칙 추정이에요. 정책은 상대 성향을 따로 내지 않아요.",
+  "opp.aggr": "관측 빈도를 사전값과 섞은 규칙 추정이에요. 정책은 상대 성향을 따로 내지 않아요.",
+  "opp.foldy": "관측 빈도를 사전값과 섞은 규칙 추정이에요. 정책은 상대 성향을 따로 내지 않아요.",
+  "opp.value": "가정한 내 콜링 레인지로 센 규칙 값이에요.",
+  "plan.foldeq": "폴드 성향 추정으로 만든 규칙 값이에요. 정책의 상대 응답으로 계산하는 건 아직이에요.",
+  "plan.icm": "상금 구조 ICM 계산이 아직 연결되지 않아 규칙 값이에요.",
+};
+const mockWhy = k => MOCK_WHY[k] || (G?.eng ? "여러 명이 남아 있어 정책 값 대신 규칙 레인지로 계산했어요." : "이 설정은 학습된 정책이 없어 규칙 레인지(상위 N%)로 계산했어요.");
 
 /* ================= personas (difficulty 1–20) ================= */
 const PERSONAS = {
@@ -1023,6 +1082,13 @@ function personaPool(d) {
   if (d >= 5) return ["nit", "weak", "tag", "fish", "station"];
   return ["station", "fish", "maniac", "weak"];
 }
+// Rule-bot seats are persona instances (#429, web/app/personas.js): each draws its own stats and innate
+// tells from its type. Instances use their own seeded stream so the deal order does not depend on them.
+let PM = null, PRNG = null;
+import((window.STALKER_APP_BASE || "../app/") + "personas.js").then(m => { PM = m; PRNG = m.mulberry32(rngState ^ 0x429); })
+  .catch(e => console.warn("[personas] load failed; the 4-number rule bots play", e));
+const seatPlayer = s => s.isHero || !PM || !s.persona ? null
+  : s.player?.key === s.persona ? s.player : (s.player = Object.assign(PM.createPlayer(s.persona, PRNG), { key: s.persona }));
 const DIFF_DESC = d => d >= 20 ? "최고 난이도 · TP-GTO 테이블" : d >= 15 ? "고수 테이블" : d >= 10 ? "레귤러 테이블" : d >= 5 ? "중수 테이블" : "입문 테이블";
 const NAMES = ["민준", "서연", "Viktor", "하루", "Maya", "도윤", "Kenji", "지아", "Lena", "Rafael", "윤서", "Theo", "은우", "Ines", "태오", "Sora"];
 
@@ -1063,6 +1129,64 @@ const LEARN_FOR = { "board.adv": "board.adv", "board.nut": "board.adv", "hand.eq
 // Per-decision input time (TP §4.2 Quick: P50/P95), training game only.
 let ITIMES = store.get("itimes", []);
 function recordInputTime(sec) { ITIMES.push(Math.round(sec * 10) / 10); if (ITIMES.length > 300) ITIMES = ITIMES.slice(-300); store.set("itimes", ITIMES); }
+// Hero tell log (#430): what the hero's sizes, timing and lines show the table. Read-only hooks; the
+// metrics live in app/tells.js. Browser only, last 2000 decisions and 500 showdowns.
+const TELL_MAX = 2000, TELL_SD_MAX = 500;
+const TELL = (() => { const d = store.get("tells", null); return d && Array.isArray(d.decisions) && Array.isArray(d.showdowns) ? d : { schema_version: 1, decisions: [], showdowns: [] }; })();
+const tellSave = () => { TELL.decisions = TELL.decisions.slice(-TELL_MAX); TELL.showdowns = TELL.showdowns.slice(-TELL_SD_MAX); store.set("tells", TELL); };
+const tellHand = () => `${G.tellSess ??= Date.now()}:${G.handNo}`;
+// Called by finishHero: what only the hero's turn knows (time, strength, the policy's mix).
+function tellPend(keys) {
+  const g = CUR.g, eq = g.v["hand.equity"], agg = g.model?.mix.reduce((a, m) => a + (["f", "k", "c"].includes(m.a) ? 0 : m.p), 0);
+  G.tellPend = { ms: Math.round((CUR.tAct ?? performance.now()) - CUR.t0), strength: Number.isFinite(eq) ? eq / 100 : null, src: g.src?.["hand.equity"] === "model" ? "model" : "mock",
+    madeClass: Math.floor(evaluate([...CUR.hero.cards, ...G.board]) / B5), timed: !keys || !!CUR.quick, gtoAgg: Number.isFinite(agg) ? Math.round(agg * 1000) / 1000 : null };
+}
+// Called by applyAction for every seat before chips move: tracks aggressors for the spot labels.
+function tellHook(s, a, L) {
+  try {
+    const t = G.tl?.hand === G.handNo ? G.tl : (G.tl = { hand: G.handNo, street: 0, prevAgg: null, curAgg: null, bet: false, acted: new Set(), heroChecked: false });
+    if (t.street !== G.street) Object.assign(t, { street: G.street, prevAgg: t.curAgg, curAgg: null, bet: false, acted: new Set(), heroChecked: false });
+    if (s.isHero && G.tellPend) {
+      const post = G.street > 0, facing = L.toCall > 0;
+      const spot = G.street === 1 && t.prevAgg === s.i && !t.bet && !t.acted.has(s.i) ? "cbet"
+        : post && t.prevAgg != null && t.prevAgg !== s.i && !t.bet && !t.acted.has(t.prevAgg) && !t.acted.has(s.i) ? "donk"
+        : post && t.heroChecked && facing ? "xr" : null;
+      const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
+      const action = a.type === "raise" ? (G.currentBet === 0 ? "bet" : "raise") : a.type;
+      TELL.decisions.push({ hand: tellHand(), street: G.street, action, sizePct: to == null ? null : Math.round((to - G.currentBet) / Math.max(potTotal() + L.toCall, 1) * 1000) / 10,
+        forced: !L.canRaise && !facing, spot, ...G.tellPend });
+      G.tellPend = null; tellSave();
+      if (a.type === "check") t.heroChecked = true;
+    }
+    t.acted.add(s.i);
+    if (a.type === "raise") { t.bet = true; t.curAgg = s.i; }
+  } catch (e) { G.tellPend = null; }
+}
+function tellShowdown(contenders) {
+  const hero = contenders.find(s => s.isHero);
+  if (!hero || contenders.length < 2) return;
+  TELL.showdowns.push({ hand: tellHand(), madeClass: Math.floor(evaluate([...hero.cards, ...G.board]) / B5) }); tellSave();
+}
+let TELLS_MOD = null;
+// #445: one progress line, a table of the judged rows only, and the rows still short of data folded away.
+function tellCompactHTML(r) {
+  const judged = r.rows.filter(x => !x.need && !x.empty), wait = r.rows.filter(x => x.need);
+  const left = x => x.need.min - x.need.n, near = wait.slice().sort((a, b) => left(a) - left(b))[0];
+  const prog = `<div class="tell-progress" data-tell-progress><span>판정한 항목 <b class="num">${judged.length}</b>/${judged.length + wait.length}</span><span>결정 <b class="num">${r.metrics.decisions}</b>회</span>${near ? `<span>다음 판정 · ${near.name} <b class="num">${near.need.n}/${near.need.min}</b> (${left(near)}회 더)</span>` : ""}</div>`;
+  const table = judged.length ? `<div class="ab-wrap"><table class="ab-table tell-table"><tbody>${judged.map(x => `<tr data-tell="${x.id}"${x.leak ? ` class="leak"` : ""}><th scope="row">${x.name}</th><td>${x.text}</td></tr>`).join("")}</tbody></table></div>` : "";
+  const rest = wait.length ? `<details class="tell-wait" data-tell-wait><summary>표본이 모자란 항목 ${wait.length}개</summary><div class="tell-chips">${wait.map(x => `<span data-tell="${x.id}">${x.name} <b class="num">${x.need.n}/${x.need.min}</b></span>`).join("")}</div></details>` : "";
+  return prog + table + rest;
+}
+async function renderTells() {
+  const box = $("#tell-box");
+  try { TELLS_MOD ||= await import(APP_BASE + "tells.js"); }
+  catch { box.innerHTML = `<h2>텔 리포트</h2><p class="sub">계산 모듈을 불러오지 못했어요. 웹 서버로 열어 주세요(web/README.md).</p>`; return; }
+  const r = TELLS_MOD.tellReport(TELL.decisions, TELL.showdowns);
+  const leaks = r.leaks.length ? `<ul class="tell-leaks">${r.leaks.map(l => `<li data-tell-leak="${l.id}"><b>${l.text}</b><span>고치기: ${l.fix}</span></li>`).join("")}</ul>`
+    : `<p class="sub">${!r.metrics.decisions ? "아직 기록이 없어요. 훈련 게임에서 결정을 내리면 여기에 쌓입니다." : r.rows.some(x => x.leak !== undefined) ? "지금까지 기준을 넘는 텔은 없어요." : "아직 판단할 만큼 표본이 없어요. 아래 항목마다 최소 표본이 있어요."}</p>`;
+  box.innerHTML = `<h2>텔 리포트</h2><p class="sub">내 벳 크기·결정 시간·라인이 핸드 강도를 얼마나 드러내는지 봐요. 강도는 결정 때의 에퀴티(${CONF} 또는 TP-GTO 엔진)이고, 기준 표본보다 적으면 판단하지 않아요. 결정 ${r.metrics.decisions}회 · 이 기기에만 저장.</p>
+    ${leaks}${tellCompactHTML(r)}`;
+}
 // hand.equity question-form A/B (#262, Gate E pilot): which wording do people answer faster and more accurately?
 // Each form has 5 chips; the truth chip comes from the mock teacher, and answers are logged, not graded.
 const EQAB_FORMS = {
@@ -1152,7 +1276,9 @@ window.STALKER_RECORDS = { exportRecords, parseRecords, importRecords };
 })();
 
 /* ================= view switching ================= */
+let VIEW = "home";
 function showView(v) {
+  VIEW = v; renderModelStatus();
   $$(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.view === v));
   $$(".view").forEach(s => s.classList.toggle("active", s.id === "view-" + v));
   if (v === "home") renderWeakHome();
@@ -1171,14 +1297,16 @@ const STAGE_NAMES = { early: "초반", mid: "중반", bubble: "버블 근처", i
 
 function newSeat(i, isHero, stackBB) {
   const key = isHero ? null : pick(personaPool(S.diff));
-  return { i, isHero, persona: key, name: isHero ? "나" : pick(NAMES), stack: Math.round(stackBB * 100), cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100,
+  const s = { i, isHero, persona: key, name: isHero ? "나" : pick(NAMES), stack: Math.round(stackBB * 100), cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100,
     stats: { hands: 0, vpip: 0, raises: 0, calls: 0, faced: 0, foldsFaced: 0, preOpp: 0, aggOpp: 0 }, out: false };
+  seatPlayer(s);
+  return s;
 }
 async function startGame() {
   if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier) && !TPG.pol[S.tier]))) {
     const tok = ++gameToken;
     $("#infobar").innerHTML = `<span class="pill">캐시게임 · 6인</span><span>TP-GTO 준비 중</span>`;
-    $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp").classList.add("open");
+    $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp-strip").hidden = true; $("#tp").classList.add("open");
     const paint = () => { if (tok !== gameToken) return; $("#tp-body").innerHTML = TPG.state === "error" ? "" : `<div class="loadbox" role="status"><div>TP-GTO 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
     const iv = setInterval(paint, 120); paint();
     const ok = await tpgLoad(S.tier);
@@ -1309,9 +1437,10 @@ function renderInfo() {
   } else {
     const hero = G.seats.find(x => x.isHero), net = hero ? hero.bank + hero.stack - 100 * G.bb : 0;
     const src = G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" title="이 설정의 TP-GTO는 학습 중이에요">규칙 봇 · 모의 정답</span>`;
-    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span><span>세션 <b class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${net > 0 ? "+" : ""}${bbf(net)} BB</b></span>${G.tier !== S.tier ? `<span class="pill" data-tier-next>${tierNextMsg()}</span>` : ""}<span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
+    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span>${sessHTML(net)}${G.tier !== S.tier ? `<span class="pill" data-tier-next>${tierNextMsg()}</span>` : ""}<span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
   }
   $("#new-game").onclick = () => { G.dead = true; G = null; startGame(); };
+  const sd = $("#infobar [data-sess]"); if (sd) sd.ontoggle = () => { if (G) G.sessOpen = sd.open; };
 }
 // Level clock is game time, not wall time: it stops while the hero thinks (TP input), so careful study is never penalised.
 const clockFrozen = () => !!heroResolve;
@@ -1321,6 +1450,12 @@ function bubble(s, text, cls = "") {
   const el = $("#seat-" + s.i); $$(".bubble", el).forEach(b => b.remove());
   const b = h("div", "bubble " + cls, text); el.appendChild(b);
   setTimeout(() => b.remove(), 1700);
+}
+// Where the pot's chip pile sits, in layer %, so flying chips land on the pile and not on the amount (#445).
+function potPile() {
+  const L = $("#layer").getBoundingClientRect(), c = $("#pot .chips")?.getBoundingClientRect();
+  if (!c || !L.width) return { x: 50, y: 30 };
+  return { x: (c.left + c.width / 2 - L.left) / L.width * 100, y: (c.top + c.height / 2 - L.top) / L.height * 100 };
 }
 async function flyChips(fromPct, toPct, amount) {
   const f = h("div", "fly", chipStack(amount)); f.style.left = fromPct.x + "%"; f.style.top = fromPct.y + "%";
@@ -1365,6 +1500,7 @@ async function playHand(token) {
     }
   }
   if (G.seats.some(s => !s.isHero && s.stack <= 0)) return;
+  { const me = G.seats.find(x => x.isHero); G.heroStart = me ? (me.bank || 0) + me.stack : 0; }
   G.button = nextIdx(G.button);
   buildTable();
   for (const s of G.seats) { Object.assign(s, { cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100 }); s.stats.hands++; s.vpipThis = false; s.preSeen = false; }
@@ -1395,6 +1531,7 @@ async function playHand(token) {
       for (let c = 0; c < cnt; c++) { const card = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(card); const e = cardEl(card); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(220); }
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
       engCheckBoard();
+      G.prevAgg = G.lastAgg; G.prevBet = G.streetRaises > (st === 1 ? 1 : 0);   // persona c-bet / probe spots (#429)
       G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null; G.streetRaises = 0;
       await sleep(500);
     }
@@ -1406,6 +1543,20 @@ async function playHand(token) {
   }
   await collectBets(); if (!alive()) return;
   await showdown(alive);
+  recordHandResult();
+}
+// Per-hand session list (#445): a few hands swing a lot, so the session total comes with its parts.
+function recordHandResult() {
+  const me = G.seats.find(x => x.isHero);
+  if (!me || G.heroStart == null) return;
+  (G.hands ||= []).push({ no: G.handNo, net: (me.bank || 0) + me.stack - G.heroStart, cards: me.cards.map(cardTxt).join(" "), folded: me.folded });
+  renderInfo();
+}
+function sessHTML(net) {
+  const hs = G.hands || [], sgn = x => (x > 0 ? "+" : "") + bbf(x);
+  const rows = hs.slice(-30).reverse().map(x => `<tr><td>#${x.no}</td><td>${x.cards}</td><td>${x.folded ? "폴드" : x.net > 0 ? "획득" : x.net < 0 ? "패배" : "본전"}</td><td class="r num ${x.net > 0 ? "good" : x.net < 0 ? "bad" : ""}">${sgn(x.net)}</td></tr>`).join("");
+  return `<details class="sess" data-sess${G.sessOpen ? " open" : ""}><summary>세션 <b class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${sgn(net)} BB</b></summary>
+    <div class="sess-pop">${hs.length ? `<table><tbody>${rows}</tbody></table>` : "아직 끝난 핸드가 없어요."}<p>${hs.length} 핸드 결과예요. 몇십 핸드의 손익은 운(분산)이 대부분이라 실력을 재기 어려워요. 실력은 TP 점수와 결정마다의 비교로 보세요.</p></div></details>`;
 }
 function firstAfterButton() { let k = nextIdx(G.button); for (let c = 0; c < G.n; c++) { const s = G.seats[k]; if (!s.folded && !s.out && !s.allin) return k; k = nextIdx(k); } return k; }
 function post(s, amt) { const a = Math.min(amt, s.stack); s.stack -= a; s.bet += a; s.contrib += a; if (s.stack === 0) s.allin = true; }
@@ -1413,7 +1564,7 @@ function addLog(st, t) { G.log.push({ st, t }); }
 async function collectBets() {
   const moving = G.seats.filter(s => s.bet > 0);
   if (!moving.length) return;
-  await Promise.all(moving.map(s => { const amt = s.bet; $("#bet-" + s.i).innerHTML = ""; return flyChips({ x: P[s.i].bx, y: P[s.i].by }, { x: 50, y: 30 }, amt); }));
+  await Promise.all(moving.map(s => { const amt = s.bet; $("#bet-" + s.i).innerHTML = ""; return flyChips({ x: P[s.i].bx, y: P[s.i].by }, potPile(), amt); }));
   for (const s of moving) { G.pot += s.bet; s.bet = 0; }
   renderSeats();
 }
@@ -1446,6 +1597,7 @@ function legal(s) {
 }
 function applyAction(s, a) {
   const L = legal(s), pre = G.street === 0, facing = L.toCall > 0;
+  tellHook(s, a, L);
   if (G.eng) engApply(s, a, L);
   if (facing) { s.stats.faced++; if (a.type === "fold") s.stats.foldsFaced++; }
   if (L.canRaise) s.stats.aggOpp++;
@@ -1473,9 +1625,35 @@ function applyAction(s, a) {
 
 /* ---------- bots ---------- */
 async function botTurn(s) {
-  const el = $("#seat-" + s.i); el.style.setProperty("--t", "1.5s"); el.classList.add("acting");
-  await sleep(1500); el.classList.remove("acting");
+  // A persona decides before its pause so the pause can carry the seat's timing tell; policy seats keep 1.5 s.
+  const pa = G.eng ? null : personaAct(s), ms = pa ? pa.ms : 1500;
+  const el = $("#seat-" + s.i); el.style.setProperty("--t", ms / 1000 + "s"); el.classList.add("acting");
+  await sleep(ms); el.classList.remove("acting");
+  if (pa) return pa;
   if (G.eng) { const a = engBotAct(s); if (a) return a; }
+  return personaAct(s) || ruleBot(s);
+}
+// Only what this seat may see: the public action, board, pot and stacks, plus its own two cards.
+function personaAct(s) {
+  const pl = seatPlayer(s);
+  if (!pl) return null;
+  const L = legal(s), n = G.n, mine = s.pAct?.h === G.handNo && s.pAct.st === G.street ? s.pAct : (s.pAct = { h: G.handNo, st: G.street, checked: false, raised: false });
+  const order = live().sort((a, b) => (a.i - G.button - 1 + n) % n - (b.i - G.button - 1 + n) % n), agg = G.lastAgg != null ? G.seats[G.lastAgg] : null;
+  const a = PM.decide(pl, {
+    street: G.street, pos: posName(s), bb: G.bb, pot: potTotal(), toCall: L.toCall, currentBet: G.currentBet, myBet: s.bet, legal: L,
+    nOpp: order.length - 1, ip: order[order.length - 1] === s,
+    preflop: { raises: G.streetRaises - 1, limpers: live().filter(o => o !== s && o.bet === G.bb && o.i !== G.bbI).length, limped: s.bet === G.bb && s.i !== G.bbI,
+      iRaised: mine.raised, openerPos: agg ? posName(agg) : null, openTo: G.currentBet },
+    postflop: { aggressor: G.prevAgg === s.i, prevAggLive: G.prevAgg != null && G.prevAgg !== s.i && !G.seats[G.prevAgg].folded, prevBet: !!G.prevBet,
+      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises },
+    hand: { cards: s.cards }, board: G.board,
+  }, rand);
+  if (a.type === "check") mine.checked = true;
+  if (a.type === "raise") mine.raised = true;
+  return a;
+}
+// The 4-number bot, kept for a page that cannot load web/app/personas.js (opened as a file).
+function ruleBot(s) {
   const p = PERSONAS[s.persona], L = legal(s), pot = potTotal(), cls = classOf(s.cards[0], s.cards[1]);
   if (G.street === 0) {
     const pct = cls.pct, facingRaise = G.currentBet > G.bb;
@@ -1508,7 +1686,7 @@ async function botTurn(s) {
    its own chip logic for display; if the two ever disagree on whose turn it is, the mirror switches
    off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
 const APP_BASE = window.STALKER_APP_BASE || "../app/";
-const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
+const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 const modelMeta = tier => TPG.index?.tiers?.[tier] || null;
 function modelLine(m) {
@@ -1546,6 +1724,11 @@ function tpgLoad(tier) {
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
         TPG.pol[tier] = pol;
       }
+      if (m && !(tier in TPG.leaks)) {
+        // A missing leaks file must not block play: every strong preflop spot then gets the soft note.
+        try { TPG.leaks[tier] = await fetchJSON(APP_BASE + "policy/" + m.file.replace(/\.json$/, ".leaks.json")); }
+        catch (e) { console.warn("[tpgto] leaks file:", e.message); TPG.leaks[tier] = null; }
+      }
       TPG.err = null; tpgSet("ready", "", 100); return true;
     } catch (e) {
       console.warn("[tpgto] load failed", e);
@@ -1562,6 +1745,13 @@ function renderModelStatus() {
   if (pill) {
     if (TPG.state === "loading") { pill.textContent = "TP-GTO 불러오는 중"; pill.title = TPG.step; }
     else if (TPG.state === "error") { pill.textContent = "모의 정답 · 정책 연결 실패"; pill.title = TPG.err || ""; }
+    // #445: the learning drills and the review have their own answer source, so the badge follows the screen.
+    else if (VIEW === "learn") { pill.textContent = "학습 문제 · 모의 정답"; pill.title = "학습 섹션 문제의 정답은 규칙 기반 모의값이에요. 훈련 게임의 TP-GTO 비교와 다릅니다."; }
+    else if (VIEW === "review") {
+      const rm = RV.mode === "cash" && RV.stack === 100 && TPG.pol[S.tier] ? modelMeta(S.tier) : null;
+      pill.textContent = rm ? `복기 · TP-GTO ${TIERS[S.tier].name} 비교` : "복기 · 모의 정답";
+      pill.title = rm ? modelLine(rm) : "학습된 TP-GTO는 캐시게임 6인 100BB 핸드에서만 비교할 수 있어요. 이 복기는 규칙 기반 모의값으로 비교해요.";
+    }
     else if (S.mode === "cash" && m) { pill.textContent = `TP-GTO ${TIERS[S.tier].name} · 학습 중간본`; pill.title = modelLine(m); }
     else { pill.textContent = S.mode === "cash" ? `${TIERS[S.tier].name} 정책 학습 중 · 모의 정답` : "토너먼트 · 모의 정답"; pill.title = "이 설정의 TP-GTO는 아직 학습 중이에요. 정답은 규칙 기반 모의값입니다."; }
   }
@@ -1576,7 +1766,36 @@ function renderModelStatus() {
   box.innerHTML = ["beginner", "mid", "pro"].map(t => {
     const mm = modelMeta(t);
     return `<div class="ms${mm ? " on" : ""}"><b>${TIERS[t].name}</b>${mm ? `<span>상대 5명 = TP-GTO ${TIERS[t].name} 정책</span><span>${modelLine(mm)}</span>` : `<span>학습 중 · 이 등급은 규칙 봇 상대와 모의 정답으로 진행해요</span>`}</div>`;
-  }).join("");
+  }).join("") + (["beginner", "mid", "pro"].some(modelMeta) ? `<div class="ms known-leak" data-known-leak><span><b>아직 GTO가 아니에요.</b> 지금 정책은 학습 중간본이고, 프리플랍에 알려진 결함이 있어요: 일부 강한 핸드(AA·KK 등)를 림프하거나 오픈에 플랫해서 손해를 봐요. 검증에서 손해로 확인된 스팟은 비교 화면에 경고를 띄우고 채점하지 않아요.</span><a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391 결함 보기</a></div>` : "");
+}
+// #441: where the served policy is known to be wrong (probe #413, web/app/policy/<tier>-6.leaks.json), the
+// comparison must warn instead of presenting the row as GTO. Pure (node test: web/app/test/leaks.test.mjs).
+// hist: engine s.history before the actor's first preflop action; group: 169-class name; top: Set of classes
+// that get the soft note in every cell the probe did not flag: a measured cell with no flag is unproven,
+// not verified (mid HJ AA first in: screen CI crosses 0, the CI test flags it).
+function leakVerdict(leaks, hist, seat, group, top) {
+  if (hist.includes("/")) return null;
+  const acts = hist.map(x => x.split(":"));
+  if (acts.some(([q]) => +q === seat)) return null;
+  const moves = acts.filter(([, a]) => a !== "f");
+  const spot = !moves.length ? "first_in" : moves.length === 1 && /^r/.test(moves[0][1]) ? "vs_open" : null;
+  if (!spot) return null;
+  const same = c => c.spot === spot && c.seat === seat && c.group === group;
+  const cell = leaks?.leaks?.find(same);
+  if (cell) return { kind: "leak", spot, cell };
+  if (top.has(group)) return { kind: "soft", spot, measured: !!leaks?.cells?.some(c => same(c) && c.measured) };
+  return null;
+}
+const LEAK_ISSUE = "https://github.com/lobster0113/stalker/issues/391";
+const LEAK_TOP_PCT = 3;
+const leakActName = a => a === "c" ? "림프/콜이" : a === "f" ? "폴드가" : a === "a" ? "오픈/레이즈(올인)가" : "오픈/레이즈가";
+function leakHTML(v) {
+  if (!v) return "";
+  if (v.kind === "soft") return `<div class="leak-note soft" data-leak-soft>프리플랍 강한 핸드 구간은 정책 결함 조사 중 (<a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391</a>) · ${v.measured ? "이 스팟은 검증에서 손해가 확인되지 않았지만 결함이 없다는 증명도 아니에요" : "이 스팟은 아직 검증하지 않았어요"}. 정책 답을 정답으로 믿지 마세요.</div>`;
+  const c = v.cell, ol = Object.entries(c.open_minus_limp || {}).sort((a, b) => b[1].bb - a[1].bb)[0];
+  return `<div class="leak-note" role="alert" data-leak-warn><b>이 스팟의 정책 답은 검증에서 손해로 확인됨 (<a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391</a>): ${leakActName(c.best)} +${c.gain_bb} bb</b>
+    <span>${c.spot === "first_in" ? "퍼스트 인" : "오픈을 마주함"} · ${c.pos} · ${c.group} · 정책 혼합 대비 +${c.gain_bb}bb (95% CI ${c.gain_ci[0]}–${c.gain_ci[1]})${ol ? ` · 오픈−림프 ${ol[1].bb >= 0 ? "+" : ""}${ol[1].bb}bb (95% CI ${ol[1].ci[0]}–${ol[1].ci[1]})` : ""} · 딜 ${c.deals}회 프로브</span>
+    <span>그래서 이 결정은 정책 행과 비교해 채점하지 않아요.</span></div>`;
 }
 // Table seat i -> engine seat (preflop order: 0 = UTG ... n-2 = SB, n-1 = BB).
 const engSeatOf = i => ((i - G.button - 3) % G.n + 2 * G.n) % G.n;
@@ -1673,7 +1892,8 @@ function engModelAt(s, ranges, pol, tier, meta) {
   const opening = s.street === 0 && s.raises === 1, cur = Math.max(...s.bet);
   const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
   const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening, cur) }; });
-  return { meta, mix, fromTable: ap.fromTable, step: ap.step, k: tg.TIER_K[tier], eq, d: ap, s };
+  const leak = s.street === 0 ? leakVerdict(TPG.leaks[tier], s.history, ap.seat, classOf(...s.hole[ap.seat]).key, classesInTop(LEAK_TOP_PCT)) : null;
+  return { meta, mix, fromTable: ap.fromTable, step: ap.step, k: tg.TIER_K[tier], eq, d: ap, s, leak };
 }
 // Menu label of a real action at engine state s (fold/check/call, or a bet/raise to street total `to`).
 // A bet/raise is read with the seeded split (`rng`, TP.md section 6); `split` is kept for grading.
@@ -1686,13 +1906,16 @@ function engLabelAt(s, type, to, rng) {
   return { label: t.action, menuTo: tg.amountTo(s, t.action), split: t.split };
 }
 // The hero's choice against the policy mix. Between two menu sizes the frequency is the split-weighted
-// score f x p(A) + (1 - f) x p(B) (TP.md section 6), so the same bet always grades the same.
+// score f x p(A) + (1 - f) x p(B) (TP.md section 6), so the same bet always grades the same. A split the
+// pre-registered rule flags (translationError, #417) is only approximate: shown with both neighbours'
+// frequencies and never as a full score.
 function engYou(model, lab, to) {
   const pOf = a => model.mix.find(x => x.a === a)?.p || 0, nameOf = a => model.mix.find(x => x.a === a)?.name || a;
   if (!lab.split || lab.split.length < 2) return { label: lab.label, p: pOf(lab.label), note: lab.menuTo == null || lab.menuTo === to ? "" : `AI 해석: ${bbx(to)}BB를 ${nameOf(lab.label)}로 간주` };
-  const [A, B] = lab.split, pc = x => Math.round(x * 100);
-  return { label: lab.label, split: lab.split, p: TPG.mod.splitScore(lab.split, pOf),
-    note: `AI 해석: ${bbx(to)}BB = ${nameOf(A.a)} ${pc(A.p)}% · ${nameOf(B.a)} ${pc(B.p)}% (확률로 읽어요, 이번 핸드는 ${nameOf(lab.label)}) · 내 선택 빈도는 두 빈도의 가중 평균` };
+  const [A, B] = lab.split, pc = x => Math.round(x * 100), approx = TPG.mod.translationError(model.s, to);
+  return { label: lab.label, split: lab.split, p: TPG.mod.splitScore(lab.split, pOf), approx,
+    note: `${approx ? "근사(번역) · " : ""}AI 해석: ${bbx(to)}BB = ${nameOf(A.a)} ${pc(A.p)}% · ${nameOf(B.a)} ${pc(B.p)}% (확률로 읽어요, 이번 핸드는 ${nameOf(lab.label)}) · 내 선택 빈도는 두 빈도의 가중 평균` +
+      (approx ? ` · 두 이웃 사이즈의 TP-GTO 빈도 ${nameOf(A.a)} ${pc(pOf(A.a))}% · ${nameOf(B.a)} ${pc(pOf(B.a))}% — 메뉴에서 먼 사이즈라 번역 오차가 커서 만점으로 채점하지 않아요` : "") };
 }
 // Hero's model-backed answers: the policy row for the real hand, and hand.equity vs the public ranges.
 function engHeroTruth(hero, g) {
@@ -1713,6 +1936,20 @@ function engHeroTruth(hero, g) {
     let tot = 0, better = 0;
     for (let c = 0; c < all.length; c++) { if (!(w[c] > 0) || !Number.isFinite(all[c])) continue; tot += w[c]; better += all[c] > eq ? w[c] : all[c] === eq ? w[c] / 2 : 0; }
     if (tot > 0 && Number.isFinite(eq)) { md.rankShare = better / tot; md.rankChip = Math.min(4, Math.floor(md.rankShare * 5)); }
+    // #445: the TP items the engine can answer from the same public ranges are graded on engine values.
+    const hs = md.d.seat, oi = engSeatOf(g.opp.i), lv = tg.live(E.s), set = (k, v) => { g.v[k] = v; g.src[k] = "model"; delete g.note[k]; };
+    g.mw = {};
+    if (lv.includes(oi)) {
+      set("opp.range", Math.round(clamp(tg.rangeWidth(E.s, oi, E.ranges), 1, 100)));
+      g.mw.rangeKeys = tg.rangeClasses(E.s, oi, E.ranges);
+      if (E.s.street > 0 && lv.length === 2) {
+        set("board.adv", Math.round(tg.boardAdvantage(E.s, hs, oi, E.ranges)));
+        const bn = tg.boardNut(E.s, hs, E.ranges);
+        if (bn != null) set("board.nut", Math.round(bn));
+      }
+    }
+    const sh = tg.nextCardShift(E.s, hs, E.ranges);
+    if (sh) { g.ov = { outs: sh.outs, vuln: sh.vuln, up: sh.up.map(x => x.c), down: sh.down.map(x => x.c), total: sh.total, model: true }; set("hand.outs", sh.outs); set("hand.vuln", sh.vuln); }
   } catch (e) { engBreak(e); g.model = null; }
 }
 // What the hero's choice is to the table: its menu label and, for an off-menu size, the translation.
@@ -1733,8 +1970,13 @@ const shrink = (k, n, prior, w) => (k + prior * w) / (n + w);
 function targetOpp(hero) {
   for (const k of [G.streetAgg, G.lastAgg]) if (k != null && k !== hero.i && !G.seats[k].folded) return G.seats[k];
   const opp = live().filter(s => s !== hero);
+  // Nobody has entered the pot yet: the opponent-trait questions are about the next player to act (#445).
+  if (fieldOnly(hero)) for (let d = 1; d < G.seats.length; d++) { const s = G.seats[(hero.i + d) % G.seats.length]; if (opp.includes(s)) return s; }
   return opp.sort((a, b) => a.rangePct - b.rangePct)[0];
 }
+// Preflop with no voluntary action from any live opponent and more than one of them: there is no one
+// opponent to read yet, only the field behind.
+const fieldOnly = hero => G.street === 0 && live().length > 2 && live().every(s => s === hero || !s.vpipThis);
 function heroRangePct(hero) { return G.street === 0 ? 100 : clamp(hero.rangePct, 8, 100); }
 // Mock assumption for opp.value: my representative calling range (TeacherContext stand-in).
 const heroCallPct = hero => Math.round(clamp(heroRangePct(hero) * .6, 8, 45));
@@ -1797,7 +2039,7 @@ function computeGTO(hero) {
   else if (L.toCall > 0) { const edge = eq - odds - icmTax; mix = edge > .22 && L.canRaise ? { raise: .55, call: .4, fold: .05 } : edge > .02 ? { call: .78, raise: L.canRaise ? .1 : 0, fold: .12 } : edge > -.06 ? { call: .4, fold: .6 } : { fold: .88, call: .12 }; }
   else { mix = eq > .62 && L.canRaise ? { raise: .72, check: .28 } : eq > .45 ? { check: .62, raise: L.canRaise ? .38 : 0 } : { check: .8, raise: L.canRaise ? .2 : 0 }; }
   v["act.choice"] = mix;
-  return { v, note, opp, L, pot, pct, rep, ov, vp, ag, fd, icm, foldeqAt, eqPcts: [pct, ...others] };
+  return { v, note, opp, L, pot, pct, rep, ov, vp, ag, fd, icm, foldeqAt, eqPcts: [pct, ...others], field: fieldOnly(hero) };
 }
 
 // Truth chip for the A/B question. A = win chance (hand.equity, 20%p bands); B = share of possible hands
@@ -1846,7 +2088,9 @@ function ctxChips() {
 function applies(k) {
   const L = CUR.g.L, hero = CUR.hero, post = G.board.length >= 3, hu = live().length === 2;
   if (k === "board.adv" || k === "board.nut") return post && hu;
+  if (k === "opp.range") return !CUR.g.field;
   if (k === "hand.outs" || k === "hand.vuln") return G.board.length === 3 || G.board.length === 4;
+  if (k === "hand.block") return false; // TP v0.3 item; the demo does not compute or ask it yet (#395 spec only)
   if (k === "opp.value") return G.streetAgg != null && G.streetAgg !== hero.i;
   if (k === "plan.foldeq") return L.canRaise && CUR.action === "raise" && CUR.size != null;
   if (k === "plan.icm") return G.tour && L.toCall > 0 && CUR.action === "call";
@@ -1862,20 +2106,20 @@ function setTP(mode) {
   const body = $("#tp-body"), foot = $("#tp-foot"), tp = $("#tp");
   if (mode === "waiting") {
     $("#tp-ctx").innerHTML = ""; $("#tp-form").hidden = true;
-    foot.hidden = true; tp.classList.remove("open");
+    foot.hidden = true; tp.classList.remove("open", "full"); $("#tp-strip").hidden = true; sheetAria();
     body.innerHTML = `<div class="waiting"><span><span class="spin"><i></i><i></i><i></i></span>&nbsp; 다른 플레이어가 행동하는 중이에요. 내 차례가 오면 여기서 판단을 입력합니다.</span></div>${G.lastGrade ? resultHTML(G.lastGrade, true) : ""}<details ${G.log.length ? "" : ""}><summary>이번 핸드 기록</summary><div class="log" id="hand-log"></div></details>`;
     renderLog(); bindResult(); return;
   }
   // ask: card news — one card per TP stage (B → F), 이전/다음, last card submits.
-  $("#tp-ctx").innerHTML = ctxChips();
+  $("#tp-ctx").innerHTML = ctxChips(); renderStrip();
   $("#tp-form").hidden = !CUR.ab; $("#tp-form").textContent = CUR.ab ? `형태 ${CUR.ab} · ${EQAB_FORMS[CUR.ab].title}` : "";
-  tp.classList.add("open");
+  tp.classList.add("open"); sheetAria();
   if (S.play === "quick") { setQuick(); return; }
   const opp = CUR.g.opp, items = itemsNow().filter(k => !isFollow(k)), cards = [];
   for (const k of items) { const st = TP[k].stage; if (!cards.length || cards.at(-1).stage !== st) cards.push({ stage: st, keys: [] }); cards.at(-1).keys.push(k); }
   CUR.base = cards.length; CUR.cards = cards; CUR.card = 0;
   let n = 0;
-  body.innerHTML = `<div class="tpc-opp">판단 대상 상대 · <b>${opp.name}</b> (${posName(opp)}) · 이번 게임 관측 <b class="num">${opp.stats.hands - 1}</b>핸드</div>
+  body.innerHTML = `${oppLine()}
     <div class="tpc-view">${cards.map((c, ci) => `<section class="tpc" data-card="${ci}" ${ci ? "hidden" : ""} aria-label="${c.stage}">
       <header class="tpc-h"><span class="tpc-letter">${c.stage[0]}</span><span class="tpc-name">${c.stage.slice(2)}</span><span class="tpc-count num">${ci + 1} / ${cards.length}</span></header>
       ${c.keys.map(k => { n++; const na = naNow(k); return `<div class="q${na ? " na" : ""}" data-k="${k}"><div class="n">${n}</div><div class="body">${qInput(k, na)}</div></div>`; }).join("")}
@@ -1895,7 +2139,23 @@ function setTP(mode) {
   goCard(0, true);
   if (matchMedia("(max-width: 760px)").matches) tp.classList.add("open");
 }
-const oppLine = () => { const opp = CUR.g.opp; return `<div class="tpc-opp">판단 대상 상대 · <b>${opp.name}</b> (${posName(opp)}) · 이번 게임 관측 <b class="num">${opp.stats.hands - 1}</b>핸드</div>`; };
+// #440: phone-only head strip (CSS hides it wider); the sheet covers the hero's seat on a phone.
+function renderStrip() {
+  const el = $("#tp-strip"), hero = CUR.hero, L = CUR.g.L;
+  const last = [...G.log].reverse().find(l => /^.+?\([^)]*\) \S/.test(l.t) && !l.t.startsWith("나("));
+  el.innerHTML = `<div class="grp" data-strip-hole aria-label="내 카드"></div><div class="grp sboard" data-strip-board aria-label="보드">${G.board.length ? "" : `<span class="none">보드 없음</span>`}</div>
+    <div class="nums"><span>팟 <b data-strip-pot>${bbf(CUR.g.pot)}BB</b></span><span>콜 <b data-strip-call>${L.toCall ? bbf(L.toCall) + "BB" : "없음"}</b></span></div>
+    <div class="last" data-strip-last>직전 · <b>${last ? last.t : "아직 액션 없음"}</b></div>`;
+  for (const c of hero.cards) $("[data-strip-hole]", el).appendChild(cardEl(c));
+  for (const c of G.board) $("[data-strip-board]", el).appendChild(cardEl(c));
+  el.hidden = false;
+}
+const sheetAria = () => { const tp = $("#tp"); $("#tp-handle").setAttribute("aria-expanded", String(tp.classList.contains("open"))); $("#tp-handle").setAttribute("aria-label", tp.classList.contains("open") ? (tp.classList.contains("full") ? "패널 줄이기" : "패널 전체 펼치기") : "패널 펼치기"); };
+const oppLine = () => {
+  const opp = CUR.g.opp, seen = `이번 게임 관측 <b class="num">${opp.stats.hands - 1}</b>핸드`;
+  if (CUR.g.field) return `<div class="tpc-opp" data-field>아직 팟에 들어온 상대가 없어요 · 뒤의 <b class="num">${live().length - 1}</b>명 · 성향 질문은 다음 차례 <b>${opp.name}</b> (${posName(opp)}) 기준 · ${seen}</div>`;
+  return `<div class="tpc-opp">판단 대상 상대 · <b>${opp.name}</b> (${posName(opp)}) · ${seen}</div>`;
+};
 // Spot type for the Quick rule: facing a bet/raise this street, otherwise preflop/postflop.
 const spotType = () => G.streetAgg != null && G.streetAgg !== CUR.hero.i ? "facing_bet" : G.street === 0 ? "preflop" : "postflop";
 function quickItems() {
@@ -1921,7 +2181,7 @@ function setQuick() {
   quickNav();
 }
 function quickAnalyze() {
-  recordInputTime((performance.now() - CUR.t0) / 1000); CUR.timed = true; // the decision ends when the action is fixed
+  CUR.tAct = performance.now(); recordInputTime((CUR.tAct - CUR.t0) / 1000); CUR.timed = true; // the decision ends when the action is fixed
   CUR.quick = "ask"; CUR.qkeys = quickItems();
   $("#tp-body").innerHTML = `${oppLine()}<div class="tpc-view"><section class="tpc" data-card="quick-ask" aria-label="분석 · 핵심 판단">
       <header class="tpc-h"><span class="tpc-letter">Q</span><span class="tpc-name">분석 · 핵심 판단</span><span class="tpc-count num">${CUR.qkeys.length}개</span></header>
@@ -2159,7 +2419,7 @@ function trainWhyCtx(g) {
   };
   return { hero: hero.cards.slice(), board: G.board.slice(), oppPct: g.pct, heroPct: heroRangePct(hero), ov: g.ov, steps, note: g.note["opp.value"], texts };
 }
-function scoreScalar(u, g) { const tol = TIERS[tierNow()].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * 2.4)) }; }
+function scoreScalar(u, g) { const tol = TIERS[tierNow()].tol, err = Math.abs(u - g); return { err, score: Math.round(err <= tol ? 100 : clamp(100 - (err - tol) * SCORE_SLOPE)) }; }
 function submitTP() { finishHero(itemsNow()); }
 // keys = items to grade (Guided: every applicable item; Quick analysis: the core judgments + action). null = Quick without analysis.
 function finishHero(keys) {
@@ -2173,10 +2433,10 @@ function finishHero(keys) {
     } else if (TP[k].reflection) {
       if (CUR.answers[k] != null) refs.push({ k, kind: "reflect", you: CUR.answers[k] });
     } else if (k === "opp.range") {
-      const gk = classesInTop(g.v[k]), uk = CUR.rangeKeys || classesInTop(30);
+      const gk = g.src?.[k] === "model" && g.mw?.rangeKeys ? g.mw.rangeKeys : classesInTop(g.v[k]), uk = CUR.rangeKeys || classesInTop(30);
       let inter = 0, uni = 0; for (const c of CLASSES) { const a = uk.has(c.key), b = gk.has(c.key); if (a && b) inter += c.combos; if (a || b) uni += c.combos; }
       const jac = uni ? inter / uni : 1, u = CUR.answers[k] ?? 30, sc = tierNow() === "pro" ? Math.round(jac * 100) : scoreScalar(u, g.v[k]).score;
-      rows.push({ k, kind: "range", you: u, gto: g.v[k], score: sc, uk, gk });
+      rows.push({ k, kind: "range", you: u, gto: g.v[k], score: sc, uk, gk, src: g.src?.[k] });
     } else if (k === "hand.equity" && CUR.ab) {
       if (CUR.answers[k] == null) continue;
       const rec = { f: CUR.ab, ms: Math.round((CUR.abAt ?? performance.now()) - (CUR.abShown ?? CUR.t0)), a: CUR.answers[k], t: eqabTruth(CUR.ab, g), seed: AB.seed };
@@ -2193,7 +2453,7 @@ function finishHero(keys) {
       const u = CUR.answers[k]; rows.push({ k, kind: "scalar", you: u, gto: g.v[k], note: g.note[k], src: g.src?.[k], ...scoreScalar(u, g.v[k]) });
     }
   }
-  rows.forEach(r => recordScore(r.k, r.score));
+  rows.forEach(r => { recordScore(r.k, r.score); if (r.src !== "model") r.mockWhy = mockWhy(r.k); });
   const ctx = trainWhyCtx(g);
   rows.forEach(r => r.why = r.src === "model" ? modelWhyHTML(r.k, g) : whyHTML(r.k, { ...ctx, text: ctx.texts[r.k] }));
   const total = rows.length ? Math.round(rows.reduce((a, r) => a + r.score, 0) / rows.length) : null;
@@ -2206,9 +2466,10 @@ function finishHero(keys) {
   if (CUR.action === "raise") act = { type: "raise", to: CUR.to };
   else act = { type: CUR.action };
   $("#seat-" + CUR.hero.i).classList.remove("acting");
+  tellPend(keys);
   const res = heroResolve; heroResolve = null; CUR = null;
   setTP("waiting"); renderInfo();
-  $("#tp").classList.add("open");
+  $("#tp").classList.add("open"); sheetAria();
   res(act);
 }
 const ACT_NM = { fold: "폴드", check: "체크", call: "콜", raise: "벳·레이즈" }, ACT_COL = { fold: "#5d6a6f", check: "#8d999c", call: "#5d8fd8", raise: "#d6ab55" };
@@ -2217,20 +2478,28 @@ function mixRefHTML(mix, you, title) {
   const order = ["fold", "check", "call", "raise"], p = Math.round((mix[you] || 0) * 100);
   return `<div class="rrow ref"><div class="t"><span>${title} · 내 선택 <b style="font-family:var(--font-body);font-size:12.5px">${ACT_NM[you]}</b></span>${CONF}</div>
     <div class="mix">${order.filter(o => mix[o] > 0).map(o => `<span style="width:${mix[o] * 100}%;background:${ACT_COL[o]}">${mix[o] >= .12 ? ACT_NM[o] + " " + Math.round(mix[o] * 100) + "%" : ""}</span>`).join("")}</div>
-    <div class="cap"><span>모의 참고: TP-GTO(모의) 혼합 전략 · 내 선택 빈도 ${p}%</span><span>EV 손실 미산출 · 점수 제외</span></div></div>`;
+    <div class="cap"><span>모의 참고: 규칙 기반 혼합 전략(학습된 정책 없음) · 내 선택 빈도 ${p}%</span><span>EV 손실 미산출 · 점수 제외</span></div></div>`;
 }
 // The policy's mixed strategy for the hero's real hand (TP §5: no Q values yet, so reference only).
 function modelActionHTML(r) {
-  const m = r.model.meta, you = r.you;
-  return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 <b class="num">${you ? Math.round(you.p * 100) + "%" : "—"}</b></span>${modelTag(m)}</div>
-    ${modelMixHTML(r.model, you)}
+  const m = r.model.meta, you = r.you, leak = r.model.leak;
+  // In a known leak cell the row is wrong, so the hero's frequency in it is not shown as a grade.
+  const freq = leak?.kind === "leak" ? `<span style="font-size:11px;color:var(--faint)">채점 안 함</span>` : `<b class="num">${you ? (you.approx ? "≈" : "") + Math.round(you.p * 100) + "%" : "—"}</b>${you?.approx ? ` <span class="conf" data-approx title="메뉴 밖 사이즈의 번역 오차가 커서 근사값이에요 (#417)">근사(번역)</span>` : ""}`;
+  return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 ${freq}</span>${modelTag(m)}</div>
+    ${leakHTML(leak)}${modelMixHTML(r.model, you)}
     ${you?.note ? `<div class="cap"><span>${you.note}</span></div>` : ""}
     <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
     <div class="model-line">TP-GTO · 학습 중간본 · ${modelLine(m)}</div></div>`;
 }
 function modelWhyHTML(k, g) {
   const m = g.model;
-  if (k !== "hand.equity" || !m) return "";
+  if (!m) return "";
+  const head = `<div class="why-head"><span>왜 이 답인가</span>${modelTag(m.meta)}</div>`, pub = "상대마다 지금까지의 액션으로 좁힌 <b>공개 레인지</b>(각자 같은 TP-GTO 정책으로 액션마다 베이즈 갱신)";
+  if ((k === "hand.outs" || k === "hand.vuln") && g.ov?.model) return head + whyOuts(g.ov, k) + `<p class="why-txt">비교 기준 에퀴티는 ${pub}에 대한 값이에요.</p>`;
+  if (k === "opp.range" && g.mw?.rangeKeys) return head + `<div class="why-sec why-range">${gridHTML(g.mw.rangeKeys, "why-grid")}<p class="why-txt">${g.opp.name}의 ${pub.replace("상대마다 ", "")}예요. 남아 있는 조합 비중이 <b>${g.v[k]}%</b>이고, 칸은 평균 비중이 절반 이상인 핸드예요.</p></div>`;
+  if (k === "board.adv") return head + `<p class="why-txt">내 공개 레인지 전체가 ${g.opp.name}의 공개 레인지를 상대로 내는 평균 에퀴티로 계산해요: 100 × (1 − 평균 에퀴티) = <b>${g.v[k]}</b>. 50보다 크면 이 보드는 상대 레인지에 더 잘 맞아요.</p>`;
+  if (k === "board.nut") return head + `<p class="why-txt">이 보드에서 상위 10% 강도의 핸드가 두 공개 레인지에 얼마나 들어 있는지 비교해요. 상대 쪽 비중 = <b>${g.v[k]}</b> (0 나 – 100 상대).</p>`;
+  if (k !== "hand.equity") return "";
   return `<div class="why-head"><span>왜 이 답인가</span>${modelTag(m.meta)}</div><p>남은 상대 모두를 이길 확률이에요. 상대마다 지금까지의 액션으로 좁힌 <b>공개 레인지</b>(1326 조합, 각자 같은 TP-GTO 정책으로 액션마다 베이즈 갱신)를 쓰고, 상대별 에퀴티를 곱해요. 정책은 이 값을 ${m.k}단계 눈금으로 나눠 판단하고, 이번 핸드는 <b>${m.k}단계 중 ${m.step % 1000 + 1}단계</b>예요.</p>`;
 }
 function resultHTML(gr, compact) {
@@ -2244,8 +2513,8 @@ function resultHTML(gr, compact) {
     const lo = Math.min(r.you, r.gto), hi = Math.max(r.you, r.gto);
     html += `<div class="rrow"><div class="t"><span>${SHORT[r.k]} ${mdl ? modelTag(gr.meta) : CONF}</span><b class="num ${cls}">${r.score}</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${r.gto}%"></div><div class="mk you" style="left:${r.you}%"></div></div>
-      <div class="cap"><span>나 ${r.youL ?? (r.kind === "range" ? "상위 " + r.you + "%" : r.you)}</span><span>${r.gtoL ? `참값 ${mdl ? modelTag(gr.meta) : CONF} ${r.gtoL}` : `${mdl ? "TP-GTO" : "TP-GTO(모의)"} ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}`}</span></div>
-      ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}${r.why ? `<details class="why"><summary>왜 이 답인가 ${mdl ? modelTag(gr.meta) : CONF}</summary>${r.why}</details>` : ""}</div>`;
+      <div class="cap"><span>나 ${r.youL ?? (r.kind === "range" ? "상위 " + r.you + "%" : r.you)}</span><span>${r.gtoL ? `참값 ${mdl ? modelTag(gr.meta) : CONF} ${r.gtoL}` : `${mdl ? "TP-GTO" : "모의 정답"} ${r.kind === "range" ? "상위 " + r.gto + "%" : r.gto}`}</span></div>
+      ${r.note ? `<div class="cap"><span>${r.note}</span></div>` : ""}${mdl || r.labels ? "" : `<div class="cap" data-mock-why><span>모의: ${r.mockWhy || mockWhy(r.k)}</span></div>`}${r.why ? `<details class="why"><summary>왜 이 답인가 ${mdl ? modelTag(gr.meta) : CONF}</summary>${r.why}</details>` : ""}</div>`;
   }
   for (const r of gr.refs || []) {
     if (r.kind === "model-action") html += modelActionHTML(r);
@@ -2278,16 +2547,29 @@ function driversHTML(gr) {
 }
 function bindResult() { const b = $("#tp-body [data-learn]"); if (b) b.onclick = () => { showView("learn"); selectModule(b.dataset.learn); }; }
 function renderLog() { const el = $("#hand-log"); if (!el || !G) return; let last = ""; el.innerHTML = G.log.map(l => { const s = l.st !== last ? `<div class="st">${l.st}</div>` : ""; last = l.st; return s + `<div>${l.t}</div>`; }).join(""); }
-$("#tp-handle").addEventListener("click", () => $("#tp").classList.toggle("open"));
+// Grabber: tap toggles the sheet; drag up opens one step (peek -> default -> full), drag down closes one step.
+{
+  const hd = $("#tp-handle"), tp = $("#tp"); let y0 = null, dragged = false;
+  const step = up => {
+    if (up) { if (tp.classList.contains("open")) tp.classList.add("full"); else tp.classList.add("open"); }
+    else if (tp.classList.contains("full")) tp.classList.remove("full"); else tp.classList.remove("open");
+    sheetAria();
+  };
+  hd.addEventListener("pointerdown", e => { y0 = e.clientY; dragged = false; hd.setPointerCapture?.(e.pointerId); });
+  hd.addEventListener("pointerup", e => { if (y0 == null) return; const dy = e.clientY - y0; y0 = null; if (Math.abs(dy) > 24) { dragged = true; step(dy < 0); } });
+  hd.addEventListener("pointercancel", () => { y0 = null; });
+  hd.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (tp.classList.contains("open")) tp.classList.remove("open", "full"); else tp.classList.add("open"); sheetAria(); });
+}
 
 /* ---------- showdown & payout ---------- */
 async function showdown(alive) {
   if (G.eng) G.eng.lastHand = { hand: G.handNo, ok: G.eng.ok, done: !!G.eng.s?.done };
   const contenders = live();
+  tellShowdown(contenders);
   const banner = h("div", "banner");
   if (contenders.length === 1) {
     const w = contenders[0], amt = G.pot; G.pot = 0; renderSeats();
-    await flyChips({ x: 50, y: 30 }, P[w.i], amt); w.stack += amt;
+    await flyChips(potPile(), P[w.i], amt); w.stack += amt;
     bubble(w, "+" + bbf(amt) + " BB", "win"); addLog("결과", `${w.name} 팟 ${bbf(amt)} BB 획득`);
   } else {
     while (G.board.length < 5) { const c = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(c); const e = cardEl(c); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(420); }
@@ -2309,7 +2591,7 @@ async function showdown(alive) {
       if (!contenders.includes(w)) { w.stack += amt; continue; }
       revealHole(w, true);
       banner.textContent = `${w.isHero ? "나" : w.name} · ${handName(scores.get(w))}`; $("#layer").appendChild(banner);
-      await flyChips({ x: 50, y: 30 }, P[w.i], amt); w.stack += amt;
+      await flyChips(potPile(), P[w.i], amt); w.stack += amt;
       bubble(w, "+" + bbf(amt) + " BB", "win"); addLog("결과", `${w.name} ${handName(scores.get(w))} · ${bbf(amt)} BB`);
     }
   }
@@ -2409,18 +2691,22 @@ function rhLogHTML(h) {
 function ringPos(k, n, portrait) {
   const ang = Math.PI / 2 + k * 2 * Math.PI / n, rx = portrait ? 37 : 43, ry = portrait ? 42 : 39;
   const x = 50 + rx * Math.cos(ang), y = 50 + ry * Math.sin(ang);
-  return { x, y, bx: 50 + (x - 50) * .58, by: 47 + (y - 50) * .5, dx: 50 + (x - 50) * .74 + (k === 0 ? 7 : 0), dy: 50 + (y - 50) * .7 };
+  // The button sits beside the seat's bet line, not on it: on the top seat the two used to stack (#445).
+  const da = ang + .3;
+  return { x, y, bx: 50 + (x - 50) * .58, by: 47 + (y - 50) * .5, dx: 50 + rx * .74 * Math.cos(da), dy: 50 + ry * .7 * Math.sin(da) };
 }
 function tableHTML(h, o = {}) {
   const portrait = matchMedia("(max-width: 760px)").matches, hi = h.seats.findIndex(s => s.isHero), base = hi < 0 ? 3 : hi;
   let seats = "", bets = "", dealer = "";
   for (const s of h.seats) {
     const k = (s.i - base + 6) % 6, p = ringPos(k, 6, portrait), cs = o.cards?.[s.pos];
-    const hole = s.folded ? "" : cs ? cs.map(c => cardEl(c, { back: c == null }).outerHTML).join("") : o.noBacks ? "" : cardEl(null, { back: true }).outerHTML.repeat(2);
-    const nm = s.isHero ? "나" : s.pos === o.focus ? "상대" : "플레이어";
+    // The hero's own cards stay visible after a fold: the review entered them in the hand step (#445).
+    const hole = s.folded && !(s.isHero && cs) ? "" : cs ? cs.map(c => cardEl(c, { back: c == null }).outerHTML).join("") : o.noBacks ? "" : cardEl(null, { back: true }).outerHTML.repeat(2);
+    // The avatar already shows the position; a generic "플레이어" only got cut to "플레..." on phones (#445).
+    const nm = s.isHero ? "나" : s.pos === o.focus ? "상대" : "";
     const tag = s.last ? `<span class="atag ${s.last.cls}">${s.last.label}</span>` : "";
     seats += `<div class="seat mseat${s.isHero ? " hero" : ""}${s.folded ? " folded" : ""}${o.acting === s.pos ? " acting" : ""}${s.pos === o.focus ? " focus" : ""}${o.pick ? " pickable" : ""}" data-pos="${s.pos}" style="left:${p.x}%;top:${p.y}%"${o.pick ? ` role="button" tabindex="0" aria-label="${s.pos} 자리를 내 자리로"` : ""}>
-      <div class="hole">${hole}</div><div class="pod"><div class="avatar">${s.pos}</div><div class="who"><div class="nm">${nm}</div><div class="stk">${s.allin ? "올인" : f1(s.stack) + " BB"}</div></div></div>${tag}</div>`;
+      <div class="hole">${hole}</div><div class="pod"><div class="avatar">${s.pos}</div><div class="who">${nm ? `<div class="nm">${nm}</div>` : ""}<div class="stk">${s.allin ? "올인" : f1(s.stack) + " BB"}</div></div></div>${tag}</div>`;
     // Bets sit a little closer to the seat than in the live table so the pot can sit under the board.
     if (s.bet > 0) bets += `<div class="bet" style="left:${p.bx}%;top:${50 + (p.y - 50) * .42}%">${chipStack(s.bet, 1)}<span class="amt num">${f1(s.bet)}</span></div>`;
     if (s.pos === "BTN") dealer = `<div class="dealer" style="left:${p.dx}%;top:${p.dy}%">D</div>`;
@@ -2488,14 +2774,16 @@ function eqSplit(hero, board, combos, iters = 600) {
   }
   return n ? { win: w / n, tie: t / n } : { win: .5, tie: 0 };
 }
+const splitEq = sp => Math.round((sp.win + sp.tie / 2) * 100);
 function splitBar(sp) {
   const w = Math.round(sp.win * 100), t = Math.round(sp.tie * 100), l = Math.max(0, 100 - w - t);
-  return `<div class="mix wl">${w ? `<span style="width:${w}%;background:var(--good)">${w >= 12 ? "승 " + w + "%" : ""}</span>` : ""}${t ? `<span style="width:${t}%;background:var(--muted)">${t >= 12 ? "무 " + t + "%" : ""}</span>` : ""}${l ? `<span style="width:${l}%;background:var(--bad)">${l >= 12 ? "패 " + l + "%" : ""}</span>` : ""}</div><div class="cap wl-cap"><span class="good">승 ${w}%</span><span>무 ${t}%</span><span class="bad">패 ${l}%</span><span>에퀴티 = 승 + 무/2 ≈ ${Math.round(w + t / 2)}%</span></div>`;
+  return `<div class="mix wl">${w ? `<span style="width:${w}%;background:var(--good)">${w >= 12 ? "승 " + w + "%" : ""}</span>` : ""}${t ? `<span style="width:${t}%;background:var(--muted)">${t >= 12 ? "무 " + t + "%" : ""}</span>` : ""}${l ? `<span style="width:${l}%;background:var(--bad)">${l >= 12 ? "패 " + l + "%" : ""}</span>` : ""}</div><div class="cap wl-cap"><span class="good">승 ${w}%</span><span>무 ${t}%</span><span class="bad">패 ${l}%</span><span>에퀴티 = 승 + 무/2 ≈ ${splitEq(sp)}%</span></div>`;
 }
-function whyEquity(hero, board, oppPct, oppCards) {
+// given: the split the answer was computed from (learning drills), reused instead of a fresh sample.
+function whyEquity(hero, board, oppPct, oppCards, given) {
   const dead = new Set([...hero, ...board]);
   if (oppCards) {
-    const sp = eqSplit(hero, board, [[oppCards[0], oppCards[1]]], 900);
+    const sp = given || eqSplit(hero, board, [[oppCards[0], oppCards[1]]], 900);
     let txt = "";
     if (board.length >= 3) {
       const me = evaluate([...hero, ...board]), op = evaluate([...oppCards, ...board]);
@@ -2509,7 +2797,7 @@ function whyEquity(hero, board, oppPct, oppCards) {
   }
   const keys = [...classesInTop(oppPct)], stepN = Math.max(1, Math.ceil(keys.length / 44));
   const rows = keys.filter((_, i) => i % stepN === 0).map(key => { const cs = combosFor(new Set([key]), dead); return cs.length ? { key, eq: eqVsCombos(hero, board, cs, 40), ex: cs[Math.floor(rand() * cs.length)] } : null; }).filter(Boolean).sort((a, b) => b.eq - a.eq);
-  const all = combosFor(classesInTop(oppPct), dead), sp = eqSplit(hero, board, all, 700);
+  const all = combosFor(classesInTop(oppPct), dead), sp = given || eqSplit(hero, board, all, 700);
   const li = r => `<span class="exrow">${comboHTML(r.ex)}<b class="num">${Math.round(r.eq * 100)}%</b></span>`;
   const win = rows.filter(r => r.eq >= .5).slice(0, 4), lose = rows.filter(r => r.eq < .5).slice(-4).reverse();
   return `<div class="why-sec">${splitBar(sp)}
@@ -2549,7 +2837,7 @@ function whyHTML(k, ctx) {
     if (k === "hand.rank") return whyRank(ctx.hero, ctx.oppCards, ctx.board);
     if (k === "board.adv") return whyBuckets(ctx.heroPct, ctx.oppPct, ctx.board, ctx.hero);
     if (k === "board.nut") return whyBuckets(ctx.heroPct, ctx.oppPct, ctx.board, ctx.hero, 0);
-    if (k === "hand.equity") return whyEquity(ctx.hero, ctx.board, ctx.oppPct, ctx.oppCards);
+    if (k === "hand.equity") return whyEquity(ctx.hero, ctx.board, ctx.oppPct, ctx.oppCards, ctx.split);
     if ((k === "hand.outs" || k === "hand.vuln") && ctx.ov) return whyOuts(ctx.ov, k);
     if (k === "opp.range") return whyRange(ctx.oppPct, ctx.steps || []);
     if (k === "opp.value" && ctx.board.length < 3) return `<div class="why-sec"><p class="why-txt">프리플랍 벳이라 보드 강도 대신 상대 레인지(상위 ${ctx.oppPct}%)가 내 콜링 레인지보다 앞서는 비율로 봤어요. ${ctx.note || ""}</p></div>`;
@@ -2569,8 +2857,8 @@ const MODS = [
   { k: "board.adv", lv: "중급", tag: "B 보드 읽기", name: "보드 텍스처 읽기", ds: "이 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)" },
   { k: "hand.outs", lv: "중급", tag: "D 내 핸드", name: "유리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 올리는 비율" },
   { k: "hand.vuln", lv: "심화", tag: "D 내 핸드", name: "불리해지는 카드", ds: "다음 카드 중 내 에퀴티를 10%p 이상 깎는 비율" },
-  { k: "opp.value", lv: "심화", tag: "C 상대 읽기", name: "밸류 쪽인가 블러프 쪽인가", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
-  { k: "plan.icm", lv: "심화", tag: "E 계획", name: "ICM 압박", ds: "D2에서 TP-GTO 데이터로 제공", locked: true },
+  { k: "opp.value", lv: "심화", tag: "C 상대 읽기", name: "밸류 쪽인가 블러프 쪽인가", ds: "드릴 문제는 준비 중이에요. 훈련 게임에서는 지금도 채점해요.", locked: true },
+  { k: "plan.icm", lv: "심화", tag: "E 계획", name: "ICM 압박", ds: "드릴 문제는 준비 중이에요. 훈련 게임에서는 지금도 채점해요.", locked: true },
 ];
 let LM = { k: null, lvl: "normal", prob: null, answered: false, val: null };
 let RANKQ = store.get("rankq", { n: 0, sum: 0 });
@@ -2586,12 +2874,12 @@ function eqabHTML() {
 }
 function renderEqab() { const box = $("#ab-box"); box.hidden = S.eqab !== "on" && !EQAB.length; if (!box.hidden) box.innerHTML = eqabHTML(); }
 function renderMods() {
-  renderEqab();
+  renderEqab(); renderTells();
   const open = LM.k != null, wrap = $("#learn");
   wrap.classList.toggle("open", open); wrap.classList.toggle("gallery", !open);
   $("#drill").hidden = !open;
   $("#mods").innerHTML = MODS.map((m, i) => { const a = modAvg(m.k); return `<button class="mod${m.locked ? " locked" : ""}" data-k="${m.k}" aria-pressed="${m.k === LM.k}" ${m.locked ? "aria-disabled='true'" : ""}>
-    <span class="mod-top"><span class="no num">${String(i + 1).padStart(2, "0")}</span><span class="lv">${m.locked ? "준비 중" : m.lv}</span></span><span class="k">${m.tag}</span><span class="nm">${m.name}</span><span class="ds">${m.ds}</span>${a != null ? `<span class="my">평균 <b class="num">${a}</b>점</span>` : ""}</button>`; }).join("");
+    <span class="mod-top"><span class="no num">${String(i + 1).padStart(2, "0")}</span><span class="lv">${m.locked ? "드릴 준비 중" : m.lv}</span></span><span class="k">${m.tag}</span><span class="nm">${m.name}</span><span class="ds">${m.ds}</span>${a != null ? `<span class="my">${m.locked ? "훈련 게임 " : ""}평균 <b class="num">${a}</b>점</span>` : ""}</button>`; }).join("");
   $$("#mods .mod").forEach(b => b.onclick = () => { if (!b.classList.contains("locked")) selectModule(b.dataset.k); });
   if (open) { if (!LM.prob) newProblem(); renderDrill(); }
 }
@@ -2648,7 +2936,11 @@ function newProblem() {
     p.ov = outsVuln(hero, board, combos, 120);
     p.answer = p.ov ? (k === "hand.outs" ? p.ov.outs : p.ov.vuln) : 0;
   } else if (k === "board.adv") p.answer = Math.round(100 - rangeVsRange(sc.heroPct, sc.pct, board, 900) * 100);
-  else p.answer = Math.round((lvl === "easy" ? eqVsCombos(hero, board, [[oppCards[0], oppCards[1], 0]], 1400) : eqVsPct(hero, board, sc.pct, 1400)) * 100);
+  else {
+    // One sample for the answer and its win/tie/loss explanation, so the two never disagree (#445).
+    p.split = eqSplit(hero, board, lvl === "easy" ? [[oppCards[0], oppCards[1]]] : combosFor(classesInTop(sc.pct), new Set([...hero, ...board])), 1400);
+    p.answer = splitEq(p.split);
+  }
   LM.prob = p;
 }
 function drillHead(m) {
@@ -2686,11 +2978,11 @@ function renderDrill() {
   $("#dr-go").onclick = () => {
     if (LM.answered) { newProblem(); renderDrill(); return; }
     LM.answered = true;
-    const err = Math.abs(LM.val - p.answer), sc = Math.round(clamp(100 - Math.max(0, err - 5) * 2.4));
+    const err = Math.abs(LM.val - p.answer), sc = Math.round(clamp(100 - Math.max(0, err - 5) * SCORE_SLOPE));
     recordScore(LM.k, sc);
     renderDrill();
     const lo = Math.min(LM.val, p.answer), hi = Math.max(LM.val, p.answer), cls = sc >= 80 ? "good" : sc >= 55 ? "warn" : "bad";
-    const ctx = { hero: p.hero, board: p.board, oppPct: p.pct, heroPct: p.sc.heroPct, oppCards: lvl === "easy" ? p.oppCards : null, ov: p.ov, steps: p.sc.why };
+    const ctx = { hero: p.hero, board: p.board, oppPct: p.pct, heroPct: p.sc.heroPct, oppCards: lvl === "easy" ? p.oppCards : null, ov: p.ov, steps: p.sc.why, split: p.split };
     $("#dr-res").innerHTML = `<div class="rrow"><div class="t"><span>정답 ${CONF} <b class="num" style="color:var(--good)">${isRange ? "상위 " + p.answer + "%" : p.answer}</b> · 내 답 <b class="num">${isRange ? "상위 " + LM.val + "%" : LM.val}</b></span><b class="num ${cls}">${sc}점</b></div>
       <div class="cmp"><div class="track"></div><div class="gap" style="left:${lo}%;width:${hi - lo}%"></div><div class="mk gto" style="left:${p.answer}%"></div><div class="mk you" style="left:${LM.val}%"></div></div>
       <div class="cap"><span>${explain(LM.k, p)}</span></div></div>
@@ -2768,6 +3060,7 @@ function rvStepDone(i) {
 }
 function rvNextStep(i) { for (let j = i + 1; j < RV_STEPS.length; j++) { const s = rvStepState(j); if (s === "ok") return j; if (s === "locked") return -1; } return -1; }
 function renderReview() {
+  if (VIEW === "review") renderModelStatus();
   const h = rvRebuild();
   if (rvStepState(RV.step) !== "ok") RV.step = 0;
   const s = RV.step, acting = s >= 2 && s <= 5 && h.street === s - 2 && !h.closed && rhActor(h) ? rhActor(h).pos : null;
@@ -2922,6 +3215,7 @@ function rvModel(h, di) {
       if (i === di) {
         const md = engModelAt(st, ranges, pol, tier, meta), to = l.type === "raise" ? Math.round(l.to * 100) : null;
         md.you = engYou(md, engLabelAt(st, l.type, to, engReadRng(ent, st)), to);
+        md.ranges = ranges;
         return md;
       }
       const d = tg.decisionKey(st, ranges, tier), to = l.type === "raise" ? Math.round(l.to * 100) : null;
@@ -2948,19 +3242,29 @@ function analyzeReview() {
   const ctx = { hero: RV.hero, board, oppPct: pct, heroPct, steps };
   const why = k => `<details class="why"><summary>왜 이 답인가 ${CONF}</summary>${whyHTML(k, ctx)}</details>`;
   const md = rvModel(h, di);
+  // #445: with the replayed policy, the range and board rows come from the same public ranges as the equity.
+  let mr = null;
+  if (md) try {
+    const tg = TPG.mod, oi = RPOS.indexOf(oppPos);
+    if (oi >= 0 && !md.s.folded[oi]) mr = { pct: Math.round(clamp(tg.rangeWidth(md.s, oi, md.ranges), 1, 100)), keys: tg.rangeClasses(md.s, oi, md.ranges), adv: md.s.board.length >= 3 ? Math.round(tg.boardAdvantage(md.s, md.d.seat, oi, md.ranges)) : null };
+  } catch (e) { console.warn("[tpgto] review ranges off:", e.message); }
+  const mWhy = body => `<details class="why"><summary>왜 이 답인가 ${modelTag(md.meta)}</summary>${body}</details>`;
+  const rangeRow = mr
+    ? `<div class="rrow"><div class="t"><span>N · ${oppPos} 레인지 ${modelTag(md.meta)}</span><b class="num">상위 ${mr.pct}%</b></div>${mWhy(`<div class="why-sec why-range">${gridHTML(mr.keys, "why-grid")}<p class="why-txt">${oppPos}가 TP-GTO 정책으로 두었다고 보고 액션마다 좁힌 공개 레인지예요. 남은 조합 비중 ${mr.pct}%, 칸은 평균 비중이 절반 이상인 핸드예요.</p></div>`)}</div>`
+    : `<div class="rrow"><div class="t"><span>N · ${oppPos} 레인지 추정 ${CONF}</span><b class="num">상위 ${pct}%</b></div><div class="cap"><span>모의: 공개 액션마다 정해진 비율로 좁히는 규칙 추정이에요${md ? "" : " (이 설정은 학습된 정책이 없어요)"}.</span></div>${why("opp.range")}</div>`;
+  const advV = mr ? mr.adv : adv, advRow = advV == null ? "" : mr
+    ? `<div class="rrow"><div class="t"><span>N · 보드는 누구 레인지에 유리한가 (0 나 – 100 상대) ${modelTag(md.meta)}</span><b class="num">${advV}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${advV}%"></div></div>${mWhy(`<p class="why-txt">내 공개 레인지 전체가 ${oppPos}의 공개 레인지를 상대로 내는 평균 에퀴티로 계산해요: 100 × (1 − 평균 에퀴티).</p>`)}</div>`
+    : `<div class="rrow"><div class="t"><span>N · 보드는 누구 레인지에 유리한가 (0 나 – 100 상대) ${CONF}</span><b class="num">${advV}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${advV}%"></div></div>${why("board.adv")}</div>`;
   const eqRow = md && Number.isFinite(md.eq)
-    ? `<div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티 ${modelTag(md.meta)}</span><b class="num">${Math.round(md.eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${md.eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}<details class="why"><summary>왜 이 답인가 ${modelTag(md.meta)}</summary>${modelWhyHTML("hand.equity", { model: md })}</details></div>`
-    : `<div class="rrow"><div class="t"><span>3 · 내 쇼다운 에퀴티 ${CONF}</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}${why("hand.equity")}</div>`;
-  const actRow = md ? modelActionHTML({ k: "act.choice", model: md, you: md.you }).replace(SHORT["act.choice"], "4 · 액션") : mixRefHTML(mix, d.type, "4 · 액션");
+    ? `<div class="rrow"><div class="t"><span>N · 내 쇼다운 에퀴티 ${modelTag(md.meta)}</span><b class="num">${Math.round(md.eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${md.eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}<details class="why"><summary>왜 이 답인가 ${modelTag(md.meta)}</summary>${modelWhyHTML("hand.equity", { model: md })}</details></div>`
+    : `<div class="rrow"><div class="t"><span>N · 내 쇼다운 에퀴티 ${CONF}</span><b class="num">${Math.round(eq * 100)}%</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${eq * 100}%"></div></div>${facing ? `<div class="cap"><span>콜에 필요한 승률 약 ${Math.round(odds * 100)}% (콜 ${f1(d.toCall)} / 팟 ${f1(d.potBefore + d.toCall)})</span></div>` : ""}${why("hand.equity")}</div>`;
+  const actRow = md ? modelActionHTML({ k: "act.choice", model: md, you: md.you }).replace(SHORT["act.choice"], "N · 액션") : mixRefHTML(mix, d.type, "N · 액션");
   const intro = md
-    ? `마지막 내 결정(${ST_NM[d.st]} · ${d.label})까지 이 핸드를 학습된 TP-GTO(${TIERS[S.tier].name})로 다시 재생해, 같은 상황에서 정책이 어떻게 두는지 보여줘요. 에퀴티는 각 좌석이 같은 정책으로 둔다고 보고 좁힌 공개 레인지 기준이에요. 레인지 추정·보드 읽기는 아직 ${CONF} 값이에요.`
-    : `마지막 내 결정(${ST_NM[d.st]} · ${d.label}) 기준으로, 상대 ${oppPos}에 대해 TP-GTO(모의)가 이 상황을 어떻게 봤는지 보여줘요. ${RV.mode === "cash" && RV.stack === 100 ? "" : "학습된 TP-GTO는 캐시게임 6인 100BB 핸드에서만 비교할 수 있어요. "}복기에서는 상대 정책을 모르므로 공개 액션으로 추정한 레인지예요.`;
+    ? `마지막 내 결정(${ST_NM[d.st]} · ${d.label})까지 이 핸드를 학습된 TP-GTO(${TIERS[S.tier].name})로 다시 재생해, 같은 상황에서 정책이 어떻게 두는지 보여줘요. 레인지·보드·에퀴티는 각 좌석이 같은 정책으로 둔다고 보고 좁힌 공개 레인지 기준이에요.`
+    : `마지막 내 결정(${ST_NM[d.st]} · ${d.label}) 기준으로, 상대 ${oppPos}에 대해 규칙 기반 ${CONF} 교사가 이 상황을 어떻게 봤는지 보여줘요. ${RV.mode === "cash" && RV.stack === 100 ? "" : "학습된 TP-GTO는 캐시게임 6인 100BB 핸드에서만 비교할 수 있어요. "}복기에서는 상대 정책을 모르므로 공개 액션으로 추정한 레인지예요.`;
   out.innerHTML = `<p class="sub">${intro}</p>
     <div style="display:grid;gap:10px">
-      <div class="rrow"><div class="t"><span>1 · ${oppPos} 레인지 추정</span><b class="num">상위 ${pct}%</b></div>${why("opp.range")}</div>
-      ${adv != null ? `<div class="rrow"><div class="t"><span>2 · 보드는 누구 레인지에 유리한가 (0 나 – 100 상대)</span><b class="num">${adv}</b></div><div class="cmp"><div class="track"></div><div class="mk gto" style="left:${adv}%"></div></div>${why("board.adv")}</div>` : ""}
-      ${eqRow}
-      ${actRow}
+      ${[rangeRow, advRow, eqRow, actRow].filter(Boolean).map((r, i) => r.replace("N · ", `${i + 1} · `)).join("")}
     </div>
     <div class="start-row"><button class="cta" id="rv-train">비슷한 상황으로 훈련 시작</button><button class="cta ghost small" id="rv-new">새 핸드 복기</button></div>`;
   $("#rv-train").onclick = () => {
