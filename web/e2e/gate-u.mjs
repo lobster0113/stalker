@@ -661,6 +661,24 @@ await inspect("home-move", "#move");
   await p4.close();
 }
 
+// 8. #444 딜 시드: 고정하지 않은 두 로드는 시드가 다르고, ?seed=N은 두 로드 모두 N으로 고정한다.
+{
+  const base = url.replace(/&seed=\d+/, "");
+  const seedOf = async q => {
+    const p = await browser.newPage();
+    await p.goto(base + q, { waitUntil: "domcontentloaded" });
+    const v = await p.evaluate(() => DEAL_SEED);
+    await p.close();
+    return v;
+  };
+  const [a, b] = [await seedOf(""), await seedOf("")];
+  must(a !== b, `딜 시드: seed 없이 두 번 열었는데 시드가 같음 (${a}) — 페이지 로드마다 crypto 시드를 쓰는지 확인`);
+  const [c, d] = [await seedOf("&seed=20261027"), await seedOf("&seed=20261027")];
+  must(c === 20261027 && d === 20261027, `딜 시드: ?seed=20261027이 시드를 고정하지 않음 (${c}, ${d})`);
+  const e = await seedOf("&seed=abc");
+  must(Number.isInteger(e) && e !== 0, `딜 시드: 숫자가 아닌 seed에서 무작위 시드로 돌아가지 않음 (${e})`);
+}
+
 await browser.close();
 server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
