@@ -1794,13 +1794,16 @@ function engLabelAt(s, type, to, rng) {
   return { label: t.action, menuTo: tg.amountTo(s, t.action), split: t.split };
 }
 // The hero's choice against the policy mix. Between two menu sizes the frequency is the split-weighted
-// score f x p(A) + (1 - f) x p(B) (TP.md section 6), so the same bet always grades the same.
+// score f x p(A) + (1 - f) x p(B) (TP.md section 6), so the same bet always grades the same. A split the
+// pre-registered rule flags (translationError, #417) is only approximate: shown with both neighbours'
+// frequencies and never as a full score.
 function engYou(model, lab, to) {
   const pOf = a => model.mix.find(x => x.a === a)?.p || 0, nameOf = a => model.mix.find(x => x.a === a)?.name || a;
   if (!lab.split || lab.split.length < 2) return { label: lab.label, p: pOf(lab.label), note: lab.menuTo == null || lab.menuTo === to ? "" : `AI 해석: ${bbx(to)}BB를 ${nameOf(lab.label)}로 간주` };
-  const [A, B] = lab.split, pc = x => Math.round(x * 100);
-  return { label: lab.label, split: lab.split, p: TPG.mod.splitScore(lab.split, pOf),
-    note: `AI 해석: ${bbx(to)}BB = ${nameOf(A.a)} ${pc(A.p)}% · ${nameOf(B.a)} ${pc(B.p)}% (확률로 읽어요, 이번 핸드는 ${nameOf(lab.label)}) · 내 선택 빈도는 두 빈도의 가중 평균` };
+  const [A, B] = lab.split, pc = x => Math.round(x * 100), approx = TPG.mod.translationError(model.s, to);
+  return { label: lab.label, split: lab.split, p: TPG.mod.splitScore(lab.split, pOf), approx,
+    note: `${approx ? "근사(번역) · " : ""}AI 해석: ${bbx(to)}BB = ${nameOf(A.a)} ${pc(A.p)}% · ${nameOf(B.a)} ${pc(B.p)}% (확률로 읽어요, 이번 핸드는 ${nameOf(lab.label)}) · 내 선택 빈도는 두 빈도의 가중 평균` +
+      (approx ? ` · 두 이웃 사이즈의 TP-GTO 빈도 ${nameOf(A.a)} ${pc(pOf(A.a))}% · ${nameOf(B.a)} ${pc(pOf(B.a))}% — 메뉴에서 먼 사이즈라 번역 오차가 커서 만점으로 채점하지 않아요` : "") };
 }
 // Hero's model-backed answers: the policy row for the real hand, and hand.equity vs the public ranges.
 function engHeroTruth(hero, g) {
@@ -2344,7 +2347,7 @@ function mixRefHTML(mix, you, title) {
 // The policy's mixed strategy for the hero's real hand (TP §5: no Q values yet, so reference only).
 function modelActionHTML(r) {
   const m = r.model.meta, you = r.you;
-  return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 <b class="num">${you ? Math.round(you.p * 100) + "%" : "—"}</b></span>${modelTag(m)}</div>
+  return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 <b class="num">${you ? (you.approx ? "≈" : "") + Math.round(you.p * 100) + "%" : "—"}</b>${you?.approx ? ` <span class="conf" data-approx title="메뉴 밖 사이즈의 번역 오차가 커서 근사값이에요 (#417)">근사(번역)</span>` : ""}</span>${modelTag(m)}</div>
     ${modelMixHTML(r.model, you)}
     ${you?.note ? `<div class="cap"><span>${you.note}</span></div>` : ""}
     <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
