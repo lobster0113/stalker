@@ -1,0 +1,51 @@
+{
+ "job": "e3-tp-mid-real-w4",
+ "runs": 1,
+ "seeds": [
+  1
+ ],
+ "ref": "claude/382-real-sizes",
+ "sha": "53c8029d7259ac3297026064d089a047e4437f64",
+ "run_id": "40971384338",
+ "resumed_from_run": null,
+ "iters": 100000,
+ "iters_per_s_mean": 5.71,
+ "lbr_bb_mean": 0.611,
+ "lbr_bb_by_seed": [
+  0.611
+ ],
+ "lbr_stderr_by_seed": [
+  0.2782
+ ],
+ "infosets_by_seed": [
+  95845
+ ],
+ "lbr_offmenu_bb_by_seed": [
+  0.8192
+ ],
+ "resumed_from_iters_by_seed": [
+  0
+ ],
+ "field_sha256": "a509992d2140b5a1b02f15d191a8740edb26aa08951de1f68b9a5ac410e345b0",
+ "field_deals": 1000,
+ "field_worst_by_seed": [
+  {
+   "name": "mixed_regs",
+   "bb100": -207.55,
+   "ci95_low": -294.05
+  }
+ ],
+ "field_bb100_by_seed": [
+  {
+   "tag5": -163.94,
+   "lag5": -142.26,
+   "nit5": -150.44,
+   "station5": -130.96,
+   "maniac5": -99.26,
+   "mixed_styles": -161.74,
+   "mixed_regs": -207.55,
+   "uniform5": 731.34,
+   "self5": 0.0
+  }
+ ]
+}
