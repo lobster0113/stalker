@@ -164,22 +164,25 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
-           workers: int = 1, menu: str = "v1", raise_cap: int | None = 3) -> dict:
+           workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current") -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
-    `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules."""
+    `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
+    `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
     ckpt = f"{name}-seed{seed}.ckpt.json"
     if resume is None:
-        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap)
+        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges)
     elif (resume / ckpt).is_file():
         m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")))
     else:
         raise SystemExit(f"{resume / ckpt} not found: resume_run must be an earlier {name} run with this seed "
                          "(its train-<seed> artifact holds the checkpoint); leave resume_run empty to start fresh")
+    if m.ranges != ranges:
+        raise SystemExit(f"{resume / ckpt} trained with {m.ranges} ranges, but {name} uses {ranges} (#405)")
     prev = m.iterations
     t0 = time.monotonic()
     parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
@@ -188,7 +191,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     avg, cur = m.policy(), m.current_policy()
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
-            "menu": m.menu, "raise_cap": m.raise_cap,
+            "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
 
@@ -256,6 +259,9 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # postflop raise wars run uncapped up to ALLIN_MERGE
         "e3-tp-mid-real-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-real-w4", workers=4, menu="real",
                                      raise_cap=None),
+        # #405: TP-feature ranges from the average strategy vs e3-tp-mid-w4 (current strategy)
+        "e3-tp-mid-avgrange-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-avgrange-w4", workers=4,
+                                         ranges="average"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -264,7 +270,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
-             "e3-tp-mid-real-w4"}   # #301
+             "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
