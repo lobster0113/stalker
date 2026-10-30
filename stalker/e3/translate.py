@@ -16,6 +16,9 @@ largest size). Only legal labels compete, so a capped street maps every size to 
 `split` is the deterministic probability split (grading uses it as a weighted score); `sample` draws
 one label from it with an explicit seeded Generator (the AI's reading of a hero's size), so a fixed
 seed replays the same hand and the mapping cannot be gamed by sizing just past a fixed threshold.
+
+`high_translation_error` (#417) marks the sizes whose split is a poor reading (pre-registered rule below,
+mapped by stalker/tools/translation_map.py); grading shows such a size as approximate, not as a full score.
 """
 from __future__ import annotations
 
@@ -43,7 +46,7 @@ def split(s: G.State, to: int) -> list[tuple[str, float]]:
     p = s.to_act
     room = s.stack[p] + s.bet[p]
     call = s.to_call()
-    if s.done or s.stack[p] <= call or s.acted[p] or not [i for i in s.active() if i != p]:
+    if s.done or s.stack[p] <= call or G._locked(s, p) or not G._can_cover(s):
         raise ValueError(f"no bet or raise possible after {s.history}; legal: {G.legal(s)}")
     least = min(max(s.bet) + s.last_raise, room)
     if to > room:
@@ -69,3 +72,34 @@ def sample(s: G.State, to: int, rng: np.random.Generator) -> str:
     if len(out) == 1:
         return out[0][0]
     return out[0][0] if rng.random() < out[0][1] else out[1][0]
+
+
+
+# Pre-registered high-translation-error rule (#417), fixed before any grading change used it. Calibrated
+# with `python -m stalker.tools.translation_map` on the served mid-6 table (v1 menu; local run, reference
+# only): non-all-in neighbours whose pot fractions differ by more than GAP_HIGH (b33|b75, ratio 2.27) had
+# a per-hand response TV of 0.32-0.38 on three flops, above TV_HIGH, and no point inside F_BAND with TV
+# at or above TV_HIGH went unflagged. Every real-menu pair is at most 1.65 apart, so the gap rule flags
+# none of them; the all-in rule still does above the largest size. The rule reads only the state, so
+# Python and the page (web/app/tpgto.js translationError) agree without the policy table.
+TV_HIGH = 0.25         # a reading is unreliable when 1 hand in 4 or more would answer A and B differently
+GAP_HIGH = 2.0         # pot-fraction ratio b / a of the two neighbours that stands in for TV >= TV_HIGH
+F_BAND = (0.2, 0.8)    # "far from both": neither neighbour holds 80% or more of the split
+
+
+def high_translation_error(s: G.State, to: int) -> bool:
+    """True when the split of a bet/raise to `to` is not a trustworthy reading (TP.md section 6 split):
+    one neighbour is the all-in and the other is not, with `to` below ALLIN_MERGE of the stack (an all-in
+    reading of a non-all-in size changes what the next seats may do, whatever its weight); or the size is
+    far from both neighbours (F_BAND) and they are more than GAP_HIGH apart as pot fractions."""
+    out = split(s, to)
+    if len(out) < 2:
+        return False
+    (la, f), (lb, _) = out
+    p = s.to_act
+    if lb == "a":
+        return to < G.ALLIN_MERGE * (s.stack[p] + s.bet[p])
+    if not F_BAND[0] < f < F_BAND[1]:
+        return False
+    menu = dict(_menu(s))
+    return pot_fraction(s, menu[lb]) > GAP_HIGH * pot_fraction(s, menu[la])
