@@ -110,9 +110,10 @@ def test_two_player_e3_average_weight_is_own_reach(trees):
 
 
 def test_three_player_e3_average_weight_is_not_own_reach():
-    # Pinned finding (#414): with more than two players, E3 adds sigma to the average at every visit of
-    # a non-traverser's node, so in expectation the weight is pi_c pi_-traverser (the other opponents'
-    # reach included), not pi_c pi_i. The sampler matches the first and misses the second.
+    # Pinned finding (#414): with more than two players, E3's legacy rule adds sigma to the average at every
+    # visit of a non-traverser's node, so in expectation the weight is pi_c pi_-traverser (the other
+    # opponents' reach included), not pi_c pi_i. The sampler matches the first and misses the second.
+    # avg_rule="own" fixes it (#426, next test); legacy stays for the runs made with it.
     root = T.kuhn3()
     e3 = T.noise_curve(root, T.identity, (1600,), seed=1, n_players=3, avg_reach="e3")[0]["rel_err"]
     own = T.noise_curve(root, T.identity, (1600,), seed=1, n_players=3, avg_reach="own")[0]["rel_err"]
@@ -125,6 +126,36 @@ def test_three_player_e3_average_weight_is_not_own_reach():
         o, e = T.exact_update(root, T.identity, sigma, 0, 3)[1], T.exact_update(root, T.identity, sigma, 0, 3, "e3")[1]
         ratios.append({k: e[k].sum() / o[k].sum() for k in o})
     assert max(abs(ratios[0][k] - ratios[1][k]) for k in ratios[0]) > 0.1
+
+
+def test_three_player_own_avg_rule_converges_to_own_reach():
+    # #426: dividing out the other sampled opponents' reach makes the sampler's average unbiased for
+    # pi_c pi_i: the error falls as 1/sqrt(n) against "own", and the "e3" target is now the one missed.
+    root = T.kuhn3()
+    own = T.noise_curve(root, T.identity, (400, 6400), seed=1, n_players=3, avg_reach="own", avg_rule="own")
+    assert own[-1]["rel_err"] < 0.08 and own[-1]["rel_err"] < 0.5 * own[0]["rel_err"]
+    e3 = T.noise_curve(root, T.identity, (1600,), seed=1, n_players=3, avg_reach="e3", avg_rule="own")[0]
+    assert e3["rel_err"] > 0.3
+
+
+@pytest.mark.parametrize("game,key", [("kuhn", b.kuhn_key(2)), ("leduc", b.leduc_key(3, 1))])
+def test_two_player_avg_rules_are_the_same_sample(trees, game, key):
+    # Heads-up the divisor is empty, so the two rules make the same increments from the same draws, hence
+    # the same expected average weight (test_two_player_e3_average_weight_is_own_reach).
+    root = trees[game][0]
+    sigma = T.random_sigma(root, key, np.random.default_rng(5))
+    legacy, own = T.E3Sampler(root, key), T.E3Sampler(root, key, avg_rule="own")
+    r1, r2 = np.random.default_rng(6), np.random.default_rng(6)
+    for _ in range(200):
+        for p in (0, 1):
+            a, o = legacy.sample(sigma, p, r1), own.sample(sigma, p, r2)
+            assert all(t1.keys() == t2.keys() and all(np.array_equal(t1[k], t2[k]) for k in t1)
+                       for t1, t2 in zip(a, o))
+
+
+def test_e3_sampler_rejects_unknown_avg_rule(trees):
+    with pytest.raises(ValueError):
+        T.E3Sampler(trees["kuhn"][0], avg_rule="x")
 
 
 def test_exact_update_rejects_unknown_avg_reach(trees):
