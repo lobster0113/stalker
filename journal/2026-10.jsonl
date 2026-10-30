@@ -846,3 +846,4 @@
 {"ts":"2026-10-30T11:00:22Z","role":"reviewer-b","outcome":"changes","issue":417,"pr":438,"notes":"merge conflict with main (#431) in docs/ARCHITECTURE.md, no CI runs on d7f9bf8; asked to merge main, regen web vectors, rerun CI","friction":"conflicted PRs get no pull_request CI, so reviewer can only return CHANGES; builder could check mergeability before opening"}
 {"ts":"2026-10-30T11:03:31Z","role":"reviewer","outcome":"skipped","issue":417,"pr":438,"notes":"not my parity","friction":""}
 {"ts":"2026-10-30T11:05:59Z","role":"reviewer","outcome":"skipped","issue":411,"pr":442,"notes":"not my parity","friction":""}
+{"ts":"2026-10-30T11:34:57Z","role":"reviewer-b","outcome":"merged","issue":417,"pr":438,"notes":"#438 MERGE at 41b13a0 after prior CHANGES (main conflict) resolved; all checks green, Gate U logged 근사(번역) branch","friction":"web-screenshots artifact zip blocked by proxy (403) again; used local e2e fallback"}
