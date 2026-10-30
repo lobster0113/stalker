@@ -1,4 +1,4 @@
-"""b1 next-card equities (#454): the batched path must give the same buckets as the per-card reference."""
+"""b1 next-card equities (#454): the batched path must give the same buckets as the per-card reference (kernel logic run as plain Python, which is slow: few cases)."""
 from types import SimpleNamespace
 
 import numpy as np
@@ -44,27 +44,41 @@ def _situations(count, seed=7):
         yield SimpleNamespace(street=n_board - 2, board=board, live=lambda live=live: live), ranges
 
 
+def _clear_caches():
+    K._NEXT_CACHE.clear()
+    K._EQ_CACHE.clear()
+
+
 def _check(count, monkeypatch):
+    # CI has no numba: force the kernel branch (plain Python) for the new path, per-card numpy for the reference,
+    # so `_next_card_eq`'s equity_segments loop is really exercised and not compared with itself.
+    from stalker.core import fast_eval
+
     depths = ("basic", "pro", "full")
     for i, (s, ranges) in enumerate(_situations(count)):
-        K._NEXT_CACHE.clear()
-        new = K.hand_outs_vuln(s, 0, ranges)
-        ref = _reference_outs_vuln(s, 0, ranges)
-        for a, b in zip(new, ref):
-            np.testing.assert_array_equal(a, b)
         with monkeypatch.context() as m:
+            m.setattr(fast_eval, "HAVE_NUMBA", True)
+            _clear_caches()
+            new = K.hand_outs_vuln(s, 0, ranges)
             code = K.b1_code(s, 0, ranges, depths[i % 3])
+        with monkeypatch.context() as m:
+            m.setattr(fast_eval, "HAVE_NUMBA", False)
+            _clear_caches()
+            ref = _reference_outs_vuln(s, 0, ranges)
             m.setattr(K, "hand_outs_vuln", _reference_outs_vuln)
-            np.testing.assert_array_equal(code, K.b1_code(s, 0, ranges, depths[i % 3]))
+            ref_code = K.b1_code(s, 0, ranges, depths[i % 3])
+        for x, y in zip(new, ref):
+            np.testing.assert_array_equal(x, y)
+        np.testing.assert_array_equal(code, ref_code)
 
 
 def test_batched_next_card_equities_match_the_per_card_reference(monkeypatch):
-    _check(12, monkeypatch)
+    _check(3, monkeypatch)
 
 
 @pytest.mark.slow
-def test_b1_buckets_unchanged_on_2000_flop_and_turn_situations(monkeypatch):
-    _check(2000, monkeypatch)
+def test_b1_buckets_unchanged_on_150_flop_and_turn_situations(monkeypatch):
+    _check(150, monkeypatch)
 
 
 def test_cost_probe_reports_a_positive_cost_per_iteration():
