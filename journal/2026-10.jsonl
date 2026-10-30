@@ -823,3 +823,4 @@
 {"ts":"2026-10-30T08:22:57Z","role":"reviewer","outcome":"skipped","issue":429,"pr":434,"notes":"not my parity","friction":""}
 {"ts":"2026-10-30T08:23:03Z","role":"planner","outcome":"planned","issue":430,"pr":433,"notes":"PR #433 merged -> #430 closed, ready/in-progress removed; ready 8, no new issues","friction":""}
 {"ts":"2026-10-30T08:23:46Z","role":"reviewer-b","outcome":"changes","issue":429,"pr":434,"notes":"e391ae7 conflict fix correct, but main moved again (#433), so ARCHITECTURE.md conflicts again and no CI ran; asked for a re-merge","friction":"Docs-index file ARCHITECTURE.md conflicts on every concurrent merge; parallel PRs keep re-conflicting"}
+{"ts":"2026-10-30T08:25:08Z","role":"reviewer","outcome":"skipped","issue":429,"pr":434,"notes":"not my parity","friction":""}
