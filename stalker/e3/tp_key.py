@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from stalker.core.cards import COMBOS, N_CARDS
 from stalker.e2.abstraction import quantile_buckets
 from stalker.e2.eq_view import N, combo_index, equity_vs
 from stalker.e3 import game as G
@@ -171,6 +172,40 @@ def board_nut(s: G.State, seat: int, ranges: list[np.ndarray]) -> float | None:
         share.append(float((w * top).sum() / w.sum()) if w.sum() > 0 else 0.0)
     total = share[0] + share[1]
     return 50.0 if total <= 0 else 100.0 * share[1] / total
+
+
+def hand_block(s: G.State, seat: int, ranges: list[np.ndarray]) -> np.ndarray | None:
+    """TP `hand.block` (0 blocks less - 100 blocks more) for every combo of `seat`; None preflop.
+
+    Per opponent: r(h) = near-nut mass of its public range that shares a card with h / total
+    near-nut mass (near-nut = top NUT_TOP by equity vs a random hand, as in `board_nut`). Value =
+    100 r / (r + mean r over the live combos), averaged over the live opponents; nan on board
+    collisions. Public inputs only.
+    """
+    if s.street == 0:
+        return None
+    strength = _equity_cached(tuple(s.board), _UNIFORM)
+    ok = ~np.isnan(strength)
+    top = ok & (strength >= np.quantile(strength[ok], 1 - NUT_TOP))
+    pair = np.array(COMBOS)
+    out = []
+    for q in s.live():
+        if q == seat:
+            continue
+        m = ranges[q] * top
+        total = m.sum()
+        card_mass = np.zeros(N_CARDS)
+        np.add.at(card_mass, pair[:, 0], m)
+        np.add.at(card_mass, pair[:, 1], m)
+        r = np.where(ok, (card_mass[pair[:, 0]] + card_mass[pair[:, 1]] - m) / total, np.nan) if total > 0 else np.zeros(N)
+        avg = np.nanmean(np.where(ok, r, np.nan))
+        den = r + avg
+        out.append(np.where(den > 0, 100.0 * r / np.where(den > 0, den, 1.0), 50.0))
+    if not out:
+        return None
+    v = np.mean(out, axis=0)
+    v[~ok] = np.nan
+    return v
 
 
 def scale_step(v: float, k: int) -> int:
