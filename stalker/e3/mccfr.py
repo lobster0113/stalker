@@ -15,12 +15,20 @@ reads the snapshot; sampling and regrets still use the current strategy.
 Keying by TP features breaks perfect recall, so CFR's convergence guarantee does not hold here; the
 cost of that approximation is measured on exactly solvable sub-games (#192 §5).
 
+How the average strategy is accumulated is an option (#426). Both rules add sigma at a seat's node during
+the other seats' traversals. `avg_rule="legacy"` (the default, every run before #426) adds it as is: the
+visit is reached with the chance, own and every other non-traverser's reach, so from three players on the
+other opponents' reach weights the average too (#414 oracle). `avg_rule="own"` divides the increment by
+the sigma product of the other non-traversers' sampled actions above the node, so in expectation it is
+weighted by chance and own reach only. Heads-up there is nobody to divide out and the two are bit-identical.
+
     python -m stalker.e3.mccfr --tier beginner --iters 50 --seed 1
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from collections import defaultdict
@@ -30,6 +38,7 @@ import numpy as np
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
 
+AVG_RULES = ("legacy", "own")
 
 RANGES = ("current", "average")
 # Iterations between average-strategy snapshots (#405). 2000 is one sync of the CI w4 jobs (4 x E3_SYNC_BATCH),
@@ -40,11 +49,17 @@ RANGE_EVERY = 2000
 
 class E3MCCFR:
     def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
-                 raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY):
+                 raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY,
+                 avg_rule: str = "legacy", key_variant: str = ""):
+        if key_variant not in K.VARIANTS:
+            raise ValueError(f"key_variant must be one of {K.VARIANTS}, got {key_variant!r}")
         if ranges not in RANGES:
             raise ValueError(f"ranges must be one of {RANGES}, got {ranges!r}")
         if range_every < 1:
             raise ValueError(f"range_every must be >= 1, got {range_every}")
+        if avg_rule not in AVG_RULES:
+            raise ValueError(f"avg_rule must be one of {AVG_RULES}, got {avg_rule!r}")
+        self.avg_rule = avg_rule
         self.rng = np.random.default_rng(seed)
         self.k, self.n, self.depth = k, n, depth
         self.menu, self.raise_cap = menu, raise_cap   # game rules (#339); v1 + cap 3 is every earlier run
@@ -54,6 +69,7 @@ class E3MCCFR:
         self.nodes = 0
         self.visits: dict[str, int] = defaultdict(int)  # traverser updates per key (coverage diagnostics)
         self.ranges, self.range_every = ranges, range_every
+        self.key_variant = key_variant   # "b1" (#398): suit-aware outs/vuln/block in the key; "" is every earlier table
         # average mode: normalized average rows as of iteration `snap_at`; keys not in it use the current strategy
         self.snap: dict[str, np.ndarray] = {}
         self.snap_at = 0
@@ -97,15 +113,16 @@ class E3MCCFR:
             self.iterations += 1
             s = G.deal(self.rng, self.n, self.menu, self.raise_cap)
             for trav in range(self.n):
-                self._walk(s, K.initial_ranges(self.n), trav)
+                self._walk(s, K.initial_ranges(self.n), trav, [1.0] * self.n)
 
-    def _walk(self, s: G.State, ranges: list[np.ndarray], trav: int) -> float:
+    def _walk(self, s: G.State, ranges: list[np.ndarray], trav: int, reach: list[float]) -> float:
+        # reach[m]: the sigma product of seat m's sampled actions above this node (read by avg_rule "own")
         if s.done:
             return float(G.payoff(s)[trav]) / G.BB
         self.nodes += 1
         acts = G.legal(s)
         p = s.to_act
-        steps = K.equity_steps(s, p, ranges, self.k)
+        steps = K.equity_steps(s, p, ranges, self.k, self.key_variant, self.depth)
         public = K.public_key(s, p, self.depth)
         key = K.key(public, K.my_step(steps, s, p))
         sigma = self._sigma(key, len(acts))
@@ -115,7 +132,7 @@ class E3MCCFR:
             return G.apply(s, acts[i]), K.update_range(ranges, p, probs[:, i])
 
         if p == trav:
-            vals = np.array([self._walk(*child(i), trav) for i in range(len(acts))])
+            vals = np.array([self._walk(*child(i), trav, reach) for i in range(len(acts))])
             v = float(sigma @ vals)
             reg = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(reg + (vals - v), 0, out=reg)
@@ -123,21 +140,33 @@ class E3MCCFR:
             return v
         i = int(self.rng.choice(len(acts), p=sigma))
         avg = self.avg[key]
-        self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
-        return self._walk(*child(i), trav)
+        if self.avg_rule == "legacy":
+            self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
+            return self._walk(*child(i), trav, reach)
+        w = self.iterations / math.prod(r for m, r in enumerate(reach) if m != p and m != trav)
+        self.avg[key] = (avg if avg is not None else 0) + w * sigma
+        nxt = reach.copy()
+        nxt[p] *= float(sigma[i])
+        return self._walk(*child(i), trav, nxt)
 
     def state(self) -> dict:
         """Everything `iterate` reads, as JSON data; `from_state` continues bit for bit (#301), so a run
         longer than one CI job (300 min) is chained from checkpoints."""
-        st = {"version": 1, "k": self.k, "n": self.n, "depth": self.depth, "iterations": self.iterations,
+        st = {"version": 1, "avg_rule": self.avg_rule,
+                "k": self.k, "n": self.n, "depth": self.depth, "iterations": self.iterations,
                 "nodes": self.nodes, "menu": self.menu, "raise_cap": self.raise_cap, "rng": self.rng.bit_generator.state,
                 "regret": {k: v.tolist() for k, v in self.regret.items()},
                 "avg": {k: v.tolist() for k, v in self.avg.items() if v is not None}, "visits": dict(self.visits),
                 **self._grid()}
-        if self.ranges == "average":
+        if self.ranges == "average" or self.key_variant:
             # version 2: code that predates #405 would resume this as a current-range run, so it must refuse it
             st.update(version=2, ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()})
+        if self.avg_rule == "own":
+            # version 3 (#426): code that predates avg_rule would resume an "own" checkpoint as legacy, so it must refuse it
+            st["version"] = 3
+        if self.key_variant:   # version 4 (#398): code that predates it would resume this with plain keys
+            st.update(version=4, key_variant=self.key_variant)
         return st
 
     def _grid(self) -> dict:
@@ -145,14 +174,23 @@ class E3MCCFR:
         return {"nut_k": K.NUT_K} if self.depth == "pro" else {}
 
     @classmethod
-    def from_state(cls, st: dict) -> "E3MCCFR":
-        if st.get("version") not in (1, 2):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 and 2")
+    def from_state(cls, st: dict, avg_rule: str | None = None) -> "E3MCCFR":
+        """`avg_rule`, if given, is the rule the caller means to continue with; a checkpoint of the other is refused."""
+        if st.get("version") not in (1, 2, 3, 4):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 4")
+        rule = st.get("avg_rule", "legacy")    # checkpoints before #426 are all legacy
+        if st["version"] < 4 and (rule == "own") != (st["version"] == 3):
+            raise ValueError(f"checkpoint version {st['version']} with avg_rule {rule!r}: an avg_rule 'own' "
+                             "checkpoint is version 3, a legacy one version 1 or 2")
+        if avg_rule is not None and avg_rule != rule:
+            raise ValueError(f"checkpoint average strategy was accumulated with avg_rule {rule!r}, not {avg_rule!r} "
+                             "(#426); the two rules must not mix in one average - resume it with its own rule "
+                             "or start a fresh run")
         if st["depth"] == "pro" and st.get("nut_k", K.K_PRO) != K.NUT_K:
             raise ValueError(f"checkpoint board.nut has {st.get('nut_k', K.K_PRO)} steps; this code uses {K.NUT_K} "
                              "(#332) - start a fresh run instead of resuming it")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
-                st.get("ranges", "current"), st.get("range_every", RANGE_EVERY))
+                st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""))
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
@@ -175,7 +213,10 @@ def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     fewer than 10 traverser updates — where the table is still close to its uniform start."""
     out: dict[str, dict[str, float]] = {}
     for k, v in m.visits.items():
-        f = k.split("|")[by]
+        fs = k.split("|")
+        if fs[-1].startswith("o"):   # b1 label (#398): a legal-action set never starts with "o"
+            fs.pop()
+        f = fs[by]
         d = out.setdefault(f, {"keys": 0, "under10": 0})
         d["keys"] += 1
         d["under10"] += v < 10
@@ -191,10 +232,12 @@ def main(argv=None) -> int:
     ap.add_argument("--menu", choices=G.MENUS, default="v1")
     ap.add_argument("--no-raise-cap", action="store_true")
     ap.add_argument("--ranges", choices=RANGES, default="current", help="strategy that moves the TP-feature ranges (#405)")
+    ap.add_argument("--key-variant", choices=K.VARIANTS, default="", help="b1: suit-aware outs/vuln/block key (#398)")
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
+    ap.add_argument("--avg-rule", choices=AVG_RULES, default="legacy")
     a = ap.parse_args(argv)
     m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier], a.menu,
-                None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every)
+                None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every, a.avg_rule, a.key_variant)
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0
@@ -202,7 +245,7 @@ def main(argv=None) -> int:
                       "iters_per_s": round(a.iters / dt, 3), "nodes_per_iter": round(m.nodes / a.iters, 1),
                       "keys": len(m.regret), "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges,
                       # the bound counts the v1 legal-action sets only
-                      "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth) if m.menu == "v1" else None}))
+                      "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth, m.key_variant) if m.menu == "v1" else None}))
     return 0
 
 

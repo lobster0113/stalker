@@ -181,7 +181,8 @@ for (let d = 0; d < 6 && !freeSized; d++) {
       const again = tg.translateBet(r.s, r.to, engReadRng(E.ent, r.s)).action;
       return { split: r.split, label: r.label, again, fresh: tg.splitBet(r.s, r.to), hist: E.s.history[r.at], seat: r.s.toAct, you,
         weighted: you && G.lastGrade.refs[0].model ? tg.splitScore(r.split, a => G.lastGrade.refs[0].model.mix.find(m => m.a === a)?.p || 0) : null,
-        note: document.querySelector("#tp-body [data-model-action]")?.textContent || "" };
+        note: document.querySelector("#tp-body [data-model-action]")?.textContent || "",
+        hte: tg.translationError(r.s, r.to), tag: !!document.querySelector("#tp-body [data-model-action] [data-approx]") };
     });
     must(!!rd, "번역: 메뉴 밖 금액의 AI 해석 기록(G.eng.reads)이 없음");
     if (rd) {
@@ -192,7 +193,11 @@ for (let d = 0; d < 6 && !freeSized; d++) {
       must(rd.hist === `${rd.seat}:${rd.label}`, `번역: 엔진 기록 ${rd.hist}가 AI 해석 ${rd.label}과 다름`);
       must(rd.you && Math.abs(rd.you.p - rd.weighted) < 1e-12, `번역: 내 선택 빈도 ${rd.you?.p}가 분할 가중 점수 ${rd.weighted}가 아님`);
       must(/AI 해석: .*% · .*%/.test(rd.note) && rd.note.includes("확률로 읽어요"), `번역: 비교 화면에 분할 해석 문구가 없음 (${rd.note.slice(0, 200)})`);
-      console.log(`번역: ${JSON.stringify(rd.split)} → ${rd.label}, 내 선택 빈도 ${rd.you.p.toFixed(3)}`);
+      // #417: a split the pre-registered rule flags is shown as approximate, never as a full score.
+      must(!!rd.you?.approx === rd.hte && rd.tag === rd.hte, `번역 오차: translationError ${rd.hte}인데 근사 표시 ${rd.tag}·채점 ${rd.you?.approx}`);
+      if (rd.hte) must(rd.note.includes("근사(번역)") && rd.note.includes("≈") && rd.note.includes("만점으로 채점하지 않아요")
+        && rd.split.every(x => rd.note.includes(`${Math.round(x.p * 100)}%`)), `번역 오차: 근사(번역)·두 이웃 비중·만점 아님 문구가 없음 (${rd.note.slice(0, 300)})`);
+      console.log(`번역: ${JSON.stringify(rd.split)} → ${rd.label}, 내 선택 빈도 ${rd.you.p.toFixed(3)}${rd.hte ? " · 근사(번역)" : ""}`);
     }
   }
   // Quick without analysis still compares the action with the trained policy's mixed strategy.
@@ -702,6 +707,56 @@ await inspect("home-move", "#move");
   must(nPro >= 3, `등급 변경: 다음 핸드부터 pro-6.json 행과 대조한 AI 결정이 모자람 (${nPro}개, 전체 ${after.length})`);
   console.log(`등급 변경: 바꾼 핸드 AI 결정 ${before.length}개(mid 표 ${nMid}), 다음 핸드부터 ${after.length}개(pro 표 ${nPro})`);
   await p4.close();
+}
+
+// 8. #441 known leaks: a forced AA first-in decision in a cell the probe flagged (mid-6.leaks.json) shows the
+// strong warning instead of a frequency grade, and the home model card names the known preflop leak.
+{
+  const leaks = JSON.parse(readFileSync(resolve(webRoot, "app/policy/mid-6.leaks.json"), "utf8"));
+  const cell = leaks.leaks.filter(c => c.spot === "first_in" && c.group === "AA").sort((a, b) => a.seat - b.seat)[0];
+  must(!!cell, "known leaks: mid-6.leaks.json has no first_in AA leak cell to force (re-run python -m stalker.tools.policy_leaks)");
+  const p5 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p5.setDefaultTimeout(90_000);
+  p5.on("pageerror", e => must(false, `page error (known leaks): ${e.message}`));
+  await p5.addInitScript(() => {
+    const st = window.setTimeout.bind(window);
+    window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
+  });
+  await p5.goto(url);
+  await p5.waitForFunction(() => TPG.pol.mid && "mid" in TPG.leaks);
+  const card = p5.locator("#model-status [data-known-leak]");
+  must(await card.count() === 1 && /학습 중간본/.test(await card.textContent()) && /프리플랍/.test(await card.textContent())
+    && /issues\/391$/.test(await card.locator("a").getAttribute("href")), "known leaks: 시작 화면 모델 카드에 알려진 프리플랍 결함·#391 링크가 없음");
+  if (cell) {
+    await p5.evaluate(() => { window.__hold = true; });
+    await p5.click("#start-btn");
+    await p5.waitForFunction(() => G?.deck?.length > 0 && G.seats.some(s => s.cards.length));
+    // Seat the hero at the cell's position with AA; the seats before it get hands every policy folds first in.
+    await p5.evaluate(q => {
+      G.button = ((-3 - q) % G.n + 2 * G.n) % G.n;
+      const forced = new Map([[0, [51, 50]]]), junk = [[20, 1], [24, 5], [28, 9], [32, 13], [36, 17]];
+      for (const s of G.seats) if (!s.isHero && engSeatOf(s.i) < q) forced.set(s.i, junk[engSeatOf(s.i)]);
+      const used = new Set([...forced.values()].flat());
+      for (let i = G.deck.length - 1; i >= 0; i--) if (used.has(G.deck[i])) G.deck.splice(i, 1);
+      for (const s of G.seats) s.cards = forced.get(s.i)?.slice() ?? [G.deck.pop(), G.deck.pop()];
+      window.__hold = false;
+    }, cell.seat);
+    await p5.waitForSelector(QUICK);
+    const v = await p5.evaluate(() => ({ leak: CUR.g.model?.leak, seat: CUR.g.model?.d?.seat, hist: G.eng?.s?.history }));
+    must(v.leak?.kind === "leak" && v.leak.spot === "first_in" && v.leak.cell.group === "AA" && v.seat === cell.seat,
+      `known leaks: 강제한 AA 퍼스트 인(${cell.pos})이 결함 칸으로 잡히지 않음 (${JSON.stringify(v)})`);
+    await p5.locator(`${QUICK} [data-act='fold']:not([disabled]), ${QUICK} [data-act]:not([disabled])`).first().click();
+    await p5.evaluate(() => { window.__hold = true; });
+    await p5.click("#tp-go");
+    const warn = p5.locator("#tp-body [data-model-action] [data-leak-warn]");
+    await warn.waitFor();
+    const t = (await warn.textContent()).replace(/\s+/g, " ");
+    must(t.includes("이 스팟의 정책 답은 검증에서 손해로 확인됨 (#391)") && t.includes(`+${cell.gain_bb} bb`), `known leaks: 경고 문구가 다름 (${t})`);
+    must((await p5.locator("#tp-body [data-model-action] .t").first().textContent()).includes("채점 안 함"), "known leaks: 결함 칸인데 정책 행 대비 내 선택 빈도를 보여 줌");
+    await p5.screenshot({ path: `${shots}/train-leak-warn-laptop.png` });
+    console.log(`known leaks: ${cell.pos} AA 퍼스트 인 경고 (+${cell.gain_bb} bb)`);
+  }
+  await p5.close();
 }
 
 await browser.close();
