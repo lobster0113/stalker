@@ -9,26 +9,21 @@ import * as P from "../personas.js";
 // ---------------------------------------------------------------- simulator
 const POS = ["BTN", "SB", "BB", "UTG", "HJ", "CO"];   // offset from the button
 const BB = 100, STACK = 100 * BB;
-function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; }
+export function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; }
 const Phi = z => 0.5 * (1 + erf(z / Math.SQRT2));
 function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
 
 function newStats() { return { hands: 0, vpip: 0, pfr: 0, tbOpp: 0, tb: 0, f3bOpp: 0, f3b: 0, cbOpp: 0, cb: 0, fcbOpp: 0, fcb: 0, flops: 0, sd: 0 }; }
 
-// Street-to-street rank correlation of equity vs a random hand (preflop→flop, flop→turn, turn→river),
-// measured offline with tpgto.evaluate on 1500 random deals: 0.31, 0.82, 0.78 (flop→river 0.64).
-const CHAIN = [0.31, 0.82, 0.78];
-
-// One hand. Strength is abstract but shaped like real cards: a Gaussian chain of street percentiles
-// with the measured correlations; the river percentile decides the showdown.
+// One hand with real cards: the personas read their own two cards and the board (hand categories,
+// web/app/personas.js categorize); nobody sees another seat's cards.
 function playHand(players, button, rng, st) {
   const n = players.length;
-  const seats = players.map((pl, i) => {
-    const z = [gauss(rng)];
-    for (const c of CHAIN) z.push(c * z[z.length - 1] + Math.sqrt(1 - c * c) * gauss(rng));
-    const q = [null, Phi(z[1]), Phi(z[2]), Phi(z[3])];
-    return { i, pl, pos: POS[(i - button + n) % n], stack: STACK, bet: 0, folded: false, allin: false, pct: 100 * (1 - Phi(z[0])), q, raised: false, checked: false };
-  });
+  const deck = Array.from({ length: 52 }, (_, c) => c);
+  for (let k = 51; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [deck[k], deck[j]] = [deck[j], deck[k]]; }
+  const board = deck.slice(2 * n, 2 * n + 5);
+  const seats = players.map((pl, i) => ({ i, pl, pos: POS[(i - button + n) % n], stack: STACK, bet: 0, folded: false, allin: false,
+    cards: [deck[2 * i], deck[2 * i + 1]], raised: false, checked: false }));
   const me = seats[0];
   st.hands++;
   let pot = 0, currentBet = 0, minRaise = BB, streetRaises = 0, prevAgg = null, lastAgg = null, prevBet = false, firstBettor = null, openerPos = null, openTo = 0;
@@ -68,7 +63,7 @@ function playHand(players, button, rng, st) {
             limped: street === 0 && s.bet === BB && s.i !== bbI, iRaised: s.raised, openerPos, openTo },
           postflop: { aggressor: prevAgg === s.i, prevAggLive: prevAgg != null && prevAgg !== s.i && !seats[prevAgg].folded, prevBet,
             betIsCbet: firstBettor != null && firstBettor === prevAgg && streetRaises === 1, checkedThisStreet: s.checked, streetRaises },
-          hand: { pct: s.pct, eq: street ? P.qToEq(street, s.q[street]) : null },
+          hand: { cards: s.cards }, board: board.slice(0, street ? street + 2 : 0),
         };
         const a = P.decide(s.pl, sit, rng);
         if (s === me) {
@@ -132,7 +127,7 @@ const TOL = { VPIP: 3, PFR: 3, "3bet": 2, cbet: 6, FCB: 6, WTSD: 5 };
 // maniac WTSD 30–40 is [가정] in the note, and the neutral table never calls a maniac down lighter
 // (real opponents do), so his pots end before showdown more often here: ±10.
 const TOL_OVERRIDE = { maniac: { WTSD: 10 } };
-const HANDS = 20000;
+const HANDS = 30000;
 
 const RESULTS = {};
 for (const type of P.TYPES) {
@@ -247,4 +242,117 @@ test("river raise = nuts only", () => {
 
 test("unknown type fails with the fix", () => {
   assert.throws(() => P.createPlayer("shark", P.mulberry32(1)), /use one of nit, weak/);
+});
+
+// ---------------------------------------------------------------- hand-matrix shape (phase 1b)
+const JUNK = c => !c.pair && ((c.hi === 12 && c.lo <= 7) || (c.hi === 11 && c.lo <= 5) || (c.suited && c.lo < 8 && c.hi - c.lo >= 3));
+const combosIn = (ends, pred) => P.CLASSES.reduce((a, c) => a + (pred(c) ? ends[ends.length - 1][c.i] * c.combos : 0), 0);
+test("shape: a fish open range holds more suited / any-ace junk than a nit range of the same width", () => {
+  const rng = P.mulberry32(51), W = 0.3;
+  let fish = 0, nit = 0;
+  for (let k = 0; k < 20; k++) {
+    const f = P.createPlayer("fish", rng), n = P.createPlayer("nit", rng);
+    const fl = P.ladder([[f.orders.raise, W * (1 - f.p.limp)], [f.orders.pref, W * f.p.limp]]), nl = P.ladder([[n.orders.raise, W]]);
+    fish += combosIn(fl, JUNK); nit += combosIn(nl, JUNK);
+  }
+  console.log(`junk combos in a 30% range: fish ${(fish / 20).toFixed(0)}, nit ${(nit / 20).toFixed(0)}`);
+  assert.ok(fish > 1.5 * nit, `fish junk ${fish / 20} not > 1.5 × nit ${nit / 20}`);
+});
+
+const card = t => ("23456789TJQKA".indexOf(t[0]) << 2) | "cdhs".indexOf(t[1]);
+function allCombos() { const o = []; for (let a = 0; a < 52; a++) for (let b = a + 1; b < 52; b++) o.push([a, b]); return o; }
+function vsOpen(cards) {
+  return { street: 0, pos: "BTN", bb: BB, pot: 400, toCall: 250, currentBet: 250, myBet: 0, nOpp: 3, ip: true,
+    legal: { canCheck: false, canRaise: true, minTo: 400, maxTo: STACK },
+    preflop: { raises: 1, limpers: 0, limped: false, iRaised: false, openerPos: "CO", openTo: 250 }, postflop: {}, hand: { cards } };
+}
+function threeBetClasses(pl, rng) {
+  const out = new Map();
+  for (const cards of allCombos()) {
+    const a = P.decide(pl, vsOpen(cards), rng);
+    if (a.type === "raise") { const k = P.CLASSES[P.classOfCards(...cards)].key; out.set(k, (out.get(k) || 0) + 1); }
+  }
+  return out;
+}
+const baseTop = w => { const s = new Set(); let cum = 0; for (const c of P.CLASSES) { if (cum >= w * 1326) break; s.add(c.key); cum += c.combos; } return s; };
+test("shape: TAG 3-bets polarised (A5s–A2s, suited connectors), fish 3-bet linear", () => {
+  const rng = P.mulberry32(61);
+  for (let k = 0; k < 10; k++) {
+    const tag = P.createPlayer("tag", rng), fish = P.createPlayer("fish", rng);
+    const tr = threeBetClasses(tag, rng), fr = threeBetClasses(fish, rng);
+    const wheel = ["A5s", "A4s", "A3s", "A2s"].filter(k => tr.has(k)).length;
+    const sc = ["54s", "65s", "76s", "87s", "98s", "T9s", "64s", "75s", "86s", "97s", "T8s", "J9s"].filter(k => tr.has(k)).length;
+    const top = baseTop(tag.p.threebetSteal + 0.02);
+    assert.ok(wheel >= 3, `TAG 3-bet range has only ${wheel} of A5s–A2s: ${[...tr.keys()].join(" ")}`);
+    assert.ok(sc >= 1, `TAG 3-bet range has no suited-connector bluff: ${[...tr.keys()].join(" ")}`);
+    assert.ok([...tr.keys()].some(k => !top.has(k)), "TAG 3-bet range is linear");
+    const ftop = baseTop(fish.p.threebetSteal + 0.02);
+    const out = [...fr.keys()].filter(k => !ftop.has(k));
+    assert.deepEqual(out, [], `fish 3-bet range is not linear (outside the top ${(fish.p.threebetSteal * 100).toFixed(1)}%): ${out}`);
+    if (k === 0) console.log(`3-bet vs CO open: TAG ${[...tr.keys()].join(" ")} | fish ${[...fr.keys()].join(" ")}`);
+  }
+});
+
+function facingBet(cards, board, street, raises, frac) {
+  const pot0 = 1000, bet = Math.round(frac * pot0);
+  return { street, pos: "BB", bb: BB, pot: pot0 + bet, toCall: bet, currentBet: bet, myBet: 0, nOpp: 1, ip: false,
+    legal: { canCheck: false, canRaise: true, minTo: 2 * bet, maxTo: STACK }, preflop: {},
+    postflop: { aggressor: false, prevAggLive: true, prevBet: true, betIsCbet: raises === 1, checkedThisStreet: true, streetRaises: raises },
+    hand: { cards }, board };
+}
+function dealCat(rng, nBoard, want) {
+  for (;;) {
+    const d = Array.from({ length: 52 }, (_, c) => c);
+    for (let k = 51; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [d[k], d[j]] = [d[j], d[k]]; }
+    const hole = d.slice(0, 2), board = d.slice(2, 2 + nBoard), cat = P.categorize(hole, board);
+    if (want(cat)) return { hole, board, cat };
+  }
+}
+test("shape: fish never fold top pair on the flop to one bet; stations call down any pair", () => {
+  const rng = P.mulberry32(71);
+  for (let k = 0; k < 400; k++) {
+    const fish = P.createPlayer("fish", rng), { hole, board, cat } = dealCat(rng, 3, c => c.made === "topGood" || c.made === "topWeak");
+    const a = P.decide(fish, facingBet(hole, board, 1, 1, [0.33, 0.75, 1, 1.5][k % 4]), rng);
+    assert.notEqual(a.type, "fold", `fish folded ${cat.key} on the flop`);
+  }
+  for (let k = 0; k < 600; k++) {
+    const st = 1 + (k % 3), stn = P.createPlayer("station", rng), { hole, board, cat } = dealCat(rng, st + 2, c => c.made !== "none");
+    const a = P.decide(stn, facingBet(hole, board, st, 1 + (k % 2), [0.5, 1, 2][k % 3]), rng);
+    assert.notEqual(a.type, "fold", `station folded ${cat.key} on street ${st}`);
+  }
+});
+test("shape: a nit folds a plain one pair to a turn raise", () => {
+  const rng = P.mulberry32(81);
+  for (let k = 0; k < 300; k++) {
+    const nit = P.createPlayer("nit", rng), { hole, board, cat } = dealCat(rng, 4, c => !c.draw && ["overpair", "topGood", "topWeak", "middle", "weak"].includes(c.made));
+    assert.equal(P.decide(nit, facingBet(hole, board, 2, 2, 1), rng).type, "fold", `nit continued with ${cat.key} vs a turn raise`);
+  }
+});
+test("shape: two instances of one type hold different ranges", () => {
+  const rng = P.mulberry32(91);
+  for (const type of P.TYPES) {
+    const a = P.createPlayer(type, rng), b = P.createPlayer(type, rng);
+    const g = pl => [0.15, 0.3, 0.45].map(w => P.gridOf(P.ladder([[pl.orders.pref, w]]), "o")).join("|");
+    assert.notEqual(g(a), g(b), `${type}: two instances share the same 15/30/45% ranges`);
+  }
+});
+test("categories: made hands and draws", () => {
+  const c = (h, b) => P.categorize(h.split(" ").map(card), b.split(" ").map(card)).key;
+  assert.equal(c("Ah Kd", "Ks 7c 2d"), "topGood");
+  assert.equal(c("5h 4h", "Ah 3h 9c"), "none:combo");
+  assert.equal(c("9c 9d", "Kh 7c 2d"), "middle");
+  assert.equal(c("Qs Js", "Ts 9h 2c"), "none:oesd:over");
+  assert.equal(c("Ac 2d", "3s 4h 5c"), "monster");
+  assert.equal(c("Kc Kd", "7h 7c 2d"), "overpair");
+  assert.equal(c("7c 2d", "Ah Kc 2s"), "weak");
+  assert.equal(c("Ah Th", "9h 5h 2h 3d 8s"), "monster");
+  assert.equal(c("Ah Th", "9h 5h 2c 3d 8s"), "none:over");
+});
+test("13x13 BTN open ranges (report)", () => {
+  const rng = P.mulberry32(101);
+  for (const type of ["nit", "tag", "fish"]) {
+    // At the type's mean widths, so the picture shows the type's shape rather than one draw's looseness.
+    const pl = P.createPlayer(type, rng, { p: { rfiBTN: P.MEANS.rfiBTN[type] / 100, limp: P.MEANS.limp[type] / 100 } });
+    console.log(`${type} BTN open (R raise, L limp; lower case = part of the class), width ${(pl.p.rfiBTN * 100).toFixed(0)}%\n${P.gridOf(P.openLadder(pl, "BTN"), "rl")}`);
+  }
 });
