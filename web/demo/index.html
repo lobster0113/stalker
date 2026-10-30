@@ -366,6 +366,10 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .ab-table th, .ab-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .ab-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .ab-table th:first-child, .ab-table td:first-child { text-align: left; }
+.tell-table td { text-align: left; white-space: normal; }
+.tell-table tr.leak th, .tell-table tr.leak td { color: var(--bad); }
+.tell-leaks { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; }
+.tell-leaks span { display: block; color: var(--muted); margin-top: 2px; }
 .drivers { display: grid; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); font-size: 13px; }
 .drivers .hd { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
 .drivers ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
@@ -778,6 +782,7 @@ details.why[open] > summary { margin-bottom: 8px; }
       <div class="box drill" id="drill" hidden></div>
     </div>
     <div class="box ab-box" id="ab-box" hidden></div>
+    <div class="box ab-box" id="tell-box" data-tell-report></div>
   </div>
 </section>
 
@@ -1024,6 +1029,13 @@ function personaPool(d) {
   if (d >= 5) return ["nit", "weak", "tag", "fish", "station"];
   return ["station", "fish", "maniac", "weak"];
 }
+// Rule-bot seats are persona instances (#429, web/app/personas.js): each draws its own stats and innate
+// tells from its type. Instances use their own seeded stream so the deal order does not depend on them.
+let PM = null, PRNG = null;
+import((window.STALKER_APP_BASE || "../app/") + "personas.js").then(m => { PM = m; PRNG = m.mulberry32(rngState ^ 0x429); })
+  .catch(e => console.warn("[personas] load failed; the 4-number rule bots play", e));
+const seatPlayer = s => s.isHero || !PM || !s.persona ? null
+  : s.player?.key === s.persona ? s.player : (s.player = Object.assign(PM.createPlayer(s.persona, PRNG), { key: s.persona }));
 const DIFF_DESC = d => d >= 20 ? "최고 난이도 · TP-GTO 테이블" : d >= 15 ? "고수 테이블" : d >= 10 ? "레귤러 테이블" : d >= 5 ? "중수 테이블" : "입문 테이블";
 const NAMES = ["민준", "서연", "Viktor", "하루", "Maya", "도윤", "Kenji", "지아", "Lena", "Rafael", "윤서", "Theo", "은우", "Ines", "태오", "Sora"];
 
@@ -1064,6 +1076,55 @@ const LEARN_FOR = { "board.adv": "board.adv", "board.nut": "board.adv", "hand.eq
 // Per-decision input time (TP §4.2 Quick: P50/P95), training game only.
 let ITIMES = store.get("itimes", []);
 function recordInputTime(sec) { ITIMES.push(Math.round(sec * 10) / 10); if (ITIMES.length > 300) ITIMES = ITIMES.slice(-300); store.set("itimes", ITIMES); }
+// Hero tell log (#430): what the hero's sizes, timing and lines show the table. Read-only hooks; the
+// metrics live in app/tells.js. Browser only, last 2000 decisions and 500 showdowns.
+const TELL_MAX = 2000, TELL_SD_MAX = 500;
+const TELL = (() => { const d = store.get("tells", null); return d && Array.isArray(d.decisions) && Array.isArray(d.showdowns) ? d : { schema_version: 1, decisions: [], showdowns: [] }; })();
+const tellSave = () => { TELL.decisions = TELL.decisions.slice(-TELL_MAX); TELL.showdowns = TELL.showdowns.slice(-TELL_SD_MAX); store.set("tells", TELL); };
+const tellHand = () => `${G.tellSess ??= Date.now()}:${G.handNo}`;
+// Called by finishHero: what only the hero's turn knows (time, strength, the policy's mix).
+function tellPend(keys) {
+  const g = CUR.g, eq = g.v["hand.equity"], agg = g.model?.mix.reduce((a, m) => a + (["f", "k", "c"].includes(m.a) ? 0 : m.p), 0);
+  G.tellPend = { ms: Math.round((CUR.tAct ?? performance.now()) - CUR.t0), strength: Number.isFinite(eq) ? eq / 100 : null, src: g.src?.["hand.equity"] === "model" ? "model" : "mock",
+    madeClass: Math.floor(evaluate([...CUR.hero.cards, ...G.board]) / B5), timed: !keys || !!CUR.quick, gtoAgg: Number.isFinite(agg) ? Math.round(agg * 1000) / 1000 : null };
+}
+// Called by applyAction for every seat before chips move: tracks aggressors for the spot labels.
+function tellHook(s, a, L) {
+  try {
+    const t = G.tl?.hand === G.handNo ? G.tl : (G.tl = { hand: G.handNo, street: 0, prevAgg: null, curAgg: null, bet: false, acted: new Set(), heroChecked: false });
+    if (t.street !== G.street) Object.assign(t, { street: G.street, prevAgg: t.curAgg, curAgg: null, bet: false, acted: new Set(), heroChecked: false });
+    if (s.isHero && G.tellPend) {
+      const post = G.street > 0, facing = L.toCall > 0;
+      const spot = G.street === 1 && t.prevAgg === s.i && !t.bet && !t.acted.has(s.i) ? "cbet"
+        : post && t.prevAgg != null && t.prevAgg !== s.i && !t.bet && !t.acted.has(t.prevAgg) && !t.acted.has(s.i) ? "donk"
+        : post && t.heroChecked && facing ? "xr" : null;
+      const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
+      const action = a.type === "raise" ? (G.currentBet === 0 ? "bet" : "raise") : a.type;
+      TELL.decisions.push({ hand: tellHand(), street: G.street, action, sizePct: to == null ? null : Math.round((to - G.currentBet) / Math.max(potTotal() + L.toCall, 1) * 1000) / 10,
+        forced: !L.canRaise && !facing, spot, ...G.tellPend });
+      G.tellPend = null; tellSave();
+      if (a.type === "check") t.heroChecked = true;
+    }
+    t.acted.add(s.i);
+    if (a.type === "raise") { t.bet = true; t.curAgg = s.i; }
+  } catch (e) { G.tellPend = null; }
+}
+function tellShowdown(contenders) {
+  const hero = contenders.find(s => s.isHero);
+  if (!hero || contenders.length < 2) return;
+  TELL.showdowns.push({ hand: tellHand(), madeClass: Math.floor(evaluate([...hero.cards, ...G.board]) / B5) }); tellSave();
+}
+let TELLS_MOD = null;
+async function renderTells() {
+  const box = $("#tell-box");
+  try { TELLS_MOD ||= await import(APP_BASE + "tells.js"); }
+  catch { box.innerHTML = `<h2>텔 리포트</h2><p class="sub">계산 모듈을 불러오지 못했어요. 웹 서버로 열어 주세요(web/README.md).</p>`; return; }
+  const r = TELLS_MOD.tellReport(TELL.decisions, TELL.showdowns);
+  const leaks = r.leaks.length ? `<ul class="tell-leaks">${r.leaks.map(l => `<li data-tell-leak="${l.id}"><b>${l.text}</b><span>고치기: ${l.fix}</span></li>`).join("")}</ul>`
+    : `<p class="sub">${!r.metrics.decisions ? "아직 기록이 없어요. 훈련 게임에서 결정을 내리면 여기에 쌓입니다." : r.rows.some(x => x.leak !== undefined) ? "지금까지 기준을 넘는 텔은 없어요." : "아직 판단할 만큼 표본이 없어요. 아래 항목마다 최소 표본이 있어요."}</p>`;
+  box.innerHTML = `<h2>텔 리포트</h2><p class="sub">내 벳 크기·결정 시간·라인이 핸드 강도를 얼마나 드러내는지 봐요. 강도는 결정 때의 에퀴티(${CONF} 또는 TP-GTO 엔진)이고, 기준 표본보다 적으면 판단하지 않아요. 결정 ${r.metrics.decisions}회 · 이 기기에만 저장.</p>
+    ${leaks}<div class="ab-wrap"><table class="ab-table tell-table"><tbody>${r.rows.map(x => `<tr data-tell="${x.id}"${x.leak ? ` class="leak"` : ""}><th scope="row">${x.name}</th><td>${x.text}</td></tr>`).join("")}</tbody></table></div>`;
+}
 // hand.equity question-form A/B (#262, Gate E pilot): which wording do people answer faster and more accurately?
 // Each form has 5 chips; the truth chip comes from the mock teacher, and answers are logged, not graded.
 const EQAB_FORMS = {
@@ -1172,8 +1233,10 @@ const STAGE_NAMES = { early: "초반", mid: "중반", bubble: "버블 근처", i
 
 function newSeat(i, isHero, stackBB) {
   const key = isHero ? null : pick(personaPool(S.diff));
-  return { i, isHero, persona: key, name: isHero ? "나" : pick(NAMES), stack: Math.round(stackBB * 100), cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100,
+  const s = { i, isHero, persona: key, name: isHero ? "나" : pick(NAMES), stack: Math.round(stackBB * 100), cards: [], folded: false, allin: false, bet: 0, contrib: 0, rangePct: 100,
     stats: { hands: 0, vpip: 0, raises: 0, calls: 0, faced: 0, foldsFaced: 0, preOpp: 0, aggOpp: 0 }, out: false };
+  seatPlayer(s);
+  return s;
 }
 async function startGame() {
   if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier) && !TPG.pol[S.tier]))) {
@@ -1396,6 +1459,7 @@ async function playHand(token) {
       for (let c = 0; c < cnt; c++) { const card = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(card); const e = cardEl(card); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(220); }
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
       engCheckBoard();
+      G.prevAgg = G.lastAgg; G.prevBet = G.streetRaises > (st === 1 ? 1 : 0);   // persona c-bet / probe spots (#429)
       G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null; G.streetRaises = 0;
       await sleep(500);
     }
@@ -1447,6 +1511,7 @@ function legal(s) {
 }
 function applyAction(s, a) {
   const L = legal(s), pre = G.street === 0, facing = L.toCall > 0;
+  tellHook(s, a, L);
   if (G.eng) engApply(s, a, L);
   if (facing) { s.stats.faced++; if (a.type === "fold") s.stats.foldsFaced++; }
   if (L.canRaise) s.stats.aggOpp++;
@@ -1474,9 +1539,35 @@ function applyAction(s, a) {
 
 /* ---------- bots ---------- */
 async function botTurn(s) {
-  const el = $("#seat-" + s.i); el.style.setProperty("--t", "1.5s"); el.classList.add("acting");
-  await sleep(1500); el.classList.remove("acting");
+  // A persona decides before its pause so the pause can carry the seat's timing tell; policy seats keep 1.5 s.
+  const pa = G.eng ? null : personaAct(s), ms = pa ? pa.ms : 1500;
+  const el = $("#seat-" + s.i); el.style.setProperty("--t", ms / 1000 + "s"); el.classList.add("acting");
+  await sleep(ms); el.classList.remove("acting");
+  if (pa) return pa;
   if (G.eng) { const a = engBotAct(s); if (a) return a; }
+  return personaAct(s) || ruleBot(s);
+}
+// Only what this seat may see: the public action, board, pot and stacks, plus its own two cards.
+function personaAct(s) {
+  const pl = seatPlayer(s);
+  if (!pl) return null;
+  const L = legal(s), n = G.n, mine = s.pAct?.h === G.handNo && s.pAct.st === G.street ? s.pAct : (s.pAct = { h: G.handNo, st: G.street, checked: false, raised: false });
+  const order = live().sort((a, b) => (a.i - G.button - 1 + n) % n - (b.i - G.button - 1 + n) % n), agg = G.lastAgg != null ? G.seats[G.lastAgg] : null;
+  const a = PM.decide(pl, {
+    street: G.street, pos: posName(s), bb: G.bb, pot: potTotal(), toCall: L.toCall, currentBet: G.currentBet, myBet: s.bet, legal: L,
+    nOpp: order.length - 1, ip: order[order.length - 1] === s,
+    preflop: { raises: G.streetRaises - 1, limpers: live().filter(o => o !== s && o.bet === G.bb && o.i !== G.bbI).length, limped: s.bet === G.bb && s.i !== G.bbI,
+      iRaised: mine.raised, openerPos: agg ? posName(agg) : null, openTo: G.currentBet },
+    postflop: { aggressor: G.prevAgg === s.i, prevAggLive: G.prevAgg != null && G.prevAgg !== s.i && !G.seats[G.prevAgg].folded, prevBet: !!G.prevBet,
+      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises },
+    hand: { cards: s.cards }, board: G.board,
+  }, rand);
+  if (a.type === "check") mine.checked = true;
+  if (a.type === "raise") mine.raised = true;
+  return a;
+}
+// The 4-number bot, kept for a page that cannot load web/app/personas.js (opened as a file).
+function ruleBot(s) {
   const p = PERSONAS[s.persona], L = legal(s), pot = potTotal(), cls = classOf(s.cards[0], s.cards[1]);
   if (G.street === 0) {
     const pct = cls.pct, facingRaise = G.currentBet > G.bb;
@@ -1923,7 +2014,7 @@ function setQuick() {
   quickNav();
 }
 function quickAnalyze() {
-  recordInputTime((performance.now() - CUR.t0) / 1000); CUR.timed = true; // the decision ends when the action is fixed
+  CUR.tAct = performance.now(); recordInputTime((CUR.tAct - CUR.t0) / 1000); CUR.timed = true; // the decision ends when the action is fixed
   CUR.quick = "ask"; CUR.qkeys = quickItems();
   $("#tp-body").innerHTML = `${oppLine()}<div class="tpc-view"><section class="tpc" data-card="quick-ask" aria-label="분석 · 핵심 판단">
       <header class="tpc-h"><span class="tpc-letter">Q</span><span class="tpc-name">분석 · 핵심 판단</span><span class="tpc-count num">${CUR.qkeys.length}개</span></header>
@@ -2208,6 +2299,7 @@ function finishHero(keys) {
   if (CUR.action === "raise") act = { type: "raise", to: CUR.to };
   else act = { type: CUR.action };
   $("#seat-" + CUR.hero.i).classList.remove("acting");
+  tellPend(keys);
   const res = heroResolve; heroResolve = null; CUR = null;
   setTP("waiting"); renderInfo();
   $("#tp").classList.add("open");
@@ -2286,6 +2378,7 @@ $("#tp-handle").addEventListener("click", () => $("#tp").classList.toggle("open"
 async function showdown(alive) {
   if (G.eng) G.eng.lastHand = { hand: G.handNo, ok: G.eng.ok, done: !!G.eng.s?.done };
   const contenders = live();
+  tellShowdown(contenders);
   const banner = h("div", "banner");
   if (contenders.length === 1) {
     const w = contenders[0], amt = G.pot; G.pot = 0; renderSeats();
@@ -2588,7 +2681,7 @@ function eqabHTML() {
 }
 function renderEqab() { const box = $("#ab-box"); box.hidden = S.eqab !== "on" && !EQAB.length; if (!box.hidden) box.innerHTML = eqabHTML(); }
 function renderMods() {
-  renderEqab();
+  renderEqab(); renderTells();
   const open = LM.k != null, wrap = $("#learn");
   wrap.classList.toggle("open", open); wrap.classList.toggle("gallery", !open);
   $("#drill").hidden = !open;

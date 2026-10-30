@@ -76,6 +76,19 @@ def test_old_checkpoint_loads_as_legacy_and_rules_never_mix():
             E3MCCFR.from_state(bad)
 
 
+def test_own_rule_with_average_ranges_checkpoints_both():
+    # #405 and #426 together: version 3 (own) still carries the range snapshot, and resumes bit for bit
+    whole = E3MCCFR(5, 3, 3, ranges="average", range_every=2, avg_rule="own")
+    whole.iterate(6)
+    part = E3MCCFR(5, 3, 3, ranges="average", range_every=2, avg_rule="own")
+    part.iterate(3)
+    st = json.loads(json.dumps(part.state()))
+    assert (st["version"], st["avg_rule"], st["ranges"]) == (3, "own", "average") and st["snap"]
+    part = E3MCCFR.from_state(st, "own")
+    part.iterate(3)
+    assert part.state() == whole.state()
+
+
 def test_one_worker_is_the_sequential_own_chain():
     a, b = E3MCCFR(3, 3, 3, avg_rule="own"), E3MCCFR(3, 3, 3, avg_rule="own")
     a.iterate(4)

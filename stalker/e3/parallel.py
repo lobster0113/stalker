@@ -9,6 +9,10 @@ updates inside a batch; that staleness is the price of the speedup, and its cost
 workers=1 is the sequential `E3MCCFR.iterate`, unchanged, so a 1-worker run matches earlier runs.
 Worker generators are seeded from the model's own generator, so checkpoints (#301) still continue
 bit for bit.
+
+Average-strategy ranges (#405): the parent retakes the snapshot at a sync once `range_every` iterations have
+passed since the last one (so the effective interval is `range_every` rounded up to whole syncs) and every
+worker of the batch reads that same snapshot; workers never refresh it, since each sees only its own sums.
 """
 from __future__ import annotations
 
@@ -22,9 +26,11 @@ from stalker.e3.mccfr import E3MCCFR
 
 
 def _work(args) -> tuple[dict, dict, dict, int, float]:
-    k, n, depth, menu, raise_cap, avg_rule, blob, iterations, seed, iters = args
+    k, n, depth, menu, raise_cap, blob, iterations, seed, iters, ranges, snap_blob, avg_rule = args
     regret = pickle.loads(blob)
-    m = E3MCCFR(0, k, n, depth, menu, raise_cap, avg_rule)
+    m = E3MCCFR(0, k, n, depth, menu, raise_cap, ranges, avg_rule=avg_rule)
+    if snap_blob is not None:
+        m.snap, m.snap_frozen = pickle.loads(snap_blob), True
     m.rng = np.random.default_rng(seed)
     m.regret = {key: r.copy() for key, r in regret.items()}
     m.iterations = iterations
@@ -66,9 +72,12 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
         return
     own = pool is None
     pool = pool or ProcessPoolExecutor(workers)
+    snap_blob = None
     try:
         left = iters
         while left > 0:
+            if m.refresh_snapshot() or (m.ranges == "average" and snap_blob is None):
+                snap_blob = pickle.dumps(m.snap, protocol=pickle.HIGHEST_PROTOCOL)
             chunk = min(left, workers * batch)
             shares = [s for s in split(chunk, workers) if s > 0]
             seeds = m.rng.integers(0, 2**63, size=len(shares))
@@ -76,7 +85,8 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
             # One pickle of the snapshot per batch, not one per worker: at 32 workers and a pro-sized
             # table the per-job pickling in the pool's single feeder thread was the serial part (#333).
             blob = pickle.dumps(m.regret, protocol=pickle.HIGHEST_PROTOCOL)
-            jobs = [(m.k, m.n, m.depth, m.menu, m.raise_cap, m.avg_rule, blob, m.iterations, int(sd), s)
+            jobs = [(m.k, m.n, m.depth, m.menu, m.raise_cap, blob, m.iterations, int(sd), s, m.ranges, snap_blob,
+                     m.avg_rule)
                     for sd, s in zip(seeds, shares)]
             results = list(pool.map(_work, jobs))
             t1 = time.perf_counter()
