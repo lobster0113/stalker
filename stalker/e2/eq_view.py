@@ -54,13 +54,15 @@ def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.nd
     # Seed from the cards themselves: hash() of a tuple holding a str changes per process.
     rng = np.random.default_rng([20261028, *board])
     live = np.array([c for c in range(52) if c not in board])
-    ok = ~np.isin(COMBO_ARR, list(board)).any(axis=1)
+    ok = ~_board_dead(board)
     need = 5 - len(board)
     out = []
     for _ in range(EQ_RUNOUTS if need else 1):
         extra = rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)
         full = np.concatenate([np.array(board, dtype=np.int64), extra])
-        idx = np.flatnonzero(ok & ~np.isin(COMBO_ARR, extra).any(axis=1))
+        gone = np.zeros(52, dtype=bool)   # mask lookup instead of np.isin: same set, ~10x cheaper (#454)
+        gone[extra] = True
+        idx = np.flatnonzero(ok & ~(gone[COMBO_ARR[:, 0]] | gone[COMBO_ARR[:, 1]]))
         score = evaluate_batch(np.concatenate([COMBO_ARR[idx], np.broadcast_to(full, (len(idx), 5))], axis=1))
         order = np.argsort(score, kind="stable")
         s_sorted = score[order]
@@ -73,9 +75,8 @@ def _flat_runouts(board: tuple[int, ...]):
     """`_runouts` concatenated for the compiled kernel: idx, order, lo, hi, segment offsets."""
     rs = _runouts(board)
     off = np.cumsum([0] + [len(r[0]) for r in rs])
-    return (np.concatenate([r[0] for r in rs]).astype(np.int64), np.concatenate([r[1] for r in rs]).astype(np.int64),
-            np.concatenate([r[2] for r in rs]).astype(np.int64), np.concatenate([r[3] for r in rs]).astype(np.int64),
-            off.astype(np.int64))
+    return (np.concatenate([r[0] for r in rs]), np.concatenate([r[1] for r in rs]),
+            np.concatenate([r[2] for r in rs]), np.concatenate([r[3] for r in rs]), off.astype(np.int64))
 
 
 def equity_vs(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
