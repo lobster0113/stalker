@@ -877,3 +877,4 @@
 {"ts":"2026-10-30T15:01:43Z","role":"planner","outcome":"planned","issue":441,"pr":450,"notes":"PR #450 머지 반영: #441 닫힘·ready/in-progress 제거, STATE 갱신(ready 7, 결함 파일 CI 재생성 후보)","friction":"ops push 경합으로 rebase 충돌(journal append) → 재시도 중 잠금을 journal push 전에 풀어버림; 원장 union 병합이 로컬 git에는 없음"}
 {"ts":"2026-10-30T15:18:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs 449,443,437,423 all odd (reviewer parity); none for reviewer-b","friction":""}
 {"ts":"2026-10-30T15:40:25Z","role":"reviewer","outcome":"skipped","issue":445,"pr":452,"notes":"not my parity","friction":""}
+{"ts":"2026-10-30T15:40:52Z","role":"reviewer-b","outcome":"changes","issue":445,"pr":452,"notes":"merge conflict (docs/ARCHITECTURE.md), stacked on unmerged #443; no CI runs on head sha","friction":"stacked PR opened before base merged: dirty mergeable state means pull_request CI never runs, so reviewer can only return CHANGES"}
