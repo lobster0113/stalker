@@ -234,6 +234,7 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .ctx span { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--ink-2); color: var(--muted); border: 1px solid var(--line-soft); }
 .ctx span b { color: var(--text); font-weight: 600; }
 .handle { display: none; }
+.tp-strip { display: none; }
 .tp-body { overflow: auto; padding: 12px 16px 16px; display: grid; gap: 12px; align-content: start; min-height: 0; }
 .tp-foot { padding: 12px 16px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
 .tp-foot[hidden] { display: none; } /* author display:grid would otherwise override [hidden] and leave a stale submit button */
@@ -617,7 +618,21 @@ details.why[open] > summary { margin-bottom: 8px; }
   .pod { padding: 4px 8px 4px 4px; gap: 6px; }
   .tp { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 45; border-radius: 18px 18px 0 0; max-height: 72vh; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); transform: translateY(calc(100% - 78px - env(safe-area-inset-bottom, 0px))); transition: transform .45s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -20px 50px rgba(0,0,0,.55); }
   .tp.open { transform: none; }
-  .handle { display: block; width: 44px; height: 5px; border-radius: 5px; background: var(--line); margin: 0 auto 2px; border: 0; padding: 0; }
+  /* #440: the open sheet covers the hero's seat, so its head repeats what the decision needs (cards, board,
+     pot, to call, last action) and stays short by default; the full context is one drag/tap away. */
+  .tp.open:not(.full) { max-height: 64vh; }
+  .tp.open:not(.full) .ctx-seats { display: none; }
+  .tp.open.full { max-height: 92vh; }
+  .handle { display: block; width: 84px; height: 21px; padding: 8px 20px; box-sizing: border-box; border-radius: 12px; background: var(--line) content-box; margin: -8px auto -6px; border: 0; touch-action: none; cursor: grab; }
+  .tp-strip:not([hidden]) { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tp-strip .grp { display: flex; gap: 3px; align-items: center; }
+  .tp-strip .card { --cw: 30px; }
+  .tp-strip .grp.sboard .card { --cw: 24px; }
+  .tp-strip .grp.sboard .none { font-size: 11px; color: var(--faint); }
+  .tp-strip .nums { display: grid; gap: 1px; font-size: 11.5px; color: var(--muted); }
+  .tp-strip .nums b { color: var(--text); font-weight: 600; }
+  .tp-strip .last { flex: 1 1 100%; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tp-strip .last b { color: var(--text); font-weight: 600; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -759,7 +774,8 @@ details.why[open] > summary { margin-bottom: 8px; }
     </div>
     <aside class="tp" id="tp" aria-label="Thinking Process">
       <div class="tp-head">
-        <button class="handle" id="tp-handle" aria-label="패널 펼치기"></button>
+        <button class="handle" id="tp-handle" aria-label="패널 펼치기" aria-expanded="false"></button>
+        <div class="tp-strip" id="tp-strip" data-hero-strip hidden></div>
         <div class="row"><h2>Thinking Process</h2><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="tier" id="tp-form" hidden></span><span class="tier" id="tp-tier">중수</span></span></div>
         <div class="ctx" id="tp-ctx"></div>
       </div>
@@ -1242,7 +1258,7 @@ async function startGame() {
   if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier) && !TPG.pol[S.tier]))) {
     const tok = ++gameToken;
     $("#infobar").innerHTML = `<span class="pill">캐시게임 · 6인</span><span>TP-GTO 준비 중</span>`;
-    $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp").classList.add("open");
+    $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp-strip").hidden = true; $("#tp").classList.add("open");
     const paint = () => { if (tok !== gameToken) return; $("#tp-body").innerHTML = TPG.state === "error" ? "" : `<div class="loadbox" role="status"><div>TP-GTO 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
     const iv = setInterval(paint, 120); paint();
     const ok = await tpgLoad(S.tier);
@@ -1955,14 +1971,14 @@ function setTP(mode) {
   const body = $("#tp-body"), foot = $("#tp-foot"), tp = $("#tp");
   if (mode === "waiting") {
     $("#tp-ctx").innerHTML = ""; $("#tp-form").hidden = true;
-    foot.hidden = true; tp.classList.remove("open");
+    foot.hidden = true; tp.classList.remove("open", "full"); $("#tp-strip").hidden = true; sheetAria();
     body.innerHTML = `<div class="waiting"><span><span class="spin"><i></i><i></i><i></i></span>&nbsp; 다른 플레이어가 행동하는 중이에요. 내 차례가 오면 여기서 판단을 입력합니다.</span></div>${G.lastGrade ? resultHTML(G.lastGrade, true) : ""}<details ${G.log.length ? "" : ""}><summary>이번 핸드 기록</summary><div class="log" id="hand-log"></div></details>`;
     renderLog(); bindResult(); return;
   }
   // ask: card news — one card per TP stage (B → F), 이전/다음, last card submits.
-  $("#tp-ctx").innerHTML = ctxChips();
+  $("#tp-ctx").innerHTML = ctxChips(); renderStrip();
   $("#tp-form").hidden = !CUR.ab; $("#tp-form").textContent = CUR.ab ? `형태 ${CUR.ab} · ${EQAB_FORMS[CUR.ab].title}` : "";
-  tp.classList.add("open");
+  tp.classList.add("open"); sheetAria();
   if (S.play === "quick") { setQuick(); return; }
   const opp = CUR.g.opp, items = itemsNow().filter(k => !isFollow(k)), cards = [];
   for (const k of items) { const st = TP[k].stage; if (!cards.length || cards.at(-1).stage !== st) cards.push({ stage: st, keys: [] }); cards.at(-1).keys.push(k); }
@@ -1988,6 +2004,18 @@ function setTP(mode) {
   goCard(0, true);
   if (matchMedia("(max-width: 760px)").matches) tp.classList.add("open");
 }
+// #440: phone-only head strip (CSS hides it wider); the sheet covers the hero's seat on a phone.
+function renderStrip() {
+  const el = $("#tp-strip"), hero = CUR.hero, L = CUR.g.L;
+  const last = [...G.log].reverse().find(l => /^.+?\([^)]*\) \S/.test(l.t) && !l.t.startsWith("나("));
+  el.innerHTML = `<div class="grp" data-strip-hole aria-label="내 카드"></div><div class="grp sboard" data-strip-board aria-label="보드">${G.board.length ? "" : `<span class="none">보드 없음</span>`}</div>
+    <div class="nums"><span>팟 <b data-strip-pot>${bbf(CUR.g.pot)}BB</b></span><span>콜 <b data-strip-call>${L.toCall ? bbf(L.toCall) + "BB" : "없음"}</b></span></div>
+    <div class="last" data-strip-last>직전 · <b>${last ? last.t : "아직 액션 없음"}</b></div>`;
+  for (const c of hero.cards) $("[data-strip-hole]", el).appendChild(cardEl(c));
+  for (const c of G.board) $("[data-strip-board]", el).appendChild(cardEl(c));
+  el.hidden = false;
+}
+const sheetAria = () => { const tp = $("#tp"); $("#tp-handle").setAttribute("aria-expanded", String(tp.classList.contains("open"))); $("#tp-handle").setAttribute("aria-label", tp.classList.contains("open") ? (tp.classList.contains("full") ? "패널 줄이기" : "패널 전체 펼치기") : "패널 펼치기"); };
 const oppLine = () => { const opp = CUR.g.opp; return `<div class="tpc-opp">판단 대상 상대 · <b>${opp.name}</b> (${posName(opp)}) · 이번 게임 관측 <b class="num">${opp.stats.hands - 1}</b>핸드</div>`; };
 // Spot type for the Quick rule: facing a bet/raise this street, otherwise preflop/postflop.
 const spotType = () => G.streetAgg != null && G.streetAgg !== CUR.hero.i ? "facing_bet" : G.street === 0 ? "preflop" : "postflop";
@@ -2302,7 +2330,7 @@ function finishHero(keys) {
   tellPend(keys);
   const res = heroResolve; heroResolve = null; CUR = null;
   setTP("waiting"); renderInfo();
-  $("#tp").classList.add("open");
+  $("#tp").classList.add("open"); sheetAria();
   res(act);
 }
 const ACT_NM = { fold: "폴드", check: "체크", call: "콜", raise: "벳·레이즈" }, ACT_COL = { fold: "#5d6a6f", check: "#8d999c", call: "#5d8fd8", raise: "#d6ab55" };
@@ -2372,7 +2400,19 @@ function driversHTML(gr) {
 }
 function bindResult() { const b = $("#tp-body [data-learn]"); if (b) b.onclick = () => { showView("learn"); selectModule(b.dataset.learn); }; }
 function renderLog() { const el = $("#hand-log"); if (!el || !G) return; let last = ""; el.innerHTML = G.log.map(l => { const s = l.st !== last ? `<div class="st">${l.st}</div>` : ""; last = l.st; return s + `<div>${l.t}</div>`; }).join(""); }
-$("#tp-handle").addEventListener("click", () => $("#tp").classList.toggle("open"));
+// Grabber: tap toggles the sheet; drag up opens one step (peek -> default -> full), drag down closes one step.
+{
+  const hd = $("#tp-handle"), tp = $("#tp"); let y0 = null, dragged = false;
+  const step = up => {
+    if (up) { if (tp.classList.contains("open")) tp.classList.add("full"); else tp.classList.add("open"); }
+    else if (tp.classList.contains("full")) tp.classList.remove("full"); else tp.classList.remove("open");
+    sheetAria();
+  };
+  hd.addEventListener("pointerdown", e => { y0 = e.clientY; dragged = false; hd.setPointerCapture?.(e.pointerId); });
+  hd.addEventListener("pointerup", e => { if (y0 == null) return; const dy = e.clientY - y0; y0 = null; if (Math.abs(dy) > 24) { dragged = true; step(dy < 0); } });
+  hd.addEventListener("pointercancel", () => { y0 = null; });
+  hd.addEventListener("click", () => { if (dragged) { dragged = false; return; } if (tp.classList.contains("open")) tp.classList.remove("open", "full"); else tp.classList.add("open"); sheetAria(); });
+}
 
 /* ---------- showdown & payout ---------- */
 async function showdown(alive) {

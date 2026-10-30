@@ -89,11 +89,59 @@ const QUICK = "#tp-body [data-card='quick-act']";
 await page.waitForSelector(QUICK);
 must((await page.textContent("#infobar")).includes("상대 TP-GTO"), "훈련 게임: 상대가 TP-GTO 정책이 아님(정책 연결 실패)");
 await inspect("train-input", QUICK);
+// #440: on a phone the open sheet covers the hero's seat, so its head strip must show the hole cards, board,
+// pot, to-call and last opponent action uncovered next to the action row; the grabber taps/drags the sheet.
+async function phoneDecision(tag) {
+  await page.evaluate(() => { window.__hold = true; });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(600);   // sheet transform transition
+  const free = sel => page.evaluate(sel => [...document.querySelectorAll(sel)].map(el => {
+    const b = el.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && !!hit && (hit === el || el.contains(hit));
+  }), sel);
+  const hole = await free("[data-strip-hole] .card");
+  must(hole.length === 2 && hole.every(Boolean), `${tag} phone: 내 카드(${hole})가 화면 안에서 가려지지 않아야 함 (#440)`);
+  const nb = await page.evaluate(() => G.board.length), board = await free("[data-strip-board] .card");
+  must(board.length === nb && board.every(Boolean), `${tag} phone: 보드 ${nb}장이 시트 위에 보여야 함 (보이는 것 ${board})`);
+  for (const sel of ["[data-strip-pot]", "[data-strip-call]", "[data-strip-last]"]) must((await free(sel)).every(Boolean) && (await free(sel)).length === 1, `${tag} phone: ${sel}가 보이지 않음 (#440)`);
+  const acts = await free(`${QUICK} [data-act], #tp-go`);
+  must(acts.length >= 3 && acts.every(Boolean), `${tag} phone: 액션 버튼이 카드와 함께 보여야 함 (${acts})`);
+  await page.screenshot({ path: `${shots}/${tag}-phone.png` });
+  return free;
+}
+let boardShot = false;
+{
+  const free = await phoneDecision("train-decision");
+  const hd = await page.locator("#tp-handle").boundingBox(), cx = hd.x + hd.width / 2, cy = hd.y + hd.height / 2;
+  await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx, cy - 120, { steps: 4 }); await page.mouse.up();
+  must(await page.evaluate(() => document.querySelector("#tp").classList.contains("full")), "phone: 그래버를 위로 끌면 시트가 다 펼쳐져야 함 (#440)");
+  const dragDown = async () => {
+    await page.waitForTimeout(600);
+    const b = await page.locator("#tp-handle").boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2;
+    await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y + 120, { steps: 4 }); await page.mouse.up();
+  };
+  await dragDown();
+  must(await page.evaluate(() => { const c = document.querySelector("#tp").classList; return c.contains("open") && !c.contains("full"); }), "phone: 다 펼친 시트를 아래로 끌면 기본 높이로 돌아와야 함 (#440)");
+  await dragDown(); await page.waitForTimeout(600);
+  must(await page.evaluate(() => !document.querySelector("#tp").classList.contains("open")), "phone: 그래버를 아래로 끌면 시트가 접혀야 함 (#440)");
+  const seat = await free("#table .seat.hero .hole .card");
+  must(seat.length === 2 && seat.every(Boolean), `phone: 접힌 시트에서 테이블의 내 카드가 보여야 함 (${seat})`);
+  await page.screenshot({ path: `${shots}/train-decision-collapsed-phone.png` });
+  await page.click("#tp-handle"); await page.waitForTimeout(600);
+  must(await page.evaluate(() => document.querySelector("#tp").classList.contains("open")), "phone: 그래버를 누르면 시트가 다시 열려야 함 (#440)");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  must(await page.evaluate(() => getComputedStyle(document.querySelector("#tp-strip")).display === "none"), "laptop: 폰 전용 카드 줄이 보이면 안 됨 (#440)");
+  await page.evaluate(() => { window.__hold = false; });
+}
 // #116 Quick: one decision ends in at most 3 inputs — action, size (only for a bet/raise), 진행. No judgment is required.
 // #337/#341: the size is free no-limit — the amount box takes any size from the minimum raise to all in.
 let freeSized = false;
 for (let d = 0; d < 6 && !freeSized; d++) {
   if (d) await page.waitForSelector(QUICK);
+  if (!boardShot && await page.evaluate(() => G.board.length >= 3)) {
+    await phoneDecision("train-decision-board"); boardShot = true;
+    await page.setViewportSize({ width: 1440, height: 900 }); await page.evaluate(() => { window.__hold = false; });
+  }
   let inputs = 0;
   const raise = page.locator(`${QUICK} [data-act='raise']:not([disabled])`);
   if (await raise.count()) {
