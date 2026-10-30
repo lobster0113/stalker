@@ -136,3 +136,22 @@ def test_range_update_narrows_the_acting_seat_only():
     before_eq = np.nanmean(K.multi_equity(s, q, ranges))
     after_eq = np.nanmean(K.multi_equity(s, q, after))
     assert after_eq < before_eq
+
+
+def test_key_ignores_the_other_players_hidden_cards():
+    # Gate L for E3 keys (#420): with the public line, the board and my cards fixed, swapping every
+    # opponent's hole cards for other unseen cards must not move my public key or my equity step.
+    s = _play(G.deal(np.random.default_rng(7)), "r", "f", "f", "c", "f", "c")
+    s = _play(s, "k", "k", "k")
+    assert s.street == 2
+    ranges = K.update_range(K.initial_ranges(6), 0, np.full(K.N, 0.6))
+    seat = 3
+    want = (K.public_key(s, seat), K.my_step(K.equity_steps(s, seat, ranges, K.K_PRO), s, seat))
+    rng = np.random.default_rng(8)
+    seen = set(s.hole[seat]) | set(s.board)
+    for _ in range(5):
+        free = [c for c in range(52) if c not in seen]
+        rng.shuffle(free)
+        hole = tuple(s.hole[i] if i == seat else (free[2 * i], free[2 * i + 1]) for i in range(s.n))
+        t = s._replace(hole=hole)
+        assert (K.public_key(t, seat), K.my_step(K.equity_steps(t, seat, ranges, K.K_PRO), t, seat)) == want
