@@ -1,0 +1,296 @@
+{
+ "job": "e3-tp-mid-pod",
+ "tier": "mid",
+ "players": 6,
+ "seed": 1,
+ "workers": 32,
+ "batch": 500,
+ "iters": 2752000,
+ "resumed_from_run": "40919207457",
+ "chunk_iters": 848000,
+ "resumed_from": 1904000,
+ "train_seconds": 5472.5,
+ "iters_per_s": 154.96,
+ "sync_frac": 0.018,
+ "field": {
+  "version": 1,
+  "sha256": "a509992d2140b5a1b02f15d191a8740edb26aa08951de1f68b9a5ac410e345b0",
+  "seed": 20001,
+  "deals": 1000,
+  "configs": [
+   {
+    "name": "tag5",
+    "bb100": -21.03,
+    "ci95": [
+     -69.43,
+     29.96
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     -78.7,
+     -38.4,
+     48.4,
+     -35.2,
+     -59.6,
+     37.2
+    ]
+   },
+   {
+    "name": "lag5",
+    "bb100": 47.01,
+    "ci95": [
+     -6.98,
+     102.56
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     -75.6,
+     -36.0,
+     143.7,
+     18.7,
+     78.6,
+     152.6
+    ]
+   },
+   {
+    "name": "nit5",
+    "bb100": -21.48,
+    "ci95": [
+     -68.16,
+     23.98
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     -36.5,
+     -28.7,
+     73.1,
+     -59.7,
+     -105.0,
+     27.9
+    ]
+   },
+   {
+    "name": "station5",
+    "bb100": 147.37,
+    "ci95": [
+     46.67,
+     249.9
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     40.6,
+     96.1,
+     182.2,
+     305.7,
+     -17.8,
+     277.3
+    ]
+   },
+   {
+    "name": "maniac5",
+    "bb100": 170.68,
+    "ci95": [
+     74.3,
+     276.96
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     151.7,
+     85.1,
+     257.1,
+     163.5,
+     101.6,
+     265.1
+    ]
+   },
+   {
+    "name": "mixed_styles",
+    "bb100": 25.38,
+    "ci95": [
+     -35.62,
+     88.99
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     -94.5,
+     6.1,
+     114.3,
+     4.3,
+     71.9,
+     50.3
+    ]
+   },
+   {
+    "name": "mixed_regs",
+    "bb100": 8.47,
+    "ci95": [
+     -45.97,
+     64.5
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     -131.2,
+     29.1,
+     89.6,
+     -14.3,
+     33.6,
+     44.0
+    ]
+   },
+   {
+    "name": "uniform5",
+    "bb100": 502.01,
+    "ci95": [
+     352.29,
+     657.27
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     351.6,
+     567.6,
+     362.2,
+     375.0,
+     736.9,
+     618.7
+    ]
+   },
+   {
+    "name": "self5",
+    "bb100": 0.0,
+    "ci95": [
+     -0.0,
+     0.0
+    ],
+    "deals": 1000,
+    "by_seat_bb100": [
+     -35.0,
+     -75.7,
+     24.1,
+     -64.1,
+     -11.3,
+     162.0
+    ]
+   }
+  ],
+  "worst": {
+   "name": "nit5",
+   "bb100": -21.48,
+   "ci95_low": -68.16
+  }
+ },
+ "field_seconds": 152.0,
+ "infosets": 59171,
+ "coverage": {
+  "fcra": {
+   "keys": 30143,
+   "under10": 5827
+  },
+  "fca": {
+   "keys": 20964,
+   "under10": 5443
+  },
+  "kb33b75a": {
+   "keys": 5642,
+   "under10": 609
+  },
+  "ka": {
+   "keys": 943,
+   "under10": 203
+  },
+  "kb33a": {
+   "keys": 951,
+   "under10": 177
+  },
+  "cra": {
+   "keys": 33,
+   "under10": 0
+  },
+  "fc": {
+   "keys": 495,
+   "under10": 0
+  }
+ },
+ "lbr": {
+  "lbr_bb": 0.9351,
+  "stderr_bb": 0.1892,
+  "by_seat": {
+   "UTG": 0.21,
+   "HJ": 0.2003,
+   "CO": 0.2316,
+   "BTN": 0.6216,
+   "SB": 2.3572,
+   "BB": 1.9897
+  },
+  "hands": 1000
+ },
+ "lbr_average": {
+  "lbr_bb": 0.8438,
+  "stderr_bb": 0.2133,
+  "by_seat": {
+   "UTG": 0.0015,
+   "HJ": 0.0117,
+   "CO": 0.233,
+   "BTN": 0.6891,
+   "SB": 1.1307,
+   "BB": 2.997
+  },
+  "hands": 1000
+ },
+ "lbr_offmenu": {
+  "lbr_bb": 2.0285,
+  "stderr_bb": 0.2703,
+  "by_seat": {
+   "UTG": 0.21,
+   "HJ": 0.3595,
+   "CO": 0.4222,
+   "BTN": 2.0075,
+   "SB": 4.4618,
+   "BB": 4.7101
+  },
+  "hands": 1000
+ },
+ "lbr_seconds": 100.1,
+ "policy_sha256": "2873ed2b671a2759519a80e021847102a2e382a8256a53a32ca306c18db163a5",
+ "model": {
+  "k": 11,
+  "n": 6,
+  "depth": "full",
+  "iterations": 2752000,
+  "nodes": 1280892511,
+  "menu": "v1",
+  "raise_cap": 3,
+  "rng": {
+   "bit_generator": "PCG64",
+   "state": {
+    "state": 199420823152144268524716384532525061118,
+    "inc": 194290289479364712180083596243593368443
+   },
+   "has_uint32": 0,
+   "uinteger": 0
+  }
+ },
+ "checkpoint": {
+  "format": "npz",
+  "dtype": "float64",
+  "b64": {
+   "omitted_chars": 4019464,
+   "sha256": "4a3e61c4f5366de218a2d37b1891d3ec1a9af77907e9cf959f67faa49000a566"
+  }
+ },
+ "max_rss_mb": 850.8,
+ "max_child_rss_mb": 551.1,
+ "machine": {
+  "cpu_model": "AMD EPYC 9655P 96-Core Processor",
+  "cpu_count": 192,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "max 100000",
+  "mem_total_mb": 773139,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.41"
+ },
+ "sha": "9bb64eceedc20fde6333defa97d4ecec0f632c24",
+ "_summary_of": {
+  "result_bytes": 4022786,
+  "result_sha256": "70808df185126766a0855d83e218d86fc5ca6b4170323b783843342b3ba28bb9"
+ }
+}
