@@ -845,3 +845,4 @@
 {"ts":"2026-10-30T10:59:42Z","role":"reviewer","outcome":"skipped","issue":417,"pr":438,"notes":"not my parity","friction":""}
 {"ts":"2026-10-30T11:00:22Z","role":"reviewer-b","outcome":"changes","issue":417,"pr":438,"notes":"merge conflict with main (#431) in docs/ARCHITECTURE.md, no CI runs on d7f9bf8; asked to merge main, regen web vectors, rerun CI","friction":"conflicted PRs get no pull_request CI, so reviewer can only return CHANGES; builder could check mergeability before opening"}
 {"ts":"2026-10-30T11:03:31Z","role":"reviewer","outcome":"skipped","issue":417,"pr":438,"notes":"not my parity","friction":""}
+{"ts":"2026-10-30T11:05:59Z","role":"reviewer","outcome":"skipped","issue":411,"pr":442,"notes":"not my parity","friction":""}
