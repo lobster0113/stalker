@@ -18,7 +18,9 @@ The intended update of one pass with traverser p, every strategy held fixed for 
     R[k, a] += sum over h in key k, p to act:       pi_c(h) pi_-p(h) (u_p(h a) - u_p(h))
     S[k, a] += sum over h in key k, i != p to act:  pi_c(h) pi_i(h) sigma(k, a)
 
-S is accumulated in the other players' passes, as E3 does.
+S is accumulated in the other players' passes, as E3 does. With three or more players E3's legacy rule
+(`avg_rule="legacy"`) adds sigma at every visit, so in expectation it weights S by pi_c pi_-p instead (the
+other opponents' reach mixed in, #414); `avg_rule="own"` divides that reach out (#426).
 
     python -m stalker.vcfr.toy        # noise of the sampled update against samples (reference numbers)
 """
@@ -29,6 +31,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import permutations
+from math import prod
 
 import numpy as np
 
@@ -36,6 +39,7 @@ from referee.anchors.toy import kuhn, leduc
 from referee.anchors.toy.game import CHANCE, PLAYER, TERMINAL, Node, finalize
 
 KeyFn = Callable[[str], str]
+AVG_RULES = ("legacy", "own")
 Table = dict[str, np.ndarray]
 
 
@@ -295,12 +299,19 @@ class E3Sampler:
 
     E3 samples chance and the other players on policy, so the correction pi/q is 1 and its update is
     `R[k] += vals - v` and `S[k] += sigma`. `explore` (mixing the sampling with uniform) and
-    `uniform_chance` sample off policy; `correct=False` then drops the correction (a mutation)."""
+    `uniform_chance` sample off policy; `correct=False` then drops the correction (a mutation).
+
+    `avg_rule="own"` (#426) divides S's increment at player i's node by the sigma product of the other
+    non-traversers' sampled actions above it. The visit already carries pi_c pi_i, so the expected increment
+    is pi_c pi_i sigma, the intended weight; with two players the divisor is empty and the rules agree."""
 
     def __init__(self, root: Node, key: KeyFn = identity, explore: float = 0.0, uniform_chance: bool = False,
-                 correct: bool = True):
+                 correct: bool = True, avg_rule: str = "legacy"):
+        if avg_rule not in AVG_RULES:
+            raise ValueError(f"avg_rule={avg_rule!r}; use one of {AVG_RULES}")
         self.root, self.key = root, key
         self.explore, self.uniform_chance, self.correct = explore, uniform_chance, correct
+        self.avg_rule = avg_rule
 
     def sample(self, sigma: Table, p: int, rng: np.random.Generator) -> tuple[Table, Table]:
         reg: Table = {}
@@ -310,24 +321,31 @@ class E3Sampler:
             i = int(rng.choice(len(q), p=q))
             return i, (probs[i] / q[i] if self.correct else 1.0)
 
-        def walk(n: Node, w: float) -> float:    # w: correction pi/q of the sampled edges above n
+        # w: correction pi/q of the sampled edges above n; reach: each non-traverser's sigma product above n
+        def walk(n: Node, w: float, reach: dict[int, float]) -> float:
             if n.kind == TERMINAL:
                 return payoff(n, p)
             probs = np.asarray(n.probs) if n.kind == CHANCE else sigma[self.key(n.infoset)]
             if n.kind == CHANCE:
                 q = np.full(len(probs), 1 / len(probs)) if self.uniform_chance else probs
             elif n.player == p:
-                vals = np.array([walk(c, w) for c in n.children])
+                vals = np.array([walk(c, w, reach) for c in n.children])
                 v = float(probs @ vals)
                 _acc(reg, self.key(n.infoset), w * (vals - v))
                 return v
             else:
-                _acc(avg, self.key(n.infoset), w * probs)
+                me = n.player
+                if self.avg_rule == "own":     # divide out the other sampled opponents' reach (module docstring)
+                    _acc(avg, self.key(n.infoset), w / prod(r for m, r in reach.items() if m != me) * probs)
+                else:
+                    _acc(avg, self.key(n.infoset), w * probs)
                 q = (1 - self.explore) * probs + self.explore / len(probs)
+                i, ratio = draw(probs, q)
+                return ratio * walk(n.children[i], w * ratio, {**reach, me: reach.get(me, 1.0) * probs[i]})
             i, ratio = draw(probs, q)
-            return ratio * walk(n.children[i], w * ratio)
+            return ratio * walk(n.children[i], w * ratio, reach)
 
-        walk(self.root, 1.0)
+        walk(self.root, 1.0, {})
         return reg, avg
 
 

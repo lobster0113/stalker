@@ -108,7 +108,7 @@ def test_checkpoint_keeps_the_variant_and_refuses_older_code_via_version():
     m = E3MCCFR(1, 5, 3, "basic", key_variant="b1")
     m.iterate(2)
     st = json.loads(json.dumps(m.state()))
-    assert st["version"] == 3 and st["key_variant"] == "b1"
+    assert st["version"] == 4 and st["key_variant"] == "b1"
     assert E3MCCFR.from_state(st).key_variant == "b1"
     assert E3MCCFR(1, 5, 3, "basic").state()["version"] == 1
     with pytest.raises(ValueError, match="key_variant"):
@@ -133,3 +133,13 @@ def test_b1_job_is_registered_resumable_and_refuses_a_plain_checkpoint(tmp_path)
     (tmp_path / f"{job}-seed1.ckpt.json").write_text(json.dumps(m.state()), encoding="utf-8")
     with pytest.raises(SystemExit, match="key variant"):
         T.JOBS[job](1, 1, tmp_path / "out", resume=tmp_path)
+
+
+def test_b1_and_own_average_rule_checkpoint_round_trips_as_version_4():
+    m = E3MCCFR(1, 5, 3, "basic", avg_rule="own", key_variant="b1")
+    m.iterate(1)
+    st = json.loads(json.dumps(m.state()))
+    r = E3MCCFR.from_state(st, "own")
+    assert (st["version"], r.avg_rule, r.key_variant) == (4, "own", "b1")
+    with pytest.raises(ValueError, match="avg_rule"):
+        E3MCCFR.from_state(st, "legacy")
