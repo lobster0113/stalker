@@ -126,10 +126,7 @@ const TARGETS = {
 const TOL = { VPIP: 3, PFR: 3, "3bet": 2, cbet: 6, FCB: 6, WTSD: 5 };
 // maniac WTSD 30–40 is [가정] in the note, and the neutral table never calls a maniac down lighter
 // (real opponents do), so his pots end before showdown more often here: ±10.
-// fish/station WTSD: the owner's category rules (fish never fold top pair and call any pair or draw once on
-// the flop; stations call down any pair, #429 phase 1b) keep more of their hands to showdown than the
-// cited 30–36 / 35–45 at a table that never value-bets them thinner; reported in the note §9: ±8 / ±12.
-const TOL_OVERRIDE = { maniac: { WTSD: 10 }, fish: { WTSD: 8 }, station: { WTSD: 12 } };
+const TOL_OVERRIDE = { maniac: { WTSD: 10 } };
 const HANDS = 30000;
 
 const RESULTS = {};

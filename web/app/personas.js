@@ -39,10 +39,13 @@ const T = (nit, weak, tag, lag, fish, station, maniac, pro) => ({ nit, weak, tag
 // kept inside the §2 ranges:
 //   fish/station RFI ×1.4/×1.5 and cold call 22→30/35→45: §7.1 ([가정] there) gave VPIP 22/31, below the
 //     cited 30–45/40–65 [PN][DC][BR-PFR] it was meant to sum to;
-//   fold turn/river fish 45→50/45→50, station 28→45/30→65, station fold flop 25→33: WTSD came out
-//     above the cited 30–36/35–45 [BR-WTSD][DC] (stations still call down any pair, phase 1b);
-//   phase 1b (real cards, made-only bettors check more down): nit fold flop/turn/river 55→50/62→67/65→76,
-//     weak-tight 55→58/65→70/65→76, to keep their WTSD near the cited 18–24/21–25 [BR-WTSD];
+//   phase 1b (real cards; the owner rules keep fish/station pairs in, so their showdowns came mostly from
+//     checked-down pots, about 70% with no river bet): fish fold turn/river 45→55/45→60, probe 20→30;
+//     station fold flop/turn/river 25→35/28→50/30→70 (only air folds: pairs never do), donk 8→12,
+//     float 10→20, probe 15→35; nit fold flop/turn/river 55→50/62→67/65→76, float 25→30, probe 20→25;
+//     weak-tight fold 55→58/65→70/65→76, float 15→30, probe 15→30. The §7.2 values changed are all [가정]
+//     there; fish fold-to-turn 55 sits 5 %p over its §2.3 [가정] range. Fitted so WTSD lands in the cited
+//     18–24/21–25/30–36/35–45 [BR-WTSD][DC] ± 5 (sweep in the note §9.1);
 //   maniac turn/river c-bet 70→62/60→50 and fold 33→28/35→28 ([가정] all): lifts his WTSD from 20 toward
 //     the [가정] 30–40; it stays near 23 because the test table never calls a maniac down lighter.
 export const MEANS = {
@@ -61,14 +64,14 @@ export const MEANS = {
   cbetF: T(60, 55, 65, 72, 45, 40, 88, 60),
   cbetT: T(40, 33, 48, 55, 30, 25, 62, 45),
   cbetR: T(30, 25, 38, 45, 25, 20, 50, 35),
-  foldCbF: T(50, 58, 48, 40, 38, 33, 32, 45),
-  foldCbT: T(67, 70, 50, 45, 50, 45, 28, 50),
-  foldR: T(76, 76, 57, 50, 50, 65, 28, 55),
+  foldCbF: T(50, 58, 48, 40, 38, 35, 32, 45),
+  foldCbT: T(67, 70, 50, 45, 55, 50, 28, 50),
+  foldR: T(76, 76, 57, 50, 60, 70, 28, 55),
   xr: T(4, 3, 7, 11, 3, 2, 16, 8),
   xrValue: T(90, 90, 70, 60, 90, 95, 40, 65),
-  donk: T(1, 1, 2, 4, 10, 8, 15, 4),
-  float: T(25, 15, 40, 50, 15, 10, 60, 40),
-  probe: T(20, 15, 35, 45, 20, 15, 60, 35),
+  donk: T(1, 1, 2, 4, 10, 12, 15, 4),
+  float: T(30, 30, 40, 50, 15, 20, 60, 40),
+  probe: T(25, 30, 35, 45, 30, 35, 60, 35),
   riverBluff: T(10, 8, 20, 25, 10, 5, 45, 22),    // share of river bets that are bluffs; pro = [U26] HU 60–110% pot
 };
 
