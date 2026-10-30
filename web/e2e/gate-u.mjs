@@ -448,6 +448,17 @@ await inspect("learn-gallery");
   for (const r of [a, b]) if (+r[1] > 0) must(/초$/.test(r[2]) && /초$/.test(r[3]) && /%$/.test(r[4]), `학습 섹션: P50·P95·정답률 칸이 비어 있음 (${r.join(" | ")})`);
   await inspect("learn-eqab", "#ab-box");
 }
+// #430: every hero decision so far is logged with a time and a strength; few decisions -> "데이터 부족".
+{
+  await page.waitForSelector("#tell-box tr[data-tell='timing']");
+  const log = await page.evaluate(() => TELL.decisions);
+  must(log.length > 0, "텔 리포트: 내 결정이 기록되지 않음");
+  must(log.every(d => Number.isFinite(d.ms) && d.ms >= 0 && Number.isFinite(d.strength) && d.strength >= 0 && d.strength <= 1 && d.street >= 0 && d.street <= 3),
+    `텔 리포트: 결정 기록에 시간·강도가 비었음 (${JSON.stringify(log.slice(0, 3))})`);
+  const t = await page.textContent("#tell-box tr[data-tell='timing']");
+  must(t.includes("데이터 부족 (n="), `텔 리포트: 표본이 적은데 판단함 (${t})`);
+  await inspect("learn-tells", "#tell-box");
+}
 // #165: opening a module turns the gallery into a side list; "← 전체" brings the gallery back.
 await page.locator("#mods .mod[data-k='hand.rank']").click();
 await page.waitForSelector("#learn.open #drill:not([hidden])");

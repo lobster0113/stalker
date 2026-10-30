@@ -366,6 +366,10 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .ab-table th, .ab-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .ab-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .ab-table th:first-child, .ab-table td:first-child { text-align: left; }
+.tell-table td { text-align: left; white-space: normal; }
+.tell-table tr.leak th, .tell-table tr.leak td { color: var(--bad); }
+.tell-leaks { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; }
+.tell-leaks span { display: block; color: var(--muted); margin-top: 2px; }
 .drivers { display: grid; gap: 6px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); font-size: 13px; }
 .drivers .hd { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
 .drivers ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
@@ -778,6 +782,7 @@ details.why[open] > summary { margin-bottom: 8px; }
       <div class="box drill" id="drill" hidden></div>
     </div>
     <div class="box ab-box" id="ab-box" hidden></div>
+    <div class="box ab-box" id="tell-box" data-tell-report></div>
   </div>
 </section>
 
@@ -1071,6 +1076,55 @@ const LEARN_FOR = { "board.adv": "board.adv", "board.nut": "board.adv", "hand.eq
 // Per-decision input time (TP §4.2 Quick: P50/P95), training game only.
 let ITIMES = store.get("itimes", []);
 function recordInputTime(sec) { ITIMES.push(Math.round(sec * 10) / 10); if (ITIMES.length > 300) ITIMES = ITIMES.slice(-300); store.set("itimes", ITIMES); }
+// Hero tell log (#430): what the hero's sizes, timing and lines show the table. Read-only hooks; the
+// metrics live in app/tells.js. Browser only, last 2000 decisions and 500 showdowns.
+const TELL_MAX = 2000, TELL_SD_MAX = 500;
+const TELL = (() => { const d = store.get("tells", null); return d && Array.isArray(d.decisions) && Array.isArray(d.showdowns) ? d : { schema_version: 1, decisions: [], showdowns: [] }; })();
+const tellSave = () => { TELL.decisions = TELL.decisions.slice(-TELL_MAX); TELL.showdowns = TELL.showdowns.slice(-TELL_SD_MAX); store.set("tells", TELL); };
+const tellHand = () => `${G.tellSess ??= Date.now()}:${G.handNo}`;
+// Called by finishHero: what only the hero's turn knows (time, strength, the policy's mix).
+function tellPend(keys) {
+  const g = CUR.g, eq = g.v["hand.equity"], agg = g.model?.mix.reduce((a, m) => a + (["f", "k", "c"].includes(m.a) ? 0 : m.p), 0);
+  G.tellPend = { ms: Math.round((CUR.tAct ?? performance.now()) - CUR.t0), strength: Number.isFinite(eq) ? eq / 100 : null, src: g.src?.["hand.equity"] === "model" ? "model" : "mock",
+    madeClass: Math.floor(evaluate([...CUR.hero.cards, ...G.board]) / B5), timed: !keys || !!CUR.quick, gtoAgg: Number.isFinite(agg) ? Math.round(agg * 1000) / 1000 : null };
+}
+// Called by applyAction for every seat before chips move: tracks aggressors for the spot labels.
+function tellHook(s, a, L) {
+  try {
+    const t = G.tl?.hand === G.handNo ? G.tl : (G.tl = { hand: G.handNo, street: 0, prevAgg: null, curAgg: null, bet: false, acted: new Set(), heroChecked: false });
+    if (t.street !== G.street) Object.assign(t, { street: G.street, prevAgg: t.curAgg, curAgg: null, bet: false, acted: new Set(), heroChecked: false });
+    if (s.isHero && G.tellPend) {
+      const post = G.street > 0, facing = L.toCall > 0;
+      const spot = G.street === 1 && t.prevAgg === s.i && !t.bet && !t.acted.has(s.i) ? "cbet"
+        : post && t.prevAgg != null && t.prevAgg !== s.i && !t.bet && !t.acted.has(t.prevAgg) && !t.acted.has(s.i) ? "donk"
+        : post && t.heroChecked && facing ? "xr" : null;
+      const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
+      const action = a.type === "raise" ? (G.currentBet === 0 ? "bet" : "raise") : a.type;
+      TELL.decisions.push({ hand: tellHand(), street: G.street, action, sizePct: to == null ? null : Math.round((to - G.currentBet) / Math.max(potTotal() + L.toCall, 1) * 1000) / 10,
+        forced: !L.canRaise && !facing, spot, ...G.tellPend });
+      G.tellPend = null; tellSave();
+      if (a.type === "check") t.heroChecked = true;
+    }
+    t.acted.add(s.i);
+    if (a.type === "raise") { t.bet = true; t.curAgg = s.i; }
+  } catch (e) { G.tellPend = null; }
+}
+function tellShowdown(contenders) {
+  const hero = contenders.find(s => s.isHero);
+  if (!hero || contenders.length < 2) return;
+  TELL.showdowns.push({ hand: tellHand(), madeClass: Math.floor(evaluate([...hero.cards, ...G.board]) / B5) }); tellSave();
+}
+let TELLS_MOD = null;
+async function renderTells() {
+  const box = $("#tell-box");
+  try { TELLS_MOD ||= await import(APP_BASE + "tells.js"); }
+  catch { box.innerHTML = `<h2>텔 리포트</h2><p class="sub">계산 모듈을 불러오지 못했어요. 웹 서버로 열어 주세요(web/README.md).</p>`; return; }
+  const r = TELLS_MOD.tellReport(TELL.decisions, TELL.showdowns);
+  const leaks = r.leaks.length ? `<ul class="tell-leaks">${r.leaks.map(l => `<li data-tell-leak="${l.id}"><b>${l.text}</b><span>고치기: ${l.fix}</span></li>`).join("")}</ul>`
+    : `<p class="sub">${!r.metrics.decisions ? "아직 기록이 없어요. 훈련 게임에서 결정을 내리면 여기에 쌓입니다." : r.rows.some(x => x.leak !== undefined) ? "지금까지 기준을 넘는 텔은 없어요." : "아직 판단할 만큼 표본이 없어요. 아래 항목마다 최소 표본이 있어요."}</p>`;
+  box.innerHTML = `<h2>텔 리포트</h2><p class="sub">내 벳 크기·결정 시간·라인이 핸드 강도를 얼마나 드러내는지 봐요. 강도는 결정 때의 에퀴티(${CONF} 또는 TP-GTO 엔진)이고, 기준 표본보다 적으면 판단하지 않아요. 결정 ${r.metrics.decisions}회 · 이 기기에만 저장.</p>
+    ${leaks}<div class="ab-wrap"><table class="ab-table tell-table"><tbody>${r.rows.map(x => `<tr data-tell="${x.id}"${x.leak ? ` class="leak"` : ""}><th scope="row">${x.name}</th><td>${x.text}</td></tr>`).join("")}</tbody></table></div>`;
+}
 // hand.equity question-form A/B (#262, Gate E pilot): which wording do people answer faster and more accurately?
 // Each form has 5 chips; the truth chip comes from the mock teacher, and answers are logged, not graded.
 const EQAB_FORMS = {
@@ -1457,6 +1511,7 @@ function legal(s) {
 }
 function applyAction(s, a) {
   const L = legal(s), pre = G.street === 0, facing = L.toCall > 0;
+  tellHook(s, a, L);
   if (G.eng) engApply(s, a, L);
   if (facing) { s.stats.faced++; if (a.type === "fold") s.stats.foldsFaced++; }
   if (L.canRaise) s.stats.aggOpp++;
@@ -1959,7 +2014,7 @@ function setQuick() {
   quickNav();
 }
 function quickAnalyze() {
-  recordInputTime((performance.now() - CUR.t0) / 1000); CUR.timed = true; // the decision ends when the action is fixed
+  CUR.tAct = performance.now(); recordInputTime((CUR.tAct - CUR.t0) / 1000); CUR.timed = true; // the decision ends when the action is fixed
   CUR.quick = "ask"; CUR.qkeys = quickItems();
   $("#tp-body").innerHTML = `${oppLine()}<div class="tpc-view"><section class="tpc" data-card="quick-ask" aria-label="분석 · 핵심 판단">
       <header class="tpc-h"><span class="tpc-letter">Q</span><span class="tpc-name">분석 · 핵심 판단</span><span class="tpc-count num">${CUR.qkeys.length}개</span></header>
@@ -2244,6 +2299,7 @@ function finishHero(keys) {
   if (CUR.action === "raise") act = { type: "raise", to: CUR.to };
   else act = { type: CUR.action };
   $("#seat-" + CUR.hero.i).classList.remove("acting");
+  tellPend(keys);
   const res = heroResolve; heroResolve = null; CUR = null;
   setTP("waiting"); renderInfo();
   $("#tp").classList.add("open");
@@ -2322,6 +2378,7 @@ $("#tp-handle").addEventListener("click", () => $("#tp").classList.toggle("open"
 async function showdown(alive) {
   if (G.eng) G.eng.lastHand = { hand: G.handNo, ok: G.eng.ok, done: !!G.eng.s?.done };
   const contenders = live();
+  tellShowdown(contenders);
   const banner = h("div", "banner");
   if (contenders.length === 1) {
     const w = contenders[0], amt = G.pot; G.pot = 0; renderSeats();
@@ -2624,7 +2681,7 @@ function eqabHTML() {
 }
 function renderEqab() { const box = $("#ab-box"); box.hidden = S.eqab !== "on" && !EQAB.length; if (!box.hidden) box.innerHTML = eqabHTML(); }
 function renderMods() {
-  renderEqab();
+  renderEqab(); renderTells();
   const open = LM.k != null, wrap = $("#learn");
   wrap.classList.toggle("open", open); wrap.classList.toggle("gallery", !open);
   $("#drill").hidden = !open;
