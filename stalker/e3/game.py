@@ -33,7 +33,9 @@ these labels with stalker/e3/translate.py.
 Seats are numbered in preflop order: 0 = UTG ... n-3 = BTN, n-2 = SB, n-1 = BB. Postflop the SB
 acts first. Heads-up (n = 2) the SB is the button: first preflop, last postflop. Every player starts with the same stack, so an all-in is the largest possible
 contribution and no side pot can arise; showdowns split one pot (odd chips to the first winner
-in postflop order). Chips are integers with BB = 100. The state is immutable.
+in postflop order). Chips are integers with BB = 100. The state is immutable. The betting rules still hold
+for any stacks (a short all in below a full raise does not reopen the betting, `_reopens`): Gate R
+(referee/gate_r/e3_suite.py) replays such lines with stacks set by `_replace`; side pots are #383.
 """
 from __future__ import annotations
 
@@ -222,7 +224,7 @@ def legal(s: State) -> list[str]:
     if call > 0:
         acts.append("f")
     acts.append("c" if (call > 0 or s.street == 0) else "k")
-    if s.stack[p] > call and others:
+    if s.stack[p] > call and others and not s.acted[p]:   # acted and still to act: a short all in did not reopen
         cap = street_cap(s)
         if cap is None or s.raises < cap + (1 if s.street == 0 else 0):
             acts.extend(name for name, _ in _offered(s))
@@ -271,6 +273,13 @@ def _after_close(s: State) -> State:
     return _deal_street(s)
 
 
+def _reopens(s: State, to: int) -> bool:
+    """A raise to `to` is a full raise (at least the last raise): only that reopens the betting. A short
+    all in below it lets the players who already acted call or fold, but not raise (TDA; PokerKit agrees,
+    referee/gate_r/e3_suite.py). The next minimum raise stays the last full raise."""
+    return to - max(s.bet) >= s.last_raise
+
+
 def _put_in(s: State, to: int, entry: str) -> State:
     """The seat to act raises its street contribution to `to` (a check when `to` is what it has in)."""
     p = s.to_act
@@ -280,7 +289,7 @@ def _put_in(s: State, to: int, entry: str) -> State:
     bet[p] = to
     total[p] += add
     raised = to > max(s.bet)
-    acted = [False] * s.n if raised else list(s.acted)
+    acted = [False] * s.n if raised and _reopens(s, to) else list(s.acted)
     acted[p] = True
     return s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), acted=tuple(acted),
                       history=s.history + (entry,), raises=s.raises + int(raised),
@@ -310,13 +319,15 @@ def apply(s: State, a: str) -> State:
 
 
 def apply_to(s: State, to: int, label: str) -> State:
-    """A bet or raise to `to` chips on this street that is not on the menu (referee LBR, #343).
-    `label` is the menu action recorded in the history, so TP keys read it as that action. The size must
-    be a legal one: above the current bet by at least the last raise, below all in, with raises left."""
+    """A bet or raise to `to` chips on this street that is not on the menu (referee LBR #343, a person's
+    real size #412). `label` is the menu action recorded in the history (stalker/e3/translate.py), so TP
+    keys read it as that action. Any legal no-limit size is accepted, on any street and past the menu's
+    raise cap (the cap, the all-in-only 5-bet and ALLIN_MERGE are menu rules, TP.md section 6): from the
+    current bet plus the last raise up to all in, or all in when that is less."""
     p = s.to_act
     room = s.stack[p] + s.bet[p]
-    if (s.done or s.street == 0 or not max(s.bet) + s.last_raise <= to <= room
-            or (street_cap(s) is not None and s.raises >= street_cap(s))
+    least = min(max(s.bet) + s.last_raise, room)
+    if (s.done or not least <= to <= room or s.stack[p] <= s.to_call() or s.acted[p]
             or len([i for i in s.active() if i != p]) == 0):
         raise ValueError(f"illegal bet/raise to {to} after {s.history}")
     return _advance(_put_in(s, to, f"{p}:{label}"), p)

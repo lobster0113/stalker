@@ -236,6 +236,7 @@ def test_extra_actions_and_apply_to_without_a_raise_cap():
     for x in xs:
         assert G.apply_to(free, x.to, x.menu).bet[free.to_act] == x.to
     capped = _raise_n(_flop6(menu="tp6"), 3)
-    assert L.extra_actions(capped) == []
-    with pytest.raises(ValueError):
-        G.apply_to(capped, max(capped.bet) + capped.last_raise, "r")
+    assert L.extra_actions(capped) == []                              # the exploiter keeps the menu's cap
+    # A real size past the cap stays legal (#412, TP.md section 6: the cap is a menu rule) and reads as "a".
+    to = max(capped.bet) + capped.last_raise
+    assert G.apply_to(capped, to, "a").bet[capped.to_act] == to
