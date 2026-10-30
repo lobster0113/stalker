@@ -588,7 +588,7 @@ export function legal(s) {
   const acts = [];
   if (call > 0) acts.push("f");
   acts.push(call > 0 || s.street === 0 ? "c" : "k");
-  if (s.stack[p] > call && others.length) {
+  if (s.stack[p] > call && others.length && !s.acted[p]) {   // acted and still to act: a short all in did not reopen
     const cap = streetCap(s);
     if (cap === null || s.raises < cap + (s.street === 0 ? 1 : 0)) for (const [name] of offered(s)) acts.push(name);
     acts.push("a");
@@ -654,6 +654,9 @@ export function apply(s, a) {
   return act(s, a, a === "k" ? s.bet[s.toAct] : amountTo(s, a));
 }
 
+/** A full raise (at least the last raise) reopens the betting; a short all in below it does not (G._reopens). */
+function reopens(s, to) { return to - max(s.bet) >= s.lastRaise; }
+
 // One action with its real street total `to` (null for a fold); `label` is the menu action that
 // goes into the history (for an off-menu bet, its translation).
 function act(s, label, to, real = null) {
@@ -670,7 +673,7 @@ function act(s, label, to, real = null) {
     const stack = s.stack.slice(), bet = s.bet.slice(), total = s.total.slice();
     stack[p] -= add; bet[p] = to; total[p] += add;
     const top = max(s.bet), raised = to > top;
-    const acted = raised ? new Array(s.n).fill(false) : s.acted.slice();
+    const acted = raised && reopens(s, to) ? new Array(s.n).fill(false) : s.acted.slice();
     acted[p] = true;
     ns = { ...s, stack, bet, total, acted, history: hist, log, raises: s.raises + (raised ? 1 : 0),
       lastRaise: raised ? Math.max(s.lastRaise, to - top) : s.lastRaise };
@@ -688,7 +691,7 @@ function act(s, label, to, real = null) {
 export function betRange(s) {
   if (s.done) return null;
   const p = s.toAct, call = toCall(s), room = s.stack[p] + s.bet[p];
-  if (!(s.stack[p] > call && active(s).some((i) => i !== p))) return null;
+  if (!(s.stack[p] > call && !s.acted[p] && active(s).some((i) => i !== p))) return null;
   const min = max(s.bet) + Math.max(s.lastRaise, BB);
   return { min: Math.min(min, room), max: room };
 }

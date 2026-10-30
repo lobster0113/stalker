@@ -244,3 +244,30 @@ test("off-menu: no bet possible when calling puts the actor all in", () => {
   assert.equal(T.betRange(s), null);
   assert.throws(() => T.translateBet(s, 500), /no bet or raise/);
 });
+
+// #412: every xN size is a raise-to (street total); a short all in does not reopen the betting.
+test("menu sizes are raise-to totals (TP.md section 6)", () => {
+  const d = Array.from({ length: 52 }, (_, i) => i);
+  let s = T.dealFromPermutation(d, 6, { menu: "real", raiseCap: null });
+  assert.equal(T.amountTo(s, "r3"), 300);                   // open to 3BB
+  s = T.apply(s, "r");                                      // open to 250
+  assert.equal(T.amountTo(s, "r"), 750);                    // 3-bet to 3 x 250, not 250 + 750
+  s = T.apply(s, "r");
+  assert.equal(T.amountTo(s, "r2"), 1500);                  // 4-bet to 2 x 750
+  let h = T.dealFromPermutation(d, 2, { menu: "real", raiseCap: null });
+  h = T.apply(T.apply(T.apply(h, "c"), "c"), "b20");        // flop, bet 100 into 200
+  assert.equal(T.amountTo(h, "r"), 300);                    // raise to 3 x 100, not 100 + 300
+});
+
+test("a short all in does not reopen the betting (G._reopens)", () => {
+  const d = Array.from({ length: 52 }, (_, i) => i);
+  let s = T.dealFromPermutation(d, 3);                      // BTN 0, SB 1, BB 2
+  s = { ...s, stack: [s.stack[0], 450 - s.bet[1], s.stack[2]] };
+  s = T.applyBet(s, 300, "r");                              // BTN opens to 300 (raise 200)
+  s = T.apply(s, "a");                                      // SB all in to 450: +150 < 200
+  assert.deepEqual(T.betRange(s), { min: 650, max: 10000 }); // BB has not acted: min raise by the full 200
+  s = T.apply(s, "c");
+  assert.equal(s.toAct, 0);
+  assert.deepEqual(T.legal(s), ["f", "c"]);                 // BTN already acted: call or fold only
+  assert.equal(T.betRange(s), null);
+});

@@ -1,0 +1,13 @@
+# #373: e3-tp-mid9-pod32 on RunPod cpu5c instead of cpu3c. cpu3c lands on Zen 3/4c/4/5 hosts at one price
+# (it/s spread 2.2x, #373 comments), so this measures it/s per $ on cpu5c with the same command, seed and minutes.
+# hourly_usd 1.6 is the price cap: a dearer pod is terminated by the launcher's rate check, which is itself the answer.
+# Worst case = 1.6 * 150 / 60 = $4.00, two runs $8.00 (issue budget). Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
+name: e3-tp-mid9-c5-pod32
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 9 --workers 32 --minutes 90 --batch 500 --seed 1 --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid9-c5-pod32.json
+cpu_flavor: cpu5c
+vcpu: 32
+disk_gb: 10
+max_minutes: 150
+hourly_usd: 1.6
+result_path: /result/e3-tp-mid9-c5-pod32.json
