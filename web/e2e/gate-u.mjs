@@ -661,6 +661,56 @@ await inspect("home-move", "#move");
   await p4.close();
 }
 
+// 8. #441 known leaks: a forced AA first-in decision in a cell the probe flagged (mid-6.leaks.json) shows the
+// strong warning instead of a frequency grade, and the home model card names the known preflop leak.
+{
+  const leaks = JSON.parse(readFileSync(resolve(webRoot, "app/policy/mid-6.leaks.json"), "utf8"));
+  const cell = leaks.leaks.filter(c => c.spot === "first_in" && c.group === "AA").sort((a, b) => a.seat - b.seat)[0];
+  must(!!cell, "known leaks: mid-6.leaks.json has no first_in AA leak cell to force (re-run python -m stalker.tools.policy_leaks)");
+  const p5 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p5.setDefaultTimeout(90_000);
+  p5.on("pageerror", e => must(false, `page error (known leaks): ${e.message}`));
+  await p5.addInitScript(() => {
+    const st = window.setTimeout.bind(window);
+    window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
+  });
+  await p5.goto(url);
+  await p5.waitForFunction(() => TPG.pol.mid && "mid" in TPG.leaks);
+  const card = p5.locator("#model-status [data-known-leak]");
+  must(await card.count() === 1 && /학습 중간본/.test(await card.textContent()) && /프리플랍/.test(await card.textContent())
+    && /issues\/391$/.test(await card.locator("a").getAttribute("href")), "known leaks: 시작 화면 모델 카드에 알려진 프리플랍 결함·#391 링크가 없음");
+  if (cell) {
+    await p5.evaluate(() => { window.__hold = true; });
+    await p5.click("#start-btn");
+    await p5.waitForFunction(() => G?.deck?.length > 0 && G.seats.some(s => s.cards.length));
+    // Seat the hero at the cell's position with AA; the seats before it get hands every policy folds first in.
+    await p5.evaluate(q => {
+      G.button = ((-3 - q) % G.n + 2 * G.n) % G.n;
+      const forced = new Map([[0, [51, 50]]]), junk = [[20, 1], [24, 5], [28, 9], [32, 13], [36, 17]];
+      for (const s of G.seats) if (!s.isHero && engSeatOf(s.i) < q) forced.set(s.i, junk[engSeatOf(s.i)]);
+      const used = new Set([...forced.values()].flat());
+      for (let i = G.deck.length - 1; i >= 0; i--) if (used.has(G.deck[i])) G.deck.splice(i, 1);
+      for (const s of G.seats) s.cards = forced.get(s.i)?.slice() ?? [G.deck.pop(), G.deck.pop()];
+      window.__hold = false;
+    }, cell.seat);
+    await p5.waitForSelector(QUICK);
+    const v = await p5.evaluate(() => ({ leak: CUR.g.model?.leak, seat: CUR.g.model?.d?.seat, hist: G.eng?.s?.history }));
+    must(v.leak?.kind === "leak" && v.leak.spot === "first_in" && v.leak.cell.group === "AA" && v.seat === cell.seat,
+      `known leaks: 강제한 AA 퍼스트 인(${cell.pos})이 결함 칸으로 잡히지 않음 (${JSON.stringify(v)})`);
+    await p5.locator(`${QUICK} [data-act='fold']:not([disabled]), ${QUICK} [data-act]:not([disabled])`).first().click();
+    await p5.evaluate(() => { window.__hold = true; });
+    await p5.click("#tp-go");
+    const warn = p5.locator("#tp-body [data-model-action] [data-leak-warn]");
+    await warn.waitFor();
+    const t = (await warn.textContent()).replace(/\s+/g, " ");
+    must(t.includes("이 스팟의 정책 답은 검증에서 손해로 확인됨 (#391)") && t.includes(`+${cell.gain_bb} bb`), `known leaks: 경고 문구가 다름 (${t})`);
+    must((await p5.locator("#tp-body [data-model-action] .t").first().textContent()).includes("채점 안 함"), "known leaks: 결함 칸인데 정책 행 대비 내 선택 빈도를 보여 줌");
+    await p5.screenshot({ path: `${shots}/train-leak-warn-laptop.png` });
+    console.log(`known leaks: ${cell.pos} AA 퍼스트 인 경고 (+${cell.gain_bb} bb)`);
+  }
+  await p5.close();
+}
+
 await browser.close();
 server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
