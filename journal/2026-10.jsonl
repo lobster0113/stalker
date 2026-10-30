@@ -831,3 +831,4 @@
 {"ts":"2026-10-30T09:02:34Z","role":"reviewer-b","outcome":"skipped","issue":429,"pr":435,"notes":"not my parity","friction":""}
 {"ts":"2026-10-30T09:16:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even open PR #432 already has CHANGES verdict at head c6b6618; no new commits","friction":""}
 {"ts":"2026-10-30T09:50:00Z","role":"reviewer","outcome":"changes","issue":429,"pr":435,"notes":"phase 1b hand matrix: CI green, shape/rule tests valid; CHANGES because station WTSD 54 vs cited 35-45 passes only via widened TOL_OVERRIDE (owner said phase-1 stats must stay in range)","friction":"gh token invalid (MCP used); CI screenshot artifact unreachable via proxy, used local e2e fallback; phase 1b criteria live only in an issue comment, not the issue body"}
+{"ts":"2026-10-30T09:40:48Z","role":"reviewer-b","outcome":"skipped","issue":429,"pr":435,"notes":"not my parity","friction":""}
