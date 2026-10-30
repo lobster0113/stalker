@@ -165,14 +165,16 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
            workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
-           avg_rule: str = "legacy", key_variant: str = "") -> dict:
+           avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform") -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
     `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
     `avg_rule` (#426): how the average strategy is accumulated (stalker/e3/mccfr.py); a checkpoint of the
     other rule is refused.
-    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`); likewise kept on resume."""
+    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`); likewise kept on resume.
+    `stacks` (#399): "sampled" deals 20-250BB tables in training (`stalker.e3.mccfr`); LBR and the field stay at
+    100BB, where the stack variants' new key field is constant."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
@@ -181,7 +183,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     ckpt = f"{name}-seed{seed}.ckpt.json"
     if resume is None:
         m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, avg_rule=avg_rule,
-                    key_variant=key_variant)
+                    key_variant=key_variant, stacks=stacks)
     elif (resume / ckpt).is_file():
         try:
             m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")), avg_rule)
@@ -194,6 +196,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
         raise SystemExit(f"{resume / ckpt} trained with {m.ranges} ranges, but {name} uses {ranges} (#405)")
     if m.key_variant != key_variant:
         raise SystemExit(f"{resume / ckpt} trained with key variant {m.key_variant!r}, but {name} uses {key_variant!r} (#398)")
+    if m.stacks != stacks:
+        raise SystemExit(f"{resume / ckpt} trained with {m.stacks} stacks, but {name} uses {stacks} (#399)")
     prev = m.iterations
     t0 = time.monotonic()
     parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
@@ -203,7 +207,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
-            "avg_rule": m.avg_rule, "key_variant": m.key_variant,
+            "avg_rule": m.avg_rule, "key_variant": m.key_variant, "stacks": m.stacks,
             # #426: the same job and seed gave different tables on different runners, so record which one ran it
             "machine": machine(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
@@ -249,6 +253,13 @@ def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
     return {"iters": iters, "hands": NOISE_SIM_HANDS, "rows": rows, "wall_sim_seconds": round(time.monotonic() - t0, 1)}
 
 
+def _vcfr_fixed_point(iters: int, seed: int, out: Path) -> dict:
+    """#411: range-policy fixed point arms A-D on two river menus and Leduc, exact best response."""
+    from stalker.vcfr.fixed_point import run_seed
+
+    return run_seed(seed, games=("river-small", "river-real", "leduc"), iters=iters)
+
+
 JOBS = {"e2-mccfr": _e2_mccfr,
         "e2-tier-beginner": partial(_e2_mccfr, tier="beginner", name="e2-tier-beginner"),
         "e2-tier-mid": partial(_e2_mccfr, tier="mid", name="e2-tier-mid"),
@@ -281,7 +292,14 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-ownavg-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4", workers=4, avg_rule="own"),
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
+        # #399: effective-stack depth of me and every live opponent in the key (S) vs mine only, both on
+        # 20-250BB tables, same iterations and seeds
+        "e3-tp-mid-s2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2-w4", workers=4, key_variant="s2",
+                                   stacks="sampled"),
+        "e3-tp-mid-s2me-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2me-w4", workers=4, key_variant="s2me",
+                                     stacks="sampled"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
+        "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
         "e2-exploit-field-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-field-beginner", field=True)}
@@ -290,7 +308,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
              "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
-             "e3-tp-mid-b1-w4"}   # #301
+             "e3-tp-mid-b1-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
@@ -343,7 +361,7 @@ def summary_text(job: str, folder: Path) -> str:
 def _first_in_rows(folder: Path, job: str, r: dict) -> dict | None:
     """#391/#426: the average policy's first-in preflop rows (`stalker.tools.preflop_rows`, hand AhQh), so the
     summary on ops carries them; artifacts are not reachable from every agent session."""
-    from stalker.e3.tp_key import TIER_DEPTH, TIER_K
+    from stalker.e3.tp_key import TIER_DEPTH, TIER_K, using_variant
     from stalker.tools.preflop_rows import first_in
 
     found = sorted(folder.rglob(f"{job}-seed{r['seed']}.policy.json"))
@@ -352,9 +370,11 @@ def _first_in_rows(folder: Path, job: str, r: dict) -> dict | None:
     pol = json.loads(found[0].read_text(encoding="utf-8"))["average"]
     t = {"policy": pol, "k": TIER_K[r["tier"]], "depth": TIER_DEPTH[r["tier"]], "players": r.get("players", 6),
          "menu": r.get("menu", "v1"), "raise_cap": r.get("raise_cap", 3)}
+    with using_variant(r.get("key_variant", "")):   # #399: stack variants change preflop keys too
+        spots = first_in(t)
     return {sp["position"]: {"actions": sp["actions"], "hand_step": sp["hand_step"],
                              "rows": [[round(p, 3) for p in row["probs"]] for row in sp["rows"]]}
-            for sp in first_in(t)}
+            for sp in spots}
 
 
 def summarize(job: str, folder: Path) -> dict:
@@ -407,6 +427,10 @@ def summarize(job: str, folder: Path) -> dict:
                     "policy_iters_per_s_mean": round(sum(r["policy_iters_per_s"] for r in runs) / len(runs), 2),
                     "exploiter_iters_per_s_mean": round(sum(r["exploiter_iters_per_s"] for r in runs) / len(runs), 2),
                     "wall_seconds_max": max(r["wall_seconds"] for r in runs)})
+    if job == "vcfr-fixed-point" and runs:     # paired seeds: means, 95% t intervals, differences against arm A
+        from stalker.vcfr.fixed_point import aggregate, table
+        agg = aggregate(runs)
+        out.update({"aggregate": agg, "table": table(agg)})
     if job == "tp-noise-sim" and runs:
         out.update({"iters": runs[0]["iters"], "hands": runs[0]["hands"], "rows_by_seed": [r["rows"] for r in runs]})
     return out
