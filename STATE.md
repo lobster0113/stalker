@@ -1,4 +1,4 @@
-# STATE (2026-10-30 08:25Z, planner)
+# STATE (2026-10-30 11:40Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019(제안, PR #392 머지 742daae) 순서: A real 메뉴(#382·#386 완료·#387) → B1 드로우·블로커(필수)·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key(#400, 전체 체인은 여기서만) → D 2–5인(#384) → E 토너먼트(#385).** 예산 중간값 약 $1,600 → NH-9(월 상한 상향) open. D1 종료, NH-3·5·6·7·9 open(비차단), FEEDBACK.md 없음.
 planner 00:10Z: #390 닫힘 반영(in-progress 제거). ADR 0019 §3·§8 분해: #395 B1-1 TP hand.block·무늬 인식 명세(ready, referee-change), #398 B1-2 key(blocked #395), #396 S1 엔진 스택·사이드팟+Gate R(ready, referee-change), #399 S2 유효 스택·SPR key(blocked #396, referee-change), #397 서비스 임시 정책 표시(ready), #400 C 결합 key(blocked), #401 launcher flavor 대체·재시도(blocked #373, harness-change). #383·#389 추적용(ready 뗌), #384 blocked(#400, 인원별 정책 → 한 정책+칸 예약), #385 선행 #400.
@@ -12,17 +12,19 @@ planner 06:55Z: PR #407 머지(06:52Z) → #405 닫힘, ready·in-progress 제�
 planner 07:25Z: PR #424 머지(07:21Z, Part of #387) → ADR 0019 real 비용 K 2.18·T 3.65+, 중간값 $2,836(NH-10: 상한 $100 유지). #387 기준 1·2 체크, 기준 3(Gate S 오버벳 버킷)은 수렴한 real 정책 필요 → ready→blocked. ready 7.
 planner 07:45Z: PR #428 머지(594fb2f, Part of #413) → #413 기준 1(프리플랍 이탈 프로브)·4(LBR 문구) 체크, in-progress 제거·ready 유지(RL-BR·옛 챔피언 필드 남음). 로컬 프로브(참고용): 서빙 mid-6에서 누수 23개. ready 8.
 planner 08:25Z: PR #433 머지(618ef3e) → #430 닫힘(텔 리포트: 크기·타이밍·라인·쇼다운), ready·in-progress 제거. 후속 #429(텔 착취 페르소나) 선행 충족. ready 8.
-열린 PR: #423(#391), #431(#396, ARCHITECTURE.md 충돌), #432(#426), #434(#429).
+planner 11:40Z: 머지 반영 #434·#435(#429 1·1b단계, 이슈 열림·ready 유지), #431(2dbe609 → #396 닫힘, #399 blocked→ready), #438(52f9f24 → #417 닫힘, 후속 #439 ready). 새 이슈 #436(harness-change)·#439(referee-change) ready, #440·#441 in-progress. main 2dbe609 CI success, 52f9f24 진행 중.
+열린 PR: #423(#391, 같은 sha 교착), #432(#426, 충돌), #437(#398, 충돌), #442(#411).
 
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **B1 드로우·블로커(#395 완료→#398 key, ready)**: 소유자 필수 항목, 결합 key 선행.
-2. **S 좌석별 스택(#396→#399)** (합법 액션 경계 #412 완료): 소유자 "크리티컬", B와 독립.
+2. **S 좌석별 스택(#396 완료→#399 key, ready)**: 소유자 "크리티컬", B와 독립.
 3. **단계 C 착수 조건(ADR 0019 R0·R1 머지, PR #421)**: 평가 보강 #413(프리플랍 프로브·RL-BR)이 #391 림프 누수를 잡아야 진척 판단 가능 → 심판 능력 우선.
 ## 큐
-ready 8(+in-progress): #398 P1(B1-2), #411 P1(RFC-02), #413 P1(RL-BR·옛 챔피언), #417 P1, #397 P2, #415 P2, #418 P2, #429 P2. in-progress: #373(머지 후 run·노트), #391, #396, #426. (#429는 ready지만 PR #434 열림 — in-progress 라벨 없음)
-blocked: #406·#427(소유자 보류, 예산), #387(기준 3, 수렴 real 정책), #399(#396), #400(B·S), #401(#373), #384·#385(#400), #410(#359), #416(#398), #105. 추적: #383, #389, #341. 보류: #419 P2, #306 P2, #359 P2, #264 P2, #321 P2, #320 P2, #409 P2, #240 P3, #327 P3. 상태 라벨 없음: #189(D3), #323(P3).
+ready 8(+in-progress): #399 P1(S2), #413 P1(RL-BR·옛 챔피언), #397 P2, #415 P2, #418 P2, #429 P2(다음 단계), #436 P2, #439 P2. in-progress: #373, #391, #398(PR #437), #411(PR #442), #426(PR #432), #440, #441.
+blocked: #406·#427(소유자 보류, 예산), #387(기준 3, 수렴 real 정책), #400(B·S), #401(#373), #384·#385(#400), #410(#359), #416(#398), #105. 추적: #383, #389, #341. 보류: #419 P2, #306 P2, #359 P2, #264 P2, #321 P2, #320 P2, #409 P2, #240 P3, #327 P3. 상태 라벨 없음: #189(D3), #323(P3).
 후보(선행 머지 후 이슈화): B2·B3·B1 웹 미러·B1 측정 노트(#398 후), S 웹 미러·스택 비율 사이즈·S 측정 노트(#396 후), ADR 0018 서버 추론(NH-7 후), #418 워크플로 저장(harness-change 분리), Gate S·F 등급 표 CI 출력, 프리플랍 프로브 CI 지표 `e3_preflop_probe_leaks`(harness-change, 110칸 약 75분/3코어 → 등록된 작은 칸 집합 후보, PR #428 후속).
 ## 지표 요약 (최근 값과 추세)
+- CI 2dbe609(11:06Z): tests 1385, failed 0, gate_r 1.0, gate_r_e3 1.0(116,238, 불균등 스택 재생 추가), gate_l 1.0(32), stalker_loc 13411.
 - CI d1431a1(02:17Z): tests 1307(+42 vs c4f3c13), stalker_loc 12493; c4f3c13: tests 1265, failed 0, gate_r 1.0(224,269), gate_r_cash 1.0(224,636), gate_r_e3 1.0(37,462), gate_l 1.0(32), stalker_loc 11856. 지난 2주 Gate R·L 100% 유지.
 - E1(CI): 착취도 초보 0.0191·중수 0.0033·고수 0.0009(NFP 0.0019), Gate S 초보 분위 passed=false(tv_p95 0.127, golden 11/12) 지속 — 정체 축, ADR 0016 record-only.
 - Gate F E1 Nash 손실: 초보 0.110·중수 0.040·고수 0.011 (정체, 변화 없음).
@@ -45,6 +47,7 @@ blocked: #406·#427(소유자 보류, 예산), #387(기준 3, 수렴 real 정책
 - **실험 번호 동시 PR 충돌**(#369 027 중복, 010 중복 기존) → area:harness 후보(번호 예약). 라벨 추가가 중복 CI run·취소 failure 체크 남김(reviewer-b friction).
 - 머지된 브랜치 삭제 도구 없음(#105, guard 훅이 push --delete 차단).
 - 실험 기록 규칙 누락 쉬움, 닫힌 이슈 in-progress 잔존, PR 소유 구분 불가(같은 로그인), ARCHITECTURE.md 충돌: 후보 유지.
+- **ARCHITECTURE.md 동시 머지 충돌 반복**(#431·#432·#434·#437·#438, 10-30 reviewer·builder friction 5회+) → 충돌 PR에 CI 없음 → area:harness 후보(문서 색인 분할 또는 builder 푸시 전 mergeability 확인, Auditor).
 - **ready 큐 범람**: 소유자 세션이 외부 리뷰 RFC 10건을 한 번에 ready로 올림 → planner가 선행 미충족분 blocked. 선행이 열린 이슈에 ready를 붙이지 않도록 대화 세션에 권고(후보).
 - NEEDS_HUMAN: NH-3, NH-5, NH-6, NH-7 open (NH-8·NH-9 resolved). 리포 상호작용 제한 2027-04-23 만료.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
