@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import pytest
 
@@ -37,3 +38,19 @@ def pytest_runtest_makereport(item, call):
     report = outcome.get_result()
     if _torch_skip(report):
         _fail(report)
+
+
+def node_path():
+    """Path to node for the web node-suite wrappers (#436): skip locally without node, fail on CI."""
+    path = shutil.which("node")
+    if path is None:
+        msg = "node not installed; install Node 22+ or run the suite with `node --test web/app/test/<suite>.test.mjs` where it is"
+        if os.environ.get("CI") == "true":
+            pytest.fail("CI=true but " + msg)
+        pytest.skip(msg)
+    return path
+
+
+@pytest.fixture
+def node():
+    return node_path()
