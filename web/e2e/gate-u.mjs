@@ -123,6 +123,30 @@ for (let d = 0; d < 6 && !freeSized; d++) {
   await page.click("#tp-go"); inputs++;
   await page.waitForSelector("#tp-body .waiting");
   must(inputs <= 3, `Quick: 한 결정에 입력 ${inputs}개 (3개 이하여야 함)`);
+  if (freeSized) {
+    // #386: a size between two menu sizes is read with the seeded pseudo-harmonic split; the comparison
+    // shows the split and grades the split-weighted frequency f x p(A) + (1 - f) x p(B).
+    await page.waitForFunction(h => G.eng?.reads?.some(r => r.hand === h) || !G.eng?.ok, freeSized, { timeout: 10_000 });
+    const rd = await page.evaluate(() => {
+      const tg = TPG.mod, E = G.eng, r = E?.reads?.at(-1), you = G.lastGrade?.refs?.[0]?.you;
+      if (!r) return null;
+      const again = tg.translateBet(r.s, r.to, engReadRng(E.ent, r.s)).action;
+      return { split: r.split, label: r.label, again, fresh: tg.splitBet(r.s, r.to), hist: E.s.history[r.at], seat: r.s.toAct, you,
+        weighted: you && G.lastGrade.refs[0].model ? tg.splitScore(r.split, a => G.lastGrade.refs[0].model.mix.find(m => m.a === a)?.p || 0) : null,
+        note: document.querySelector("#tp-body [data-model-action]")?.textContent || "" };
+    });
+    must(!!rd, "번역: 메뉴 밖 금액의 AI 해석 기록(G.eng.reads)이 없음");
+    if (rd) {
+      must(rd.split.length === 2 && Math.abs(rd.split[0].p + rd.split[1].p - 1) < 1e-12 && rd.split.every(x => x.p > 0 && x.p < 1),
+        `번역: 두 메뉴 크기 사이 금액인데 확률 분할이 아님 (${JSON.stringify(rd.split)})`);
+      must(JSON.stringify(rd.fresh) === JSON.stringify(rd.split), "번역: 기록된 분할이 엔진 splitBet과 다름");
+      must(rd.split.some(x => x.a === rd.label) && rd.again === rd.label, `번역: AI 해석 ${rd.label}이 분할 밖이거나 같은 시드로 다시 읽으면 ${rd.again}`);
+      must(rd.hist === `${rd.seat}:${rd.label}`, `번역: 엔진 기록 ${rd.hist}가 AI 해석 ${rd.label}과 다름`);
+      must(rd.you && Math.abs(rd.you.p - rd.weighted) < 1e-12, `번역: 내 선택 빈도 ${rd.you?.p}가 분할 가중 점수 ${rd.weighted}가 아님`);
+      must(/AI 해석: .*% · .*%/.test(rd.note) && rd.note.includes("확률로 읽어요"), `번역: 비교 화면에 분할 해석 문구가 없음 (${rd.note.slice(0, 200)})`);
+      console.log(`번역: ${JSON.stringify(rd.split)} → ${rd.label}, 내 선택 빈도 ${rd.you.p.toFixed(3)}`);
+    }
+  }
   // Quick without analysis still compares the action with the trained policy's mixed strategy.
   must(await page.locator("#tp-body [data-model-action]").count() === 1 || !(await page.evaluate(() => G.eng?.ok)), "Quick: 진행 뒤 TP-GTO 혼합 전략 비교가 없음");
   if (!freeSized) await page.evaluate(() => { window.__hold = false; });
@@ -140,6 +164,49 @@ if (freeSized) {
   }
   const end = await page.evaluate(() => G.eng?.lastHand);
   must(end?.hand === freeSized && end.ok && end.done, `노리밋 입력: 메뉴 밖 금액 핸드가 엔진과 함께 끝나지 않음 (${JSON.stringify(end)})`);
+}
+// #386: the size shortcuts are the real-play sizes of TP.md section 6 (chips equal to tpgto.js sizeMenu(s,
+// "real", null)), the served policies stay v1, and a real size the v1 menu lacks is read on v1 labels.
+{
+  let realBet = false;
+  for (let d = 0; d < 16 && !realBet; d++) {
+    await page.waitForSelector(QUICK);
+    const raise = page.locator(`${QUICK} [data-act='raise']:not([disabled])`);
+    if (await raise.count() && await page.evaluate(() => !!G.eng?.ok)) {
+      await raise.click();
+      const chk = await page.evaluate(() => {
+        const tg = TPG.mod, s = G.eng.s;
+        return { real: tg.sizeMenu(s, "real", null).map(m => m.to), mine: sizeOptions().map(o => o.to), v1: tg.sizeMenu(s).map(m => m.to),
+          menu: s.menu, missing: tg.SIZE_LABELS.filter(a => !MENU_COL[a]), shown: document.querySelectorAll("[data-size]:not([hidden])").length };
+      });
+      must(chk.real.join() === chk.mine.join(), `실전 사이즈: 단축 버튼 금액 ${chk.mine}이 엔진 real 메뉴 ${chk.real}과 다름`);
+      must(chk.missing.length === 0, `실전 사이즈: MENU_COL에 색이 없는 라벨 ${chk.missing}`);
+      must(chk.menu === "v1", `실전 사이즈: 정책 메타에 메뉴가 없으면 v1이어야 하는데 ${chk.menu}`);
+      const idx = chk.mine.findIndex(t => !chk.v1.includes(t));
+      if (idx >= 0) {
+        const more = page.locator("[data-size-more]");
+        if (await more.count()) { must(chk.shown < chk.mine.length, "실전 사이즈: 더보기가 있는데 모든 사이즈가 이미 보임"); await more.click(); }
+        must(await page.locator("[data-size]:not([hidden])").count() === chk.mine.length, "실전 사이즈: 더보기 뒤에도 숨은 사이즈가 있음");
+        await inspect("train-sizes-real", "[data-size-list]");
+        await page.locator(`[data-size="${idx}"]`).click();
+        must(await page.evaluate(t => CUR.to === t, chk.mine[idx]), `실전 사이즈: 단축 버튼 ${chk.mine[idx]}을 눌렀는데 금액이 다름`);
+        await page.click("#tp-go");
+        await page.waitForFunction(t => G.eng?.reads?.at(-1)?.to === t || !G.eng?.ok, chk.mine[idx], { timeout: 10_000 });
+        const r = await page.evaluate(() => {
+          const tg = TPG.mod, E = G.eng, r = E.reads.at(-1);
+          return { split: r.split, label: r.label, again: tg.translateBet(r.s, r.to, engReadRng(E.ent, r.s)).action, v1: tg.legal(r.s), hist: E.s.history[r.at], seat: r.s.toAct };
+        });
+        must(r.split.every(x => r.v1.includes(x.a)) && r.split.some(x => x.a === r.label) && r.again === r.label && r.hist === `${r.seat}:${r.label}`,
+          `실전 사이즈: v1 정책이 실전 사이즈를 자기 라벨로 읽지 않음 (${JSON.stringify(r)})`);
+        console.log(`실전 사이즈: 단축 ${chk.mine.length}개 = 엔진 real 메뉴, ${chk.mine[idx] / 100}BB → v1 ${JSON.stringify(r.split)} → ${r.label}`);
+        realBet = true;
+        continue;
+      }
+    }
+    await page.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click();
+    await page.click("#tp-go");
+  }
+  must(realBet, "실전 사이즈: 16번의 결정 동안 v1 메뉴에 없는 실전 사이즈를 고를 기회가 없었음");
 }
 // #337: AI seats play the trained policy. Every logged AI decision must be an action the policy file gives
 // weight to (read straight from web/app/policy/mid-6.json), with the same row, and at least one is the argmax.

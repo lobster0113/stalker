@@ -60,6 +60,23 @@ def test_committed_vectors_cover_the_spec_and_are_current(committed):
     assert W.rng_vectors(5, p["seed"]) == v["rng"][:5]
 
 
+def test_committed_menu_vectors_are_current(committed):
+    # The real/tp6 block (#386) is cheap to rebuild whole: no training, no equity.
+    want = committed["menus"]
+    got = W.menu_vectors(len(want) // (len(W.MENU_RULES) * len(W.MENU_PLAYERS)), committed["params"]["seed"])
+    stale = "web/app/test/vectors.json menus are stale: run `python -m stalker.tools.web_vectors`"
+    assert len(got) == len(want), stale
+    for g, w in zip(got, want):
+        assert {k: g[k] for k in g if k != "decisions"} == {k: w[k] for k in w if k != "decisions"}, stale
+        for dg, dw in zip(g["decisions"], w["decisions"]):
+            assert {k: dg[k] for k in dg if k != "split"} == {k: dw[k] for k in dw if k != "split"}, stale
+            for (ag, pg), (aw, pw) in zip(dg.get("split", ()), dw.get("split", ())):
+                assert ag == aw and abs(pg - pw) <= 1e-12, stale
+    s = W.summary(committed)
+    assert s["menu_bets_split"] >= 30, "too few between-size bets in the menu vectors"
+    assert {(h["menu"], h["raise_cap"]) for h in want} == set(W.MENU_RULES)
+
+
 def test_equity_asset_is_current():
     assert json.loads(W.ASSET.read_text(encoding="utf-8")) == W.equity_table(), \
         "web/app/assets/hu_equity.json is stale: run `python -m stalker.tools.web_vectors`"

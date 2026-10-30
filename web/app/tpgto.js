@@ -14,24 +14,28 @@
 // To seat a "button" at a physical table position, rotate your display; seat numbers are fixed.
 //
 // Game (immutable plain objects; apply returns a new state):
-//   newHand({n, holes, board?, deck?})  holes: n pairs; deck: remaining cards, board dealt from the
-//                                        front; or board: up to 5 board cards (filler is appended).
-//   dealFromPermutation(perm52, n)      same as Python G.deal given rng.permutation(52).
+//   newHand({n, holes, board?, deck?, menu?, raiseCap?})  holes: n pairs; deck: remaining cards, board
+//                                        dealt from the front; or board: up to 5 board cards (filler is
+//                                        appended). menu "v1" (default) | "tp6" | "real"; raiseCap 3 or null.
+//   dealFromPermutation(perm52, n, {menu, raiseCap}?)  same as Python G.deal given rng.permutation(52).
+//   menuOf(policyMeta) -> {menu, raiseCap}: the rules a policy file was trained on (v1 + cap 3 if unsaid).
+//   sizeMenu(s, menu?, raiseCap?) -> [{a, to}] sizes + all in; streetCap(s) as G.street_cap.
 //   legal(s) -> ["f","c","r","a"] etc.  apply(s, a) -> state    payoff(s) -> net chips per seat
 //   amountTo(s, a) -> street total the actor would have after `a`; toCall(s, p?); pot(s)
 //   live(s), active(s), positionNames(n), postflopOrder(n)
 //   s.history: "<seat>:<menu action>" and "/" (Python format); s.log: [{seat, action, to, real?}].
 // Real no-limit (human seats): any bet/raise from the minimum raise to all in.
 //   betRange(s) -> {min, max} street totals, or null (only fold/call/check).
-//   translateBet(s, to) -> {action, prob, lower, upper}; applyBet(s, to) -> state.
-//   Chips always move by the real amount. The table knows only the menu (2.5BB/3x/2.2x opens and
-//   3-bets preflop, b33/b75 postflop, 3x raises, all in), so an off-menu size is translated to a
-//   menu action with the pseudo-harmonic mapping (Ganzfried & Sandholm 2013) between the two
-//   nearest menu sizes A < B in the current legal set, sizes as pot fractions after calling
-//   (x = (to - top bet) / (pot + to_call)): P(A) = (b - x)(1 + a) / ((b - a)(1 + x)); the mapping is
-//   deterministic, A when P(A) >= 0.5, else B (`prob` is the chosen side's probability). A size
-//   below the smallest menu size maps to it; an all-in is "a". The translated label goes into
-//   s.history, the human's range update (updateRanges(policy, d, ranges, translateBet(s, to).action)
+//   splitBet(s, to) -> [{a, p}]; sampleBet(s, to, rng) -> label; translateBet(s, to, rng?) ->
+//   {split, action, prob, lower, upper}; splitScore(split, scoreFn); applyBet(s, to, rng | label).
+//   Chips always move by the real amount. The table knows only its menu, so any size is translated
+//   as stalker/e3/translate.py (TP.md section 6): the pseudo-harmonic split (Ganzfried & Sandholm
+//   2013) between the two neighbouring legal menu sizes A < B, sizes as pot fractions after calling
+//   (x = (to - top bet) / (pot + to_call)): P(A) = (b - x)(1 + a) / ((b - a)(1 + x)). An exact size
+//   maps to itself, a size below the smallest menu size to it, all in to "a". The AI's reading is one
+//   draw from the split with a seeded NumpyRng (rng.random() as numpy's Generator.random()), so a
+//   fixed seed replays the hand and no fixed threshold can be gamed; grading weighs the split. The
+//   reading goes into s.history, the human's range update (updateRanges(policy, d, ranges, label)
 //   with d = decisionKey of the state before the bet), and so into later keys. A bet or raise always
 //   maps to a bet or raise, so raise level, initiative and n_opp equal the mapped history's. Pot-odds
 //   and SPR steps are computed from the real chips, and the legal-action field is the menu that is
@@ -255,6 +259,8 @@ export class NumpyRng {
     this.hasU32 = false; this.u32 = 0;
   }
   _step() { this.state = (this.state * PCG_MULT + this.inc) & M128; }
+  /** Generator.random(): a float64 in [0, 1) from the top 53 bits of one 64-bit draw. */
+  random() { return Number(this.next64() >> 11n) / 9007199254740992; }
   next64() {
     this._step();
     const s = this.state;
@@ -452,6 +458,26 @@ export function quantileBuckets(x, w, k) {
 // ---------------------------------------------------------------- game (stalker/e3/game.py)
 export const BB = 100, SB = 50, STACK = 100 * BB, RAISE_CAP = 3;
 const PREFLOP_RAISE = [2.5, 3.0, 2.2];
+// Size menus, as stalker/e3/game.py (module doc there): v1 (the served policies), tp6 (#339), real (#382).
+// Labels are read per spot: an open "r4" is 4BB, a raise "r4" is 4x the current bet.
+export const MENUS = ["v1", "tp6", "real"];
+const TP6_OPEN = [["r22", 2.2], ["r", 2.5], ["r3", 3.0]];                       // BB
+const TP6_RAISE = [["r25", 2.5], ["r", 3.0], ["r4", 4.0]];                      // x the current bet
+const TP6_BET = [["b33", 0.33], ["b50", 0.5], ["b75", 0.75], ["b100", 1.0], ["b150", 1.5]];   // x the pot
+export const REAL_OPEN = [["r2", 2.0], ["r22", 2.2], ["r", 2.5], ["r3", 3.0], ["r35", 3.5], ["r4", 4.0], ["r5", 5.0],
+  ["r6", 6.0], ["r8", 8.0], ["r10", 10.0]];
+export const REAL_RAISE = [["r25", 2.5], ["r", 3.0], ["r4", 4.0], ["r5", 5.0], ["r7", 7.0], ["r10", 10.0]];
+// Preflop re-raises by raise count before the re-raise (2 = facing an open: 3-bet, 3 = facing a 3-bet: 4-bet).
+export const REAL_PREFLOP_RAISE = {
+  2: [["r25", 2.5], ["r", 3.0], ["r35", 3.5], ["r4", 4.0], ["r5", 5.0]],
+  3: [["r2", 2.0], ["r22", 2.2], ["r25", 2.5], ["r", 3.0]],
+};
+export const REAL_BET = [["b20", 0.2], ["b33", 0.33], ["b50", 0.5], ["b75", 0.75], ["b100", 1.0], ["b150", 1.5],
+  ["b200", 2.0], ["b300", 3.0]];
+export const SIZE_LABELS = [...new Set(["r", "b33", "b75", ...[TP6_OPEN, TP6_RAISE, TP6_BET, REAL_OPEN, REAL_RAISE, REAL_BET]
+  .flatMap((t) => t.map(([name]) => name))])];   // every bet/raise label but "a"
+const ISO_BASE = 250, ISO_PER_LIMPER = 100;
+export const ALLIN_MERGE = 0.8;   // raise cap null: a raise to >= 80% of the stack is the all-in
 const POSITIONS = { 6: ["UTG", "HJ", "CO", "BTN", "SB", "BB"], 9: ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"] };
 
 export function positionNames(n) {
@@ -464,9 +490,18 @@ export function postflopOrder(n) {
   return [n - 2, n - 1, ...Array.from({ length: n - 2 }, (_, i) => i)];
 }
 
+/** The rules a policy was trained on, from its metadata ({menu, raise_cap}); v1 with cap 3 when absent. */
+export function menuOf(meta) {
+  const menu = meta && meta.menu != null ? meta.menu : "v1";
+  if (!MENUS.includes(menu)) throw new Error(`policy menu ${JSON.stringify(menu)}: tpgto.js knows ${MENUS.join(", ")}; update tpgto.js to stalker/e3/game.py`);
+  const raiseCap = meta && meta.raise_cap !== undefined ? meta.raise_cap : RAISE_CAP;
+  return { menu, raiseCap };
+}
+
 /** A new hand. holes: n pairs; deck: remaining cards (board dealt from the front), or board. */
-export function newHand({ n = 6, holes, board = null, deck = null }) {
+export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP }) {
   if (!(n >= 2 && n <= 9)) throw new Error(`n=${n}: E3 supports 2..9 players`);
+  if (!MENUS.includes(menu)) throw new Error(`menu ${JSON.stringify(menu)}: use one of ${MENUS.join(", ")}`);
   if (!holes || holes.length !== n) throw new Error(`holes: need ${n} pairs`);
   const used = new Set(holes.flat());
   if (deck == null) {
@@ -480,12 +515,13 @@ export function newHand({ n = 6, holes, board = null, deck = null }) {
     n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: bet.map((b) => STACK - b), bet,
     total: bet.slice(), folded: new Array(n).fill(false), acted: new Array(n).fill(false),
     street: 0, board: [], toAct: 0, raises: 1, lastRaise: BB, history: [], log: [], done: false,
+    menu, raiseCap: raiseCap === undefined ? RAISE_CAP : raiseCap,
   });
 }
 
 /** G.deal given d = rng.permutation(52): hole i = (d[2i], d[2i+1]), deck = d[2n:]. */
-export function dealFromPermutation(d, n = 6) {
-  return newHand({ n, holes: Array.from({ length: n }, (_, i) => [d[2 * i], d[2 * i + 1]]), deck: d.slice(2 * n) });
+export function dealFromPermutation(d, n = 6, rules = {}) {
+  return newHand({ n, holes: Array.from({ length: n }, (_, i) => [d[2 * i], d[2 * i + 1]]), deck: d.slice(2 * n), ...rules });
 }
 
 const max = (a) => a.reduce((x, y) => (y > x ? y : x), -Infinity);
@@ -510,25 +546,51 @@ function raiseTo(s) {
   return 3 * cur;
 }
 
+// [label, street total] for every bet/raise size the menu offers here, before the stack checks (G._sizes).
+function sizes(s) {
+  const cur = max(s.bet), p = s.toAct, call = toCall(s);
+  if (s.menu === "v1") {
+    if (call > 0 || s.street === 0) return [["r", Math.max(raiseTo(s), cur + s.lastRaise)]];
+    return [["b33", 0.33], ["b75", 0.75]].map(([name, f]) => [name, s.bet[p] + Math.max(BB, pyRound(pot(s) * f))]);
+  }
+  const least = cur + s.lastRaise, real = s.menu === "real";
+  const opens = real ? REAL_OPEN : TP6_OPEN, bets = real ? REAL_BET : TP6_BET;
+  let raises = real ? REAL_RAISE : TP6_RAISE;
+  if (s.street === 0 && s.raises <= 1) {
+    let limpers = 0;
+    for (let i = 0; i < s.n - 1; i++) if (s.bet[i] === BB) limpers++;   // the big blind's own BB is not a limp
+    if (limpers && real) return opens.map(([name, x]) => [name, Math.max(least, pyRound(x * BB) + ISO_PER_LIMPER * limpers)]);
+    if (limpers) return [["r", Math.max(least, ISO_BASE + ISO_PER_LIMPER * limpers)]];
+    return opens.map(([name, x]) => [name, Math.max(least, pyRound(x * BB))]);
+  }
+  if (real && s.street === 0) raises = REAL_PREFLOP_RAISE[s.raises] || [];   // past the 4-bet: all in only
+  if (call > 0) return raises.map(([name, x]) => [name, Math.max(least, pyRound(x * cur))]);
+  return bets.map(([name, f]) => [name, s.bet[p] + Math.max(BB, pyRound(pot(s) * f))]);
+}
+
+/** The raise cap on this street (null = none): the real menu caps preflop at RAISE_CAP (G.street_cap). */
+export function streetCap(s) { return s.menu === "real" && s.street === 0 ? RAISE_CAP : s.raiseCap; }
+
+// Sizes kept after the stack checks: below all in by more than 1BB (and below ALLIN_MERGE of the stack
+// when the street has no cap), each chip amount once (G._offered).
+function offered(s) {
+  const p = s.toAct, room = s.stack[p] + s.bet[p];
+  const top = streetCap(s) !== null ? room - BB : Math.min(room - BB, ALLIN_MERGE * room);
+  const out = [];
+  for (const [name, to] of sizes(s)) if (to < top && out.every(([, t]) => t !== to)) out.push([name, to]);
+  return out;
+}
+
 export function legal(s) {
   if (s.done) return [];
-  const p = s.toAct, call = toCall(s), room = s.stack[p] + s.bet[p];
+  const p = s.toAct, call = toCall(s);
   const others = active(s).filter((i) => i !== p);
   const acts = [];
   if (call > 0) acts.push("f");
   acts.push(call > 0 || s.street === 0 ? "c" : "k");
   if (s.stack[p] > call && others.length) {
-    if (s.raises < RAISE_CAP + (s.street === 0 ? 1 : 0)) {
-      if (call > 0 || s.street === 0) {
-        const to = Math.max(raiseTo(s), max(s.bet) + s.lastRaise);
-        if (to < room - BB) acts.push("r");
-      } else {
-        for (const [name, frac] of [["b33", 0.33], ["b75", 0.75]]) {
-          const amt = Math.max(BB, pyRound(pot(s) * frac));
-          if (s.bet[p] + amt < room - BB) acts.push(name);
-        }
-      }
-    }
+    const cap = streetCap(s);
+    if (cap === null || s.raises < cap + (s.street === 0 ? 1 : 0)) for (const [name] of offered(s)) acts.push(name);
     acts.push("a");
   }
   return acts;
@@ -540,9 +602,22 @@ export function amountTo(s, a) {
   if (a === "k" || a === "f") return s.bet[p];
   if (a === "a") return room;
   if (a === "c") return Math.min(max(s.bet), room);
-  if (a === "r") return Math.max(raiseTo(s), max(s.bet) + s.lastRaise);
-  if (a === "b33" || a === "b75") return s.bet[p] + Math.max(BB, pyRound(pot(s) * (a === "b33" ? 0.33 : 0.75)));
-  throw new Error(`unknown action ${a}`);
+  for (const [name, to] of sizes(s)) if (name === a) return to;
+  throw new Error(`unknown action ${a} for menu ${s.menu}`);
+}
+
+/**
+ * The bet/raise sizes a menu offers the actor here, smallest first, with the all in: [{a, to}].
+ * By default the hand's own menu. sizeMenu(s, "real", null) gives the real-play sizes (postflop
+ * without a cap, as the real training job) on a hand played under any menu: chips, stacks and the
+ * raise count are the hand's, only the size table and the postflop cap change.
+ */
+export function sizeMenu(s, menu = s.menu, raiseCap = s.raiseCap) {
+  const t = menu === s.menu && raiseCap === s.raiseCap ? s : { ...s, menu, raiseCap };
+  const lg = new Set(legal(t)), room = t.stack[t.toAct] + t.bet[t.toAct];
+  const out = offered(t).filter(([a]) => lg.has(a)).map(([a, to]) => ({ a, to }));
+  if (lg.has("a")) out.push({ a: "a", to: room });
+  return out.sort((x, y) => x.to - y.to);
 }
 
 function streetClosed(s) {
@@ -619,39 +694,79 @@ export function betRange(s) {
 }
 
 /** Bet size as a fraction of the pot after calling: the x of the pseudo-harmonic mapping. */
-function betFraction(s, to) {
+export function potFraction(s, to) {
   const top = max(s.bet), call = toCall(s);
   return (to - top) / (pot(s) + call);
 }
 
 /**
- * Menu translation of a real bet/raise to street total `to`.
- * Returns {action, prob, lower, upper}: `action` is the menu label used for the key, history and
- * range update; between the two nearest menu sizes A < B (as pot fractions a < b, size x) the
- * pseudo-harmonic probability of A is f = (b - x)(1 + a) / ((b - a)(1 + x)), and the mapping is
- * deterministic: A when f >= 0.5, else B (`prob` = the chosen side's probability). Below the
- * smallest menu size it maps to that size; an all-in is always "a".
+ * stalker/e3/translate.split: [{a, p}] for a bet/raise to street total `to` (TP.md section 6).
+ * The legal menu sizes (and the all in) sorted by chips; an exact size maps to itself, a size below
+ * the smallest to it; between neighbours A < B (pot fractions a < b, size x) A gets
+ * f = (b - x)(1 + a) / ((b - a)(1 + x)) and B gets 1 - f. A capped street leaves only "a".
  */
-export function translateBet(s, to) {
+export function splitBet(s, to) {
   const r = betRange(s);
   if (!r) throw new Error(`no bet or raise possible here; legal: ${legal(s).join(",")}`);
-  if (!Number.isInteger(to) || to < r.min || to > r.max) throw new Error(`bet to ${to}: choose an integer from ${r.min} (min raise) to ${r.max} (all in)`);
-  const menu = legal(s).filter((a) => AGGRESSIVE.has(a)).map((a) => ({ a, to: amountTo(s, a) })).sort((x, y) => x.to - y.to);
+  if (!Number.isInteger(to)) throw new Error(`bet to ${to}: chips are integers`);
+  if (to > r.max) throw new Error(`bet to ${to} is more than all in (${r.max}); choose ${r.min} (min raise) to ${r.max}`);
+  if (to < r.min) throw new Error(`bet to ${to} is below the min raise ${r.min}; choose ${r.min} to ${r.max} (all in)`);
+  const menu = sizeMenu(s);
   const exact = menu.find((m) => m.to === to);
-  if (exact) return { action: exact.a, prob: 1, lower: exact.a, upper: exact.a };
-  if (to < menu[0].to) return { action: menu[0].a, prob: 1, lower: menu[0].a, upper: menu[0].a };
+  if (exact) return [{ a: exact.a, p: 1.0 }];
+  if (to < menu[0].to) return [{ a: menu[0].a, p: 1.0 }];
   let j = 1;
   while (menu[j].to < to) j++;
   const A = menu[j - 1], B = menu[j];
-  const a = betFraction(s, A.to), b = betFraction(s, B.to), x = betFraction(s, to);
-  const f = ((b - x) * (1 + a)) / ((b - a) * (1 + x));
-  return f >= 0.5 ? { action: A.a, prob: f, lower: A.a, upper: B.a } : { action: B.a, prob: 1 - f, lower: A.a, upper: B.a };
+  const a = potFraction(s, A.to), b = potFraction(s, B.to), x = potFraction(s, to);
+  const f = (b - x) * (1 + a) / ((b - a) * (1 + x));
+  return [{ a: A.a, p: f }, { a: B.a, p: 1.0 - f }];
 }
 
-/** A real bet/raise to street total `to` (any size in betRange). History gets the translated label. */
-export function applyBet(s, to) {
-  const t = translateBet(s, to);
-  return act(s, t.action, to, to !== amountTo(s, t.action));
+/** stalker/e3/translate.sample: one label from splitBet with a seeded NumpyRng (one draw when split). */
+export function sampleBet(s, to, rng) {
+  const out = splitBet(s, to);
+  if (out.length === 1) return out[0].a;
+  if (!rng || typeof rng.random !== "function") throw new Error("sampleBet: pass a seeded NumpyRng (the AI's reading is random, TP.md section 6)");
+  return rng.random() < out[0].p ? out[0].a : out[1].a;
+}
+
+/**
+ * Menu translation of a real bet/raise to street total `to`:
+ * {split, action, prob, lower, upper}. `split` is splitBet (grading weighs the score of each label by
+ * its probability). With a seeded NumpyRng, `action` is the AI's reading drawn as sampleBet; without
+ * one it is the likelier side (display only, never the reading). `prob` is `action`'s probability.
+ */
+export function translateBet(s, to, rng = null) {
+  const split = splitBet(s, to);
+  let action;
+  if (split.length === 1) action = split[0].a;
+  else if (rng) action = rng.random() < split[0].p ? split[0].a : split[1].a;
+  else action = split[0].p >= split[1].p ? split[0].a : split[1].a;
+  const m = split.find((x) => x.a === action);
+  return { split, action, prob: m.p, lower: split[0].a, upper: split[split.length - 1].a };
+}
+
+/** Score weighted by the split: sum of p x score(label) (TP.md section 6 grading). */
+export function splitScore(split, score) {
+  let v = 0.0;
+  for (const { a, p } of split) v += p * score(a);
+  return v;
+}
+
+/**
+ * A real bet/raise to street total `to` (any size in betRange); chips move by `to`, the history gets
+ * the AI's reading. `how`: a seeded NumpyRng (drawn as sampleBet) or a label already read for this
+ * bet (it must be in the split).
+ */
+export function applyBet(s, to, how) {
+  let label;
+  if (typeof how === "string") {
+    const split = splitBet(s, to);
+    if (!split.some((x) => x.a === how)) throw new Error(`applyBet: ${how} is not a reading of ${to} (split ${split.map((x) => x.a).join(",")})`);
+    label = how;
+  } else label = sampleBet(s, to, how);
+  return act(s, label, to, to !== amountTo(s, label));
 }
 
 /** Net chips per seat relative to the start of the hand (sums to zero). */
@@ -682,7 +797,7 @@ export function checkNutK(nutK) {
 export const NUT_BASE = 1000;
 export const NUT_TOP = 0.10;
 const FOLDY_MIN_OPPS = 6, FOLDY_PRIOR = 0.5, FOLDY_PRIOR_N = 6.0;
-const AGGRESSIVE = new Set(["r", "b33", "b75", "a"]);
+const AGGRESSIVE = new Set([...SIZE_LABELS, "a"]);   // tp_key.AGGRESSIVE: every menu's bet/raise labels
 const POT_ODDS_EDGES = [0.2, 0.3, 0.4];
 const SPR_EDGES = [1.0, 3.0, 6.0];
 
