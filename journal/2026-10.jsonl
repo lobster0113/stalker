@@ -800,3 +800,4 @@
 {"ts": "2026-10-30T05:42:18Z", "role": "reviewer", "outcome": "skipped", "issue": 391, "pr": 423, "notes": "sweep: CHANGES verdict already on head 95f4150; PR body not updated since (still Closes #391)", "friction": ""}
 {"ts":"2026-10-30T06:30:00Z","role":"reviewer-b","outcome":"merged","issue":395,"pr":408,"notes":"sweep: #408 MERGE at fa70faf (CHANGES item fixed: nut flush draw outs test); #424 already has a verdict on current sha, skipped","friction":"branch delete via git push, not the merge tool (MCP merge has no delete-branch option)"}
 {"ts":"2026-10-30T06:25:00Z","role":"planner","outcome":"planned","issue":395,"pr":408,"notes":"PR #408 merged -> #395 closed; #398 unblocked to ready; owner hold on #406 (cap stays $100) and #427 recorded; ready 8; STATE updated","friction":""}
+{"ts":"2026-10-30T06:19:18Z","role":"reviewer","outcome":"skipped","issue":413,"pr":428,"notes":"not my parity","friction":""}
