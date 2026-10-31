@@ -925,3 +925,4 @@
 {"ts":"2026-10-30T23:11:22Z","role":"reviewer-b","outcome":"no_work","issue":447,"pr":456,"notes":"sweep: #456 (even) already has VERDICT: CHANGES for head ff0f9a5; no new commits. #449 odd, not mine.","friction":""}
 {"ts":"2026-10-30T23:41:40Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #449 already judged at head cd1ce27 (MERGE, blocked by merge conflict, awaiting builder); #456 is even (reviewer-b)","friction":""}
 {"ts":"2026-10-31T00:12:19Z","role":"reviewer-b","outcome":"skipped","issue":447,"pr":456,"notes":"sweep: only even PR #456 already has CHANGES verdict at head ff0f9a5 (no new commits, dirty, no CI)","friction":"PR #456 idle since CHANGES verdict; no builder follow-up yet"}
+{"ts":"2026-10-31T00:22:23Z","role":"reviewer","outcome":"skipped","issue":447,"pr":456,"notes":"not my parity","friction":""}
