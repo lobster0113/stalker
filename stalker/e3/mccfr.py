@@ -32,6 +32,7 @@ and mixed tables; a checkpoint of it is version 5.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -143,7 +144,7 @@ class E3MCCFR:
 
         if p == trav:
             vals = np.array([self._walk(*child(i), trav, reach) for i in range(len(acts))])
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # not BLAS `@`: CPU-dependent last bits (#447)
             reg = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(reg + (vals - v), 0, out=reg)
             self.visits[key] += 1
@@ -214,6 +215,15 @@ class E3MCCFR:
         m.snap_at = st.get("snap_at", 0)
         m.snap = {k: np.array(v, dtype=float) for k, v in st.get("snap", {}).items()}
         return m
+
+    def regret_hash(self) -> str:
+        """sha256 of the regret table: keys in sorted order, each with its row's length and float64 bytes.
+        Recorded with every CI result (#447), so two runs that should match can be checked bit for bit."""
+        h = hashlib.sha256()
+        for k in sorted(self.regret):
+            r = np.ascontiguousarray(self.regret[k], dtype="<f8")
+            h.update(k.encode("utf-8") + b"\0" + len(r).to_bytes(4, "little") + r.tobytes())
+        return h.hexdigest()
 
     def policy(self) -> dict[str, list[float]]:
         return {k: (v / v.sum()).tolist() for k, v in self.avg.items() if v is not None and v.sum() > 0}

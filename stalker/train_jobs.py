@@ -210,6 +210,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "avg_rule": m.avg_rule, "key_variant": m.key_variant, "stacks": m.stacks,
             # #426: the same job and seed gave different tables on different runners, so record which one ran it
             "machine": machine(),
+            # #447: the table's bits, so two runs that should match (same sha, seed, workers) can be checked
+            "regret_sha256": m.regret_hash(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
 
@@ -393,6 +395,8 @@ def summarize(job: str, folder: Path) -> dict:
             out["infosets_by_seed"] = [r["infosets"] for r in runs]
         if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
             out["cpu_model_by_seed"] = [r["machine"]["cpu_model"] for r in runs]
+        if all(r.get("regret_sha256") for r in runs):    # #447: drift between reruns shows as a changed hash
+            out["regret_sha256_by_seed"] = [r["regret_sha256"] for r in runs]
         if all(r.get("lbr_offmenu") for r in runs):    # E3 (#343): exploiter with off-menu sizes, current policy
             out["lbr_offmenu_bb_by_seed"] = [r["lbr_offmenu"]["lbr_bb"] for r in runs]
         if all(r.get("lbr_average") for r in runs):    # E3 (#426): the served (average) policy lived only in artifacts
