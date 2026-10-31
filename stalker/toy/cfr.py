@@ -6,6 +6,7 @@ the one that converges; the current strategy is not.
 """
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 import numpy as np
@@ -39,7 +40,7 @@ class CFRPlus:
         if n.player == player:
             vals = np.array([self._walk(c, player, reach_self * sigma[i], reach_other, t)
                              for i, c in enumerate(n.children)])
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # not BLAS `@`: CPU-dependent last bits (#481)
             self._delta[n.infoset] += reach_other * (vals - v)
             self.avg[n.infoset] += t * reach_self * sigma
             return v

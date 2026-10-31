@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from functools import lru_cache
@@ -23,8 +24,8 @@ from functools import lru_cache
 import numpy as np
 
 from stalker.core import fast_eval
-from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.core.cards import COMBO_INDEX, COMBOS
+from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.e2 import game as G
 from stalker.e2.abstraction import _class_weights, _combo_classes, quantile_buckets
 from stalker.e2.mccfr import MCCFR
@@ -194,7 +195,7 @@ class EqMCCFR(MCCFR):
 
         if p == trav:
             vals = np.array([self._walk_r(*child(i), trav=trav) for i in range(len(acts))])
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # not BLAS `@` (#481)
             r = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(r + (vals - v), 0, out=r)
             return v

@@ -17,6 +17,7 @@ term per player.
 """
 from __future__ import annotations
 
+import math
 from itertools import permutations
 
 import numpy as np
@@ -112,7 +113,7 @@ class CFRBR:
         s = sigma[k]
         vals = np.array([self._walk(c, sigma, br, delta, t, reach_self * s[i], reach_other)
                          for i, c in enumerate(nd.children)])
-        v = float(s @ vals)
+        v = math.fsum((s * vals).tolist())   # not BLAS `@` (#481)
         delta[k] += reach_other * (vals - v)
         self.avg[k] += t * reach_self * s
         return v

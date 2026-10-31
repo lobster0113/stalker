@@ -27,6 +27,7 @@ other opponents' reach mixed in, #414); `avg_rule="own"` divides that reach out 
 from __future__ import annotations
 
 import json
+import math
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -112,7 +113,7 @@ def exact_update(root: Node, key: KeyFn, sigma: Table, p: int, n_players: int = 
             nxt = pi.copy()
             nxt[q] *= s[a]
             vals[a] = walk(c, nxt)
-        v = float(s @ vals)
+        v = math.fsum((s * vals).tolist())   # not BLAS `@` (#481)
         others = pi[-1] * np.prod(np.delete(pi[:-1], p))
         if q == p:
             _acc(reg, k, others * (vals - v))
@@ -330,7 +331,7 @@ class E3Sampler:
                 q = np.full(len(probs), 1 / len(probs)) if self.uniform_chance else probs
             elif n.player == p:
                 vals = np.array([walk(c, w, reach) for c in n.children])
-                v = float(probs @ vals)
+                v = math.fsum((probs * vals).tolist())   # not BLAS `@` (#481)
                 _acc(reg, self.key(n.infoset), w * (vals - v))
                 return v
             else:

@@ -1,5 +1,7 @@
 """#201: the throughput changes must not change results. The tree walk keeps main's infoset keys,
 payoffs and sampling draws, and the rank-pair strength kernel keeps the board tables bit-identical."""
+import math
+
 import numpy as np
 import pytest
 
@@ -22,7 +24,7 @@ class _Reference(MCCFR):
         sigma = self._sigma(key, len(acts))  # no strategy cache
         if s.to_act == trav:
             vals = np.array([self._walk(G.apply(s, a), trav) for a in acts])
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # same node value as MCCFR (#481)
             r = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(r + (vals - v), 0, out=r)
             return v
