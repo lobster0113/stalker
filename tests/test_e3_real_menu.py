@@ -191,3 +191,42 @@ def test_illegal_sizes_are_refused():
         X.split(s, 150)
     with pytest.raises(ValueError, match="all in"):
         X.split(s, G.STACK + 1)
+
+
+def test_real_avgrange_job_is_arm_b_of_the_real_menu_comparison():
+    # #446: the real-menu job with average-strategy ranges; both arms carry the preflop probe
+    a, b = T.JOBS["e3-tp-mid-real-w4"].keywords, T.JOBS["e3-tp-mid-real-avgrange-w4"].keywords
+    assert {k: v for k, v in b.items() if k not in ("name", "ranges")} == {k: v for k, v in a.items() if k != "name"}
+    assert b["ranges"] == "average" and a.get("ranges", "current") == "current" and a["probe"] and b["probe"]
+    assert "e3-tp-mid-real-avgrange-w4" in T.RESUMABLE
+
+
+def test_probe_on_the_average_policy_reaches_the_summary(tmp_path, monkeypatch):
+    import json
+    from functools import partial
+
+    import referee.e3.lbr as lbr3
+
+    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n, depth, extra_sizes=False:
+                        {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
+    monkeypatch.setattr(T, "E3_PROBE_DEALS", 4)
+    monkeypatch.setattr(T, "E3_PROBE_GROUPS", ("AA",))
+    job = "e3-tp-real-avgrange-probe-test"
+    monkeypatch.setitem(T.JOBS, job, partial(T._e3_tp, tier="beginner", name=job, menu="real", raise_cap=None,
+                                             ranges="average", probe=True))
+    T.run(job, 2, 1, tmp_path)
+    r = json.loads((tmp_path / f"{job}-seed1.json").read_text(encoding="utf-8"))
+    p = r["probe_average"]
+    assert p["probe"] == "e3_preflop_v1" and p["spot"] == "first_in" and p["deals_per_cell"] == 4
+    assert [c["seat"] for c in p["cells"]] == ["UTG", "HJ", "CO", "BTN", "SB"]
+    # UTG is always first in; later seats of an untrained policy may not be reached (gain is then None)
+    assert p["cells"][0]["deals"] == 4 and p["cells"][0]["best"] and len(p["cells"][0]["gain_ci"]) == 2
+    assert all(c["group"] == "AA" and (c["best"] is None) == (c["gain_bb"] is None) for c in p["cells"])
+    s = json.loads(T.summary_text(job, tmp_path))
+    assert s["probe_average_leaks_by_seed"] == [p["leaks"]] and s["probe_average_by_seed"] == [p]
+
+
+def test_probe_refuses_key_variants(tmp_path):
+    with pytest.raises(SystemExit, match="default keys"):
+        T._e3_tp(1, 1, tmp_path, tier="beginner", name="x", key_variant="b1", probe=True)
