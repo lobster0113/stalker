@@ -72,6 +72,16 @@ test("below the minimum the report says not enough data instead of judging", () 
   assert.equal(T.tellReport([]).rows.find(r => r.id === "river").text, `데이터 부족 (n=0/최소 ${T.TH.river.min})`);
 });
 
+test("rows below their minimum carry need {n, min} for the compact report; judged rows do not (#445)", () => {
+  for (const ds of [[], hero(5, { size: tellSize, ms: (s) => 800 + s * 5000 }), hero(60, { size: randSize, ms: flatMs })]) {
+    for (const r of T.tellReport(ds).rows) {
+      if (r.text.startsWith("데이터 부족") || r.text.includes("· 데이터 부족")) assert.ok(r.need && r.need.n < r.need.min, `${r.id}: ${JSON.stringify(r.need)}`);
+      else assert.equal(r.need, undefined, r.id);
+    }
+  }
+  assert.equal(T.tellReport([]).rows.find(r => r.id === "showdown").empty, true);
+});
+
 test("lines: c-bet gap, value-only check-raise, river without bluffs, capped check-call, policy gap", () => {
   const ds = [];
   for (let i = 0; i < 12; i++) ds.push({ hand: "c" + i, street: 1, action: i % 2 ? "bet" : "check", sizePct: i % 2 ? 50 : null, ms: 2000, strength: i % 2 ? .8 : .3, madeClass: 1, spot: "cbet", gtoAgg: .3 });

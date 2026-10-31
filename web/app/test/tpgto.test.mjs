@@ -293,3 +293,55 @@ test("a short all in does not reopen the betting (G._reopens)", () => {
   assert.deepEqual(T.legal(s), ["f", "c"]);                 // BTN already acted: call or fold only
   assert.equal(T.betRange(s), null);
 });
+
+// ---------------------------------------------------------------- teacher answers (#445)
+function flopHU(hero, villain, board) {
+  const C = (t) => T.card(t);
+  let s = T.newHand({ n: 2, holes: [hero.map(C), villain.map(C)], board: board.map(C) });
+  while (s.street === 0) s = T.apply(s, T.legal(s).includes("k") ? "k" : "c");
+  return s;
+}
+
+test("rangeWidth: full range 100%, half the combos 50%", () => {
+  const s = flopHU(["Ah", "Kh"], ["2c", "3d"], ["2h", "7h", "Tc", "9s", "4d"]);
+  const r = T.initialRanges(2);
+  assert.ok(Math.abs(T.rangeWidth(s, 1, r) - 100) < 1e-9);
+  const half = new Float64Array(T.N).map((_, i) => (i % 2 ? 1 : 0));
+  assert.ok(Math.abs(T.rangeWidth(s, 1, [r[0], half]) - 50) < 3);
+  assert.equal(T.rangeClasses(s, 1, r).size, 169);
+  const small = new Float64Array(T.N).fill(0.05);   // e.g. every combo bets this one size 5% of the time
+  assert.ok(Math.abs(T.rangeWidth(s, 1, [r[0], small]) - 100) < 1e-9);
+  assert.equal(T.rangeClasses(s, 1, [r[0], small]).size, 169);
+  const aces = new Float64Array(T.N).map((_, i) => (T.COMBO_HI[i] >> 2 === 12 && T.COMBO_LO[i] >> 2 === 12 ? 1 : 0));
+  assert.deepEqual([...T.rangeClasses(s, 1, [r[0], aces])], ["AA"]);
+});
+
+test("boardAdvantage: equal ranges near 50, a range of aces on an ace-high board is the opponent's", () => {
+  const s = flopHU(["Kd", "Qd"], ["2c", "3d"], ["As", "7h", "2s", "9c", "4d"]);
+  const r = T.initialRanges(2);
+  assert.ok(Math.abs(T.boardAdvantage(s, 0, 1, r) - 50) < 2);
+  const aces = new Float64Array(T.N).map((_, i) => (T.COMBO_HI[i] >> 2 === 12 || T.COMBO_LO[i] >> 2 === 12 ? 1 : 0));
+  assert.ok(T.boardAdvantage(s, 0, 1, [r[0], aces]) > 70);
+});
+
+test("nextCardShift: every unseen heart is an out for a nut flush draw; counts and equity are consistent", () => {
+  const s = flopHU(["Ah", "Kh"], ["2c", "3d"], ["2h", "7h", "Tc", "9s", "4d"]);
+  const r = T.initialRanges(2), x = T.nextCardShift(s, 0, r);
+  assert.equal(x.total, 47);
+  assert.equal(x.eq, T.multiEquity(s, 0, r)[T.comboIndex(s.hole[0])]);
+  const hearts = [...Array(52).keys()].filter((c) => (c & 3) === T.SUITS.indexOf("h") && !s.board.includes(c) && !s.hole[0].includes(c));
+  assert.equal(hearts.length, 9);
+  for (const c of hearts) assert.ok(x.up.some((u) => u.c === c), `${T.cardStr(c)} should be an out`);
+  assert.equal(x.outs, Math.round(100 * x.up.length / 47));
+  assert.equal(x.vuln, Math.round(100 * x.down.length / 47));
+  assert.equal(T.nextCardShift({ ...s, board: s.board.concat([0, 1]) }, 0, r), null);
+});
+
+test("nextCardShift: against a range of flush draws every unseen heart is a bad card for top pair", () => {
+  const s = flopHU(["As", "Jd"], ["2c", "3d"], ["Jh", "Th", "8c", "2s", "4d"]);
+  const h = T.SUITS.indexOf("h"), draws = new Float64Array(T.N).map((_, i) => ((T.COMBO_HI[i] & 3) === h && (T.COMBO_LO[i] & 3) === h ? 1 : 0));
+  const x = T.nextCardShift(s, 0, [T.initialRanges(2)[0], draws]);
+  const hearts = [...Array(52).keys()].filter((c) => (c & 3) === h && !s.board.includes(c) && !s.hole[0].includes(c));
+  for (const c of hearts) assert.ok(x.down.some((u) => u.c === c), `${T.cardStr(c)} should be a bad card`);
+  assert.ok(x.down.every((u) => u.d <= -0.1 + 1e-12) && x.up.every((u) => u.d >= 0.1 - 1e-12));
+});

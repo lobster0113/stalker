@@ -40,6 +40,21 @@ await page.addInitScript(() => {
   }, ms);
 });
 
+// #445: on every visible table, card faces/backs must not cover a seat's name or stack, a bet must not sit
+// on the dealer button, and the pot's chip pile must not cover the pot amount. Returns the colliding pairs.
+function tableOverlaps() {
+  const vis = e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && +cs.opacity > 0 && e.offsetParent !== null ? r : null; };
+  const hit = (a, b) => a && b && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+  const out = [];
+  for (const seat of document.querySelectorAll(".view.active .seat")) {
+    const who = seat.querySelector(".who"), w = who && vis(who);
+    for (const c of seat.querySelectorAll(".hole .card")) if (hit(vis(c), w)) out.push(`카드/${seat.querySelector(".nm")?.textContent || seat.dataset.pos || "좌석"}`);
+  }
+  for (const d of document.querySelectorAll(".view.active .dealer")) for (const b of d.parentElement.querySelectorAll(".bet")) if (b.childElementCount && hit(vis(d), vis(b))) out.push(`딜러/벳 ${b.textContent.trim()}`);
+  for (const p of document.querySelectorAll(".view.active .pot")) { const c = p.querySelector(".chips"), a = p.querySelector(".amt"); if (c && a && hit(vis(c), vis(a))) out.push("팟 칩/팟 금액"); }
+  return out;
+}
+
 // focus: 화면에 들여 놓고 보이는지 검사할 요소. 찍는 동안 데모 진행을 멈춘다.
 async function inspect(tag, focus) {
   await page.evaluate(() => { window.__hold = true; });
@@ -63,6 +78,8 @@ async function inspect(tag, focus) {
       must(visible, `${tag} ${width}x${height}: ${focus}가 화면에 없음`);
     }
     await page.screenshot({ path: `${shots}/${tag}-${name}.png` });
+    const ov = await page.evaluate(tableOverlaps);
+    must(!ov.length, `${tag} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 카드·칩·딜러 버튼 위치를 고치세요 (#445)`);
     const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
     must(sw <= iw, `${tag} ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw}). 넘치는 요소를 줄이세요`);
   }
@@ -89,11 +106,59 @@ const QUICK = "#tp-body [data-card='quick-act']";
 await page.waitForSelector(QUICK);
 must((await page.textContent("#infobar")).includes("상대 TP-GTO"), "훈련 게임: 상대가 TP-GTO 정책이 아님(정책 연결 실패)");
 await inspect("train-input", QUICK);
+// #440: on a phone the open sheet covers the hero's seat, so its head strip must show the hole cards, board,
+// pot, to-call and last opponent action uncovered next to the action row; the grabber taps/drags the sheet.
+async function phoneDecision(tag) {
+  await page.evaluate(() => { window.__hold = true; });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(600);   // sheet transform transition
+  const free = sel => page.evaluate(sel => [...document.querySelectorAll(sel)].map(el => {
+    const b = el.getBoundingClientRect(), hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return b.width > 0 && b.top >= 0 && b.bottom <= innerHeight && !!hit && (hit === el || el.contains(hit));
+  }), sel);
+  const hole = await free("[data-strip-hole] .card");
+  must(hole.length === 2 && hole.every(Boolean), `${tag} phone: 내 카드(${hole})가 화면 안에서 가려지지 않아야 함 (#440)`);
+  const nb = await page.evaluate(() => G.board.length), board = await free("[data-strip-board] .card");
+  must(board.length === nb && board.every(Boolean), `${tag} phone: 보드 ${nb}장이 시트 위에 보여야 함 (보이는 것 ${board})`);
+  for (const sel of ["[data-strip-pot]", "[data-strip-call]", "[data-strip-last]"]) must((await free(sel)).every(Boolean) && (await free(sel)).length === 1, `${tag} phone: ${sel}가 보이지 않음 (#440)`);
+  const acts = await free(`${QUICK} [data-act], #tp-go`);
+  must(acts.length >= 3 && acts.every(Boolean), `${tag} phone: 액션 버튼이 카드와 함께 보여야 함 (${acts})`);
+  await page.screenshot({ path: `${shots}/${tag}-phone.png` });
+  return free;
+}
+let boardShot = false;
+{
+  const free = await phoneDecision("train-decision");
+  const hd = await page.locator("#tp-handle").boundingBox(), cx = hd.x + hd.width / 2, cy = hd.y + hd.height / 2;
+  await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx, cy - 120, { steps: 4 }); await page.mouse.up();
+  must(await page.evaluate(() => document.querySelector("#tp").classList.contains("full")), "phone: 그래버를 위로 끌면 시트가 다 펼쳐져야 함 (#440)");
+  const dragDown = async () => {
+    await page.waitForTimeout(600);
+    const b = await page.locator("#tp-handle").boundingBox(), x = b.x + b.width / 2, y = b.y + b.height / 2;
+    await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y + 120, { steps: 4 }); await page.mouse.up();
+  };
+  await dragDown();
+  must(await page.evaluate(() => { const c = document.querySelector("#tp").classList; return c.contains("open") && !c.contains("full"); }), "phone: 다 펼친 시트를 아래로 끌면 기본 높이로 돌아와야 함 (#440)");
+  await dragDown(); await page.waitForTimeout(600);
+  must(await page.evaluate(() => !document.querySelector("#tp").classList.contains("open")), "phone: 그래버를 아래로 끌면 시트가 접혀야 함 (#440)");
+  const seat = await free("#table .seat.hero .hole .card");
+  must(seat.length === 2 && seat.every(Boolean), `phone: 접힌 시트에서 테이블의 내 카드가 보여야 함 (${seat})`);
+  await page.screenshot({ path: `${shots}/train-decision-collapsed-phone.png` });
+  await page.click("#tp-handle"); await page.waitForTimeout(600);
+  must(await page.evaluate(() => document.querySelector("#tp").classList.contains("open")), "phone: 그래버를 누르면 시트가 다시 열려야 함 (#440)");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  must(await page.evaluate(() => getComputedStyle(document.querySelector("#tp-strip")).display === "none"), "laptop: 폰 전용 카드 줄이 보이면 안 됨 (#440)");
+  await page.evaluate(() => { window.__hold = false; });
+}
 // #116 Quick: one decision ends in at most 3 inputs — action, size (only for a bet/raise), 진행. No judgment is required.
 // #337/#341: the size is free no-limit — the amount box takes any size from the minimum raise to all in.
 let freeSized = false;
 for (let d = 0; d < 6 && !freeSized; d++) {
   if (d) await page.waitForSelector(QUICK);
+  if (!boardShot && await page.evaluate(() => G.board.length >= 3)) {
+    await phoneDecision("train-decision-board"); boardShot = true;
+    await page.setViewportSize({ width: 1440, height: 900 }); await page.evaluate(() => { window.__hold = false; });
+  }
   let inputs = 0;
   const raise = page.locator(`${QUICK} [data-act='raise']:not([disabled])`);
   if (await raise.count()) {
@@ -257,6 +322,11 @@ must(eqTruth && eqTruth.step === eqTruth.step2 && eqTruth.key === eqTruth.key2, 
   must((await page.locator("#tp-body [data-act]").count()) === 0, "Quick 분석: 액션을 다시 묻고 있음(액션이 먼저여야 함)");
   for (const q of qs) await q.locator("[data-chip]").first().click();
 }
+{
+  // #445: preflop with nobody in the pot yet, there is no single opponent range to read.
+  const f = await page.evaluate(() => ({ want: fieldOnly(CUR.hero), got: CUR.g.field, range: itemsNow().includes("opp.range") }));
+  must(f.got === f.want && !(f.got && f.range), `판단 대상: 아무도 팟에 안 들어왔는데 상대 레인지를 물음 (${JSON.stringify(f)})`);
+}
 await inspect("train-quick-ask", "#tp-submit");
 await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
@@ -326,6 +396,23 @@ await page.click("#tp-submit");
 await page.waitForSelector("#tp-body .result-top");
 must((await page.textContent("#tp-body .result-top .ring")).trim() !== "", "채점 점수가 비어 있음");
 await inspect("train-result", "#tp-body .result-top");
+{
+  // #445: engine-computable items are graded on engine values; every mock row says why it is mock.
+  const r = await page.evaluate(() => ({ txt: $("#tp-body").innerText, eng: !!G.eng, rows: G.lastGrade.rows.map(x => ({ k: x.k, src: x.src, labels: !!x.labels })), whys: $$("#tp-body .rrow:not(.ref) [data-mock-why]").length }));
+  must(!r.txt.includes("TP-GTO(모의)"), "결과 화면: 모의 값이 'TP-GTO(모의)'로 표시됨");
+  const eng = r.rows.filter(x => ["hand.outs", "hand.vuln", "opp.range", "board.adv"].includes(x.k));
+  must(!r.eng || eng.every(x => x.src === "model"), `결과 화면: 엔진으로 계산할 수 있는 항목이 모의로 채점됨 (${JSON.stringify(eng)})`);
+  const mocks = r.rows.filter(x => x.src !== "model" && !x.labels).length;
+  must(r.whys === mocks, `결과 화면: 모의 줄 ${mocks}개 중 이유가 붙은 줄 ${r.whys}개`);
+  console.log(`엔진 채점 항목: ${eng.map(x => x.k).join(", ") || "(이번 결정엔 없음)"}, 모의 ${mocks}줄`);
+}
+{
+  // #445: the session total opens into one row per finished hand.
+  const n = await page.evaluate(() => { const d = $("#infobar [data-sess]"); if (d) d.open = true; return { hands: (G.hands || []).length, rows: $$("#infobar .sess-pop tr").length, has: !!d }; });
+  must(n.has && n.rows === Math.min(n.hands, 30), `세션 손익: 핸드별 목록이 없음 (${JSON.stringify(n)})`);
+  await inspect("train-session", "#infobar .sess-pop");
+  await page.evaluate(() => { const d = $("#infobar [data-sess]"); if (d) d.open = false; });
+}
 must(await page.locator("#tp-body [data-drivers]").count() > 0 || !(await page.locator("#tp-body .rrow:not(.ref)").count()),
      "결과 화면: 판단 Top 3(모의) 블록이 없음");
 if (await page.locator("#tp-body [data-drivers]").count()) await inspect("train-drivers", "#tp-body [data-drivers]");
@@ -445,6 +532,11 @@ await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
 await inspect("learn-gallery");
 {
+  const g = await page.evaluate(() => ({ txt: $("#view-learn").innerText, pill: $("#svc-pill").textContent }));
+  must(!g.txt.includes("D2에서"), "학습 갤러리: 옛 계획 문구 'D2에서'가 남아 있음");
+  must(g.pill.includes("학습 문제"), `헤더 배지: 학습 섹션인데 '${g.pill}'`);
+}
+{
   const cells = async f => (await page.locator(`#ab-box tr[data-form='${f}'] td`).allTextContents()).map(t => t.trim());
   const a = await cells("A"), b = await cells("B");
   must(a.length === 5 && b.length === 5, "학습 섹션: 질문 형태 실험 표(A·B 행)가 없음");
@@ -455,14 +547,21 @@ await inspect("learn-gallery");
 }
 // #430: every hero decision so far is logged with a time and a strength; few decisions -> "데이터 부족".
 {
-  await page.waitForSelector("#tell-box tr[data-tell='timing']");
+  await page.waitForSelector("#tell-box [data-tell-progress]");
   const log = await page.evaluate(() => TELL.decisions);
   must(log.length > 0, "텔 리포트: 내 결정이 기록되지 않음");
   must(log.every(d => Number.isFinite(d.ms) && d.ms >= 0 && Number.isFinite(d.strength) && d.strength >= 0 && d.strength <= 1 && d.street >= 0 && d.street <= 3),
     `텔 리포트: 결정 기록에 시간·강도가 비었음 (${JSON.stringify(log.slice(0, 3))})`);
-  const t = await page.textContent("#tell-box tr[data-tell='timing']");
-  must(t.includes("데이터 부족 (n="), `텔 리포트: 표본이 적은데 판단함 (${t})`);
+  // #445 compact form: the short-of-data rows sit folded under one progress line, not as table rows.
+  const tl = await page.evaluate(() => ({ prog: $("#tell-box [data-tell-progress]")?.textContent || "", waitTiming: !!$("#tell-box [data-tell-wait] [data-tell='timing']"), lackRows: $$("#tell-box tr").filter(r => r.textContent.includes("데이터 부족 (n=")).length, rows: $$("#tell-box tr").length }));
+  must(tl.waitTiming, `텔 리포트: 표본이 적은 결정 시간이 '표본이 모자란 항목'에 없음 (${JSON.stringify(tl)})`);
+  must(/판정한 항목 \d+\/\d+/.test(tl.prog) && /회 더/.test(tl.prog), `텔 리포트: 진행 한 줄('판정한 항목 n/m · 다음 판정 … k회 더')이 없음 (${tl.prog})`);
+  must(tl.lackRows === 0, `텔 리포트: '데이터 부족' 줄이 표에 남아 있음 (${tl.lackRows}줄)`);
   await inspect("learn-tells", "#tell-box");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const h = await page.evaluate(() => $("#tell-box").getBoundingClientRect().height);
+  must(h < 700, `텔 리포트: 폰에서 너무 김 (${Math.round(h)}px, 700 미만이어야 함)`);
+  await page.setViewportSize({ width: 1440, height: 900 });
 }
 // #165: opening a module turns the gallery into a side list; "← 전체" brings the gallery back.
 await page.locator("#mods .mod[data-k='hand.rank']").click();
@@ -482,6 +581,19 @@ if (await page.locator("#drill [data-chip]").count()) await page.locator("#drill
 await page.click("#dr-go");
 must((await page.locator("#dr-res").innerHTML()).trim() !== "", "학습 섹션: 정답 확인 후 결과가 비어 있음");
 await inspect("learn", "#dr-res");
+{
+  // #445: the equity answer and its win/tie/loss explanation come from one sample; answering 0 scores low.
+  await page.click("#dr-back");
+  await page.waitForSelector("#learn.gallery");
+  await page.locator("#mods .mod[data-k='hand.equity']").click();
+  await page.waitForSelector("#dr-go");
+  await page.evaluate(() => { LM.val = 0; $("#dr-go").disabled = false; $("#dr-go").click(); });
+  const d = await page.evaluate(() => ({ ans: LM.prob.answer, sp: LM.prob.split, res: $("#dr-res").innerText }));
+  const shown = +(/에퀴티 = 승 \+ 무\/2 ≈ (\d+)%/.exec(d.res) || [])[1];
+  must(d.sp && shown === d.ans, `학습 에퀴티: 정답 ${d.ans}와 설명 ${shown}이 다름`);
+  const want = Math.round(Math.max(0, Math.min(100, 100 - Math.max(0, d.ans - 5) * 4)));
+  must(d.res.includes(`${want}점`) && (d.ans < 18 || want <= 48), `학습 에퀴티: 0 입력 점수가 ${want}점이 아님 (정답 ${d.ans})`);
+}
 
 // 3. 복기: 단계(포지션 → 핸드 → 프리플랍 …) → 비교
 await page.click(".tab[data-view='review']");
@@ -498,6 +610,13 @@ await page.waitForSelector("#rv-out .rrow");
 must((await page.textContent("#rv-body h2")).includes("비교 결과"), "복기: 비교 결과가 표시되지 않음");
 must(await page.locator("#rv-out [data-model-action]").count() === 1, "복기: 캐시 6인 100BB 핸드인데 TP-GTO 정책 비교가 없음");
 await inspect("review", "#rv-body h2");
+{
+  const r = await page.evaluate(() => ({ nums: $$("#rv-out > div > .rrow > .t > span:first-child").map(e => parseInt(e.textContent)), txt: $("#rv-out").innerText, pill: $("#svc-pill").textContent, hero: $$("#rv-table .seat.hero .hole .card").length }));
+  must(r.nums.length >= 2 && r.nums.every((n, i) => n === i + 1), `복기: 비교 번호가 1부터 이어지지 않음 (${r.nums.join(",")})`);
+  must(!r.txt.includes("TP-GTO(모의)"), "복기: 모의 값이 'TP-GTO(모의)'로 표시됨");
+  must(/^복기 · TP-GTO .+ 비교$/.test(r.pill.trim()), `헤더 배지: 캐시 6인 100BB 복기인데 '${r.pill}'`);
+  must(r.hero === 2, `복기: 테이블에 내 카드 2장이 없음 (${r.hero}장)`);
+}
 
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
 await page.click(".tab[data-view='home']");
@@ -661,7 +780,57 @@ await inspect("home-move", "#move");
   await p4.close();
 }
 
-// 8. #444 딜 시드: 고정하지 않은 두 로드는 시드가 다르고, ?seed=N은 두 로드 모두 N으로 고정한다.
+// 8. #441 known leaks: a forced AA first-in decision in a cell the probe flagged (mid-6.leaks.json) shows the
+// strong warning instead of a frequency grade, and the home model card names the known preflop leak.
+{
+  const leaks = JSON.parse(readFileSync(resolve(webRoot, "app/policy/mid-6.leaks.json"), "utf8"));
+  const cell = leaks.leaks.filter(c => c.spot === "first_in" && c.group === "AA").sort((a, b) => a.seat - b.seat)[0];
+  must(!!cell, "known leaks: mid-6.leaks.json has no first_in AA leak cell to force (re-run python -m stalker.tools.policy_leaks)");
+  const p5 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p5.setDefaultTimeout(90_000);
+  p5.on("pageerror", e => must(false, `page error (known leaks): ${e.message}`));
+  await p5.addInitScript(() => {
+    const st = window.setTimeout.bind(window);
+    window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
+  });
+  await p5.goto(url);
+  await p5.waitForFunction(() => TPG.pol.mid && "mid" in TPG.leaks);
+  const card = p5.locator("#model-status [data-known-leak]");
+  must(await card.count() === 1 && /학습 중간본/.test(await card.textContent()) && /프리플랍/.test(await card.textContent())
+    && /issues\/391$/.test(await card.locator("a").getAttribute("href")), "known leaks: 시작 화면 모델 카드에 알려진 프리플랍 결함·#391 링크가 없음");
+  if (cell) {
+    await p5.evaluate(() => { window.__hold = true; });
+    await p5.click("#start-btn");
+    await p5.waitForFunction(() => G?.deck?.length > 0 && G.seats.some(s => s.cards.length));
+    // Seat the hero at the cell's position with AA; the seats before it get hands every policy folds first in.
+    await p5.evaluate(q => {
+      G.button = ((-3 - q) % G.n + 2 * G.n) % G.n;
+      const forced = new Map([[0, [51, 50]]]), junk = [[20, 1], [24, 5], [28, 9], [32, 13], [36, 17]];
+      for (const s of G.seats) if (!s.isHero && engSeatOf(s.i) < q) forced.set(s.i, junk[engSeatOf(s.i)]);
+      const used = new Set([...forced.values()].flat());
+      for (let i = G.deck.length - 1; i >= 0; i--) if (used.has(G.deck[i])) G.deck.splice(i, 1);
+      for (const s of G.seats) s.cards = forced.get(s.i)?.slice() ?? [G.deck.pop(), G.deck.pop()];
+      window.__hold = false;
+    }, cell.seat);
+    await p5.waitForSelector(QUICK);
+    const v = await p5.evaluate(() => ({ leak: CUR.g.model?.leak, seat: CUR.g.model?.d?.seat, hist: G.eng?.s?.history }));
+    must(v.leak?.kind === "leak" && v.leak.spot === "first_in" && v.leak.cell.group === "AA" && v.seat === cell.seat,
+      `known leaks: 강제한 AA 퍼스트 인(${cell.pos})이 결함 칸으로 잡히지 않음 (${JSON.stringify(v)})`);
+    await p5.locator(`${QUICK} [data-act='fold']:not([disabled]), ${QUICK} [data-act]:not([disabled])`).first().click();
+    await p5.evaluate(() => { window.__hold = true; });
+    await p5.click("#tp-go");
+    const warn = p5.locator("#tp-body [data-model-action] [data-leak-warn]");
+    await warn.waitFor();
+    const t = (await warn.textContent()).replace(/\s+/g, " ");
+    must(t.includes("이 스팟의 정책 답은 검증에서 손해로 확인됨 (#391)") && t.includes(`+${cell.gain_bb} bb`), `known leaks: 경고 문구가 다름 (${t})`);
+    must((await p5.locator("#tp-body [data-model-action] .t").first().textContent()).includes("채점 안 함"), "known leaks: 결함 칸인데 정책 행 대비 내 선택 빈도를 보여 줌");
+    await p5.screenshot({ path: `${shots}/train-leak-warn-laptop.png` });
+    console.log(`known leaks: ${cell.pos} AA 퍼스트 인 경고 (+${cell.gain_bb} bb)`);
+  }
+  await p5.close();
+}
+
+// 9. #444 딜 시드: 고정하지 않은 두 로드는 시드가 다르고, ?seed=N은 두 로드 모두 N으로 고정한다.
 {
   const base = url.replace(/&seed=\d+/, "");
   const seedOf = async q => {
