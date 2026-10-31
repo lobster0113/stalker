@@ -197,9 +197,9 @@ def run(t: dict, seed: int, train_hands: int, eval_deals: int, audit: bool = Fal
         min_visits: int = 10, reg: dict | None = None) -> dict:
     """Train one attacker (seed checked against the registry), evaluate it, record its versions."""
     role = check_seed(seed, audit, reg)
+    code, git = hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), _git_sha()    # before the long part
     att = train(t, train_hands, seed, eps, min_visits)
-    out = {"attacker": ATTACKER, "role": role, "seed": seed,
-           "code_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), "git_sha": _git_sha(),
+    out = {"attacker": ATTACKER, "role": role, "seed": seed, "code_sha256": code, "git_sha": git,
            "policy_sha256": t.get("sha256"), "train_hands": train_hands, "eps": eps, "min_visits": min_visits,
            "attacker_k": ATTACKER_K, "keys": len(att.q), "deviating_keys": att.deviations(),
            "table_sha256": att.sha256(), "wording": WORDING}
