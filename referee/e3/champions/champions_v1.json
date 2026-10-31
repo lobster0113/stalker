@@ -1,0 +1,39 @@
+{
+ "version": 1,
+ "note": "Archived TP-key policies used as field opponents ('champion:<name>', field_v2.json, #413). Each file is a gzipped web policy export (stalker.web.policy) copied byte for byte from git history; sha256 is over the uncompressed JSON (the blob at `source`). Add entries; never edit or replace a registered file.",
+ "champions": [
+  {
+   "name": "beginner-40783153094",
+   "file": "beginner-40783153094.json.gz",
+   "sha256": "dc7fd9e58dcc92e66466581293398e013afdc53fa39e50fc2d14b28ee9e2b82a",
+   "source": "web/app/policy/beginner-6.json@7e04e31",
+   "job": "e3-tp-beginner",
+   "run_id": "40783153094",
+   "iterations": 200000,
+   "strategy": "current",
+   "served": "first served beginner (#344)"
+  },
+  {
+   "name": "mid-40780486937",
+   "file": "mid-40780486937.json.gz",
+   "sha256": "fdd0c2f04897ca2ceb024e9a57b045a65a5fc66a575576847b017504e9ca03d9",
+   "source": "web/app/policy/mid-6.json@7e04e31",
+   "job": "e3-tp-mid-w4",
+   "run_id": "40780486937",
+   "iterations": 100000,
+   "strategy": "current",
+   "served": "first served mid (#344), replaced by #363"
+  },
+  {
+   "name": "mid-40851654734",
+   "file": "mid-40851654734.json.gz",
+   "sha256": "5f186065deeac972d164a300e11c4dae8eded60dcd3016a3da3bceb43bfdbd6a",
+   "source": "web/app/policy/mid-6.json@21e0894",
+   "job": "e3-tp-mid-pod",
+   "run_id": "40851654734",
+   "iterations": 800000,
+   "strategy": "average",
+   "served": "second served mid (#363), replaced by #379"
+  }
+ ]
+}
