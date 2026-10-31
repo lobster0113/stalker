@@ -296,6 +296,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
         # #460: b1 plus board.adv/opp.value/plan.foldeq (B2) vs e3-tp-mid-b1-w4, same iterations and seeds
         "e3-tp-mid-b2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b2-w4", workers=4, key_variant="b2"),
+        # #461: b1 plus the public facts (opponent seats, last bettor, preflop aggressor) vs e3-tp-mid-b1-w4
+        "e3-tp-mid-b3-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b3-w4", workers=4, key_variant="b3"),
         # #399: effective-stack depth of me and every live opponent in the key (S) vs mine only, both on
         # 20-250BB tables, same iterations and seeds
         "e3-tp-mid-s2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2-w4", workers=4, key_variant="s2",
@@ -312,7 +314,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
              "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
-             "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
+             "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
