@@ -1033,3 +1033,4 @@
 {"ts":"2026-10-31T21:21:17Z","role":"reviewer","outcome":"skipped","issue":475,"pr":484,"notes":"not my parity","friction":""}
 {"ts":"2026-10-31T21:21:33Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"builder-b 열린 PR 2개(#466·#480) 규칙 3에 따라 종료; 남은 ready는 #479(다시간 체인)뿐","friction":"MERGE 판정 후 머지 거부 PR이 builder-b 슬롯 점유(#482 대기)"}
 {"ts":"2026-10-31T21:41:25Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs 484,480,466 all even (reviewer-b parity); no odd PR to judge","friction":""}
+{"ts":"2026-10-31T22:05:59Z","role":"reviewer-b","outcome":"merged","issue":475,"pr":484,"notes":"docs-only b3 vs b1 CI comparison; all table values re-derived from ops training JSON; CI run 41243171967 green","friction":"superseded CI run left a stale failed gates check on the same sha; check-runs listing mixes both runs, had to filter by run id. 120s default Bash timeout backgrounded the first wait loop."}
