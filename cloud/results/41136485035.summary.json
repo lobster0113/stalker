@@ -1,0 +1,141 @@
+{
+ "job": "e3-tp-mid9-pod",
+ "tier": "mid",
+ "players": 9,
+ "seed": 1,
+ "workers": 32,
+ "batch": 500,
+ "iters": 880000,
+ "resumed_from_run": null,
+ "chunk_iters": 880000,
+ "resumed_from": 0,
+ "train_seconds": 5439.2,
+ "iters_per_s": 161.79,
+ "sync_frac": 0.026,
+ "field": null,
+ "field_seconds": 0.0,
+ "infosets": 86350,
+ "coverage": {
+  "fc": {
+   "keys": 501,
+   "under10": 6
+  },
+  "fcra": {
+   "keys": 43481,
+   "under10": 10318
+  },
+  "fca": {
+   "keys": 30999,
+   "under10": 10333
+  },
+  "kb33b75a": {
+   "keys": 8455,
+   "under10": 1160
+  },
+  "ka": {
+   "keys": 1421,
+   "under10": 237
+  },
+  "kb33a": {
+   "keys": 1460,
+   "under10": 287
+  },
+  "cra": {
+   "keys": 33,
+   "under10": 0
+  }
+ },
+ "lbr": {
+  "lbr_bb": 0.4576,
+  "stderr_bb": 0.1344,
+  "by_seat": {
+   "UTG": 0.0,
+   "UTG1": 0.0,
+   "UTG2": 0.1189,
+   "LJ": 0.2125,
+   "HJ": 0.3531,
+   "CO": 0.1925,
+   "BTN": 0.2979,
+   "SB": 0.4117,
+   "BB": 2.5314
+  },
+  "hands": 1000
+ },
+ "lbr_average": {
+  "lbr_bb": 0.443,
+  "stderr_bb": 0.1483,
+  "by_seat": {
+   "UTG": 0.0,
+   "UTG1": -0.0905,
+   "UTG2": 0.013,
+   "LJ": 0.105,
+   "HJ": 0.7235,
+   "CO": 1.3462,
+   "BTN": 0.3552,
+   "SB": -0.062,
+   "BB": 1.597
+  },
+  "hands": 1000
+ },
+ "lbr_offmenu": {
+  "lbr_bb": 0.9978,
+  "stderr_bb": 0.1888,
+  "by_seat": {
+   "UTG": 0.0,
+   "UTG1": 0.0,
+   "UTG2": 0.0125,
+   "LJ": 0.2653,
+   "HJ": 0.451,
+   "CO": 0.39,
+   "BTN": 0.6447,
+   "SB": 2.7072,
+   "BB": 4.5094
+  },
+  "hands": 1000
+ },
+ "lbr_seconds": 151.9,
+ "policy_sha256": "9b4be908f3f3835dd010bd692e61b65c97318fcbeed356f91fb646141d935db8",
+ "model": {
+  "k": 11,
+  "n": 9,
+  "depth": "full",
+  "iterations": 880000,
+  "nodes": 513382871,
+  "menu": "v1",
+  "raise_cap": 3,
+  "avg_rule": "legacy",
+  "rng": {
+   "bit_generator": "PCG64",
+   "state": {
+    "state": 222672808142335904138174781616838917598,
+    "inc": 194290289479364712180083596243593368443
+   },
+   "has_uint32": 0,
+   "uinteger": 0
+  }
+ },
+ "checkpoint": {
+  "format": "npz",
+  "dtype": "float64",
+  "b64": {
+   "omitted_chars": 5887272,
+   "sha256": "98457e0f4857eca4466a78ec60f41de68bbefbbaa057997573809d7f7e6b97f2"
+  }
+ },
+ "max_rss_mb": 911.1,
+ "max_child_rss_mb": 524.7,
+ "machine": {
+  "cpu_model": "AMD EPYC 9575F 64-Core Processor",
+  "cpu_count": 128,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "max 100000",
+  "mem_total_mb": 515240,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.41"
+ },
+ "sha": "ab1d186b47bed7305708d6aaa02508d50a6c9394",
+ "_summary_of": {
+  "result_bytes": 5889311,
+  "result_sha256": "aedd08421c4f3347159afafa60d75a3880a336929ad487ee2f485d95304d753a"
+ }
+}
