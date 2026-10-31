@@ -230,3 +230,30 @@ def test_probe_on_the_average_policy_reaches_the_summary(tmp_path, monkeypatch):
 def test_probe_refuses_key_variants(tmp_path):
     with pytest.raises(SystemExit, match="default keys"):
         T._e3_tp(1, 1, tmp_path, tier="beginner", name="x", key_variant="b1", probe=True)
+
+
+def test_probe_time_stays_out_of_train_seconds(tmp_path, monkeypatch):
+    # #446 review: A gained the probe, so its it/s must stay comparable to earlier A runs without it
+    import time as real_time
+    from types import SimpleNamespace
+
+    import referee.e3.lbr as lbr3
+
+    clock = [0.0]
+
+    def tick():
+        clock[0] += 0.001
+        return clock[0]
+
+    def slow_probe(m, avg, seed, workers=1):
+        clock[0] += 1000.0
+        return {"leaks": 0}
+
+    monkeypatch.setattr(T, "time", SimpleNamespace(monotonic=tick, time=real_time.time, sleep=real_time.sleep))
+    monkeypatch.setattr(T, "e3_probe", slow_probe)
+    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n, depth, extra_sizes=False:
+                        {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
+    r = T._e3_tp(1, 2, tmp_path, tier="beginner", name="x", menu="real", raise_cap=None, probe=True)
+    assert r["probe_average"] == {"leaks": 0}
+    assert r["train_seconds"] < 1.0 and r["iters_per_s"] > 2.0
