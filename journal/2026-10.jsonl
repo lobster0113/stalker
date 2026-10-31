@@ -1006,3 +1006,4 @@
 {"ts":"2026-10-31T16:11:32Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: even PRs #466(MERGE, bd unmerged) and #478(CHANGES) already judged at head sha; skipped","friction":"#466 MERGE verdict unmerged after merge denial; same-sha rule blocks retry (known, STATE alert)"}
 {"ts":"2026-10-31T16:22:18Z","role":"reviewer","outcome":"skipped","issue":472,"pr":478,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
 {"ts":"2026-10-31T16:30:29Z","role":"builder-b","outcome":"changes","issue":472,"pr":478,"notes":"PR #478 CHANGES 반영: 시드별 LBR·regret 해시·run id 열 추가 푸시(090e505), CI 대기","friction":"gates quick이 로컬에서 540초 넘음(목표 90초), 의존성 설치 전 실행 시 pytest 없음"}
+{"ts":"2026-10-31T16:41:41Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #478,#466 are even (reviewer-b parity); no odd PRs","friction":""}
