@@ -194,6 +194,78 @@ def _rank_runouts(combos, ok, fulls, acc, SH, POP, HI, K5, K3, K2, CAT):
                 acc[i] += (lo + (hi - lo - 1) / 2) / den
 
 
+def _runout_tables(combos, ok, fulls, nb, SH, POP, HI, K5, K3, K2, CAT, idx, order, lo, hi, off):
+    """`stalker.e2.eq_view._runouts` for every runout (row of `fulls`, the first `nb` cards are the
+    board) written flat into idx/order/lo/hi (capacity R*n) with segment offsets `off`; returns the
+    used length. Same integers as the numpy version: a stable argsort of the 7-card scores and the
+    left/right tie-group bounds. Without a flush a score depends only on the two ranks, so each runout
+    scores at most 91 rank pairs plus the flush combos (as `_rank_runouts`) instead of all combos (#462)."""
+    n = combos.shape[0]
+    hand = np.empty(7, dtype=np.int64)
+    cnt = np.zeros(13, dtype=np.int64)
+    smask = np.zeros(4, dtype=np.int64)
+    bcnt = np.zeros(13, dtype=np.int64)
+    bsuit = np.zeros(4, dtype=np.int64)
+    val = np.empty(169, dtype=np.int64)
+    score = np.empty(n, dtype=np.int64)
+    pos = 0
+    off[0] = 0
+    for r in range(fulls.shape[0]):
+        bcnt[:] = 0
+        bsuit[:] = 0
+        gone = 0  # bit c set: card c is drawn by this runout (not on the given board)
+        for j in range(5):
+            c = fulls[r, j]
+            if j >= nb:
+                gone |= 1 << c
+            bcnt[c >> 2] += 1
+            bsuit[c & 3] += 1
+            hand[2 + j] = c
+        fs = -1
+        for k in range(4):
+            if bsuit[k] >= 3:
+                fs = k
+        val[:] = -1
+        m = 0
+        for i in range(n):
+            if not ok[i]:
+                continue
+            a, b = combos[i, 0], combos[i, 1]
+            if (gone >> a) & 1 or (gone >> b) & 1:
+                continue
+            if fs >= 0 and bsuit[fs] + ((a & 3) == fs) + ((b & 3) == fs) >= 5:
+                hand[0], hand[1] = a, b
+                sc = _eval_one(hand, SH, POP, HI, K5, K3, K2, CAT, cnt, smask)
+            else:
+                ra, rb = a >> 2, b >> 2
+                e = min(ra, rb) * 13 + max(ra, rb)
+                if val[e] < 0:
+                    for t in range(13):
+                        cnt[t] = bcnt[t]
+                    cnt[ra] += 1
+                    cnt[rb] += 1
+                    val[e] = _eval_ranks(cnt, SH, HI, K5, K3, K2, CAT)
+                sc = val[e]
+            idx[pos + m] = i
+            score[m] = sc
+            m += 1
+        srt = np.argsort(score[:m], kind="mergesort")  # stable, like numpy's kind="stable"
+        g = 0
+        while g < m:
+            h = g
+            while h < m and score[srt[h]] == score[srt[g]]:
+                h += 1
+            for t in range(g, h):
+                lo[pos + srt[t]] = g
+                hi[pos + srt[t]] = h
+            g = h
+        for t in range(m):
+            order[pos + t] = srt[t]
+        pos += m
+        off[r + 1] = pos
+    return pos
+
+
 def _equity_segments(w, idx, order, lo, hi, off, acc, cnt):
     """Equity against range weights `w`, runout by runout (segment r = off[r]:off[r+1]): the same
     operations, in the same order, as the numpy loop in `stalker.e2.eq_view.equity_vs`."""
@@ -248,6 +320,7 @@ if HAVE_NUMBA:
     _eval_many = njit(cache=True)(_eval_many)
     _rank_runouts = njit(cache=True)(_rank_runouts)
     _equity_segments = njit(cache=True)(_equity_segments)
+    _runout_tables = njit(cache=True)(_runout_tables)
     _quantile_steps = njit(cache=True)(_quantile_steps)
 
 
@@ -264,6 +337,16 @@ def rank_runouts(combos: np.ndarray, ok: np.ndarray, fulls: np.ndarray, acc: np.
     usefully fast compiled; tests call it either way to check the kernel logic."""
     _rank_runouts(combos, ok, fulls, acc, _SH, _POP, _HI, _KICK5, _KICK3, _KICK2, _CAT)
 
+
+
+def runout_tables(combos: np.ndarray, ok: np.ndarray, fulls: np.ndarray, nb: int):
+    """Flat runout tables (idx, order, lo, hi, off) of `stalker.e2.eq_view._flat_runouts`, built in one compiled call (#462).
+    Plain Python without numba (slow but exact)."""
+    cap = fulls.shape[0] * combos.shape[0]
+    idx, order, lo, hi = (np.empty(cap, dtype=np.int64) for _ in range(4))
+    off = np.empty(fulls.shape[0] + 1, dtype=np.int64)
+    used = _runout_tables(combos, ok, fulls, nb, _SH, _POP, _HI, _KICK5, _KICK3, _KICK2, _CAT, idx, order, lo, hi, off)
+    return idx[:used].copy(), order[:used].copy(), lo[:used].copy(), hi[:used].copy(), off
 
 
 def equity_segments(w, idx, order, lo, hi, off, acc, cnt) -> None:
