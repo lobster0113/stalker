@@ -209,6 +209,9 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .seat .hole .card:nth-child(1) { transform: rotate(-6deg) translateX(3px); }
 .seat .hole .card:nth-child(2) { transform: rotate(6deg) translateX(-3px); }
 .seat.hero .hole { height: calc(var(--cw) * 1.4 * 1.12); margin-bottom: calc(var(--cw) * -.12); }
+.seat .hole .card.mucked { opacity: .35; }
+.seat.target .pod { box-shadow: 0 0 0 2px var(--brass), 0 0 18px rgba(214,171,85,.55); }
+.seat .target-tag { position: absolute; left: 50%; top: -10px; transform: translateX(-50%); z-index: 6; background: var(--brass); color: #1a1408; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
 .seat.hero .hole .card { --cw: calc(clamp(30px, 3.6vw, 54px) * 1.12); }
 .pod { --p: 0; position: relative; z-index: 2; width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 6px 10px 6px 6px; border-radius: 999px; background: linear-gradient(180deg, #222c33, #12191d); border: 1px solid #000; box-shadow: 0 8px 20px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07); }
 .pod::before { content: ""; position: absolute; inset: -3px; border-radius: 999px; padding: 2px; background: conic-gradient(var(--brass-hi) calc(var(--p) * 1turn), transparent 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity .2s; }
@@ -356,6 +359,11 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .rrow.ref { border-style: dashed; }
 .size-free { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .size-free input[type="range"] { flex: 1; min-width: 0; }
+.dial { padding: 6px 2px 2px; }
+.dial input[data-unset]::-webkit-slider-thumb { opacity: .55; }
+.dial input[data-unset]::-moz-range-thumb { opacity: .55; }
+.hand-review { display: grid; gap: 8px; }
+.hand-review .rp-note { color: var(--muted); font-size: 12.5px; }
 .size-num { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
 .size-num input { width: 76px; background: var(--ink); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 7px; font: 600 14px/1 var(--font-display); }
 .size-num input:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
@@ -603,6 +611,16 @@ details.why[open] > summary { margin-bottom: 8px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .modal { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(0,0,0,.6); padding: 16px; }
 .modal .box { max-width: 380px; text-align: center; display: grid; gap: 12px; }
+.modal .box.report { max-width: 640px; width: 100%; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: auto; text-align: left; }
+.report .rp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.report .rp-kpis div { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+.report .rp-kpis b { font-size: 18px; color: var(--text); }
+.report h3 { font-size: 14px; font-weight: 600; margin-top: 4px; }
+.report table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.report td, .report th { padding: 5px 4px; border-top: 1px solid var(--line-soft); text-align: left; font-weight: 400; vertical-align: top; }
+.report td.r { text-align: right; white-space: nowrap; }
+.report .rp-note { color: var(--faint); font-size: 12px; }
+.report .rp-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1080px) {
@@ -854,12 +872,97 @@ const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let rngState = 20261027;
 function rand() { rngState |= 0; rngState = rngState + 0x6D2B79F5 | 0; let t = Math.imul(rngState ^ rngState >>> 15, 1 | rngState); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
 const pick = a => a[Math.floor(rand() * a.length)];
-const sleep = ms => new Promise(r => setTimeout(r, REDUCED ? Math.min(ms, 120) : ms));
+// After the hero folds the rest of the hand plays fast (owner request #464): they are reading the analysis.
+const sleep = ms => new Promise(r => setTimeout(r, REDUCED || G?.fast ? Math.min(ms, G?.fast ? 60 : 120) : ms));
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600); }
 const store = {
   get(k, d) { try { const v = localStorage.getItem("stalker." + k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem("stalker." + k, JSON.stringify(v)); } catch {} }
 };
+/* ---------- sound (#464 owner request): Kenney Casino Audio (CC0, app/assets/sfx/LICENSE.txt), one switch on the info bar ---------- */
+// Recorded cards and chips where the pack has them; the check knock (and any file that fails to load or
+// decode, e.g. Ogg on older Safari) is synthesized. Variants rotate, and the synth noise is a fixed LCG,
+// so sound never touches the game's seeded deal RNG.
+const SFX_FILES = { deal: ["card-slide-1", "card-slide-3", "card-slide-5"], flip: ["card-place-1", "card-place-2", "card-place-3"],
+  fold: ["card-shove-1", "card-shove-2"], muck: ["card-shove-2"], shuffle: ["card-shuffle"], call: ["chip-lay-1", "chip-lay-2", "chip-lay-3"],
+  bet: ["chips-handle-1", "chips-handle-2"], raise: ["chips-handle-2", "chips-handle-1"], allin: ["chips-collide-1", "chips-collide-2", "chips-collide-3"],
+  win: ["chips-stack-1", "chips-stack-2", "chips-stack-3"] };
+const SFX_GAIN = { deal: 0.55, flip: 0.7, shuffle: 0.6 };
+// Spoken actions (owner request): male (OpenAI "onyx") and female ("nova") Korean words at speed 1.2, made
+// on ttsmp3.com AI voices, whose MP3s may be used commercially (web/app/assets/sfx/VOICES.txt).
+const VOICE_KINDS = ["call", "fold", "check", "bet", "raise", "allin"];
+const voiceFile = (g, k) => `voice-${g}-${k}`;
+function sfxLoad(ctx) {
+  if (SND.buf) return;
+  SND.buf = {};
+  const base = (window.STALKER_APP_BASE || "../app/") + "assets/sfx/";
+  const files = [...new Set(Object.values(SFX_FILES).flat())].map(n => [n, n + ".ogg"])
+    .concat(["m", "f"].flatMap(g => VOICE_KINDS.map(k => [voiceFile(g, k), voiceFile(g, k) + ".mp3"])));
+  for (const [n, f] of files)
+    fetch(base + f).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+      .then(a => ctx.decodeAudioData(a)).then(b => { SND.buf[n] = b; }, () => { SND.buf[n] = null; });
+}
+// voice: "m" | "f" | false (older saves stored true = male)
+const SND = { on: store.get("sound", true), voice: (v => v === true ? "m" : v)(store.get("voice", "m")), ctx: null, seed: 1 };
+const SND_MODES = [["남성 음성", true, "m"], ["여성 음성", true, "f"], ["효과음만", true, false], ["소리 끔", false, false]];
+const sndMode = () => !SND.on ? 3 : SND.voice === "f" ? 1 : SND.voice ? 0 : 2;
+const SAY = { fold: "폴드", check: "체크", call: "콜", bet: "벳", raise: "레이즈", allin: "올인" };
+function sfx(kind) {
+  if (window.__sfxLog) window.__sfxLog.push(kind);   // Gate U reads which sounds fired
+  if (!SND.on) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = SND.ctx ||= new AC();
+    if (ctx.state === "suspended") ctx.resume();
+    const t0 = ctx.currentTime + 0.01, out = ctx.destination;
+    sfxLoad(ctx);
+    const list = SFX_FILES[kind], name = list && list[(SND.turn = (SND.turn || 0) + 1) % list.length], buf = name && SND.buf[name];
+    if (buf) {
+      const src = ctx.createBufferSource(), g = ctx.createGain();
+      src.buffer = buf; g.gain.value = SFX_GAIN[kind] ?? 0.9; src.connect(g).connect(out); src.start(t0);
+      if (kind === "allin") { const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(70, t0 + .5); og.gain.setValueAtTime(.2, t0); og.gain.exponentialRampToValueAtTime(.0001, t0 + .5); o.connect(og).connect(out); o.start(t0); o.stop(t0 + .55); }
+      return sayIt(kind);
+    }
+    const rnd = () => (SND.seed = (SND.seed * 1103515245 + 12345) % 2147483648) / 1073741824 - 1;
+    const noise = (at, dur, freq, q, gain) => {
+      const n = Math.max(1, Math.floor(ctx.sampleRate * dur)), b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = rnd() * (1 - i / n) ** 3;
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = b; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q; g.gain.value = gain;
+      src.connect(f).connect(g).connect(out); src.start(t0 + at);
+    };
+    const tone = (at, freq, dur, gain, type = "sine", to = null) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t0 + at); if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + at + dur);
+      g.gain.setValueAtTime(gain, t0 + at); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+      o.connect(g).connect(out); o.start(t0 + at); o.stop(t0 + at + dur + 0.02);
+    };
+    const chips = (n, gap = 0.045) => { for (let i = 0; i < n; i++) { noise(i * gap, 0.035, 5200 + 900 * Math.sin(i * 1.7), 6, 0.55); tone(i * gap, 3100 + 400 * (i % 3), 0.05, 0.05, "triangle"); } };
+    if (kind === "deal") noise(0, 0.07, 2600, 0.9, 0.5);
+    else if (kind === "flip") { noise(0, 0.04, 1800, 1.4, 0.6); noise(0.035, 0.03, 4200, 1.2, 0.3); }
+    else if (kind === "check") { tone(0, 150, 0.09, 0.5, "sine", 90); tone(0.13, 150, 0.09, 0.45, "sine", 90); noise(0, 0.03, 700, 2, 0.4); noise(0.13, 0.03, 700, 2, 0.35); }
+    else if (kind === "call") chips(3);
+    else if (kind === "bet" || kind === "raise") chips(5);
+    else if (kind === "allin") { chips(11, 0.032); tone(0.05, 110, 0.5, 0.25, "sine", 70); }
+    else if (kind === "fold") noise(0, 0.16, 1100, 0.7, 0.35);
+    else if (kind === "win") chips(8, 0.06);
+    else if (kind === "muck") noise(0, 0.12, 900, 0.8, 0.3);
+  } catch (e) { /* no audio device: the game plays on silently */ }
+  sayIt(kind);
+}
+function sayIt(kind) {
+  if (!SND.on || !SND.voice || !SAY[kind]) return;
+  const buf = SND.buf?.[voiceFile(SND.voice, kind)], ctx = SND.ctx;
+  if (buf && ctx) {
+    try { SND.say?.stop(); } catch (e) { }
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = buf; g.gain.value = 0.9; src.connect(g).connect(ctx.destination); src.start(ctx.currentTime + 0.06); SND.say = src;
+    return;
+  }
+  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return;   // files not loaded yet: the browser voice
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(SAY[kind]); u.lang = "ko-KR"; u.rate = 1.15; u.volume = 0.8; speechSynthesis.speak(u); } catch (e) { }
+}
 
 /* ================= cards & evaluator ================= */
 const RANKS = "23456789TJQKA", SUITS = "♣♦♥♠";
@@ -1433,17 +1536,19 @@ function renderInfo() {
   const el = $("#infobar");
   if (G.tour) {
     const m = Math.floor(G.levelLeft / 60), s = String(G.levelLeft % 60).padStart(2, "0");
-    el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
+    el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
   } else {
     const hero = G.seats.find(x => x.isHero), net = hero ? hero.bank + hero.stack - 100 * G.bb : 0;
     const src = G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" title="이 설정의 TP-GTO는 학습 중이에요">규칙 봇 · 모의 정답</span>`;
-    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span>${sessHTML(net)}${G.tier !== S.tier ? `<span class="pill" data-tier-next>${tierNextMsg()}</span>` : ""}<span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="new-game">새 게임</button>`;
+    el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span>${sessHTML(net)}${G.tier !== S.tier ? `<span class="pill" data-tier-next>${tierNextMsg()}</span>` : ""}<span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
   }
   $("#new-game").onclick = () => { G.dead = true; G = null; startGame(); };
+  $("#end-game").onclick = endSession;
+  $("#sound-btn").onclick = () => { const m = SND_MODES[(sndMode() + 1) % SND_MODES.length]; SND.on = m[1]; SND.voice = m[2]; store.set("sound", SND.on); store.set("voice", SND.voice); if (!SND.on) try { speechSynthesis.cancel(); } catch (e) { } renderInfo(); sfx("check"); };
   const sd = $("#infobar [data-sess]"); if (sd) sd.ontoggle = () => { if (G) G.sessOpen = sd.open; };
 }
 // Level clock is game time, not wall time: it stops while the hero thinks (TP input), so careful study is never penalised.
-const clockFrozen = () => !!heroResolve;
+const clockFrozen = () => !!heroResolve || !!G?.paused;
 setInterval(() => { if (G && G.tour && !clockFrozen() && $("#view-train").classList.contains("active")) { G.levelLeft = Math.max(0, G.levelLeft - 1); renderInfo(); } }, 1000);
 
 function bubble(s, text, cls = "") {
@@ -1463,6 +1568,7 @@ async function flyChips(fromPct, toPct, amount) {
   await sleep(520); f.remove();
 }
 async function dealAnim(s, idx) {
+  sfx("deal");
   const target = { x: P[s.i].x, y: P[s.i].y - 6 };
   const f = h("div", "fly"); f.appendChild(cardEl(null, { back: true })); f.style.left = "50%"; f.style.top = "30%"; f.style.opacity = ".2";
   $("#layer").appendChild(f); await sleep(20); f.style.left = target.x + "%"; f.style.top = target.y + "%"; f.style.opacity = "1";
@@ -1471,6 +1577,7 @@ async function dealAnim(s, idx) {
   hole.appendChild(cardEl(s.isHero ? s.cards[idx] : null, { back: !s.isHero }));
 }
 function revealHole(s, win) {
+  if (!win) sfx("flip");
   const hole = $("#seat-" + s.i + " .hole"); hole.innerHTML = "";
   for (const c of s.cards) { const e = cardEl(c); e.classList.add("flip"); if (win) e.classList.add("win"); hole.appendChild(e); }
 }
@@ -1488,7 +1595,7 @@ async function runLoop() {
 async function playHand(token) {
   const alive = () => G && token === gameToken;
   if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
-  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null;
+  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
   // TP-GTO tables: every seat starts each hand at 100BB (top-up, excess banked into the session result)
   if (G.eng) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
   // replenish
@@ -1510,7 +1617,7 @@ async function playHand(token) {
   let rigBoard = null;
   if (RIG) { const r = rigDeal(RIG); RIG = null; G.seats[0].cards = r.hero; rigBoard = r.board; for (const c of [...r.hero, ...r.board]) deck.splice(deck.indexOf(c), 1); toast("복기한 핸드와 비슷한 상황을 만들었어요"); }
   G.deck = deck; G.rigBoard = rigBoard;
-  renderInfo(); renderSeats(); setTP("waiting");
+  renderInfo(); renderSeats(); setTP("waiting"); sfx("shuffle");
   // deal
   const order = []; let k = nextIdx(G.button); for (let c = 0; c < G.n; c++) { order.push(G.seats[k]); k = nextIdx(k); }
   for (let r = 0; r < 2; r++) for (const s of order) { if (!s.cards[r]) s.cards[r] = deck.pop(); if (!alive()) return; await dealAnim(s, r); }
@@ -1528,7 +1635,7 @@ async function playHand(token) {
     if (st > 0) {
       await collectBets(); if (!alive()) return;
       const cnt = st === 1 ? 3 : 1;
-      for (let c = 0; c < cnt; c++) { const card = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(card); const e = cardEl(card); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(220); }
+      for (let c = 0; c < cnt; c++) { const card = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(card); const e = cardEl(card); e.classList.add("flip"); sfx("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(220); }
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
       engCheckBoard();
       G.prevAgg = G.lastAgg; G.prevBet = G.streetRaises > (st === 1 ? 1 : 0);   // persona c-bet / probe spots (#429)
@@ -1540,10 +1647,13 @@ async function playHand(token) {
       const res = await bettingRound(start, alive); if (!alive()) return;
     }
     if (live().length === 1) break;
+    // All in before the river with no more betting: every hand is turned face up now, then the board runs out.
+    if (st < 3 && !G.faceUp && canAct().length <= 1) { await collectBets(); if (!alive()) return; await faceUpAll(); }
   }
   await collectBets(); if (!alive()) return;
   await showdown(alive);
   recordHandResult();
+  if (alive()) await handReview(alive);
 }
 // Per-hand session list (#445): a few hands swing a lot, so the session total comes with its parts.
 function recordHandResult() {
@@ -1557,6 +1667,57 @@ function sessHTML(net) {
   const rows = hs.slice(-30).reverse().map(x => `<tr><td>#${x.no}</td><td>${x.cards}</td><td>${x.folded ? "폴드" : x.net > 0 ? "획득" : x.net < 0 ? "패배" : "본전"}</td><td class="r num ${x.net > 0 ? "good" : x.net < 0 ? "bad" : ""}">${sgn(x.net)}</td></tr>`).join("");
   return `<details class="sess" data-sess${G.sessOpen ? " open" : ""}><summary>세션 <b class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${sgn(net)} BB</b></summary>
     <div class="sess-pop">${hs.length ? `<table><tbody>${rows}</tbody></table>` : "아직 끝난 핸드가 없어요."}<p>${hs.length} 핸드 결과예요. 몇십 핸드의 손익은 운(분산)이 대부분이라 실력을 재기 어려워요. 실력은 TP 점수와 결정마다의 비교로 보세요.</p></div></details>`;
+}
+// Session report (#464): every graded decision of this game, kept so the player can stop and look back.
+const LOW_FREQ = 0.10;
+function recordDecision(gr) {
+  if (!gr) return;
+  const a = gr.refs.find(r => r.kind === "model-action"), m = a?.model, top = m ? m.mix.slice().sort((x, y) => y.p - x.p)[0] : null;
+  (G.decs ||= []).push({ hand: G.handNo, street: gr.street, cards: gr.hand, total: gr.total, rows: gr.rows.map(r => ({ k: r.k, score: r.score })),
+    act: m && a.you ? { me: m.mix.find(x => x.a === a.you.label)?.name || a.you.label, p: a.you.p, approx: !!a.you.approx, top: top.name, topP: top.p, leak: m.leak?.kind === "leak" } : null });
+}
+function sessionReport() {
+  const ds = G.decs || [], hs = G.hands || [], hero = G.seats.find(x => x.isHero);
+  const net = G.tour ? null : (hero ? hero.bank + hero.stack - 100 * G.bb : 0);
+  const graded = ds.filter(d => d.total != null), items = {};
+  for (const d of ds) for (const r of d.rows) { const it = items[r.k] ||= { k: r.k, n: 0, sum: 0 }; it.n++; it.sum += r.score; }
+  const byItem = Object.values(items).map(it => ({ ...it, avg: Math.round(it.sum / it.n) })).sort((a, b) => a.avg - b.avg);
+  const acts = ds.filter(d => d.act && !d.act.leak), low = acts.filter(d => d.act.p < LOW_FREQ);
+  return { hands: hs.length, decisions: ds.length, net, graded: graded.length,
+    score: graded.length ? Math.round(graded.reduce((a, d) => a + d.total, 0) / graded.length) : null, byItem,
+    compared: acts.length, leaks: ds.filter(d => d.act?.leak).length,
+    meanFreq: acts.length ? acts.reduce((a, d) => a + d.act.p, 0) / acts.length : null, low };
+}
+function reportHTML(r) {
+  const sgn = x => (x > 0 ? "+" : "") + bbf(x), pc = x => Math.round(x * 100) + "%";
+  const kpi = (v, t, attr) => `<div ${attr}><span>${t}</span><b class="num">${v}</b></div>`;
+  const kpis = `<div class="rp-kpis">${kpi(r.hands, "끝난 핸드", "data-rp-hands")}${kpi(r.decisions, "내 결정", "data-rp-decisions")}${r.net == null ? "" : kpi(`<span class="${r.net > 0 ? "good" : r.net < 0 ? "bad" : ""}">${sgn(r.net)} BB</span>`, "세션 손익", "data-rp-net")}${kpi(r.score ?? "—", "TP 점수 평균", "data-rp-score")}</div>`;
+  const items = r.byItem.length ? `<h3>항목별 점수 (약한 순)</h3><table data-rp-items><tbody>${r.byItem.map(it => `<tr data-k="${it.k}"><th scope="row">${SHORT[it.k] || it.k}</th><td class="r num">${it.avg}점</td><td class="r num">${it.n}회</td></tr>`).join("")}</tbody></table>`
+    : `<p class="rp-note">채점된 판단 항목이 없어요. Guided로 두거나 Quick에서 '분석 보기'를 열면 항목별 점수가 쌓여요.</p>`;
+  const act = r.compared ? `<h3>TP-GTO 액션 비교</h3><p class="rp-note" data-rp-act>비교한 결정 <b class="num">${r.compared}</b>회 · 내 선택의 평균 정책 빈도 <b class="num">${pc(r.meanFreq)}</b> · 정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만) <b class="num">${r.low.length}</b>회${r.leaks ? ` · 알려진 결함 칸 ${r.leaks}회는 빼고 셌어요` : ""}</p>
+    ${r.low.length ? `<table data-rp-low><tbody>${r.low.map(d => `<tr><td>#${d.hand} · ${d.street}</td><td>${d.cards}</td><td>내 선택 ${d.act.me} <span class="num">${d.act.approx ? "≈" : ""}${pc(d.act.p)}</span></td><td>정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span></td></tr>`).join("")}</tbody></table>` : ""}`
+    : `<p class="rp-note">TP-GTO 정책과 비교한 결정이 없어요(캐시게임 6인 100BB에서 비교돼요).</p>`;
+  const hands = r.hands ? `<details data-rp-hands-list><summary>핸드별 결과 ${r.hands}개</summary><table><tbody>${(G.hands || []).slice().reverse().map(x => `<tr><td>#${x.no}</td><td>${x.cards}</td><td>${x.folded ? "폴드" : x.net > 0 ? "획득" : x.net < 0 ? "패배" : "본전"}</td><td class="r num ${x.net > 0 ? "good" : x.net < 0 ? "bad" : ""}">${sgn(x.net)}</td></tr>`).join("")}</tbody></table></details>` : "";
+  return `<h2 id="rp-title">세션 분석</h2>${kpis}
+    <p class="rp-note">몇십 핸드의 손익은 운(분산)이 대부분이라 실력을 재기 어려워요. 실력은 TP 점수와 정책 비교로 보세요.</p>
+    ${items}${act}${hands}
+    <div class="rp-btns"><button class="cta" id="rp-new">새 게임</button><button class="cta ghost small" id="rp-learn">약점 연습하러 가기</button><button class="cta ghost small" id="rp-close">닫기</button></div>`;
+}
+// Ending stops the loop for good (the hand in progress is not counted); the report stays reopenable until a new game.
+function endSession() {
+  if (!G) return;
+  if (!G.ended) { G.ended = true; G.dead = true; gameToken++; heroResolve = null; }
+  $(".modal[data-report]")?.remove();
+  const m = h("div", "modal", `<div class="box report" role="dialog" aria-modal="true" aria-labelledby="rp-title">${reportHTML(sessionReport())}</div>`);
+  m.dataset.report = "";
+  document.body.appendChild(m);
+  $("#rp-new").onclick = () => { m.remove(); G = null; startGame(); };
+  $("#rp-learn").onclick = () => { m.remove(); G = null; showView("learn"); };
+  $("#rp-close").onclick = () => m.remove();
+  renderInfo();
+  $("#seat-" + G.seats.find(x => x.isHero)?.i)?.classList.remove("acting");
+  $("#tp-foot").hidden = true; $("#tp-strip").hidden = true;
+  $("#tp-body").innerHTML = `<div class="waiting" data-ended><span>게임을 끝냈어요. 위의 '분석 다시 보기'나 '새 게임'을 누르세요.</span></div>`;
 }
 function firstAfterButton() { let k = nextIdx(G.button); for (let c = 0; c < G.n; c++) { const s = G.seats[k]; if (!s.folded && !s.out && !s.allin) return k; k = nextIdx(k); } return k; }
 function post(s, amt) { const a = Math.min(amt, s.stack); s.stack -= a; s.bet += a; s.contrib += a; if (s.stack === 0) s.allin = true; }
@@ -1619,6 +1780,7 @@ function applyAction(s, a) {
   if (pre) { if (a.type === "raise") s.rangePct = facing && G.currentBet > 3 * G.bb ? Math.min(s.rangePct, 8) : Math.min(s.rangePct, 22); else if (a.type === "call") s.rangePct = Math.min(s.rangePct, 38); else if (a.type === "check") s.rangePct = Math.min(s.rangePct, 70); }
   else { if (a.type === "raise") s.rangePct = Math.max(3, s.rangePct * .62); else if (a.type === "call") s.rangePct = Math.max(4, s.rangePct * .8); }
   bubble(s, label, cls);
+  sfx(s.allin && a.type !== "fold" && a.type !== "check" ? "allin" : a.type === "raise" ? (facing || pre ? "raise" : "bet") : a.type);
   addLog(["프리플랍", "플랍", "턴", "리버"][G.street], `${s.isHero ? "나" : s.name}(${posName(s)}) ${label}`);
   return raised;
 }
@@ -2062,6 +2224,13 @@ function eqabTruth(form, g, myPct) {
 }
 /* ---------- hero turn & TP console ---------- */
 let heroResolve = null, CUR = null;
+// The seat the C-stage questions read is outlined on the table, with a tag, while the hero decides.
+function markTarget(s) {
+  $$(".seat.target").forEach(e => { e.classList.remove("target"); $(".target-tag", e)?.remove(); });
+  if (!s) return;
+  const el = $("#seat-" + s.i); if (!el) return;
+  el.classList.add("target"); el.appendChild(h("span", "target-tag", "읽기 대상"));
+}
 function heroTurn(hero) {
   return new Promise(res => {
     heroResolve = res;
@@ -2069,6 +2238,7 @@ function heroTurn(hero) {
     const g = computeGTO(hero);
     if (G.eng) engHeroTruth(hero, g);
     CUR = { hero, g, answers: {}, action: null, size: null, to: null };
+    markTarget(fieldOnly(hero) ? null : g.opp);
     if (S.eqab === "on") { AB ||= abStart(); CUR.ab = abNext() < .5 ? "A" : "B"; }
     else if (tierNow() === "beginner") { AB ||= abStart(); CUR.rank = true; } // eqabTruth("B") samples with AB's seed
     setTP("ask"); renderInfo();
@@ -2246,6 +2416,13 @@ function goCard(i, first) {
 // Tap inputs on the tier scale (TP v0.1 §4.1): chips on the tier grid; the 0–100 tier adds a ±1/±5 stepper instead of a slider.
 function scaleChips(step) { const s = Math.max(step, 10), out = []; for (let v = 0; v <= 100; v += s) out.push(v); return out; }
 function chipRow(vals, fmt = v => v) { return `<div class="chiprow" style="--n:${vals.length > 6 ? Math.ceil(vals.length / 2) : vals.length}">${vals.map(v => `<button class="chip-v num" data-chip="${v}" aria-pressed="false">${fmt(v)}</button>`).join("")}</div>`; }
+// Pure-judgment items (ends are two sides, not 0%/100%) are a strength of thought, not an amount: a slider
+// (owner request #464). The tier's grid is the slider step, so a beginner still answers in 25s.
+const isDial = k => !!TP[k]?.ends && TP[k].ends[0] !== "0%";
+function dialHTML(q, ends, step, val) {
+  return `<div class="ends"><span>0 ${ends[0]}</span><span>${ends[1]} 100</span></div>
+    <div class="dial"><input type="range" data-dial min="0" max="100" step="${step}" value="${val ?? 50}" style="--fill:${val ?? 50}%"${val == null ? " data-unset" : ""} aria-label="${q} 0 ${ends[0]}에서 100 ${ends[1]}"></div>`;
+}
 function stepper(steps) { return `<div class="stepper">${steps.map(d => `<button class="step num" data-step="${d}" aria-label="${d > 0 ? "+" : "−"}${Math.abs(d)}">${d > 0 ? "+" + d : "−" + -d}</button>`).join("")}</div>`; }
 const RANGE_CHIPS = [5, 10, 15, 20, 25, 30, 40, 50, 70, 100];
 function qInput(k, na) {
@@ -2271,6 +2448,7 @@ function qInput(k, na) {
     <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
   const q = k === "plan.foldeq" && CUR.g.rep ? `고른 사이즈 ${CUR.g.rep.label}(${bbf(CUR.g.rep.to)}BB)로 ${G.street === 0 || CUR.g.L.toCall ? "레이즈" : "벳"}하면 상대가 ${live().length > 2 ? "모두 " : ""}접을 확률` : d.q;
   const hint = d.reflection ? `<div class="hint">성찰 질문 · 정의가 확정되지 않아 채점하지 않아요(선택 입력).</div>` : k === "plan.foldeq" ? `<div class="hint">접을 확률이 높을수록 블러프·세미블러프가 이득이에요. 낮으면 밸류가 충분한 핸드일 때만 커져요.</div>` : "";
+  if (isDial(k)) return `${hint}<div class="t"><span>${q}</span><span class="val num" data-val>—</span></div>${dialHTML(q, d.ends, d.reflection ? 1 : tier.step, null)}`;
   return `${hint}<div class="t"><span>${q}</span><span class="val num" data-val>—</span></div>
     <div class="ends"><span>0 ${d.ends[0]}</span><span>${d.ends[1]} 100</span></div>
     ${chipRow(scaleChips(tier.step))}${tier.step === 1 ? stepper([-5, -1, 1, 5]) : ""}`;
@@ -2345,12 +2523,16 @@ function bindInputs(root) {
     } else if (k === "hand.equity" && CUR.ab) { $("[data-val]", q).textContent = EQAB_FORMS[CUR.ab].chips[v]; CUR.abAt = performance.now(); }
     else if (k === "hand.equity" && CUR.rank) $("[data-val]", q).textContent = EQAB_FORMS.B.chips[v];
     else $("[data-val]", q).textContent = v;
+    const rg = $("[data-dial]", q); if (rg) { rg.value = v; rg.style.setProperty("--fill", v + "%"); rg.removeAttribute("data-unset"); }
     refreshNav();
   };
   $$(".q[data-k]", root).forEach(q => {
     const k = q.dataset.k;
     $$("[data-chip]", q).forEach(c => c.onclick = () => setVal(q, +c.dataset.chip));
     $$("[data-step]", q).forEach(c => c.onclick = () => setVal(q, (CUR.answers[k] ?? (TP[k].type === "range" ? 30 : 50)) + +c.dataset.step));
+    // input covers drags and keys; pointerup also takes a plain tap on the thumb at its start value.
+    const rg = $("[data-dial]", q);
+    if (rg) { rg.addEventListener("input", () => setVal(q, +rg.value)); rg.addEventListener("pointerup", () => setVal(q, +rg.value)); }
   });
   const grid = $("[data-grid]", root);
   if (grid) {
@@ -2461,16 +2643,66 @@ function finishHero(keys) {
   const gstreet = ["프리플랍", "플랍", "턴", "리버"][G.street], ghand = CUR.hero.cards.map(cardTxt).join(" ");
   G.lastGrade = keys ? { rows, refs, total, worst, mode: CUR.quick ? "Quick" : "Guided", street: gstreet, hand: ghand, meta: g.model?.meta }
     : g.model ? { rows: [], refs: [{ k: "act.choice", kind: "model-action", model: g.model, you: engHeroChoice(g, CUR.action, CUR.to) }], total: null, mode: "Quick", street: gstreet, hand: ghand, meta: g.model.meta, actionOnly: true } : null;
+  recordDecision(G.lastGrade);
   // resolve action
   let act;
   if (CUR.action === "raise") act = { type: "raise", to: CUR.to };
   else act = { type: CUR.action };
-  $("#seat-" + CUR.hero.i).classList.remove("acting");
+  $("#seat-" + CUR.hero.i).classList.remove("acting"); markTarget(null);
   tellPend(keys);
-  const res = heroResolve; heroResolve = null; CUR = null;
-  setTP("waiting"); renderInfo();
+  const res = heroResolve, guided = !!keys && !CUR.quick, folded = act.type === "fold"; heroResolve = null; CUR = null;
+  const go = () => { G.paused = false; setTP("waiting"); renderInfo(); $("#tp").classList.add("open"); sheetAria(); res(act); };
+  if (folded) { G.fast = true; G.viewing = true; go(); foldView(guided); }
+  else if (guided && G.lastGrade) pauseForReview(go); else go();
+}
+// Folded: the analysis stays up while the others finish the hand quickly; closing it lets the next hand
+// start on its own, keeping it open holds the table at the end of the hand (handReview).
+function foldView(guided) {
+  const body = $("#tp-body"), foot = $("#tp-foot");
+  $("#tp-ctx").innerHTML = `<span class="pill" data-fold-view>폴드 · 남은 플레이어 빠르게 진행 중</span>`; $("#tp-strip").hidden = true; $("#tp-form").hidden = true;
+  body.innerHTML = handReviewHTML(G.handNo, true) + (G.lastGrade ? (guided ? resultHTML(G.lastGrade, false) : `<details open><summary>이번 결정 채점</summary>${resultHTML(G.lastGrade, true)}</details>`) : "");
+  bindResult(); body.scrollTop = 0;
+  foot.hidden = false;
+  foot.innerHTML = `<div class="tpc-nav"><span></span><span></span><button class="cta ghost small" id="fold-close" data-fold-close>닫고 계속</button></div>`;
   $("#tp").classList.add("open"); sheetAria();
-  res(act);
+  $("#fold-close").onclick = () => { if (!G) return; G.viewing = false; setTP("waiting"); renderInfo(); };
+}
+// End of every hand in which the hero acted (#464 owner request, Quick and Guided): the hand's decisions
+// side by side, and the next hand waits for the player.
+function handReviewHTML(no, live = false) {
+  const ds = (G.decs || []).filter(d => d.hand === no), hr = (G.hands || []).find(x => x.no === no), pc = x => Math.round(x * 100) + "%";
+  const rows = ds.map(d => `<tr data-hr-dec><td>${d.street}</td><td>${d.act ? `내 선택 ${d.act.me} <span class="num">${d.act.leak ? "채점 안 함" : (d.act.approx ? "≈" : "") + pc(d.act.p)}</span>` : "—"}</td><td>${d.act ? `정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span>` : "TP-GTO 비교 없음"}</td><td class="r num">${d.total == null ? "—" : d.total + "점"}</td></tr>`).join("");
+  const low = ds.filter(d => d.act && !d.act.leak && d.act.p < LOW_FREQ), worst = ds.flatMap(d => d.rows).sort((a, b) => a.score - b.score)[0];
+  const net = hr ? hr.net : 0, sgn = x => (x > 0 ? "+" : "") + bbf(x);
+  const me = G.seats.find(x => x.isHero), head = live ? `핸드 #${no} 분석 · ${me ? me.cards.map(cardTxt).join(" ") : ""} · 진행 중` : `핸드 #${no} 분석 · ${hr?.cards || ""} · <span class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${sgn(net)} BB</span>`;
+  return `<div class="hand-review" data-hand-review="${no}"${live ? " data-live" : ""}><div style="font-weight:600">${head}</div>
+    <div class="ab-wrap"><table class="ab-table"><tbody>${rows}</tbody></table></div>
+    <p class="rp-note">${low.length ? `정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만)이 ${low.length}번 있었어요: ${low.map(d => `${d.street} ${d.act.me}`).join(", ")}.` : ds.some(d => d.act) ? "이 핸드의 내 액션은 모두 정책이 쓰는 선택이었어요." : ""}${worst && worst.score < 80 ? ` 가장 크게 갈린 판단은 <b>${SHORT[worst.k]}</b>(${worst.score}점)이에요.` : ""} 결과(손익)보다 결정의 질을 보세요.</p></div>`;
+}
+function handReview(alive) {
+  const no = G.handNo;
+  if (!(G.decs || []).some(d => d.hand === no)) return;
+  if (G.fast && !G.viewing) return;   // folded and closed the analysis: straight to the next hand
+  G.paused = true;
+  const body = $("#tp-body"), foot = $("#tp-foot");
+  $("#tp-ctx").innerHTML = `<span class="pill" data-paused>게임 멈춤 · 핸드 #${no} 분석</span>`; $("#tp-strip").hidden = true; $("#tp-form").hidden = true;
+  body.innerHTML = handReviewHTML(no) + ((G.decs || []).filter(d => d.hand === no).length && G.lastGrade ? `<details><summary>마지막 결정 채점 자세히</summary>${resultHTML(G.lastGrade, true)}</details>` : "");
+  bindResult(); body.scrollTop = 0;
+  foot.hidden = false;
+  foot.innerHTML = `<div class="tpc-nav"><span></span><span></span><button class="cta small" id="tp-next-hand" data-next-hand>다음 핸드</button></div>`;
+  $("#tp").classList.add("open"); sheetAria(); renderInfo();
+  return new Promise(done => { $("#tp-next-hand").onclick = () => { G.paused = false; setTP("waiting"); renderInfo(); done(); }; });
+}
+// Guided (#464 owner request): the game waits after every decision until the player has read the grading.
+function pauseForReview(go) {
+  G.paused = true;
+  const body = $("#tp-body"), foot = $("#tp-foot");
+  $("#tp-ctx").innerHTML = `<span class="pill" data-paused>게임 멈춤 · 내 판단 채점</span>`; $("#tp-strip").hidden = true; $("#tp-form").hidden = true;
+  body.innerHTML = resultHTML(G.lastGrade, false); bindResult(); body.scrollTop = 0;
+  foot.hidden = false;
+  foot.innerHTML = `<div class="tpc-nav"><span></span><span></span><button class="cta small" id="tp-resume" data-resume>계속 플레이</button></div>`;
+  $("#tp").classList.add("open"); sheetAria(); renderInfo();
+  $("#tp-resume").onclick = () => { if (G && !G.ended && G.paused) go(); };
 }
 const ACT_NM = { fold: "폴드", check: "체크", call: "콜", raise: "벳·레이즈" }, ACT_COL = { fold: "#5d6a6f", check: "#8d999c", call: "#5d8fd8", raise: "#d6ab55" };
 // Reference-only action row: no Q values in the demo, so no score and no EV-loss number (TP §5).
@@ -2562,20 +2794,45 @@ function renderLog() { const el = $("#hand-log"); if (!el || !G) return; let las
 }
 
 /* ---------- showdown & payout ---------- */
+// Showdown order (owner request #464): after an all in with no betting left everyone shows at once, in
+// seat order from the button. At a river showdown the last river bettor/raiser shows first if the river was
+// bet, otherwise the first live seat after the button; then clockwise. A hand that wins nothing and is
+// beaten by a hand already shown may be mucked (the bots always muck; the hero chooses).
+function showOrder(contenders) {
+  const first = G.street === 3 && G.streetAgg != null && contenders.includes(G.seats[G.streetAgg]) ? G.streetAgg : firstAfterButton();
+  const out = []; let k = first;
+  for (let c = 0; c < G.n; c++) { if (contenders.includes(G.seats[k])) out.push(G.seats[k]); k = nextIdx(k); }
+  return out;
+}
+async function faceUpAll() {
+  const cs = live(); let k = nextIdx(G.button);
+  G.faceUp = true; G.shown = new Set();
+  for (let c = 0; c < G.n; c++) { const s = G.seats[k]; if (cs.includes(s)) { revealHole(s); G.shown.add(s); addLog("올인", `${s.name} ${s.cards.map(cardTxt).join(" ")} 오픈`); await sleep(300); } k = nextIdx(k); }
+  renderLog();
+}
+function heroMuckChoice(alive) {
+  const body = $("#tp-body"), foot = $("#tp-foot");
+  $("#tp").classList.add("open"); sheetAria();
+  body.innerHTML = `<div class="waiting" data-muck-ask><span>내 핸드가 이미 보인 핸드에 졌어요. 카드를 보여 줄까요? 머크하면 상대는 내 핸드를 모릅니다.</span></div>`;
+  foot.hidden = false;
+  foot.innerHTML = `<div class="tpc-nav"><button class="cta ghost small" id="sd-show">보여 주기</button><span></span><button class="cta small" id="sd-muck">머크</button></div>`;
+  return new Promise(done => {
+    $("#sd-show").onclick = () => { foot.hidden = true; done(true); };
+    $("#sd-muck").onclick = () => { foot.hidden = true; done(false); };
+  });
+}
 async function showdown(alive) {
   if (G.eng) G.eng.lastHand = { hand: G.handNo, ok: G.eng.ok, done: !!G.eng.s?.done };
   const contenders = live();
-  tellShowdown(contenders);
   const banner = h("div", "banner");
   if (contenders.length === 1) {
     const w = contenders[0], amt = G.pot; G.pot = 0; renderSeats();
     await flyChips(potPile(), P[w.i], amt); w.stack += amt;
-    bubble(w, "+" + bbf(amt) + " BB", "win"); addLog("결과", `${w.name} 팟 ${bbf(amt)} BB 획득`);
+    bubble(w, "+" + bbf(amt) + " BB", "win"); sfx("win"); addLog("결과", `${w.name} 팟 ${bbf(amt)} BB 획득`);
   } else {
-    while (G.board.length < 5) { const c = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(c); const e = cardEl(c); e.classList.add("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(420); }
+    while (G.board.length < 5) { const c = G.rigBoard?.[G.board.length] ?? G.deck.pop(); G.board.push(c); const e = cardEl(c); e.classList.add("flip"); sfx("flip"); $("#board").children[G.board.length - 1].replaceWith(e); await sleep(420); }
     const scores = new Map(contenders.map(s => [s, evaluate([...s.cards, ...G.board])]));
-    for (const s of contenders) if (!s.isHero) { revealHole(s); await sleep(250); }
-    // layered side pots
+    const shown = G.shown || new Set(), mucked = new Set();
     const levels = [...new Set(G.seats.filter(s => s.contrib > 0).map(s => s.contrib))].sort((a, b) => a - b);
     let prev = 0; const wins = new Map();
     for (const lv of levels) {
@@ -2586,13 +2843,26 @@ async function showdown(alive) {
       const best = Math.max(...elig.map(s => scores.get(s))), ws = elig.filter(s => scores.get(s) === best);
       const share = Math.floor(layer / ws.length); ws.forEach((s, i) => wins.set(s, (wins.get(s) || 0) + share + (i === 0 ? layer - share * ws.length : 0)));
     }
+    if (!G.faceUp) {
+      let best = -1;
+      for (const s of showOrder(contenders)) {
+        const sc = scores.get(s), mayMuck = shown.size > 0 && !wins.has(s) && sc < best;
+        const show = !mayMuck || (s.isHero && await heroMuckChoice(alive));
+        if (!alive()) return;
+        if (show) { revealHole(s); shown.add(s); best = Math.max(best, sc); addLog("쇼다운", `${s.name} ${s.cards.map(cardTxt).join(" ")} · ${handName(sc)}`); }
+        else { mucked.add(s); bubble(s, "머크"); sfx("muck"); addLog("쇼다운", `${s.name} 머크`); $$("#seat-" + s.i + " .hole .card").forEach(e => e.classList.add("mucked")); }
+        renderLog(); await sleep(450);
+      }
+    }
+    G.showdownSeen = { shown: [...shown].map(s => s.i), mucked: [...mucked].map(s => s.i) };
+    if ([...shown].some(s => s.isHero)) tellShowdown(contenders);   // a mucked hand tells the table nothing
     G.pot = 0; renderSeats();
     for (const [w, amt] of wins) {
       if (!contenders.includes(w)) { w.stack += amt; continue; }
       revealHole(w, true);
       banner.textContent = `${w.isHero ? "나" : w.name} · ${handName(scores.get(w))}`; $("#layer").appendChild(banner);
       await flyChips(potPile(), P[w.i], amt); w.stack += amt;
-      bubble(w, "+" + bbf(amt) + " BB", "win"); addLog("결과", `${w.name} ${handName(scores.get(w))} · ${bbf(amt)} BB`);
+      bubble(w, "+" + bbf(amt) + " BB", "win"); sfx("win"); addLog("결과", `${w.name} ${handName(scores.get(w))} · ${bbf(amt)} BB`);
     }
   }
   renderSeats(); renderLog();
@@ -2959,7 +3229,7 @@ function renderDrill() {
   const side = `${showRange ? `<div class="dr-range"><div class="cap-row"><span>상대 레인지 · 상위 ${p.pct}%</span></div>${gridHTML(classesInTop(p.pct), "big")}</div>` : ""}
     ${showHero ? `<div class="dr-range"><div class="cap-row"><span>내 레인지 · 상위 ${p.sc.heroPct}%</span></div>${gridHTML(classesInTop(p.sc.heroPct), "big mine")}</div>` : ""}
     <div class="history">${rhLogHTML(p.h)}</div>`;
-  const scale = isRange ? `${chipRow(RANGE_CHIPS, v => v + "%")}${stepper([-5, -1, 1, 5])}` : `<div class="ends"><span>0 ${q.ends[0]}</span><span>${q.ends[1]} 100</span></div>${chipRow(scaleChips(10))}${stepper([-5, -1, 1, 5])}`;
+  const scale = isRange ? `${chipRow(RANGE_CHIPS, v => v + "%")}${stepper([-5, -1, 1, 5])}` : isDial(LM.k) ? dialHTML(qText, q.ends, 1, LM.val) : `<div class="ends"><span>0 ${q.ends[0]}</span><span>${q.ends[1]} 100</span></div>${chipRow(scaleChips(10))}${stepper([-5, -1, 1, 5])}`;
   el.innerHTML = `${drillHead(m)}
     <div class="dr-hint">${isRange ? "테이블의 포지션과 액션을 보고 상대 레인지 폭을 추정하세요." : lvTxt[lvl]}</div>
     <div class="dr-main${showRange || showHero ? "" : " solo"}"><div class="dr-table mt-host">${tableHTML(p.h, { cards, focus: p.sc.opp, acting })}</div><div class="dr-side">${side}</div></div>
@@ -2969,11 +3239,14 @@ function renderDrill() {
     <div id="dr-res"></div>
     <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go" ${LM.answered || LM.val != null ? "" : "disabled"}>${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 ${CONF} 값이에요(몬테카를로 계산).</span></div>`;
   bindDrillCommon();
-  const qel = $(".dr-q", el), mark = () => { $$("[data-chip]", qel).forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.chip === LM.val))); $("#dr-val").textContent = LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val; $("#dr-go").disabled = !LM.answered && LM.val == null; };
+  const qel = $(".dr-q", el), mark = () => { $$("[data-chip]", qel).forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.chip === LM.val)));
+    const rg = $("[data-dial]", qel); if (rg && LM.val != null) { rg.value = LM.val; rg.style.setProperty("--fill", LM.val + "%"); rg.removeAttribute("data-unset"); } $("#dr-val").textContent = LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val; $("#dr-go").disabled = !LM.answered && LM.val == null; };
   const setV = v => { if (LM.answered) return; LM.val = clamp(Math.round(v), isRange ? 2 : 0, 100); mark(); };
   $$("[data-chip]", qel).forEach(c => c.onclick = () => setV(+c.dataset.chip));
   $$("[data-step]", qel).forEach(c => c.onclick = () => setV((LM.val ?? (isRange ? 30 : 50)) + +c.dataset.step));
-  if (LM.answered) $$("button", qel).forEach(b => b.disabled = true);
+  const dial = $("[data-dial]", qel);
+  if (dial) { dial.addEventListener("input", () => setV(+dial.value)); dial.addEventListener("pointerup", () => setV(+dial.value)); }
+  if (LM.answered) $$("button, [data-dial]", qel).forEach(b => b.disabled = true);
   mark();
   $("#dr-go").onclick = () => {
     if (LM.answered) { newProblem(); renderDrill(); return; }
