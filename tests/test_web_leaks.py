@@ -1,7 +1,6 @@
 """Known-leak warnings (#441): the export tool keeps every probe cell and the leak details, and the page's
 own leakVerdict/leakHTML pass the node test against synthetic cells and the shipped leaks files."""
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -66,10 +65,7 @@ def test_cli_writes_the_file(tmp_path):
     assert json.loads(out.read_text(encoding="utf-8"))["leaks"][0]["group"] == "AA"
 
 
-def test_node_leak_warnings_pass():
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("node not installed; run `node --test web/app/test/leaks.test.mjs` where it is")
+def test_node_leak_warnings_pass(node):
     r = subprocess.run([node, "--test", str(ROOT / "web" / "app" / "test" / "leaks.test.mjs")],
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert r.returncode == 0, r.stdout[-4000:] + r.stderr[-2000:]

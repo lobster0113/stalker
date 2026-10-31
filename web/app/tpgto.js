@@ -1009,3 +1009,60 @@ export function updateRanges(policy, d, ranges, action) {
   for (let i = 0; i < N; i++) col[i] = P[i * m + a];
   return updateRange(ranges, d.seat, col);
 }
+
+// ---------------------------------------------------------------- teacher answers (web only, no Python twin)
+// TP items the policy key does not read but the screen grades (#445). They use the same public ranges and
+// equity as the key, so a graded answer never contradicts what the policy itself saw.
+
+// Range weights are products of action probabilities, so after a sized bet (one of many menu sizes) every
+// combo can carry a small weight. Width and grid are read relative to the heaviest combo, as a solver does.
+function relWeights(s, w) {
+  const dead = boardDead(s.board);
+  let top = 0.0;
+  for (let i = 0; i < N; i++) if (!dead[i] && w[i] > top) top = w[i];
+  return { dead, top };
+}
+
+/** Public width of seat's range: board-free combos weighted relative to its heaviest combo, in %. */
+export function rangeWidth(s, seat, ranges) {
+  const w = ranges[seat], { dead, top } = relWeights(s, w);
+  let tot = 0.0, n = 0;
+  for (let i = 0; i < N; i++) if (!dead[i]) { tot += w[i]; n++; }
+  return n && top > 0 ? 100.0 * tot / top / n : 0.0;
+}
+
+/** board.adv: 100 x (1 - seat's range-average equity against opp's range). 0 = seat's board, 100 = opp's. */
+export function boardAdvantage(s, seat, opp, ranges) {
+  const e = equityCached(s.board, ranges[opp]), w = ranges[seat];
+  let acc = 0.0, tot = 0.0;
+  for (let i = 0; i < N; i++) if (w[i] > 0 && !Number.isNaN(e[i])) { acc += w[i] * e[i]; tot += w[i]; }
+  return tot > 0 ? 100.0 * (1 - acc / tot) : 50.0;
+}
+
+/**
+ * hand.outs / hand.vuln: deal each unseen card (seat's view: not on the board, not in its hole) as the next
+ * card and compare seat's equity against the live opponents' public ranges with the current one.
+ * A card that moves it by at least `thr` is an out (up) or a bad card (down). Flop and turn only.
+ */
+export function nextCardShift(s, seat, ranges, thr = 0.10) {
+  if (s.board.length !== 3 && s.board.length !== 4) return null;
+  const hole = s.hole[seat], ci = comboIndex(hole), eq = multiEquity(s, seat, ranges)[ci];
+  const up = [], down = [];
+  let total = 0;
+  for (let c = 0; c < 52; c++) {
+    if (s.board.includes(c) || hole.includes(c)) continue;
+    total++;
+    const d = multiEquity({ ...s, board: s.board.concat([c]) }, seat, ranges)[ci] - eq;
+    if (d >= thr - 1e-12) up.push({ c, d }); else if (d <= -thr + 1e-12) down.push({ c, d });
+  }
+  return { eq, total, up, down, outs: Math.round(100 * up.length / total), vuln: Math.round(100 * down.length / total) };
+}
+
+/** Hand classes whose mean relative weight is at least thr: the range drawn as a 13x13 grid. */
+export function rangeClasses(s, seat, ranges, thr = 0.5) {
+  const w = ranges[seat], { dead, top } = relWeights(s, w), acc = new Float64Array(NC), cnt = new Float64Array(NC);
+  for (let i = 0; i < N; i++) if (!dead[i]) { acc[COMBO_CLS[i]] += w[i]; cnt[COMBO_CLS[i]] += 1; }
+  const out = new Set();
+  for (let c = 0; c < NC; c++) if (top > 0 && cnt[c] > 0 && acc[c] / cnt[c] >= thr * top) out.add(HAND_CLASSES[c]);
+  return out;
+}

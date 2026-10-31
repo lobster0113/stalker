@@ -171,6 +171,16 @@ class RiverGame:
     def decision_nodes(self) -> list[Node]:
         return [nd for nd in self.nodes if nd.kind == "act"]
 
+    def equity(self, node: Node, r_opp: np.ndarray) -> np.ndarray:
+        """Equity of the player to act at `node` against `r_opp`: one board, so the node does not matter."""
+        return self.sd.equity(r_opp)
+
+    def own_mass(self, node: Node, q: int) -> np.ndarray:
+        """Chance weight of player q's combos: the opponent's starting live mass (the same at every node)."""
+        if not hasattr(self, "_own_mass"):
+            self._own_mass = [self.sd.card_mass(self.init[1]), self.sd.card_mass(self.init[0])]
+        return self._own_mass[q]
+
     def terminal_value(self, node: Node, p: int, r_opp: np.ndarray) -> np.ndarray:
         """Counterfactual value of every combo of player p at a terminal (weighted by the opponent's reach)."""
         if node.kind == "fold":
