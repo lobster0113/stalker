@@ -172,7 +172,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
     `avg_rule` (#426): how the average strategy is accumulated (stalker/e3/mccfr.py); a checkpoint of the
     other rule is refused.
-    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`); likewise kept on resume.
+    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`), "b2" (#460) also board.adv/opp.value/plan.foldeq; likewise kept on resume.
     `stacks` (#399): "sampled" deals 20-250BB tables in training (`stalker.e3.mccfr`); LBR and the field stay at
     100BB, where the stack variants' new key field is constant."""
     from stalker.e3 import parallel
@@ -294,6 +294,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-ownavg-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4", workers=4, avg_rule="own"),
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
+        # #460: b1 plus board.adv/opp.value/plan.foldeq (B2) vs e3-tp-mid-b1-w4, same iterations and seeds
+        "e3-tp-mid-b2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b2-w4", workers=4, key_variant="b2"),
         # #399: effective-stack depth of me and every live opponent in the key (S) vs mine only, both on
         # 20-250BB tables, same iterations and seeds
         "e3-tp-mid-s2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2-w4", workers=4, key_variant="s2",
@@ -310,7 +312,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
              "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
-             "e3-tp-mid-b1-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
+             "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
