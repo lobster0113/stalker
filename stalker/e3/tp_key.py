@@ -56,6 +56,19 @@ that acts before me, a one that acts after me) and, after the flop, `g<preflop a
 o a live opponent, x a folded one). Preflop keys carry `u` and `h` only. The beginner key (TP.md §4.1: no
 exact seats) gets the coarse versions: `u<opponents acting before me><after me>` (each capped at 2) and `h`.
 
+Key variant "b2" (#460, ADR 0019 §3.1 B2) is b1 plus the three judgement items that read the public ranges, graded
+as TP.md §4.1 asks: beginner `board.adv` only; mid and pro also `opp.value` and `plan.foldeq`. They describe the
+situation, not the hand, so every combo gets the same code (it rides in the encoded step like b1, `B2_BASE`) and
+`key` appends `|a<adv>w<value>f<foldeq>` (`-` = N/A here). Postflop non-call keys only, as b1. Public inputs only;
+the teacher's policy TP.md names is replaced by the seats' public ranges (initial approximations):
+- board.adv: 100 x (1 - my range's average showdown equity vs the opponent's range), heads-up only.
+- opp.value: the last bettor or raiser of this street, when it is an opponent: share of its range with showdown
+  equity > 50% against my public range (the "representative calling range"). Semi-bluffs count as bluffs by their
+  equity, as TP.md fixes.
+- plan.foldeq: for a bet or raise of half the pot (after calling what I owe), the product over the live opponents
+  of the share of their range whose equity vs my range is below the price they are laid (they fold), when a bet or
+  raise is legal. The bucket edges are an initial guess for the b2 vs b1 comparison job.
+
 Key variants "s2" and "s2me" (#399, ADR 0019 §3.1 S) carry the stack facts of TP.md §1.1. A player's
 effective stack is their stack capped by the deepest other live player who can still act (not folded, not
 all in); 0 if there is none. The key adds, before the legal actions, `s<mine>` ("s2me", "mine only") or
@@ -100,12 +113,17 @@ NUT_TOP = 0.10                   # board.nut: share of combos counted as near-nu
 FOLDY_MIN_OPPS = 6               # opp.foldy is N/A below this many faced bets (TP.md §3)
 FOLDY_PRIOR, FOLDY_PRIOR_N = 0.5, 6.0   # shrinkage toward an even fold rate, worth 6 decisions
 AGGRESSIVE = G.SIZE_LABELS + ("a",)   # every menu's bet/raise labels: v1, tp6 (#339), real (#382)
-VARIANTS = ("", "b1", "b3", "s2", "s2me")   # key variants: "" is every table before #398
-B1_VARIANTS = ("b1", "b3")       # b3 = b1 plus the public facts of `public_facts`
+VARIANTS = ("", "b1", "b2", "b3", "s2", "s2me")   # key variants: "" is every table before #398
+B1_VARIANTS = ("b1", "b2", "b3")  # b2 = b1 plus the range items (#460), b3 = b1 plus the public facts (#461)
 STACK_VARIANTS = ("s2", "s2me")  # #399: effective-stack depth (and SPR) in the public key; "s2me" = mine only
 EFF_EDGES_BB = (5, 10, 15, 25, 40, 60, 100)   # TP.md §6 effective-stack buckets, upper edge inclusive
 B1_BASE = 10_000                 # encoded b1 part = B1_BASE * (1 + code); below it eq and board.nut (<= 5999)
 B1_RADIX, B1_NA, B1_NONE = 6, 4, 5   # one b1 field: buckets 0-3, N/A on this street, not asked of this tier
+B2_BASE = 10_000_000             # encoded b2 part = B2_BASE * (1 + code); below it eq, board.nut and b1 (< 217 * B1_BASE)
+ADV_EDGES = (40.0, 60.0)         # board.adv buckets: favours me / even / favours the opponent (0 me - 100 opponent)
+VALUE_EDGES = (35.0, 65.0)       # opp.value buckets: bluff side / mixed / value side
+FOLDEQ_EDGES = (0.25, 0.5)       # plan.foldeq buckets: rarely / sometimes / mostly folds
+FOLDEQ_SIZE = 0.5                # the representative size: this x the pot after my call
 OUTS_EDGES = (1e-9, 15.0, 30.0)  # hand.outs buckets: none / up to 15 / up to 30 / more (0-100 scale)
 VULN_EDGES = (1e-9, 20.0)        # hand.vuln buckets: none / up to 20 / more
 BLOCK_EDGES = (45.0, 60.0)       # hand.block buckets: unblocking / average / blocking (50 = average hand)
@@ -308,6 +326,8 @@ def equity_steps(s: G.State, seat: int, ranges: list[np.ndarray], k: int, varian
     if variant in B1_VARIANTS and s.street > 0:   # preflop keys stay as they are
         depth = depth or {TIER_K["beginner"]: "basic", K_PRO: "pro"}.get(k, "full")
         steps = np.where(steps >= 0, steps + B1_BASE * (1 + b1_code(s, seat, ranges, depth)), steps)
+        if variant == "b2":
+            steps = np.where(steps >= 0, steps + B2_BASE * (1 + b2_code(s, seat, ranges, depth)), steps)
     return steps
 
 
@@ -428,6 +448,76 @@ def b1_label(code: int) -> str:
     return "".join(out)
 
 
+def board_adv(s: G.State, seat: int, ranges: list[np.ndarray]) -> float | None:
+    """TP `board.adv` (0 me - 100 opponent): heads-up postflop only, else None. Public inputs only."""
+    live = s.live()
+    if s.street == 0 or len(live) != 2:
+        return None
+    opp = live[0] if live[1] == seat else live[1]
+    eq = _equity_cached(tuple(s.board), ranges[opp])   # per combo, vs the opponent's range
+    w = ranges[seat] * ~np.isnan(eq)
+    return 50.0 if w.sum() <= 0 else 100.0 * (1.0 - float((w * np.nan_to_num(eq)).sum() / w.sum()))
+
+
+def last_aggressor(s: G.State) -> int | None:
+    """The seat that made the last bet or raise of the current street, if any."""
+    last = None
+    for h in _streets(s.history)[-1]:
+        p, a = h.split(":")
+        if a in AGGRESSIVE:
+            last = int(p)
+    return last
+
+
+def opp_value(s: G.State, seat: int, ranges: list[np.ndarray]) -> float | None:
+    """TP `opp.value` (0 bluff side - 100 value side): the street's last aggressor, when it is not me, else None."""
+    q = last_aggressor(s) if s.street > 0 else None
+    if q is None or q == seat:
+        return None
+    eq = _equity_cached(tuple(s.board), ranges[seat])   # each combo's equity vs my public range
+    w = ranges[q] * ~np.isnan(eq)
+    return 50.0 if w.sum() <= 0 else 100.0 * float((w * (np.nan_to_num(eq) > 0.5)).sum() / w.sum())
+
+
+def plan_foldeq(s: G.State, seat: int, ranges: list[np.ndarray]) -> float | None:
+    """TP `plan.foldeq` (0-1): chance every live opponent folds to the representative bet/raise, None if none is legal."""
+    if s.street == 0 or not any(a in ("r", "a") or a.startswith("b") for a in G.legal(s)):
+        return None
+    owe = s.to_call(seat)
+    size = FOLDEQ_SIZE * (s.pot + owe)
+    price = size / (s.pot + owe + 2 * size)   # the equity a call needs, with my raise in the pot
+    eq = _equity_cached(tuple(s.board), ranges[seat])
+    p = 1.0
+    for q in s.live():
+        if q != seat:
+            w = ranges[q] * ~np.isnan(eq)
+            p *= float((w * (np.nan_to_num(eq) < price)).sum() / w.sum()) if w.sum() > 0 else 0.0
+    return p
+
+
+def b2_code(s: G.State, seat: int, ranges: list[np.ndarray], depth: str) -> np.ndarray:
+    """The b2 fields as one int, the same for every combo: adv + R * value + R**2 * foldeq (R = B1_RADIX)."""
+    def bucket(v, edges, side):
+        return B1_NA if v is None else int(np.searchsorted(edges, v, side=side))
+
+    adv = bucket(board_adv(s, seat, ranges), ADV_EDGES, "right")
+    if depth == "basic":
+        code = adv + B1_RADIX * B1_NONE + B1_RADIX ** 2 * B1_NONE
+    else:
+        code = (adv + B1_RADIX * bucket(opp_value(s, seat, ranges), VALUE_EDGES, "right")
+                + B1_RADIX ** 2 * bucket(plan_foldeq(s, seat, ranges), FOLDEQ_EDGES, "right"))
+    return np.full(N, code)
+
+
+def b2_label(code: int) -> str:
+    out = []
+    for name, shift in (("a", 1), ("w", B1_RADIX), ("f", B1_RADIX ** 2)):
+        f = code // shift % B1_RADIX
+        if f != B1_NONE:
+            out.append(name + ("-" if f == B1_NA else str(f)))
+    return "".join(out)
+
+
 def scale_step(v: float, k: int) -> int:
     """A 0-100 value on the tier's k-step grid (pro: 6-point bins, 17 steps)."""
     return min(int(v * k / 100.0 + 1e-9), k - 1)
@@ -469,7 +559,7 @@ def public_key(s: G.State, seat: int, depth: str = "full", variant: str | None =
         st += public_facts(s, seat, depth) + "|"
     if depth == "basic":
         # Beginner TP: where am I, how many opponents, was there a raise, what does a call cost,
-        # how strong is my hand. No exact seat, initiative or SPR.
+        # how strong is my hand. No exact seat, initiative or SPR (b3: only the before/after counts and `h`).
         return (f"b|{position_group(s.n, seat)}|{s.street}|{min(n_opp, 2)}|{min(raise_level(s), 2)}|"
                 f"{pot_odds_step(s, seat)}|{st}{legal}")
     sp = spr_step_tp(s, seat) if stacks else spr_step(s, seat)
@@ -480,6 +570,7 @@ def public_key(s: G.State, seat: int, depth: str = "full", variant: str | None =
 
 
 def key(public: str, step: int) -> str:
+    b2, step = divmod(step, B2_BASE)
     b1, step = divmod(step, B1_BASE)
     if step >= NUT_BASE:  # pro, heads-up postflop: equity step and board.nut step
         out = f"{public}|e{step % NUT_BASE}|n{step // NUT_BASE - 1}"
@@ -487,6 +578,8 @@ def key(public: str, step: int) -> str:
         out = f"{public}|e{step}"
     if b1 and not public.startswith("call|"):
         out += "|" + b1_label(b1 - 1)
+        if b2:
+            out += "|" + b2_label(b2 - 1)
     return out
 
 
@@ -532,16 +625,19 @@ def theoretical_keys(n: int, k: int, depth: str = "full", variant: str = "") -> 
            after the flop, preflop aggressor (4); preflop has no preflop-aggressor field.
     b1:    every postflop non-call key also carries the b1 fields: outs (4 buckets + N/A) for basic,
            outs x vuln (3 + N/A) x block (3 + N/A) for the others.
+    b2:    b1, and the b2 fields: adv (3 + N/A) for basic, adv x value (3 + N/A) x foldeq (3 + N/A) for the others.
     s2me:  every non-call key also carries my depth bucket (8); s2 also the set of the live opponents'
            buckets, at most as many as there are opponents (n_opp "3" / basic "2" covers that many up to n-1).
     Every key also carries one of k equity steps.
     """
     po = len(POT_ODDS_EDGES) + 2
     b1 = (len(OUTS_EDGES) + 2) if depth == "basic" else (len(OUTS_EDGES) + 2) * (len(VULN_EDGES) + 2) * (len(BLOCK_EDGES) + 2)
+    b2 = (len(ADV_EDGES) + 2) if depth == "basic" else (len(ADV_EDGES) + 2) * (len(VALUE_EDGES) + 2) * (len(FOLDEQ_EDGES) + 2)
+    b2 = b2 if variant == "b2" else 1
     total = 0
     for street in range(4):
         legal = len(LEGAL_PREFLOP if street == 0 else LEGAL_POSTFLOP)
-        mult = b1 if variant in B1_VARIANTS and street > 0 else 1
+        mult = b1 * b2 if variant in B1_VARIANTS and street > 0 else 1
         if depth == "basic":
             total += sum(3 * 3 * po * legal * mult * _stack_mult(variant, n, j, 2) * _facts_mult(variant, depth, n, j, 2, street) for j in (1, 2))
         elif street == 0:
