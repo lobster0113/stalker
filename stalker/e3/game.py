@@ -1,0 +1,397 @@
+"""E3 game: N-handed NLHE (6 by default, up to 9), 100BB, one hand, chip EV, fixed betting menu (#194).
+
+Same action labels as E2 (stalker/e2/game.py, ADR 0012) so TP keys and tools carry over:
+  preflop: f, c (call or check), r (open to 2.5BB, then 3x, then 2.2x the current bet), a (all in)
+  postflop, nothing to call: k, b33, b75, a
+  postflop, facing a bet: f, c, r (raise to 3x the bet), a
+At most RAISE_CAP raises per street; preflop that is RAISE_CAP raises after the big blind. A size
+that would put a player within one BB of all in is not offered (the all-in covers it).
+
+`menu="tp6"` (#339) widens the sizes to the TP.md section 6 buckets; "r" keeps the middle size so the
+persona rules (stalker/e2/personas.py) still find a raise:
+  preflop, unopened: r22, r, r3 (open to 2.2 / 2.5 / 3 BB); with limpers only "r", the isolation raise
+    to 2.5BB + 1BB per limper (the small blind completing counts as a limper)
+  facing a bet or raise (any street): r25, r, r4 (raise to 2.5x / 3x / 4x the current bet)
+  postflop, nothing to call: k, b33, b50, b75, b100, b150, a
+Every size is at least the minimum raise; a size that lands on the same amount as a smaller one is
+offered once. `raise_cap=None` removes the per-street cap; then a raise to ALLIN_MERGE of the stack or
+more is merged into the all-in (raise wars end in a few steps instead of creeping up by min-raises).
+Both are State fields, so a hand keeps its rules; `deal` takes them, defaulting to `rules(...)`.
+
+`menu="real"` (#382) is the real-play size set of TP.md section 6 (owner decision: sizes are not cut
+for compute); "r" again keeps the 2.5BB open and the 3x raise:
+  preflop, unopened: r2, r22, r, r3, r35, r4, r5, r6, r8, r10 (open to 2 ... 10 BB); with limpers the
+    same labels isolate to that open + 1BB per limper
+  preflop 3-bet (facing an open): r25, r, r35, r4, r5 (2.5x ... 5x the open); 4-bet (facing a 3-bet):
+    r2, r22, r25, r (2x ... 3x the 3-bet); a 5-bet is all in (REAL_PREFLOP_RAISE)
+  postflop, facing a bet or raise: r25, r, r4, r5, r7, r10 (raise to 2.5x ... 10x the current bet)
+  postflop, nothing to call: k, b20, b33, b50, b75, b100, b150, b200, b300, a
+Preflop the menu itself keeps RAISE_CAP (sized open, 3-bet and 4-bet; a 5-bet is all in, as in real
+play), whatever `raise_cap` says; `raise_cap` caps the postflop streets. Any other chip amount maps to
+these labels with stalker/e3/translate.py.
+
+Seats are numbered in preflop order: 0 = UTG ... n-3 = BTN, n-2 = SB, n-1 = BB. Postflop the SB
+acts first. Heads-up (n = 2) the SB is the button: first preflop, last postflop. By default every player starts with STACK; `deal(stacks=...)` (#396) gives each seat its own
+starting stack (`sample_stacks` draws 20-250BB tables). Then an all-in can be larger than another player's
+whole stack, and `payoff` settles side pots in layers by all-in level (an uncalled top layer goes back to
+its owner; ties split a pot, odd chips to the first winner in postflop order). Chips are integers with BB = 100. The state is immutable. The betting rules still hold
+for any stacks (short all ins that do not add up to a full raise do not reopen the betting, `_locked`): Gate R
+(referee/gate_r/e3_suite.py) replays them in PokerKit, side pots included.
+"""
+from __future__ import annotations
+
+from contextlib import contextmanager
+from typing import NamedTuple
+
+import numpy as np
+
+from stalker.core.evaluator import evaluate
+
+BB = 100
+SB = 50
+STACK = 100 * BB
+STACK_RANGE_BB = (20, 250)   # sample_stacks: log-uniform whole-BB stacks in this range
+RAISE_CAP = 3
+PREFLOP_RAISE = (2.5, 3.0, 2.2)
+MENUS = ("v1", "tp6", "real")
+TP6_OPEN = (("r22", 2.2), ("r", 2.5), ("r3", 3.0))           # BB
+TP6_RAISE = (("r25", 2.5), ("r", 3.0), ("r4", 4.0))          # x the current bet
+TP6_BET = (("b33", 0.33), ("b50", 0.5), ("b75", 0.75), ("b100", 1.0), ("b150", 1.5))   # x the pot
+REAL_OPEN = (("r2", 2.0), ("r22", 2.2), ("r", 2.5), ("r3", 3.0), ("r35", 3.5), ("r4", 4.0), ("r5", 5.0),
+             ("r6", 6.0), ("r8", 8.0), ("r10", 10.0))                                     # BB
+REAL_RAISE = (("r25", 2.5), ("r", 3.0), ("r4", 4.0), ("r5", 5.0), ("r7", 7.0), ("r10", 10.0))   # x the bet
+# Preflop re-raises by raise count (State.raises before the re-raise: 2 = facing an open, 3 = facing a
+# 3-bet), x the current bet. One table so the owner's draft (#382) is a one-line change; a 5-bet is all in.
+REAL_PREFLOP_RAISE = {2: (("r25", 2.5), ("r", 3.0), ("r35", 3.5), ("r4", 4.0), ("r5", 5.0)),     # 3-bet
+                      3: (("r2", 2.0), ("r22", 2.2), ("r25", 2.5), ("r", 3.0))}                   # 4-bet
+REAL_BET = (("b20", 0.2), ("b33", 0.33), ("b50", 0.5), ("b75", 0.75), ("b100", 1.0), ("b150", 1.5),
+            ("b200", 2.0), ("b300", 3.0))                                                 # x the pot
+SIZE_LABELS = tuple(dict.fromkeys(["r", "b33", "b75"] + [name for table in (TP6_OPEN, TP6_RAISE, TP6_BET,
+                    REAL_OPEN, REAL_RAISE, REAL_BET) for name, _ in table]))   # every bet/raise label but "a"
+ISO_BASE, ISO_PER_LIMPER = 250, 100
+ALLIN_MERGE = 0.8      # raise_cap=None: a raise to >= 80% of the stack is the all-in
+_DEFAULT = {"menu": "v1", "raise_cap": RAISE_CAP}
+_UNSET = object()      # raise_cap=None means "no cap", so "not given" needs its own marker
+POSITIONS = {6: ("UTG", "HJ", "CO", "BTN", "SB", "BB"),
+             9: ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB")}
+
+
+def position_names(n: int) -> tuple[str, ...]:
+    if n == 2:
+        return ("SB", "BB")  # heads-up: the small blind is the button
+    if n in POSITIONS:
+        return POSITIONS[n]
+    early = tuple(f"EP{i}" for i in range(n - 3))
+    return early + ("BTN", "SB", "BB")
+
+
+class State(NamedTuple):
+    # Immutable; NamedTuple because `_replace` is much cheaper than dataclasses.replace and
+    # training creates a state per tree edge.
+    n: int
+    hole: tuple[tuple[int, int], ...]
+    deck: tuple[int, ...]                 # remaining cards; the board is dealt from the front
+    stack: tuple[int, ...]
+    bet: tuple[int, ...]                  # chips put in on this street
+    total: tuple[int, ...]                # chips put in this hand
+    folded: tuple[bool, ...]
+    acted: tuple[bool, ...]
+    street: int = 0
+    board: tuple[int, ...] = ()
+    to_act: int = 0
+    raises: int = 1
+    last_raise: int = BB
+    history: tuple[str, ...] = ()         # "<seat>:<action>" entries, "/" between streets
+    done: bool = False
+    menu: str = "v1"
+    raise_cap: int | None = RAISE_CAP
+    short_raise: int = 0                  # chips of short all-in raises since the last full raise (they add up, TDA)
+
+    @property
+    def pot(self) -> int:
+        return sum(self.total)
+
+    def to_call(self, p: int | None = None) -> int:
+        p = self.to_act if p is None else p
+        return max(self.bet) - self.bet[p]
+
+    def live(self) -> list[int]:
+        """Players still in the hand."""
+        return [i for i in range(self.n) if not self.folded[i]]
+
+    def active(self) -> list[int]:
+        """Players still in the hand who can act (not all in)."""
+        return [i for i in range(self.n) if not self.folded[i] and self.stack[i] > 0]
+
+
+@contextmanager
+def rules(menu: str = "v1", raise_cap: int | None = RAISE_CAP):
+    """Default rules for `deal` inside the block. The referee evaluators (LBR, field, Gate R replay)
+    call `deal(rng, n)`; this lets them run on another menu without changing protected code."""
+    if menu not in MENUS:
+        raise ValueError(f"menu={menu!r}; known menus: {MENUS}")
+    old = dict(_DEFAULT)
+    _DEFAULT.update(menu=menu, raise_cap=raise_cap)
+    try:
+        yield
+    finally:
+        _DEFAULT.update(old)
+
+
+def sample_stacks(rng: np.random.Generator, n: int, equal_p: float = 0.5) -> tuple[int, ...]:
+    """Starting stacks (chips) for a training table: with probability `equal_p` every seat gets one
+    stack, otherwise each seat draws its own; stacks are log-uniform whole BBs in STACK_RANGE_BB, so
+    short, deep and mixed-depth tables (and the side pots they make) all occur."""
+    lo, hi = np.log(STACK_RANGE_BB[0]), np.log(STACK_RANGE_BB[1])
+    k = 1 if rng.random() < equal_p else n
+    bbs = [int(round(float(np.exp(x)))) for x in rng.uniform(lo, hi, size=k)]
+    return tuple(b * BB for b in (bbs * n if k == 1 else bbs))
+
+
+def deal(rng: np.random.Generator, n: int = 6, menu: str | None = None, raise_cap=_UNSET,
+         stacks: tuple[int, ...] | None = None) -> State:
+    """`stacks`: each seat's starting stack before the blinds (default STACK for all, one rng draw order
+    unchanged so seeded results do not move)."""
+    if not 2 <= n <= 9:
+        raise ValueError(f"n={n}: E3 supports 2..9 players")
+    if stacks is not None and (len(stacks) != n or min(stacks) < 2 * BB):
+        raise ValueError(f"stacks={stacks}: need {n} starting stacks of at least {2 * BB} chips")
+    menu = _DEFAULT["menu"] if menu is None else menu
+    raise_cap = _DEFAULT["raise_cap"] if raise_cap is _UNSET else raise_cap
+    if menu not in MENUS:
+        raise ValueError(f"menu={menu!r}; known menus: {MENUS}")
+    d = [int(c) for c in rng.permutation(52)]
+    hole = tuple((d[2 * i], d[2 * i + 1]) for i in range(n))
+    bet = [0] * n
+    bet[n - 2], bet[n - 1] = SB, BB
+    stack = tuple((STACK if stacks is None else stacks[i]) - b for i, b in enumerate(bet))
+    return State(n=n, hole=hole, deck=tuple(d[2 * n:]), stack=stack, bet=tuple(bet), total=tuple(bet),
+                 folded=(False,) * n, acted=(False,) * n, to_act=0, menu=menu, raise_cap=raise_cap)
+
+
+def postflop_order(n: int) -> list[int]:
+    if n == 2:
+        return [1, 0]  # heads-up: the big blind acts first after the flop, the button (SB) last
+    return [n - 2, n - 1] + list(range(n - 2))
+
+
+def _next_to_act(s: State, p: int) -> int:
+    order = list(range(s.n)) if s.street == 0 else postflop_order(s.n)
+    k = order.index(p)
+    for j in order[k + 1:] + order[:k + 1]:
+        if not s.folded[j] and s.stack[j] > 0:
+            return j
+    return p
+
+
+def _raise_to(s: State) -> int:
+    cur = max(s.bet)
+    if s.street == 0:
+        k = min(s.raises - 1, len(PREFLOP_RAISE) - 1)
+        return int(round(PREFLOP_RAISE[0] * BB)) if k == 0 else int(round(cur * PREFLOP_RAISE[k]))
+    return 3 * cur
+
+
+def _sizes(s: State) -> list[tuple[str, int]]:
+    """(label, bet-to) for every raise or bet size the menu offers here, before the stack checks."""
+    cur = max(s.bet)
+    p = s.to_act
+    if s.menu == "v1":
+        if s.to_call() > 0 or s.street == 0:
+            return [("r", max(_raise_to(s), cur + s.last_raise))]
+        return [(name, s.bet[p] + max(BB, int(round(s.pot * frac)))) for name, frac in (("b33", 0.33), ("b75", 0.75))]
+    least = cur + s.last_raise
+    opens, raises, bets = (REAL_OPEN, REAL_RAISE, REAL_BET) if s.menu == "real" else (TP6_OPEN, TP6_RAISE, TP6_BET)
+    if s.street == 0 and s.raises <= 1:
+        limpers = sum(1 for i in range(s.n - 1) if s.bet[i] == BB)  # the big blind's own BB is not a limp
+        if limpers and s.menu == "real":
+            return [(name, max(least, int(round(x * BB)) + ISO_PER_LIMPER * limpers)) for name, x in opens]
+        if limpers:
+            return [("r", max(least, ISO_BASE + ISO_PER_LIMPER * limpers))]
+        return [(name, max(least, int(round(x * BB)))) for name, x in opens]
+    if s.menu == "real" and s.street == 0:
+        raises = REAL_PREFLOP_RAISE.get(s.raises, ())   # past the 4-bet: all in only (also capped by street_cap)
+    if s.to_call() > 0:
+        return [(name, max(least, int(round(x * cur)))) for name, x in raises]
+    return [(name, s.bet[p] + max(BB, int(round(s.pot * frac)))) for name, frac in bets]
+
+
+def street_cap(s: State) -> int | None:
+    """The raise cap on this street: the real menu caps preflop at RAISE_CAP (module doc)."""
+    return RAISE_CAP if s.menu == "real" and s.street == 0 else s.raise_cap
+
+
+def _offered(s: State) -> list[tuple[str, int]]:
+    p = s.to_act
+    room = s.stack[p] + s.bet[p]
+    top = room - BB if street_cap(s) is not None else min(room - BB, ALLIN_MERGE * room)
+    out: list[tuple[str, int]] = []
+    for name, to in _sizes(s):
+        if to < top and all(to != t for _, t in out):
+            out.append((name, to))
+    return out
+
+
+def _can_cover(s: State) -> list[int]:
+    """Other players who could still call a raise: a raise nobody can match is only a call (PokerKit
+    agrees; the uncalled excess would come back). With equal stacks this is just the other active players."""
+    top = max(s.bet)
+    return [i for i in s.active() if i != s.to_act and s.stack[i] + s.bet[i] > top]
+
+
+def legal(s: State) -> list[str]:
+    if s.done:
+        return []
+    p = s.to_act
+    call = s.to_call()
+    others = _can_cover(s)
+    acts: list[str] = []
+    if call > 0:
+        acts.append("f")
+    acts.append("c" if (call > 0 or s.street == 0) else "k")
+    if s.stack[p] > call and others and not _locked(s, p):   # acted and still to act: short all ins did not reopen
+        cap = street_cap(s)
+        if cap is None or s.raises < cap + (1 if s.street == 0 else 0):
+            acts.extend(name for name, _ in _offered(s))
+        acts.append("a")
+    return acts
+
+
+def _amount_to(s: State, a: str) -> int:
+    p = s.to_act
+    room = s.stack[p] + s.bet[p]
+    if a == "a":
+        return room
+    if a == "c":
+        return min(max(s.bet), room)
+    for name, to in _sizes(s):
+        if name == a:
+            return to
+    raise ValueError(a)
+
+
+def _street_closed(s: State) -> bool:
+    act = s.active()
+    top = max(s.bet)
+    if any(s.bet[i] != top for i in act):
+        return False
+    return len(act) <= 1 or all(s.acted[i] for i in act)
+
+
+def _deal_street(s: State) -> State:
+    k = 3 if s.street == 0 else 1
+    ns = s._replace(street=s.street + 1, board=s.board + s.deck[:k], deck=s.deck[k:], bet=(0,) * s.n,
+                 raises=0, last_raise=BB, short_raise=0, acted=(False,) * s.n, history=s.history + ("/",))
+    first = next((i for i in postflop_order(s.n) if not s.folded[i] and s.stack[i] > 0), s.n - 2)
+    return ns._replace(to_act=first)
+
+
+def _after_close(s: State) -> State:
+    if len(s.live()) == 1:
+        return s._replace(done=True)
+    if len(s.active()) <= 1:  # nobody left to bet against: run the board out
+        while s.street < 3:
+            s = _deal_street(s)
+        return s._replace(done=True)
+    if s.street == 3:
+        return s._replace(done=True)
+    return _deal_street(s)
+
+
+def _locked(s: State, p: int) -> bool:
+    """`p` may call or fold but not raise: either it already acted and faces only short all-in raises that
+    do not add up to a full raise, or what it owes is less than a full raise (TDA; PokerKit agrees,
+    referee/gate_r/e3_suite.py)."""
+    raised = s.raises > (s.street == 0)   # the big blind is not a raise: the small blind may raise its 50 up
+    return (s.acted[p] and s.short_raise > 0) or (raised and 0 < s.to_call(p) < s.last_raise)
+
+
+def _put_in(s: State, to: int, entry: str) -> State:
+    """The seat to act raises its street contribution to `to` (a check when `to` is what it has in)."""
+    p = s.to_act
+    add = to - s.bet[p]
+    stack, bet, total = list(s.stack), list(s.bet), list(s.total)
+    stack[p] -= add
+    bet[p] = to
+    total[p] += add
+    raised = to > max(s.bet)
+    full = raised and to - max(s.bet) >= s.last_raise
+    acted = [False] * s.n if full else list(s.acted)
+    acted[p] = True
+    last_raise = max(s.last_raise, to - max(s.bet)) if raised else s.last_raise
+    short = 0 if full else s.short_raise + (to - max(s.bet) if raised else 0)   # short all-ins add up (TDA)
+    return s._replace(stack=tuple(stack), bet=tuple(bet), total=tuple(total), acted=tuple(acted),
+                      history=s.history + (entry,), raises=s.raises + int(raised), last_raise=last_raise,
+                      short_raise=0 if short >= last_raise else short)
+
+
+def _advance(ns: State, p: int) -> State:
+    if _street_closed(ns):
+        return _after_close(ns)
+    return ns._replace(to_act=_next_to_act(ns, p))
+
+
+def apply(s: State, a: str) -> State:
+    if a not in legal(s):
+        raise ValueError(f"illegal action {a!r} after {s.history}; legal: {legal(s)}")
+    p = s.to_act
+    hist = s.history + (f"{p}:{a}",)
+    if a == "f":
+        folded = list(s.folded)
+        folded[p] = True
+        ns = s._replace(folded=tuple(folded), history=hist)
+        if len(ns.live()) == 1:
+            return ns._replace(done=True)
+    else:
+        ns = _put_in(s, s.bet[p] if a == "k" else _amount_to(s, a), hist[-1])
+    return _advance(ns, p)
+
+
+def apply_to(s: State, to: int, label: str) -> State:
+    """A bet or raise to `to` chips on this street that is not on the menu (referee LBR #343, a person's
+    real size #412). `label` is the menu action recorded in the history (stalker/e3/translate.py), so TP
+    keys read it as that action. Any legal no-limit size is accepted, on any street and past the menu's
+    raise cap (the cap, the all-in-only 5-bet and ALLIN_MERGE are menu rules, TP.md section 6): from the
+    current bet plus the last raise up to all in, or all in when that is less."""
+    p = s.to_act
+    room = s.stack[p] + s.bet[p]
+    least = min(max(s.bet) + s.last_raise, room)
+    if (s.done or not least <= to <= room or s.stack[p] <= s.to_call() or _locked(s, p)
+            or not _can_cover(s)):
+        raise ValueError(f"illegal bet/raise to {to} after {s.history}")
+    return _advance(_put_in(s, to, f"{p}:{label}"), p)
+
+
+def payoff(s: State) -> np.ndarray:
+    """Net chips per seat relative to the start of the hand (sums to zero)."""
+    if not s.done:
+        raise ValueError("hand is not over")
+    live = s.live()
+    out = -np.array(s.total, dtype=np.int64)
+    if len(live) == 1:
+        out[live[0]] += s.pot
+        return out
+    score = {i: evaluate(list(s.hole[i]) + list(s.board)) for i in live}
+    order = postflop_order(s.n)
+    prev = 0
+    for level in sorted({s.total[i] for i in live}):
+        amount = sum(min(t, level) - min(t, prev) for t in s.total)
+        prev = level
+        seats = [i for i in live if s.total[i] >= level]
+        best = max(score[i] for i in seats)
+        winners = [i for i in order if i in seats and score[i] == best]
+        share, odd = divmod(amount, len(winners))
+        for i in winners:
+            out[i] += share
+        out[winners[0]] += odd  # all odd chips to the first winner (TDA, as referee/gate_r/settlement.py; #203)
+    out += np.maximum(np.array(s.total, dtype=np.int64) - prev, 0)   # a bet above every live stack is returned
+    return out
+
+
+def random_playout(rng: np.random.Generator, n: int = 6, menu: str | None = None,
+                   raise_cap=_UNSET, stacks: tuple[int, ...] | None = None) -> State:
+    s = deal(rng, n, menu, raise_cap, stacks)
+    while not s.done:
+        acts = legal(s)
+        s = apply(s, acts[int(rng.integers(len(acts)))])
+    return s

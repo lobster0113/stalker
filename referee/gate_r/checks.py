@@ -5,6 +5,9 @@ alone (no PokerKit, no `stalker.tournament.hand`) and compares every engine-repo
 Rules not obvious from a textbook (they follow ADR 0005, which records the engine's tournament rules):
 - Antes are posted before blinds; a blind is capped by the stack left after the ante. Heads-up the button
   posts the SB and the other seat the BB (and the BB ante). Short stacks post what they have and are all-in.
+- short_stack_rule='skip' (3+ seats): seats starting the hand with fewer than bb + ante chips post no blind;
+  SB and BB go to the first two seats, clockwise from left of the button, that have at least that many
+  (fewer than two such seats: the all-in postings above).
 - Preflop the seat left of the BB acts first; later streets start left of the button.
 - When betting opens on a street, a seat that no opponent can bet beyond (every other live seat's bet + stack
   <= its bet) does not act on that street unless someone raises.
@@ -84,8 +87,11 @@ class _HandModel:
         occupied = set(d["seat_players"])
         self.order = [(d["button"] + k) % t for k in range(1, t + 1) if (d["button"] + k) % t in occupied]
         n = len(self.order)
+        able = [s for s in self.order if d["stacks"][s] >= d["bb"] + d["ante"]]
         if n == 2:
             self.sb_seat, self.bb_seat = d["button"], self.order[0]
+        elif getattr(cfg, "short_stack_rule", "all_in") == "skip" and len(able) >= 2:
+            self.sb_seat, self.bb_seat = able[0], able[1]
         else:
             self.sb_seat, self.bb_seat = self.order[0], self.order[1]
         self.stack = dict(d["stacks"])
@@ -219,17 +225,27 @@ def _level_for_minutes(levels, minutes: int):
     return levels[-1]
 
 
-def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label: str = "") -> Tally:
-    """Replay one game's events (as emitted to `run_game`'s observer) and its `GameResult` into `tally`."""
+def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label: str = "",
+               start_state=None) -> Tally:
+    """Replay one game's events (as emitted to `run_game`'s observer) and its `GameResult` into `tally`.
+
+    `start_state` (a mid-tournament start): survivors begin with its stacks, the level clock begins at its level,
+    and the already-eliminated players must hold the places below the survivors.
+    """
     tally = tally or Tally()
     total = cfg.starting_stack * cfg.players
     stacks = {p: cfg.starting_stack for p in range(cfg.players)}
+    clock_s = 0
+    if start_state is not None:
+        stacks = dict(start_state.stacks)
+        if cfg.length_unit == "minutes":
+            clock_s = 60 * sum(lv.length for lv in cfg.levels[:start_state.level_index])  # independent of the engine's level_start on purpose
     buttons: dict[int, int] = {}
     busted_by_round: dict[int, list[tuple[int, int]]] = defaultdict(list)
     round_chips: dict[int, dict[int, int]] = {}
     hand = d = None
     showdown = None
-    clock_s, round_no, round_max = 0, None, 0  # virtual clock (length_unit='minutes'): see GATES.md Gate R
+    round_no, round_max = None, 0  # virtual clock (length_unit='minutes'): see GATES.md Gate R
     for e in events:
         if e.type == "NEW_HAND":
             d = e.data
@@ -252,6 +268,9 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
                 tally.check("button", d["button"] == want, f"{where}: button {d['button']}, expected {want}")
             buttons[e.table_id] = d["button"]
             hand = _HandModel(cfg, d, tally, where)
+            tally.check("antes_blinds", tuple(d.get("blind_seats", ())) == (hand.sb_seat, hand.bb_seat),
+                        f"{where}: blind seats {d.get('blind_seats')}, rules say SB {hand.sb_seat} BB {hand.bb_seat} "
+                        f"(short_stack_rule={cfg.short_stack_rule!r}, stacks {d['stacks']})")
             first_action = True
             showdown = None
         elif e.type == "ACTION" and hand is not None:
@@ -288,7 +307,7 @@ def check_game(cfg, events: Iterable, result, tally: Tally | None = None, label:
     for rnd, chips in round_chips.items():  # stacks after the round's last hand
         tally.check("chip_conservation", sum(chips.values()) == total,
                     f"{label} round {rnd}: {sum(chips.values())} chips in play, expected {total}")
-    _check_ranks(cfg, result, busted_by_round, stacks, tally, label)
+    _check_ranks(cfg, result, busted_by_round, stacks, tally, label, start_state)
     return tally
 
 
@@ -314,11 +333,16 @@ def _check_settlement(hand: _HandModel, showdown, final: dict, tally: Tally, whe
                 f"{where}: engine final stacks {dict(final)}, independent settlement {want}")
 
 
-def _check_ranks(cfg, result, busted_by_round, survivors: dict, tally: Tally, label: str) -> None:
+def _check_ranks(cfg, result, busted_by_round, survivors: dict, tally: Tally, label: str,
+                 start_state=None) -> None:
     ranks = result.ranks
     ok = sorted(ranks) == list(range(1, cfg.players + 1)) and len(survivors) == 1
     ok &= all(ranks[p] == 1 for p in survivors)
     remaining = cfg.players
+    if start_state is not None:
+        remaining = start_state.remaining
+        out = sorted(p for p in range(cfg.players) if p not in start_state.stacks)
+        ok &= [ranks[p] for p in out] == list(range(remaining + 1, cfg.players + 1))
     for rnd in sorted(busted_by_round):
         group = busted_by_round[rnd]
         places = sorted(ranks[p] for p, _ in group)

@@ -1,0 +1,229 @@
+{
+  "tp_version": "0.3",
+  "source": "docs/TP.md v0.3 (ADR 0010, ADR 0011 #263, #395)",
+  "status": "draft",
+  "layers": {
+    "facts": "DecisionContext: public or mechanically computed from public info; shown by the screen, not asked",
+    "judgments": "TP judgment items: estimates worth training; asked by tier and mode",
+    "decision": "legal action and size; output of the action head"
+  },
+  "decision_context_version": "0.1",
+  "decision_context": [
+    "street",
+    "hero_position",
+    "position_vs_button",
+    "opponents_to_act",
+    "opponent_positions",
+    "street_aggressor",
+    "preflop_aggressor",
+    "legal_actions",
+    "to_call",
+    "min_raise",
+    "max_raise",
+    "pot",
+    "effective_stack_bb",
+    "spr",
+    "required_equity",
+    "all_in",
+    "board",
+    "hole_cards",
+    "tournament_public_summary"
+  ],
+  "tournament_public_summary": [
+    "total_entries",
+    "remaining_players",
+    "paid_places",
+    "payout_vector",
+    "blind_level",
+    "next_blind_change",
+    "hero_rank",
+    "stack_distribution_deciles"
+  ],
+  "modules": ["common", "postflop", "plan", "decision"],
+  "items": [
+    {
+      "id": "opp.loose", "module": "common", "kind": "judgment",
+      "question": "상대는 루즈한가?", "ends": ["타이트", "루즈"], "scale": "0-100",
+      "applies": "always",
+      "na": {"min_opportunities": 8, "opportunity": "preflop_decisions"},
+      "eligible_for_grading": true, "grading_condition": "ci_width_le_30"
+    },
+    {
+      "id": "opp.aggr", "module": "common", "kind": "judgment",
+      "question": "상대는 공격적인가?", "ends": ["패시브", "공격적"], "scale": "0-100",
+      "applies": "always",
+      "na": {"min_opportunities": 8, "opportunity": "bet_or_raise_possible_decisions"},
+      "eligible_for_grading": true, "grading_condition": "ci_width_le_30"
+    },
+    {
+      "id": "opp.foldy", "module": "common", "kind": "judgment",
+      "question": "압박에 잘 접는가?", "ends": ["안 접음", "잘 접음"], "scale": "0-100",
+      "applies": "always",
+      "na": {"min_opportunities": 6, "opportunity": "facing_bet_decisions"},
+      "eligible_for_grading": true, "grading_condition": "ci_width_le_30"
+    },
+    {
+      "id": "opp.range", "module": "common", "kind": "judgment",
+      "question": "상대 핸드 레인지", "ends": null, "scale": "range_169",
+      "applies": "opponent_remaining",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "tier_metric"
+    },
+    {
+      "id": "opp.value", "module": "common", "kind": "computed",
+      "question": "방금 상대 벳은 밸류 쪽인가?", "ends": ["블러프 쪽", "밸류 쪽"], "scale": "0-100",
+      "applies": "opponent_bet_or_raised_this_street",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "assumption_shown"
+    },
+    {
+      "id": "hand.equity", "module": "common", "kind": "computed",
+      "question": "내 쇼다운 에퀴티", "ends": ["0%", "100%"], "scale": "0-100",
+      "applies": "always",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "always",
+      "question_forms": {
+        "beginner": {"form": "rank", "question": "내 핸드는 이 상대 상황에서 내 레인지의 상위 몇 %인가?",
+                     "ends": ["하위", "상위"], "exception": "hand.eq_call",
+                     "answer": "share_better: 내 레인지(TeacherContext의 이 라인 내 정책 레인지)에서 카드 제거(내 카드·보드) 후 남은 콤보 중, hand.equity와 같은 상대 전체 대비 쇼다운 에퀴티가 내 핸드보다 높은 콤보의 질량 비율(같으면 절반). 0 = 레인지 최상위",
+                     "bands": [0.2, 0.4, 0.6, 0.8],
+                     "chips": ["상위 20%", "20–40%", "40–60%", "60–80%", "하위 20%"],
+                     "chip_rule": "chip = min(4, floor(share_better × 5)); 구간은 [하한, 상한)",
+                     "grading": "칩 c를 0-100 위치 (4 − c) × 25(약 → 강, tiers.beginner.steps)에 놓고 tiers.beginner.tolerance로 채점: 같은 칩만 만점"}
+      }
+    },
+    {
+      "id": "board.adv", "module": "postflop", "kind": "computed",
+      "question": "이 보드는 누구 레인지에 유리한가?", "ends": ["나", "상대"], "scale": "0-100",
+      "applies": "postflop_heads_up",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "always"
+    },
+    {
+      "id": "board.nut", "module": "postflop", "kind": "computed",
+      "question": "넛에 가까운 핸드는 누가 더 많은가?", "ends": ["나", "상대"], "scale": "0-100",
+      "applies": "postflop_heads_up",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "tier_pro_only"
+    },
+    {
+      "id": "hand.outs", "module": "postflop", "kind": "computed",
+      "question": "다음 카드 중 나에게 유리해지는 비율", "ends": ["0%", "100%"], "scale": "0-100",
+      "applies": "flop_or_turn",
+      "na": null, "threshold_pp": 10,
+      "eligible_for_grading": true, "grading_condition": "always"
+    },
+    {
+      "id": "hand.vuln", "module": "postflop", "kind": "computed",
+      "question": "다음 카드 중 나에게 불리해지는 비율", "ends": ["0%", "100%"], "scale": "0-100",
+      "applies": "flop_or_turn",
+      "na": null, "threshold_pp": -10,
+      "eligible_for_grading": true, "grading_condition": "tier_mid_or_above"
+    },
+    {
+      "id": "hand.block", "module": "postflop", "kind": "computed",
+      "question": "내 카드가 상대의 강한 핸드를 얼마나 지우는가?", "ends": ["덜 지움", "더 지움"], "scale": "0-100",
+      "applies": "postflop",
+      "na": null, "near_nut_top": 0.10, "average": "uniform_over_live_hero_combos",
+      "eligible_for_grading": true, "grading_condition": "tier_mid_or_above"
+    },
+    {
+      "id": "plan.foldeq", "module": "plan", "kind": "computed",
+      "question": "대표 후보 사이즈로 벳·레이즈하면 상대가 접을 확률", "ends": ["0%", "100%"], "scale": "0-100",
+      "applies": "bet_or_raise_legal",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "tier_mid_or_above"
+    },
+    {
+      "id": "plan.icm", "module": "plan", "kind": "computed",
+      "question": "이 결정에서 칩을 잃는 위험의 무게", "ends": ["가벼움", "무거움"], "scale": "risk_premium_pp",
+      "applies": "tournament_call_or_all_in",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "single_table_exact_icm"
+    },
+    {
+      "id": "plan.pot", "module": "plan", "kind": "reflection",
+      "question": "팟을 키울 것인가?", "ends": ["억제", "증가"], "scale": "0-100",
+      "applies": "guided_or_deep",
+      "na": null,
+      "eligible_for_grading": false, "grading_condition": "definition_open"
+    },
+    {
+      "id": "act.choice", "module": "decision", "kind": "decision",
+      "question": "액션", "ends": null, "scale": "action",
+      "applies": "always",
+      "na": null,
+      "eligible_for_grading": true, "grading_condition": "q_values_available"
+    }
+  ],
+  "tiers": {
+    "beginner": {
+      "name": "초보", "steps": [0, 25, 50, 75, 100], "tolerance": 12.5, "range_input": "preset_or_top_percent",
+      "items": ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs", "act.choice"]
+    },
+    "mid": {
+      "name": "중수", "steps": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], "tolerance": 5, "range_input": "top_percent_plus_cells",
+      "items": ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs",
+                "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm", "act.choice"]
+    },
+    "pro": {
+      "name": "고수", "steps": "0-100", "tolerance": 3, "range_input": "preset_plus_cells",
+      "items": ["opp.loose", "opp.range", "hand.equity", "board.adv", "hand.outs",
+                "opp.aggr", "opp.value", "hand.vuln", "hand.block", "plan.foldeq", "plan.icm",
+                "opp.foldy", "board.nut", "act.choice"]
+    }
+  },
+  "reflection_items": ["plan.pot"],
+  "modes": {
+    "quick": {
+      "max_judgments": 3,
+      "selection_rule": "draft",
+      "rule": {
+        "preflop": ["hand.equity", "opp.range"],
+        "postflop": ["hand.equity", "board.adv", "hand.outs"],
+        "facing_bet": ["opp.value", "hand.equity"]
+      },
+      "note": "initial draft; fixed per tier after the input-time pilot (TP.md section 8)"
+    },
+    "guided": {"items": "tier_all"},
+    "deep": {"items": "all", "range_editor": "cells_169"}
+  },
+  "grading": {
+    "action_ev_tolerance_pot_fraction": 0.01,
+    "t2_tolerance": {"0-100": 1.0, "risk_premium_pp": 0.5},
+    "frequency_penalty_single_hand": false,
+    "confidence_labels": ["모의", "검증 중", "검증 완료"]
+  },
+  "buckets": {
+    "effective_stack_bb": [5, 10, 15, 25, 40, 60, 100],
+    "bet_size_pot_pct": [33, 60, 85, 120],
+    "preflop_raise_bb": [2.5, 3.5, 5],
+    "players": ["heads_up", "three", "four_plus"],
+    "position": ["blinds", "early", "middle", "late"],
+    "tournament_stage": ["early", "middle", "near_bubble", "in_the_money", "final_table"],
+    "all_in_bucket": true
+  },
+  "sensitivity_exceptions": [
+    "legal_action_set_differs",
+    "all_in_or_call_price_crosses_stack_threshold",
+    "pay_jump_or_bubble_state_changes",
+    "anchor_best_action_ev_gap_changes"
+  ],
+  "size_buckets": {
+    "preflop_open_bb": [2.0, 2.2, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 8.0, 10.0, "all_in"],
+    "preflop_iso_per_limper_bb": 1.0,
+    "preflop_3bet_x": [2.5, 3.0, 3.5, 4.0, 5.0, "all_in"],
+    "preflop_4bet_x": [2.0, 2.2, 2.5, 3.0, "all_in"],
+    "preflop_5bet_plus": ["all_in"],
+    "postflop_bet_pot_pct": [20, 33, 50, 75, 100, 150, 200, 300, "all_in"],
+    "postflop_raise_x": [2.5, 3.0, 4.0, 5.0, 7.0, 10.0, "all_in"],
+    "translation": {
+      "rule": "pseudo_harmonic",
+      "size_measure": "(to - current_bet) / (pot + to_call)",
+      "grading": "probability_split",
+      "ai_reading": "seeded_sample",
+      "below_smallest": "smallest",
+      "all_in": "all_in"
+    }
+  }
+}

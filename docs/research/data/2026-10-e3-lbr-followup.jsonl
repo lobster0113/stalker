@@ -1,0 +1,6 @@
+{"iters": 1500, "policy": "average", "keys": 7967, "lbr_bb": 6.0915, "stderr_bb": 1.4418, "by_seat": {"UTG": 6.67, "HJ": 1.3367, "CO": 1.39, "BTN": 0.0033, "SB": 2.8867, "BB": 24.2625}, "hands": 150}
+{"iters": 1500, "policy": "current", "keys": 7967, "lbr_bb": 3.0081, "stderr_bb": 1.2357, "by_seat": {"UTG": 3.3367, "HJ": -0.6667, "CO": -0.6667, "BTN": -1.99, "SB": 2.5007, "BB": 15.5343}, "hands": 150}
+{"iters": 4000, "policy": "average", "keys": 13316, "lbr_bb": 4.4981, "stderr_bb": 1.2953, "by_seat": {"UTG": 5.35, "HJ": 0.6833, "CO": 1.3533, "BTN": 0.7621, "SB": 3.157, "BB": 15.6829}, "hands": 150}
+{"iters": 4000, "policy": "current", "keys": 13316, "lbr_bb": 4.4363, "stderr_bb": 1.2759, "by_seat": {"UTG": 4.6733, "HJ": 0.0167, "CO": 0.67, "BTN": 2.7, "SB": 4.071, "BB": 14.4871}, "hands": 150}
+{"keys": "short-call", "iters": 1500, "policy": "average", "n_keys": 5771, "under10_share": 0.919, "lbr_bb": 4.5756, "stderr_bb": 1.3113, "by_seat": {"UTG": 2.6833, "HJ": 0.6867, "CO": 2.0267, "BTN": 0.7133, "SB": 2.1635, "BB": 19.18}, "hands": 150}
+{"keys": "short-call", "iters": 1500, "policy": "current", "n_keys": 5771, "under10_share": 0.919, "lbr_bb": 2.1523, "stderr_bb": 1.0354, "by_seat": {"UTG": -0.6667, "HJ": 0.07, "CO": 0.6867, "BTN": 1.5167, "SB": 0.3767, "BB": 10.9306}, "hands": 150}

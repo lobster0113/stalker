@@ -1,7 +1,10 @@
 import importlib.util
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 from referee.guard import load_rules, violations
 
@@ -40,9 +43,20 @@ def test_bash_guard_blocks_policy_violations():
         assert g.check(cmd) is None, cmd
 
 
+def test_bash_guard_checks_each_command_separately():
+    g = _load(ROOT / "harness" / "hooks" / "guard_bash.py")
+    for cmd in ["git push -u origin x && gh pr view 1 --jq '\"a\" + .b'",
+                "git push origin x; gh issue comment 1 --body \"고수 + SB\"",
+                "git push -q origin x 2>&1 | grep -v remote\ngh pr view 2 --jq '.a + .b'"]:
+        assert g.check(cmd) is None, cmd
+    for cmd in ["git push origin +x", "git push origin x --force", "cd a && git push --force origin y",
+                "echo hi; git push origin main", "git commit -m ok && git push -f origin z"]:
+        assert g.check(cmd), cmd
+
+
 def test_schedule_covers_all_routines():
     import json
-    sched = json.loads((ROOT / "harness" / "schedule.json").read_text())
+    sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))
     roles = {p.stem for p in (ROOT / "harness" / "routines").glob("*.md")}
     assert roles == {cfg["instructions"] for cfg in sched.values()}
 
@@ -54,13 +68,13 @@ def _run_pytest(tmp_path, body, require_torch):
     import sys
 
     shutil.copy(ROOT / "tests" / "conftest.py", tmp_path / "conftest.py")
-    (tmp_path / "test_case.py").write_text(body)
+    (tmp_path / "test_case.py").write_text(body, encoding="utf-8")
     env = {k: v for k, v in os.environ.items() if k != "STALKER_REQUIRE_TORCH"}
     if require_torch:
         env["STALKER_REQUIRE_TORCH"] = "1"
     return subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(tmp_path)],
-        cwd=tmp_path, env=env, capture_output=True, text=True,
+        cwd=tmp_path, env=env, capture_output=True, text=True, encoding="utf-8",
     )
 
 
@@ -86,7 +100,7 @@ def test_require_torch_catches_in_test_skip_and_keeps_other_skips(tmp_path):
 
 
 def test_ci_rl_job_runs_torch_tests_without_skips():
-    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     jobs = {}
     name = None
     for line in ci.splitlines():
@@ -103,24 +117,27 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "tests/test_rl_" in rl
     assert "timeout-minutes: 20" in rl
     assert "cache: pip" in rl
-    gates = "\n".join(jobs["gates"])
-    assert "python -m referee.gates full" in gates and "rl]" not in gates
+    parts = "\n".join(jobs["gates-part"])
+    assert "python -m referee.gates full --part ${{ matrix.part }}" in parts and "rl]" not in parts
+    assert "part: [tests, checks]" in parts
+    gates = "\n".join(jobs["gates"])  # the required check: fails unless every part succeeded
+    assert "needs: gates-part" in gates and "if: always()" in gates and '!= "success"' in gates
 
 
 def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
-    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     web = ci.split("\n  web:\n", 1)[1].split("\n\n", 1)[0]
     minutes = int(re.search(r"timeout-minutes: (\d+)", web).group(1))
     assert minutes <= 15
     assert "npm test" in web and "playwright install" in web
     assert "name: web-screenshots" in web and "if: always()" in web
-    script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text()
+    script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text(encoding="utf-8")
     assert "scrollWidth" in script and "critical" in script
     assert all(f"{w}" in script for w in ("390", "820", "1440"))
 
 
 def test_texassolver_job_is_manual_capped_and_secretless():
-    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
+    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text(encoding="utf-8")
     on = wf.split("\non:\n", 1)[1].split("\n\n", 1)[0]
     assert "workflow_dispatch:" in on
     assert not any(t in on for t in ("pull_request", "push:", "schedule:", "workflow_run"))
@@ -139,13 +156,14 @@ def test_texassolver_job_is_manual_capped_and_secretless():
     assert all("${{ inputs." not in line for line in wf.splitlines() if "run:" in line or "python -m" in line)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="runs the workflow's GNU sed command on a POSIX path (#191)")
 def test_texassolver_job_cache_key_tracks_install_commit():
-    script = (ROOT / "scripts" / "install_texassolver.sh").read_text()
+    script = (ROOT / "scripts" / "install_texassolver.sh").read_text(encoding="utf-8")
     (commit,) = re.findall(r'^COMMIT="([0-9a-f]{40})"', script, re.M)
-    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text()
+    wf = (ROOT / ".github" / "workflows" / "texassolver.yml").read_text(encoding="utf-8")
     sed = re.search(r"sha=\$\(sed -n '([^']+)' scripts/install_texassolver.sh\)", wf).group(1)
     out = subprocess.run(["sed", "-n", sed, str(ROOT / "scripts" / "install_texassolver.sh")],
-                         capture_output=True, text=True, check=True).stdout.strip()
+                         capture_output=True, text=True, check=True, encoding="utf-8").stdout.strip()
     assert out == commit
 
 
@@ -259,7 +277,7 @@ def test_should_run_lock_race_lets_only_one_run():
     def decide(role, sweep):
         return sr.decide(role, sweep, now=NOW, read_lock=locks.get, last_run=lambda r: None)
 
-    def lost_race(path, content, msg):
+    def lost_race(files, msg):
         locks["builder"] = _lock_at(0)  # another run pushed its lock first
         return False
 
@@ -269,9 +287,51 @@ def test_should_run_lock_race_lets_only_one_run():
     locks.clear()
     written = []
     ok, _ = sr.acquire("builder", False, decide_fn=decide, fetch=lambda: None,
-                       commit=lambda p, c, m: written.append((p, c)) or True)
-    assert ok and written[0][0] == "locks/builder.json"
-    assert {"run_id", "started"} <= set(__import__("json").loads(written[0][1]))
+                       commit=lambda f, m: written.append(f) or True)
+    assert ok and list(written[0]) == ["locks/builder.json"]  # non-sweep runs leave the sweep stamp alone
+    assert {"run_id", "started"} <= set(__import__("json").loads(written[0]["locks/builder.json"]))
+
+
+def _decide_sweep(last_sweep_hours_ago, lock=None, last_run_seconds_ago=45):
+    from datetime import timedelta
+    sr = _should_run()
+    return sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: lock,
+                     last_run=lambda r: NOW - timedelta(seconds=last_run_seconds_ago),
+                     last_sweep=lambda r: None if last_sweep_hours_ago is None
+                     else NOW - timedelta(hours=last_sweep_hours_ago))
+
+
+def test_sweep_throttle_ignores_webhook_runs():
+    # #205: a webhook run 45s ago used to make the hourly sweep SKIP forever.
+    ok, why = _decide_sweep(2.0)
+    assert ok and "sweep" in why, why
+    ok, why = _decide_sweep(None)
+    assert ok and why == "no previous sweep"
+    ok, why = _decide_sweep(0.5, last_run_seconds_ago=7200)
+    assert not ok and why.startswith("last sweep") and "<" in why
+    ok, why = _decide_sweep(2.0, lock=_lock_at(0.5))
+    assert not ok and why.startswith("running")
+
+
+def test_sweep_run_stamps_its_start_with_the_lock():
+    import json
+    sr = _should_run()
+    written = []
+    ok, _ = sr.acquire("reviewer-b", True, fetch=lambda: None,
+                       decide_fn=lambda role, sweep: (True, "x"),
+                       commit=lambda f, m: written.append(f) or True)
+    assert ok and len(written) == 1  # one commit: lock and stamp land (or fail) together
+    files = written[0]
+    assert set(files) == {"locks/reviewer-b.json", "locks/reviewer-b.sweep.json"}
+    assert json.loads(files["locks/reviewer-b.sweep.json"])["role"] == "reviewer-b"
+
+
+def test_last_sweep_tolerates_missing_or_corrupt_stamp(monkeypatch):
+    sr = _should_run()
+    for raw, want in [("", None), ("{bad", None), ('{"x": 1}', None),
+                      ('{"started": "2026-10-26T11:00:00Z"}', NOW.replace(hour=11))]:
+        monkeypatch.setattr(sr, "_git", lambda *a, raw=raw, **k: raw)
+        assert sr.last_sweep("reviewer") == want
 
 
 def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
@@ -290,3 +350,25 @@ def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
         elif not isinstance(doc.get("jobs"), dict) or not doc["jobs"]:
             bad.append(f"{wf.name}: missing or empty `jobs:`")
     assert not bad, "\n".join(bad)
+
+
+def test_two_reviewers_split_prs_by_parity():
+    import json
+    sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))
+    assert sched["reviewer-b"]["instructions"] == sched["reviewer"]["instructions"] == "reviewer"
+    assert {k: v for k, v in sched["reviewer-b"].items()} == {k: v for k, v in sched["reviewer"].items()}
+    text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
+    assert "홀수" in text and "짝수" in text and "reviewer-b" in text
+
+
+def test_reviewer_locks_are_separate_per_role():
+    sr = _should_run()
+    seen = []
+    sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
+    sr.decide("reviewer", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
+    assert seen == ["reviewer-b", "reviewer"]  # each role reads ops:locks/<role>.json
+    # A held reviewer lock does not block reviewer-b.
+    held = {"role": "reviewer", "run_id": "x", "started": NOW.isoformat()}
+    ok, _ = sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: held if r == "reviewer" else None,
+                      last_sweep=lambda r: None)
+    assert ok

@@ -1,0 +1,15 @@
+# E3 pro 6-max TP chain on a 32 vCPU RunPod CPU pod, one run (#333): 32 workers, batch-synchronous
+# (#318), 240 min of training, then the CI evaluation (LBR, field), model returned in the result.
+# #321 measured mid 6-max at 705 it/s on 32 vCPU (cloud run 40816203961, $0.96/h); pro keys run at
+# about 0.64x mid (#325), so this is roughly 6-7 million iterations, vs 10^5 per CI chunk.
+# Chain (#354): dispatch with resume_run=<previous cloud.yml run id>; the pod continues that result.
+# Worst case = hourly_usd * max_minutes / 60 = $6.40. Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
+name: e3-tp-pro-pod32
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier pro --players 6 --workers 32 --minutes 240 --batch 500 --seed 1 --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-pro-pod32.json
+cpu_flavor: cpu3c
+vcpu: 32
+disk_gb: 10
+max_minutes: 320
+hourly_usd: 1.2
+result_path: /result/e3-tp-pro-pod32.json

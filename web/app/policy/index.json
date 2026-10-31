@@ -1,0 +1,70 @@
+{
+ "schema": "stalker.web.policy-index",
+ "schema_version": 1,
+ "tiers": {
+  "beginner": {
+   "file": "beginner-6.json",
+   "bytes": 62479,
+   "tier": "beginner",
+   "players": 6,
+   "k": 5,
+   "depth": "basic",
+   "iterations": 200000,
+   "run_id": "40783153094",
+   "sha": "2044ebd",
+   "lbr_bb": 1.1277,
+   "lbr_stderr_bb": 0.2215,
+   "field_worst": {
+    "name": "tag5",
+    "bb100": -54.9,
+    "ci95_low": -108.79
+   },
+   "job": "e3-tp-beginner",
+   "q": 255,
+   "min_visits": 0,
+   "keys": 1724,
+   "keys_dropped": 0
+  },
+  "mid": {
+   "file": "mid-6.json",
+   "bytes": 2320553,
+   "tier": "mid",
+   "players": 6,
+   "k": 11,
+   "depth": "full",
+   "iterations": 1904000,
+   "run_id": "40919207457",
+   "sha": "eb8758cc7b74fd98b5cecfeb1b33152938011602",
+   "lbr_bb": 0.1353,
+   "lbr_stderr_bb": 0.2118,
+   "field_worst": null,
+   "job": "e3-tp-mid-pod",
+   "strategy": "average",
+   "q": 255,
+   "min_visits": 0,
+   "keys": 62724,
+   "keys_dropped": 0
+  },
+  "pro": {
+   "file": "pro-6.json",
+   "bytes": 9330225,
+   "tier": "pro",
+   "players": 6,
+   "k": 17,
+   "depth": "pro",
+   "iterations": 3168000,
+   "run_id": "40901122090",
+   "sha": "bc819f8398e19e2b61dad328cb874100afa16253",
+   "lbr_bb": 0.3817,
+   "lbr_stderr_bb": 0.1863,
+   "field_worst": null,
+   "job": "e3-tp-pro-pod",
+   "strategy": "average",
+   "nut_k": 5,
+   "q": 255,
+   "min_visits": 0,
+   "keys": 209639,
+   "keys_dropped": 0
+  }
+ }
+}

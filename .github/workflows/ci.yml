@@ -12,9 +12,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gates:
+  # Two parts in parallel (#203): the test suite and the registered checks each take ~15 minutes.
+  gates-part:
+    name: gates (${{ matrix.part }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [tests, checks]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,7 +28,29 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e ".[dev]" -q
-      - run: python -m referee.gates full
+      - run: python -m referee.gates full --part ${{ matrix.part }}
+        env:
+          # record-metrics reads the counts from this report instead of rerunning the suite (#312).
+          PYTEST_ADDOPTS: ${{ matrix.part == 'tests' && '--junitxml=junit.xml' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: matrix.part == 'tests' && always()
+        with:
+          name: junit
+          path: junit.xml
+          if-no-files-found: warn
+
+  # The required check keeps its name; it fails unless every part succeeded (a skipped or
+  # cancelled part must not pass branch protection).
+  gates:
+    needs: gates-part
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          PARTS: ${{ needs.gates-part.result }}
+        run: |
+          if [ "$PARTS" != "success" ]; then echo "gates parts result is $PARTS (every part must succeed)"; exit 1; fi
 
   guard:
     if: github.event_name == 'pull_request'
@@ -38,7 +66,12 @@ jobs:
       - name: referee-guard
         env:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-        run: python -m referee.guard --base "${{ github.event.pull_request.base.sha }}" --labels "$LABELS"
+          BASE_REF: ${{ github.base_ref }}
+        # The event's base.sha can be older than the main this PR already merged, so files that landed
+        # on main would count as PR changes (#219). Diff from the merge base with the current base tip.
+        run: |
+          git fetch -q origin "$BASE_REF"
+          python -m referee.guard --base "$(git merge-base "origin/$BASE_REF" HEAD)" --labels "$LABELS"
 
   rl:
     # gates installs [dev] only, so torch tests skip there; this job runs them for real (#51).
@@ -68,6 +101,9 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/e2e/package-lock.json
+      # Every web node suite (#436): tpgto.js must match the Python trainer's keys/ranges exactly (#335),
+      # plus tells, personas and leaks. A shell glob of files, not a directory: node 22+ --test does not take one.
+      - run: node --test web/app/test/*.test.mjs
       - run: npm ci
         working-directory: web/e2e
       - run: npx playwright install --with-deps chromium
@@ -83,8 +119,9 @@ jobs:
           path: web-screenshots/
           if-no-files-found: warn
 
+  # On PRs it only times the snapshot (no append), and only when the snapshot's inputs changed (#312).
   record-metrics:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'pull_request'
     needs: gates
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -94,16 +131,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: snapshot inputs changed
+        id: inputs
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then echo "run=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git fetch -q origin "$BASE_REF"
+          if git diff --name-only "$(git merge-base "origin/$BASE_REF" HEAD)" HEAD | grep -qE '^(referee/(metrics|gate_[a-z]+|anchors)|stalker/(core|e1|e3|toy)/|\.github/workflows/ci\.yml)'; then
+            echo "run=1" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-python@v5
+        if: steps.inputs.outputs.run
         with:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e ".[dev]" -q
+        if: steps.inputs.outputs.run
+      - uses: actions/download-artifact@v4
+        if: steps.inputs.outputs.run
+        with:
+          name: junit
+          path: /tmp/junit
       - name: snapshot
+        if: steps.inputs.outputs.run
+        timeout-minutes: 20
         env:
           METRICS_SOURCE: ci
+          METRICS_JUNIT: /tmp/junit/junit.xml
         run: python -m referee.metrics > /tmp/snap.json
       - name: append to ops branch
+        if: github.event_name == 'push'
         run: |
           git config user.name "stalker-ci"
           git config user.email "stalker-ci@users.noreply.github.com"

@@ -1,0 +1,5 @@
+{"stack": 10.0, "ante": 0.0, "iters": 3000, "exploitability": 0.00094, "sb_value": -0.03235, "sb_open": 0.4511, "sb_shove": 0.154, "sb_call_vs_3bet_given_open": 0.7381, "bb_3bet_vs_open": 0.4226}
+{"stack": 12.5, "ante": 0.0, "iters": 3000, "exploitability": 0.00104, "sb_value": -0.03458, "sb_open": 0.5853, "sb_shove": 0.0182, "sb_call_vs_3bet_given_open": 0.6298, "bb_3bet_vs_open": 0.4231}
+{"stack": 15.0, "ante": 0.0, "iters": 3000, "exploitability": 0.00123, "sb_value": -0.02267, "sb_open": 0.6161, "sb_shove": 0.012, "sb_call_vs_3bet_given_open": 0.5438, "bb_3bet_vs_open": 0.4229}
+{"stack": 20.0, "ante": 0.0, "iters": 3000, "exploitability": 0.00161, "sb_value": 0.01488, "sb_open": 0.6898, "sb_shove": 0.0066, "sb_call_vs_3bet_given_open": 0.4359, "bb_3bet_vs_open": 0.4218}
+{"stack": 25.0, "ante": 0.0, "iters": 3000, "exploitability": 0.00173, "sb_value": 0.06075, "sb_open": 0.7732, "sb_shove": 0.0063, "sb_call_vs_3bet_given_open": 0.3659, "bb_3bet_vs_open": 0.4205}

@@ -1,0 +1,2368 @@
+{
+ "version": 1,
+ "pairs": [
+  {
+   "id": "heads_up_vs_multiway",
+   "why": "두 명 남은 팟과 셋이 남은 팟은 필요한 핸드 강도가 다르다",
+   "differs": [
+    "opponents_to_act",
+    "opponent_positions"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 6.5,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3,
+     4
+    ],
+    "bets_bb": {
+     "3": 2.5,
+     "4": 2.5
+    },
+    "pot_bb": 6.5,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "cc",
+      2.5
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "bubble_vs_in_the_money",
+   "why": "버블 직전의 콜은 머니인 확정 뒤보다 칩 손실이 무겁다",
+   "differs": [
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 7,
+    "paid_places": 6
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 6
+   }
+  },
+  {
+   "id": "button_vs_early_position",
+   "why": "같은 핸드도 포지션에 따라 오픈·디펜스 범위가 다르다",
+   "differs": [
+    "hero_position",
+    "position_vs_button",
+    "opponent_positions",
+    "street_aggressor",
+    "preflop_aggressor"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 0,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 3,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "short_vs_deep_stack",
+   "why": "8BB는 올인/폴드 영역, 40BB는 포스트플랍을 고려한다",
+   "differs": [
+    "max_raise",
+    "effective_stack_bb",
+    "spr",
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 8,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 40,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "small_raise_vs_all_in",
+   "why": "작은 레이즈와 올인에 대한 대응은 다르다",
+   "differs": [
+    "opponents_to_act",
+    "opponent_positions",
+    "legal_actions",
+    "to_call",
+    "min_raise",
+    "max_raise",
+    "required_equity",
+    "all_in",
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 0,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 30
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      30
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "preflop_vs_flop",
+   "why": "보드가 깔리면 판단 재료가 바뀐다",
+   "differs": [
+    "street",
+    "street_aggressor",
+    "preflop_aggressor",
+    "to_call",
+    "min_raise",
+    "pot",
+    "spr",
+    "required_equity",
+    "board"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 3
+    },
+    "pot_bb": 8,
+    "hole": "AhKd",
+    "board": "Kc7d2s",
+    "history": [
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      3
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "call_leaves_under_one_bb",
+   "why": "콜하면 1BB도 안 남는 스택은 사실상 올인 결정이다",
+   "differs": [
+    "min_raise",
+    "max_raise",
+    "effective_stack_bb",
+    "spr",
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 3,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 12,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "raise_legal_vs_not",
+   "why": "레이즈할 수 없으면 선택지가 줄어든다",
+   "differs": [
+    "legal_actions",
+    "min_raise",
+    "max_raise"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2,
+    "can_raise": false
+   }
+  },
+  {
+   "id": "cheap_vs_expensive_call",
+   "why": "같은 콜도 팟이 크면 필요한 승률이 낮다",
+   "differs": [
+    "pot",
+    "spr",
+    "required_equity"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 20.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "chip_leader_vs_short_rank",
+   "why": "칩 순위가 다르면 ICM 압박이 다르다",
+   "differs": [
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2,
+    "all_stacks_bb": [
+     30,
+     10,
+     10,
+     10,
+     10,
+     10
+    ]
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2,
+    "all_stacks_bb": [
+     60,
+     60,
+     60,
+     60,
+     60,
+     30
+    ]
+   }
+  },
+  {
+   "id": "paired_vs_unpaired_board",
+   "why": "페어 보드는 레인지 강도 분포를 바꾼다",
+   "differs": [
+    "board"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 3
+    },
+    "pot_bb": 8,
+    "hole": "AhKd",
+    "board": "Kc7d2s",
+    "history": [
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      3
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 3
+    },
+    "pot_bb": 8,
+    "hole": "AhKd",
+    "board": "KcKd2s",
+    "history": [
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      3
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "turn_vs_river",
+   "why": "리버에는 다음 카드가 없다",
+   "differs": [
+    "street",
+    "board"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 3
+    },
+    "pot_bb": 8,
+    "hole": "AhKd",
+    "board": "Kc7d2s9h",
+    "history": [
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      3
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 3
+    },
+    "pot_bb": 8,
+    "hole": "AhKd",
+    "board": "Kc7d2s9h3c",
+    "history": [
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      3
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "opponent_all_in_vs_not",
+   "why": "상대가 올인이면 이후 베팅이 없다",
+   "differs": [
+    "opponents_to_act",
+    "opponent_positions",
+    "all_in",
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 0,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 30
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      30
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 30
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      30
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "strong_vs_weak_hand",
+   "why": "같은 상황에서 AK와 72o는 다르게 둔다",
+   "differs": [
+    "hole_cards"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "7c2d",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "three_vs_four_way",
+   "why": "인원 버킷(3인 vs 4인+)이 다르다",
+   "differs": [
+    "opponents_to_act",
+    "opponent_positions"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3,
+     4
+    ],
+    "bets_bb": {
+     "3": 2.5,
+     "4": 2.5
+    },
+    "pot_bb": 9.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "cc",
+      2.5
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3,
+     4,
+     5
+    ],
+    "bets_bb": {
+     "3": 2.5,
+     "4": 2.5,
+     "5": 2.5
+    },
+    "pot_bb": 9.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "cc",
+      2.5
+     ],
+     [
+      5,
+      "cc",
+      2.5
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "final_table_vs_early",
+   "why": "파이널 테이블과 초반은 상금 압박이 다르다",
+   "differs": [
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 40,
+    "paid_places": 6
+   }
+  },
+  {
+   "id": "winner_take_all_vs_flat",
+   "why": "승자독식과 플랫 페이아웃은 생존 가치가 다르다",
+   "differs": [
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "9max_sng_flat",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "check_option_vs_facing_bet",
+   "why": "체크할 수 있을 때와 벳을 마주했을 때는 다르다",
+   "differs": [
+    "legal_actions",
+    "to_call",
+    "min_raise",
+    "effective_stack_bb",
+    "spr",
+    "required_equity"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {},
+    "pot_bb": 8,
+    "hole": "AhKd",
+    "board": "Kc7d2s",
+    "history": [
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 3
+    },
+    "pot_bb": 8,
+    "hole": "AhKd",
+    "board": "Kc7d2s",
+    "history": [
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      2.5
+     ],
+     [
+      0,
+      "cc",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      3
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "early_vs_button_opener",
+   "why": "앞 포지션 오픈과 버튼 오픈은 오픈 레인지가 달라 같은 핸드도 다르게 막는다",
+   "differs": [
+    "opponent_positions",
+    "street_aggressor",
+    "preflop_aggressor"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 30,
+     "4": 30,
+     "5": 27.5
+    },
+    "in_hand": [
+     0,
+     5
+    ],
+    "bets_bb": {
+     "5": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "f",
+      0
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "cbr",
+      2.5
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "deep_vs_short_opponent",
+   "why": "상대 스택이 짧으면 유효 스택이 줄어든다",
+   "differs": [
+    "effective_stack_bb",
+    "spr",
+    "tournament_public_summary"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 4,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 50,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  },
+  {
+   "id": "small_blind_vs_big_blind",
+   "why": "헤즈업 프리플랍에서 SB와 BB는 행동 순서와 범위가 다르다",
+   "differs": [
+    "position_vs_button",
+    "opponent_positions",
+    "street_aggressor",
+    "preflop_aggressor"
+   ],
+   "a": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 5,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   },
+   "b": {
+    "preset": "6max_sng_wta",
+    "hero_seat": 0,
+    "button": 4,
+    "stacks_bb": {
+     "0": 30,
+     "1": 30,
+     "2": 30,
+     "3": 27.5,
+     "4": 30,
+     "5": 30
+    },
+    "in_hand": [
+     0,
+     3
+    ],
+    "bets_bb": {
+     "3": 2.5
+    },
+    "pot_bb": 4.0,
+    "hole": "AhKd",
+    "board": "",
+    "history": [
+     [
+      1,
+      "f",
+      0
+     ],
+     [
+      2,
+      "f",
+      0
+     ],
+     [
+      3,
+      "cbr",
+      2.5
+     ],
+     [
+      4,
+      "f",
+      0
+     ],
+     [
+      5,
+      "f",
+      0
+     ]
+    ],
+    "players_remaining": 6,
+    "paid_places": 2
+   }
+  }
+ ]
+}

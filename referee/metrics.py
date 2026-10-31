@@ -11,14 +11,30 @@ import os
 import re
 import subprocess
 import sys
+import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_counts() -> dict:
-    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider"],
+def test_counts(junit: str | None = None) -> dict:
+    """Counts from the gates (tests) job's JUnit report when CI hands one over (METRICS_JUNIT, #312):
+    the suite already ran on this sha, and rerunning it serially took most of the 30-minute budget.
+    Without a report it runs the suite with the same workers as `gates full`."""
+    junit = junit or os.environ.get("METRICS_JUNIT")
+    if junit:
+        if not Path(junit).is_file():
+            raise SystemExit(f"METRICS_JUNIT={junit} not found; check the junit artifact step of gates (tests)")
+        root = ET.parse(junit).getroot()
+        suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+        n = {k: sum(int(s.get(k, 0)) for s in suites) for k in ("tests", "failures", "errors", "skipped")}
+        return {"tests_passed": n["tests"] - n["failures"] - n["errors"] - n["skipped"],
+                "tests_failed": n["failures"] + n["errors"]}
+    from referee.gates import FULL_TEST_WORKERS
+
+    r = subprocess.run([sys.executable, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *FULL_TEST_WORKERS],
                        cwd=ROOT, capture_output=True, text=True)
     text = r.stdout + r.stderr
     counts = {k: int(v) for v, k in re.findall(r"(\d+) (passed|failed|error|skipped)", text)}
@@ -32,13 +48,16 @@ def code_size() -> dict:
 
 
 def gate_r() -> dict:
+    from referee.gate_r import e3_suite
     from referee.gate_r.cash_suite import run_cash_suite
     from referee.gate_r.suite import run_suite
 
     tally = run_suite()
     cash, _ = run_cash_suite()
+    e3 = e3_suite.run_e3_suite()
     return {"gate_r_pass_rate": round(tally.pass_rate, 6), "gate_r_checks": tally.total,
-            "gate_r_cash_pass_rate": round(cash.pass_rate, 6), "gate_r_cash_checks": cash.total}
+            "gate_r_cash_pass_rate": round(cash.pass_rate, 6), "gate_r_cash_checks": cash.total,
+            "gate_r_e3_pass_rate": round(e3.pass_rate, 6), "gate_r_e3_checks": e3.total}
 
 
 def gate_l(report=None) -> dict:
@@ -54,14 +73,91 @@ def gate_l(report=None) -> dict:
             "gate_l_items": items}
 
 
+def gate_s_e1() -> dict:
+    """Gate S v0 (#280/#287) on E1: the Nash anchor and the TP bottleneck policies on rank scales.
+
+    Record-only for the TP policies (GATES.md Gate S): the trend is kept here, `gates full` only
+    checks the anchor and the discrimination policies.
+    """
+    from referee import gate_s
+    from stalker.e1.tp_pushfold import gate_s_policy
+
+    spec, sha = gate_s.load()
+
+    def row(r):
+        return {"passed": r["passed"], "tv_p95_sb": r["tv_p95_by_seat"]["sb"], "tv_p95_bb": r["tv_p95_by_seat"]["bb"],
+                "tp_change_p95": r["tp_change_p95"], "tp_change_p95_points": r["tp_change_p95_points"], "stab_regret_mean_pct": r["stab_regret_mean_pct"],
+                "stab_regret_p99_pct": r["stab_regret_p99_pct"], "cliff_ratio": r["cliff_ratio"],
+                "golden_ok": sum(g["ok"] for g in r["golden"]), "golden_total": len(r["golden"])}
+
+    pols = {"nash_anchor": row(gate_s.evaluate(gate_s.nash_policy, spec))}
+    for tier in ("beginner", "mid", "pro"):
+        pols[f"e1_tp_{tier}_quantile"] = row(gate_s.evaluate(gate_s_policy(tier, "quantile", iters=E1_ITERS), spec))
+    return {"gate_s_e1": {"spots_sha256": sha, "policies": pols}}
+
+
+# Fixed E0/E1 training runs for the Gate Q4 record; changing them breaks the trend, so bump deliberately.
+E0_KUHN_ITERS = 1000
+E0_LEDUC_ITERS = 300
+E1_STACKS = (5.0, 10.0, 15.0)
+E1_ITERS = 1500
+
+
+def e0() -> dict:
+    """Exact exploitability of unconstrained CFR+ on Kuhn and Leduc (Gate Q4, E0)."""
+    from referee.anchors.toy import exploitability, kuhn, leduc
+    from stalker.toy.cfr import CFRPlus
+
+    out = {"e0_kuhn_iters": E0_KUHN_ITERS, "e0_leduc_iters": E0_LEDUC_ITERS}
+    for name, game, iters in (("kuhn", kuhn.game(), E0_KUHN_ITERS), ("leduc", leduc.game(), E0_LEDUC_ITERS)):
+        solver = CFRPlus(game)
+        solver.iterate(iters)
+        out[f"e0_{name}_cfr_exploitability"] = round(float(exploitability(game, solver.average_strategy())), 7)
+    return out
+
+
+def e1() -> dict:
+    """Exact exploitability of the E1 push/fold TP bottleneck policies (Gate Q4, E1), chip EV, no ante.
+
+    Policies see `hand.eq_call` (SB) / equity vs the shoving range (BB) on rank (quantile) scales;
+    the uniform beginner scale is kept as the TP v0.1 contrast.
+    """
+    from stalker.e1 import tp_pushfold as tp
+
+    def mean(tier, scale):
+        vals = [tp.train(s, 0.0, tier, E1_ITERS, "called", scale) for s in E1_STACKS]
+        return vals, round(sum(r.exploitability for r in vals) / len(vals), 6)
+
+    out = {"e1_stacks": list(E1_STACKS), "e1_iters": E1_ITERS}
+    for tier in ("beginner", "mid", "pro"):
+        vals, out[f"e1_tp_{tier}_exploitability"] = mean(tier, "quantile")
+    out["e1_nash_fp_exploitability"] = round(sum(r.nash_exploitability for r in vals) / len(vals), 6)
+    _, out["e1_tp_uniform_beginner_exploitability"] = mean("beginner", "uniform")
+    return out
+
+
+def gate_f_e1() -> dict:
+    """Gate F v0 (#281) on the same E1 spots: the tier's follower bot (synthetic error, the tier's sigma)
+    on rank scales, bb/hand vs the Nash anchor's opponent and its increase over the noiseless policy."""
+    from referee import gate_f
+    from stalker.e1.tp_pushfold import gate_f_policy
+
+    out = {}
+    for tier in gate_f.SIGMA:
+        m = gate_f.evaluate(gate_f_policy(tier, "quantile", iters=E1_ITERS), [(s, 0.0) for s in E1_STACKS], tier)["mean"]
+        out[f"gate_f_e1_{tier}_nash_loss"] = m["nash_loss"]
+        out[f"gate_f_e1_{tier}_nash_loss_added"] = m["nash_loss_added"]
+    return out
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    snap.update(test_counts())
-    snap.update(code_size())
-    snap.update(gate_r())
-    snap.update(gate_l())
+    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1):
+        t0 = time.monotonic()
+        snap.update(part())
+        print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)
     return snap
 
 

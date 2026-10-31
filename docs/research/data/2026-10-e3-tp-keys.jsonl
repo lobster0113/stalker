@@ -1,0 +1,2 @@
+{"tier": "beginner", "players": 6, "iters": 1500, "seconds": 314.8, "iters_per_s": 4.765, "nodes_per_iter": 149.9, "keys": 8514, "theoretical_keys": 86400}
+{"tier": "mid", "players": 6, "iters": 1500, "seconds": 263.2, "iters_per_s": 5.699, "nodes_per_iter": 142.7, "keys": 10948, "theoretical_keys": 190080}
