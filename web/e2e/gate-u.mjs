@@ -40,6 +40,20 @@ await page.addInitScript(() => {
   }, ms);
 });
 
+// #464: the game now pauses after each Guided decision and after every hand the hero played. The flows below
+// are about other things, so they press 계속 플레이 / 다음 핸드 automatically; §10 turns this off (__noAuto).
+const autoContinue = p => p.addInitScript(() => setInterval(() => {
+  if (window.__noAuto || window.__hold) return;
+  document.querySelector("#tp-resume, #tp-next-hand, #sd-muck, #fold-close")?.click();
+}, 150));
+await autoContinue(page);
+
+// Answer one TP question at its low end: the first chip, or a judgment slider (#464) pulled to 0.
+async function answerQ(q) {
+  if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+  else if (await q.locator("[data-dial]").count()) await q.locator("[data-dial]").fill("0");
+}
+
 // #445: on every visible table, card faces/backs must not cover a seat's name or stack, a bet must not sit
 // on the dealer button, and the pot's chip pile must not cover the pot amount. Returns the colliding pairs.
 function tableOverlaps() {
@@ -56,38 +70,38 @@ function tableOverlaps() {
 }
 
 // focus: 화면에 들여 놓고 보이는지 검사할 요소. 찍는 동안 데모 진행을 멈춘다.
-async function inspect(tag, focus) {
-  await page.evaluate(() => { window.__hold = true; });
+async function inspect(tag, focus, pg = page) {
+  await pg.evaluate(() => { window.__hold = true; });
   for (const [name, width, height] of VIEWPORTS) {
-    await page.setViewportSize({ width, height });
+    await pg.setViewportSize({ width, height });
     if (focus) {
       // A re-render (e.g. 복기 비교 결과) can detach the element between lookup and scroll: look it up
       // again and retry instead of failing on a timing race.
       let visible = false;
       for (let attempt = 0; attempt < 3 && !visible; attempt++) {
         try {
-          const el = page.locator(focus).first();
+          const el = pg.locator(focus).first();
           await el.waitFor({ state: "visible", timeout: 5000 });
           await el.scrollIntoViewIfNeeded({ timeout: 5000 });
           visible = await el.isVisible();
         } catch (e) {
           if (attempt === 2) console.error(`${tag} ${width}x${height}: ${focus} 재시도 실패 — ${e.message.split("\n")[0]}`);
-          await page.waitForTimeout(200);
+          await pg.waitForTimeout(200);
         }
       }
       must(visible, `${tag} ${width}x${height}: ${focus}가 화면에 없음`);
     }
-    await page.screenshot({ path: `${shots}/${tag}-${name}.png` });
-    const ov = await page.evaluate(tableOverlaps);
+    await pg.screenshot({ path: `${shots}/${tag}-${name}.png` });
+    const ov = await pg.evaluate(tableOverlaps);
     must(!ov.length, `${tag} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 카드·칩·딜러 버튼 위치를 고치세요 (#445)`);
-    const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
+    const { sw, iw } = await pg.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
     must(sw <= iw, `${tag} ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw}). 넘치는 요소를 줄이세요`);
   }
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await pg.setViewportSize({ width: 1440, height: 900 });
   // axe-core도 setTimeout을 쓰므로 hold를 먼저 풀어야 교착하지 않는다.
-  await page.evaluate(() => { window.__hold = false; });
-  await page.evaluate(src => { if (!window.axe) (0, eval)(src); }, axeSource);
-  const res = await page.evaluate(() => axe.run(document, { resultTypes: ["violations"] }));
+  await pg.evaluate(() => { window.__hold = false; });
+  await pg.evaluate(src => { if (!window.axe) (0, eval)(src); }, axeSource);
+  const res = await pg.evaluate(() => axe.run(document, { resultTypes: ["violations"] }));
   const critical = res.violations.filter(v => v.impact === "critical");
   must(critical.length === 0, `${tag}: axe critical ${critical.map(v => v.id + "×" + v.nodes.length).join(", ")}`);
 }
@@ -320,7 +334,7 @@ must(eqTruth && eqTruth.step === eqTruth.step2 && eqTruth.key === eqTruth.key2, 
   const qs = await page.locator("#tp-body [data-card='quick-ask'] .q").all();
   must(qs.length >= 1 && qs.length <= 3, `Quick 분석: 핵심 판단 ${qs.length}개 (1~3개여야 함)`);
   must((await page.locator("#tp-body [data-act]").count()) === 0, "Quick 분석: 액션을 다시 묻고 있음(액션이 먼저여야 함)");
-  for (const q of qs) await q.locator("[data-chip]").first().click();
+  for (const q of qs) await answerQ(q);
 }
 {
   // #445: preflop with nobody in the pot yet, there is no single opponent range to read.
@@ -357,17 +371,16 @@ await inspect("train-guided", "#tp-body .tpc[data-card='0']");
 {
   const first = page.locator("#tp-body .tpc:not([hidden])");
   const stage = await first.getAttribute("data-card");
-  const chip = first.locator(".q:not(.na) [data-chip]").first();
+  const chip = first.locator(".q:not(.na) [data-chip], .q:not(.na) [data-dial]").first();
   if (await chip.count()) {
-    await chip.click();
-    for (const q of await first.locator(".q:not(.na)").all()) if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+    for (const q of await first.locator(".q:not(.na)").all()) await answerQ(q);
     if (await page.locator("#tp-next").isEnabled()) {
       await page.click("#tp-next");
       must((await page.locator("#tp-body .tpc:not([hidden])").getAttribute("data-card")) !== stage, "다음: 카드가 바뀌지 않음");
       await page.click("#tp-prev");
       const back = page.locator("#tp-body .tpc:not([hidden])");
       must((await back.getAttribute("data-card")) === stage, "이전: 처음 카드로 돌아오지 않음");
-      must((await back.locator(".q:not(.na) [data-chip][aria-pressed='true']").count()) > 0, "이전: 입력했던 답이 사라짐");
+      must((await back.locator(".q:not(.na) [data-chip][aria-pressed='true'], .q:not(.na) [data-dial]:not([data-unset])").count()) > 0, "이전: 입력했던 답이 사라짐");
       must((await page.locator("#tp-dots .dot.cur").count()) === 1, "이전: 진행 점 표시 없음");
     }
   }
@@ -381,9 +394,7 @@ async function answerDeck() {
       if (await q.locator("[data-act]").count()) {
         await q.locator("[data-act]:not([disabled]):not([data-act='fold'])").first().click();
         if (await page.locator("[data-sizes]:not([hidden]) [data-size]").count()) await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
-      } else if (await q.locator("[data-chip]").count()) {
-        await q.locator("[data-chip]").first().click();
-      }
+      } else await answerQ(q);
     }
     const next = page.locator("#tp-next");
     if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
@@ -487,7 +498,7 @@ await page.evaluate(() => { window.__hold = false; });
   // Walk the deck up to the card that asks hand.equity so the screenshot shows the rank question.
   for (let guard = 0; guard < 6 && !(await eq.isVisible()); guard++) {
     for (const q of await page.locator("#tp-body .tpc:not([hidden]) .q:not(.na)").all())
-      if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+      await answerQ(q);
     if (!(await page.locator("#tp-next").isEnabled())) break;
     await page.click("#tp-next");
   }
@@ -577,7 +588,7 @@ await page.click("#dr-back");
 await page.waitForSelector("#learn.gallery");
 await page.locator("#mods .mod:not(.locked)").nth(1).click();
 await page.waitForSelector("#dr-go");
-if (await page.locator("#drill [data-chip]").count()) await page.locator("#drill [data-chip]").first().click();
+await answerQ(page.locator("#drill .dr-q"));
 await page.click("#dr-go");
 must((await page.locator("#dr-res").innerHTML()).trim() !== "", "학습 섹션: 정답 확인 후 결과가 비어 있음");
 await inspect("learn", "#dr-res");
@@ -646,6 +657,7 @@ await inspect("home-move", "#move");
 // 5. #337 정책을 못 불러올 때: 오류 화면(이유·다시 시도·모의로 계속) → 다시 시도 성공 / 모의로 계속
 {
   const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p2);
   p2.setDefaultTimeout(60_000);
   p2.on("pageerror", e => must(false, `page error (정책 오류 경로): ${e.message}`));
   const block = r => r.abort();
@@ -679,6 +691,7 @@ await inspect("home-move", "#move");
 // 6. #360 고수 등급: 상대 5명이 pro-6.json 정책(board.nut 키 포함)을 두고, 한 핸드를 끝까지 치며 모델 비교가 보인다.
 {
   const p3 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p3);
   p3.setDefaultTimeout(90_000);
   p3.on("pageerror", e => must(false, `page error (고수 정책): ${e.message}`));
   await p3.goto(url);
@@ -722,6 +735,7 @@ await inspect("home-move", "#move");
 // 7. #364 핸드 도중 등급 변경: 그 핸드는 중수 키로 끝나고, 다음 핸드부터 상대·질문·비교가 모두 고수 정책이다.
 {
   const p4 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p4);
   p4.setDefaultTimeout(90_000);
   p4.on("pageerror", e => must(false, `page error (등급 변경): ${e.message}`));
   await p4.goto(url);
@@ -787,6 +801,7 @@ await inspect("home-move", "#move");
   const cell = leaks.leaks.filter(c => c.spot === "first_in" && c.group === "AA").sort((a, b) => a.seat - b.seat)[0];
   must(!!cell, "known leaks: mid-6.leaks.json has no first_in AA leak cell to force (re-run python -m stalker.tools.policy_leaks)");
   const p5 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p5);
   p5.setDefaultTimeout(90_000);
   p5.on("pageerror", e => must(false, `page error (known leaks): ${e.message}`));
   await p5.addInitScript(() => {
@@ -846,6 +861,122 @@ await inspect("home-move", "#move");
   must(c === 20261027 && d === 20261027, `딜 시드: ?seed=20261027이 시드를 고정하지 않음 (${c}, ${d})`);
   const e = await seedOf("&seed=abc");
   must(Number.isInteger(e) && e !== 0, `딜 시드: 숫자가 아닌 seed에서 무작위 시드로 돌아가지 않음 (${e})`);
+}
+
+// 10. #464 Guided: the game waits on the grading after every decision; every hand the hero played ends with
+// that hand's analysis and waits; plan.pot is a slider; 종료·분석 stops the game and the report counts match.
+{
+  const p6 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p6.setDefaultTimeout(90_000);
+  p6.on("pageerror", e => must(false, `page error (session report): ${e.message}`));
+  await p6.addInitScript(() => { window.__noAuto = true; window.__sfxLog = []; });
+  await autoContinue(p6);
+  await p6.addInitScript(() => {
+    const st = window.setTimeout.bind(window);
+    window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
+  });
+  await p6.goto(url);
+  await p6.click("#set-play [data-v='guided']");
+  await p6.click("#start-btn");
+  const still = () => p6.evaluate(async () => { const a = [G.handNo, G.log.length]; await new Promise(r => setTimeout(r, 2500)); return G.paused && G.handNo === a[0] && G.log.length === a[1]; });
+  let decided = 0, hands = 0, slider = false, foldViews = 0, closedHand = -1, targetSeen = false;
+  const dials = new Set();
+  for (let guard = 0; guard < 80 && (decided < 4 || hands < 2 || foldViews < 2); guard++) {
+    await p6.waitForSelector("#tp-body .tpc:not([hidden]), #tp-resume, #tp-next-hand, #sd-muck, #fold-close");
+    if (await p6.locator("#sd-muck").count()) { await p6.click("#sd-muck"); continue; }
+    if (await p6.locator("#fold-close").count()) {
+      // Folded: the analysis is up and the hand runs on fast. Kept open, the table holds at the hand's end;
+      // closed (second time), the next hand starts without the hand-end hold. Read and act under __hold:
+      // a fast hand can end between the selector wait and a click.
+      const f = await p6.evaluate(close => {
+        window.__hold = true;
+        const b = $("#fold-close");
+        const r = { open: !!b, paused: !!G.paused, fast: !!G.fast, hr: !!$("#tp-body [data-hand-review][data-live]"), no: G.handNo };
+        if (b && close) b.click();
+        window.__hold = false;
+        return r;
+      }, foldViews >= 1);
+      if (!f.open) continue;
+      must(!f.paused && f.fast && f.hr, `폴드 뒤: 분석 화면이 뜨고 게임은 빠르게 계속돼야 함 (${JSON.stringify(f)})`);
+      if (!foldViews++) { await p6.waitForSelector("#tp-next-hand"); continue; }
+      closedHand = f.no;
+      await p6.waitForFunction(no => G.handNo > no || !!$("#tp-next-hand"), f.no);
+      continue;
+    }
+    if (await p6.locator("#tp-next-hand").count()) {
+      const v = await p6.evaluate(() => ({ no: G.handNo, rows: $$("#tp-body [data-hr-dec]").length, want: G.decs.filter(d => d.hand === G.handNo).length }));
+      must(v.rows === v.want && v.rows > 0, `핸드 분석: 핸드 #${v.no}의 내 결정 ${v.want}개인데 표 줄 ${v.rows}개`);
+      must(v.no !== closedHand, `폴드 뒤 분석을 닫았는데 핸드 #${v.no} 끝에서 멈춤`);
+      if (!hands) { must(await still(), "핸드 분석: 화면이 떠 있는 동안 다음 핸드가 시작됨"); await inspect("train-hand-review", "#tp-body [data-hand-review]", p6); }
+      hands++; await p6.click("#tp-next-hand"); continue;
+    }
+    if (await p6.locator("#tp-resume").count()) {
+      if (decided === 1) { must(await still(), "Guided: 채점 화면에서 게임이 멈추지 않음"); must(await p6.locator("#tp-body .result-top").count() === 1, "Guided 멈춤: 채점 결과가 없음"); }
+      await p6.click("#tp-resume"); continue;
+    }
+    // The opponent the C-stage questions read is outlined on the table (one seat, the graded opponent).
+    const tg = await p6.evaluate(() => ({ on: $$(".seat.target").map(e => e.id), want: fieldOnly(CUR.hero) ? null : "seat-" + CUR.g.opp.i, tag: $$(".seat.target .target-tag").length }));
+    must(tg.want ? tg.on.length === 1 && tg.on[0] === tg.want && tg.tag === 1 : tg.on.length === 0, `읽기 대상 표시가 다름 (${JSON.stringify(tg)})`);
+    if (tg.want && !targetSeen) { targetSeen = true; await inspect("train-target", "#table .seat.target", p6); }
+    // Answer the deck: the first decision raises or calls (so plan.pot is asked), later ones fold to end hands.
+    for (let c = 0; c < 12; c++) {
+      const card = p6.locator("#tp-body .tpc:not([hidden])");
+      for (const q of await card.locator(".q:not(.na)").all()) {
+        if (await q.locator("[data-act]").count()) {
+          const pick = decided ? "[data-act='fold']:not([disabled]), [data-act='check']:not([disabled])" : "[data-act]:not([disabled]):not([data-act='fold'])";
+          await q.locator(pick).first().click();
+          if (await p6.locator("[data-sizes]:not([hidden]) [data-size]").count()) await p6.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
+        } else if (await q.locator("[data-dial]").count()) {
+          // Judgment items are sliders (#464); plan.pot is checked by name, the others by the ends.
+          const k = await q.getAttribute("data-k"), step = +(await q.locator("[data-dial]").getAttribute("step"));
+          const v = Math.round(70 / step) * step;
+          await q.locator("[data-dial]").fill(String(v));
+          must((await q.locator("[data-val]").textContent()).trim() === String(v) && !(await q.locator("[data-chip]").count()), `${k} 슬라이더: 값 ${v}이 표시되지 않거나 칩이 남아 있음`);
+          if (k === "plan.pot") slider = true;
+          dials.add(k);
+        } else await answerQ(q);
+      }
+      const next = p6.locator("#tp-next");
+      if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
+      break;
+    }
+    await p6.click("#tp-submit");
+    decided++;
+  }
+  must(decided >= 4 && hands >= 2 && foldViews >= 2, `Guided 흐름: 결정 ${decided}회·핸드 분석 ${hands}회·폴드 화면 ${foldViews}회 (4·2·2 이상 필요)`);
+  must(targetSeen, "읽기 대상 하이라이트가 한 번도 나오지 않음");
+  const snd = await p6.evaluate(() => [...new Set(window.__sfxLog)]);
+  const files = await p6.evaluate(() => ({ ok: Object.values(SND.buf || {}).filter(Boolean).length, want: new Set(Object.values(SFX_FILES).flat()).size + 2 * VOICE_KINDS.length }));
+  must(files.ok === files.want, `효과음 파일: ${files.want}개 중 ${files.ok}개만 디코드됨 (app/assets/sfx/*.ogg·voice-*.mp3 경로·형식 확인)`);
+  must(["deal", "flip", "fold"].every(k => snd.includes(k)) && snd.some(k => ["check", "call", "bet", "raise", "allin"].includes(k)), `효과음: 딜·오픈·액션 소리가 다 나오지 않음 (${snd.join(",")})`);
+  must(slider, "plan.pot 슬라이더가 한 번도 나오지 않음 (첫 결정은 폴드가 아닌 액션이어야 함)");
+  const chipJudg = await p6.evaluate(() => Object.keys(TP).filter(k => isDial(k)).length);
+  must(dials.size >= 2 && chipJudg >= 8, `판단 슬라이더: 슬라이더로 답한 항목 ${[...dials].join(",")} (2개 이상), 슬라이더 항목 정의 ${chipJudg}개`);
+  // Showdown order (#464): a bet river starts with the last river aggressor, a checked river with the first
+  // live seat after the button; a beaten hand that wins nothing may muck.
+  const so = await p6.evaluate(() => {
+    const keep = { street: G.street, agg: G.streetAgg }, cs = G.seats.slice(0, 3);
+    G.street = 3; G.streetAgg = cs[2].i; const bet = showOrder(cs).map(s => s.i);
+    G.streetAgg = null; const chk = showOrder(cs).map(s => s.i), fa = firstAfterButton();
+    G.street = keep.street; G.streetAgg = keep.agg;
+    return { bet, chk, first: cs[2].i, fa, inCs: cs.some(s => s.i === fa) };
+  });
+  must(so.bet[0] === so.first && so.bet.length === 3, `쇼다운 순서: 리버 벳이면 마지막 공격자가 먼저 (${JSON.stringify(so)})`);
+  must(so.chk.length === 3 && (!so.inCs || so.chk[0] === so.fa), `쇼다운 순서: 체크로 돌면 버튼 다음 좌석부터 (${JSON.stringify(so)})`);
+  await p6.waitForSelector("#end-game");
+  await p6.click("#end-game");
+  await p6.waitForSelector(".modal[data-report]");
+  const r = await p6.evaluate(() => ({ dec: +$("[data-rp-decisions] b").textContent, hands: +$("[data-rp-hands] b").textContent, want: G.decs.length, wantH: G.hands.length, ended: G.ended, items: $$("[data-rp-items] tr").length, act: !!$("[data-rp-act]") }));
+  must(r.ended && r.dec === r.want && r.dec >= decided && r.hands === r.wantH && r.hands >= 2, `세션 분석: 결정·핸드 수가 기록과 다름 (${JSON.stringify(r)})`);
+  must(r.items > 0 && r.act, `세션 분석: 항목별 점수 표나 TP-GTO 액션 비교가 없음 (${JSON.stringify(r)})`);
+  const h0 = await p6.evaluate(() => G.handNo);
+  await p6.waitForTimeout(2500);
+  must(await p6.evaluate(() => G.handNo) === h0, "종료·분석: 게임이 끝나지 않고 다음 핸드가 진행됨");
+  await inspect("train-session-report", ".modal[data-report] .box", p6);
+  console.log(`세션 분석: 결정 ${r.dec}회 · 핸드 ${r.hands}개 · 항목 ${r.items}개`);
+  await p6.click("#rp-close");
+  must((await p6.textContent("#end-game")).includes("분석 다시 보기"), "종료 뒤 헤더 버튼이 '분석 다시 보기'가 아님");
+  await p6.close();
 }
 
 await browser.close();

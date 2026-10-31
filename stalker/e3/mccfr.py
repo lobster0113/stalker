@@ -32,6 +32,7 @@ and mixed tables; a checkpoint of it is version 5.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
@@ -143,7 +144,7 @@ class E3MCCFR:
 
         if p == trav:
             vals = np.array([self._walk(*child(i), trav, reach) for i in range(len(acts))])
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # not BLAS `@`: CPU-dependent last bits (#447)
             reg = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(reg + (vals - v), 0, out=reg)
             self.visits[key] += 1
@@ -215,6 +216,15 @@ class E3MCCFR:
         m.snap = {k: np.array(v, dtype=float) for k, v in st.get("snap", {}).items()}
         return m
 
+    def regret_hash(self) -> str:
+        """sha256 of the regret table: keys in sorted order, each with its row's length and float64 bytes.
+        Recorded with every CI result (#447), so two runs that should match can be checked bit for bit."""
+        h = hashlib.sha256()
+        for k in sorted(self.regret):
+            r = np.ascontiguousarray(self.regret[k], dtype="<f8")
+            h.update(k.encode("utf-8") + b"\0" + len(r).to_bytes(4, "little") + r.tobytes())
+        return h.hexdigest()
+
     def policy(self) -> dict[str, list[float]]:
         return {k: (v / v.sum()).tolist() for k, v in self.avg.items() if v is not None and v.sum() > 0}
 
@@ -229,7 +239,7 @@ def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
     for k, v in m.visits.items():
         fs = k.split("|")
-        if fs[-1].startswith("o"):   # b1 label (#398): a legal-action set never starts with "o"
+        while fs[-1].startswith(("o", "a")):   # b1 / b2 labels (#398, #460): the equity or nut step ("e", "n") is never last otherwise
             fs.pop()
         f = fs[by]
         d = out.setdefault(f, {"keys": 0, "under10": 0})
@@ -248,7 +258,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-raise-cap", action="store_true")
     ap.add_argument("--ranges", choices=RANGES, default="current", help="strategy that moves the TP-feature ranges (#405)")
     ap.add_argument("--key-variant", choices=K.VARIANTS, default="",
-                    help="b1: suit-aware outs/vuln/block key (#398); s2 / s2me: effective-stack depth (#399)")
+                    help="b1: suit-aware outs/vuln/block key (#398); b2: b1 + board.adv/opp.value/plan.foldeq (#460); b3: b1 + public facts (#461); s2 / s2me: effective-stack depth (#399)")
     ap.add_argument("--stacks", choices=STACKS, default="uniform", help="sampled: 20-250BB tables (#399)")
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
     ap.add_argument("--avg-rule", choices=AVG_RULES, default="legacy")

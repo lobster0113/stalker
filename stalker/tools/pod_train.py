@@ -182,7 +182,8 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
     if m.ranges == "average":  # absent for current ranges, so those results stay as before #405
         res["model"].update(ranges=m.ranges, range_every=m.range_every, snap_at=m.snap_at)
     res.update(_checkpoint(m, budget, resume_budget))
-    res.update(max_rss_mb=max_rss_mb(), max_child_rss_mb=max_child_rss_mb(), machine=machine())
+    res.update(max_rss_mb=max_rss_mb(), max_child_rss_mb=max_child_rss_mb(), machine=machine(),
+               regret_sha256=m.regret_hash())   # #447: bit-level drift check against a CI run of the same state
     return res
 
 

@@ -1,0 +1,16 @@
+{
+ "version": 1,
+ "note": "RL-BR attacker seeds (#413). Dev runs use only 'dev'; the final-audit attacker uses only 'audit'. The lists are disjoint and this file's sha256 is pinned in referee/e3/rlbr.py: add a new file instead of editing this one.",
+ "dev": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "audit": [
+  355457501,
+  571401402,
+  882311424,
+  953140649
+ ]
+}
