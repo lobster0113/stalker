@@ -141,6 +141,7 @@
 ## 6. 용량과 호스트 편차
 - 실측: cpu3c 32 vCPU 파드 생성이 2026-10-29 19:45Z와 약 20:50Z에 HTTP 500 "There are no longer any instances available with the requested specifications"로 실패했다(run 40942964043·40942970483·40952827318·40952833261, 비용 $0). STATE 경보 기준으로 20:52–21:20Z에도 6연속 실패했다.
 - 실측: 같은 cpu3c($0.96/h)가 EPYC 9655·9654·9754·7713 호스트에 떨어진다. it/s는 67.7–151로 **2.2배** 차이다(#373). 느린 호스트에 걸리면 같은 돈으로 반복을 절반만 산다. 결합 key 고수 체인 약 83회에서는 이 편차가 수십–200달러 단위다(느린 호스트 비율에 따라, 중간값 $440 기준).
+- 실측(#373, `docs/research/2026-10-e3-cpu-flavor.md`): cpu5c 32 vCPU는 $1.12/h에 두 번 다 EPYC 9575F로 떨어졌고 중수 9인 161 it/s, **반복/$가 cpu3c 같은 잡 평균의 1.55배**(빠른 9655 호스트보다도 1.17배)다. 두 번 다 용량 오류 없이 만들어졌다.
 - 제안(harness-change 후속 ②, `harness/cloud/launcher.py`):
   1. **flavor 대체 목록.** 잡 명세에 `cpu_flavors: [..]`(순서 있음)를 허용한다. RunPod `cpuFlavorIds`에 목록을 그대로 넘기거나, 용량 오류 때 다음 flavor로 다시 만든다. 순서는 #373의 it/s per $ 측정으로 정한다(cpu5c가 이기면 cpu5c 먼저). flavor마다 `hourly_usd` 상한을 둬 기존 요금 검사가 비싼 파드를 멈추게 한다. vCPU는 32로 고정한다. 그래야 병렬 MCCFR 워커 수와 체크포인트가 이어진다.
   2. **용량 오류 지연 재시도.** HTTP 500 no-instances는 비용이 0이다. 15·30·60분 간격으로 최대 몇 회 재시도하고, 실패하면 journal·이슈에 남긴다. 지금은 run이 실패로 끝나고 다음 디스패치까지 체인이 쉰다.
