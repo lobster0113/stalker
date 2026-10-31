@@ -1,0 +1,14 @@
+# #400 (ADR 0019 C): the pro chain on the real-play cash combined key c1 - real menu, average ranges (#446),
+# own-reach average (#426), 20-250BB tables (#399). The one full chain of the plan: dispatch the first link only
+# after the ADR 0019 §3.4 go/no-go list passes; then chain with resume_run=<previous cloud.yml run id> (#354).
+# Each link trains 240 min and leaves time for install and the CI evaluation (LBR, field).
+# Worst case = hourly_usd * max_minutes / 60 = $6.40. Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
+name: e3-tp-pro-c1-pod32
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier pro --players 6 --workers 32 --minutes 240 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --stacks sampled --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-pro-c1-pod32.json
+cpu_flavor: cpu3c
+vcpu: 32
+disk_gb: 10
+max_minutes: 320
+hourly_usd: 1.2
+result_path: /result/e3-tp-pro-c1-pod32.json

@@ -123,8 +123,10 @@ def test_ownavg_job_is_registered_and_existing_jobs_stay_legacy():
     job = T.JOBS["e3-tp-mid-ownavg-w4"]
     assert "e3-tp-mid-ownavg-w4" in T.RESUMABLE
     assert job.keywords == {"tier": "mid", "name": "e3-tp-mid-ownavg-w4", "workers": 4, "avg_rule": "own"}
+    # jobs added after #426 may choose own reach: the combined-key job does (#400)
+    assert T.JOBS["e3-tp-mid-c1-w4"].keywords["avg_rule"] == "own"
     assert all(j.keywords.get("avg_rule", "legacy") == "legacy" for n, j in T.JOBS.items()
-               if n.startswith("e3-") and n != "e3-tp-mid-ownavg-w4")
+               if n.startswith("e3-") and n not in ("e3-tp-mid-ownavg-w4", "e3-tp-mid-c1-w4"))
 
 
 def test_ownavg_job_refuses_a_legacy_checkpoint(tmp_path):

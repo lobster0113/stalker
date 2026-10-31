@@ -84,6 +84,23 @@ with equal stacks it is exactly `spr_step`. Call-or-fold keys stay as they are (
 hand.equity against the price). Training these variants deals mixed stacks (`stalker.e3.mccfr`, stacks
 "sampled").
 
+Key variant "c1" (#400, ADR 0019 §3.1 C) is the real-play cash combined key, `KEY_VERSIONS["c1"]` = 1: b1 (draws
+and blockers, required) + s2 (my and the live opponents' effective-stack depth, TP.md §1.1) + b3 with the opponent
+seat set shrunk to the before/after counts (`u<before><after>`, each capped at 2, as the beginner key: the b3 vs b1
+run #475 found the exact seat set multiplied the keys most and the field got worse) + `h`/`g`. The absolute seat is
+replaced by the button-relative position name and the player count (`BTN|n6`, `game.position_names`), and the
+environment slots #384/#385 continue from are reserved now: `t<stage><ante>` (stage `c` cash, `e` early, `b` bubble,
+`m` in the money, `f` final table; ante `0`/`1`), read from `using_env` (default cash, no ante). In a 6-max cash deal
+`n6` and `tc0` are constant and the position name is a one-to-one rename of the seat, so the reserved slots add no
+keys there. D/E deals reach other values of these slots, so their keys never meet C's regrets (ADR 0019 §3.2).
+b2 is left out (#472: indistinguishable at 2x10^4 iterations, re-measured in #479); adding it later is a new
+key version. Full depth:
+
+    <pos>|n<players>|street|n_opp|raise|initiative|pot odds|SPR(TP)|t<stage><ante>|s<mine>:<opps>|u<b><a>|h|g|legal
+
+basic: `b|n<players>|<position group>|street|...|pot odds|t..|s..|u<b><a>|h|legal`; pro: `p|<full>|fN`. Call-or-fold
+keys stay as they are (TP: a call asks only hand.equity against the price).
+
 Every feature except hand.equity is public, so one key covers the same TP situation reached by
 different histories — that is the "condition-insensitive" requirement (CHARTER), checked by Gate S.
 Public ranges are each seat's reach probability over the 1326 combos, Bayes-updated from that
@@ -113,9 +130,13 @@ NUT_TOP = 0.10                   # board.nut: share of combos counted as near-nu
 FOLDY_MIN_OPPS = 6               # opp.foldy is N/A below this many faced bets (TP.md §3)
 FOLDY_PRIOR, FOLDY_PRIOR_N = 0.5, 6.0   # shrinkage toward an even fold rate, worth 6 decisions
 AGGRESSIVE = G.SIZE_LABELS + ("a",)   # every menu's bet/raise labels: v1, tp6 (#339), real (#382)
-VARIANTS = ("", "b1", "b2", "b3", "s2", "s2me")   # key variants: "" is every table before #398
-B1_VARIANTS = ("b1", "b2", "b3")  # b2 = b1 plus the range items (#460), b3 = b1 plus the public facts (#461)
+VARIANTS = ("", "b1", "b2", "b3", "s2", "s2me", "c1")   # key variants: "" is every table before #398
+B1_VARIANTS = ("b1", "b2", "b3", "c1")  # b2 = b1 plus the range items (#460), b3 = b1 plus the public facts (#461)
 STACK_VARIANTS = ("s2", "s2me")  # #399: effective-stack depth (and SPR) in the public key; "s2me" = mine only
+_STACKED = STACK_VARIANTS + ("c1",)   # variants carrying the stack field ("c1": the s2 field, #400)
+FACT_VARIANTS = ("b3", "c1")     # public facts (#461); c1 with the before/after opponent counts (#475)
+KEY_VERSIONS = {"c1": 1}         # #400: a combined key's meaning is fixed by its version; checkpoints carry it
+STAGES = ("c", "e", "b", "m", "f")   # t<stage>: cash / early / bubble / in the money / final table (#385 fills it)
 EFF_EDGES_BB = (5, 10, 15, 25, 40, 60, 100)   # TP.md §6 effective-stack buckets, upper edge inclusive
 B1_BASE = 10_000                 # encoded b1 part = B1_BASE * (1 + code); below it eq and board.nut (<= 5999)
 B1_RADIX, B1_NA, B1_NONE = 6, 4, 5   # one b1 field: buckets 0-3, N/A on this street, not asked of this tier
@@ -168,13 +189,14 @@ def _aggressor(entries) -> int | None:
     return last
 
 
-def public_facts(s: G.State, seat: int, depth: str) -> str:
-    """The "b3" key fields (module doc): who is still in, who bet last this street, who raised preflop."""
+def public_facts(s: G.State, seat: int, depth: str, counts: bool = False) -> str:
+    """The "b3" key fields (module doc): who is still in, who bet last this street, who raised preflop.
+    `counts` ("c1"): the opponents before / after me (each capped at 2) instead of their seat set, at every depth."""
     order = list(range(s.n)) if s.street == 0 else G.postflop_order(s.n)
     me = order.index(seat)
     opps = [q for q in s.live() if q != seat]
     before = [q for q in opps if order.index(q) < me]
-    if depth == "basic":
+    if depth == "basic" or counts:
         out = f"u{min(len(before), 2)}{min(len(opps) - len(before), 2)}"
     else:
         out = "u" + "".join(map(str, sorted(opps)))
@@ -298,7 +320,24 @@ def multi_equity(s: G.State, seat: int, ranges: list[np.ndarray]) -> np.ndarray:
     return _multi_eq(tuple(s.board), [q for q in s.live() if q != seat], ranges)
 
 
-_ACTIVE = {"variant": ""}
+_ACTIVE = {"variant": "", "env": ("c", False)}
+
+
+@contextmanager
+def using_env(stage: str = "c", ante: bool = False):
+    """The "c1" environment slots (module doc) for the deals inside: tournament stage and ante (#384/#385)."""
+    if stage not in STAGES:
+        raise ValueError(f"stage must be one of {STAGES}, got {stage!r}")
+    old, _ACTIVE["env"] = _ACTIVE["env"], (stage, bool(ante))
+    try:
+        yield
+    finally:
+        _ACTIVE["env"] = old
+
+
+def env_field() -> str:
+    stage, ante = _ACTIVE["env"]
+    return f"t{stage}{int(ante)}"
 
 
 @contextmanager
@@ -553,17 +592,22 @@ def public_key(s: G.State, seat: int, depth: str = "full", variant: str | None =
         # hand.equity against the required equity (ADR 0011 D1), so seat, raise count, initiative
         # and SPR are not part of the key. Fewer keys -> these rare spots learn from more samples.
         return f"call|{s.street}|{n_opp}|{pot_odds_step(s, seat)}|{legal}"
-    stacks = variant in STACK_VARIANTS
+    stacks = variant in _STACKED
     st = f"{stack_field(s, seat, variant)}|" if stacks else ""
-    if variant == "b3":
-        st += public_facts(s, seat, depth) + "|"
+    c1 = variant == "c1"
+    if c1:
+        st = f"{env_field()}|{st}"
+    if variant in FACT_VARIANTS:
+        st += public_facts(s, seat, depth, counts=c1) + "|"
     if depth == "basic":
         # Beginner TP: where am I, how many opponents, was there a raise, what does a call cost,
         # how strong is my hand. No exact seat, initiative or SPR (b3: only the before/after counts and `h`).
-        return (f"b|{position_group(s.n, seat)}|{s.street}|{min(n_opp, 2)}|{min(raise_level(s), 2)}|"
+        players = f"n{s.n}|" if c1 else ""
+        return (f"b|{players}{position_group(s.n, seat)}|{s.street}|{min(n_opp, 2)}|{min(raise_level(s), 2)}|"
                 f"{pot_odds_step(s, seat)}|{st}{legal}")
     sp = spr_step_tp(s, seat) if stacks else spr_step(s, seat)
-    full = (f"{seat}|{s.street}|{n_opp}|{raise_level(s)}|{initiative(s, seat)}|"
+    where = f"{G.position_names(s.n)[seat]}|n{s.n}" if c1 else f"{seat}"
+    full = (f"{where}|{s.street}|{n_opp}|{raise_level(s)}|{initiative(s, seat)}|"
             f"{pot_odds_step(s, seat)}|{sp}|{st}{legal}")
     # Pro: a single hand never has the 6 faced bets opp.foldy needs, so it is N/A here (module doc).
     return f"p|{full}|f{foldy_step()}" if depth == "pro" else full
@@ -591,19 +635,21 @@ LEGAL_CALL = ("fc", "c")
 
 
 def _facts_mult(variant: str, depth: str, n: int, n_opp: int, cap: int, street: int) -> int:
-    """Key multiplier of the "b3" public facts (an upper bound, like the stack field)."""
-    if variant != "b3":
+    """Key multiplier of the "b3" / "c1" public facts (an upper bound, like the stack field)."""
+    if variant not in FACT_VARIANTS:
         return 1
     most = n - 1 if n_opp == cap else n_opp
     if depth == "basic":
         return 9 * 4   # opponents before / after me (0-2 each), last bettor (4)
+    if variant == "c1":
+        return 9 * 4 * (4 if street > 0 else 1)   # before / after counts, last bettor, preflop aggressor
     sets = sum(math.comb(n - 1, m) for m in range(1, min(most, n - 1) + 1))
     return sets * 4 * (4 if street > 0 else 1)
 
 
 def _stack_mult(variant: str, n: int, n_opp: int, cap: int) -> int:
     """Key multiplier of the #399 stack field for one n_opp key value (the last one, `cap`, means cap or more)."""
-    if variant not in STACK_VARIANTS:
+    if variant not in _STACKED:
         return 1
     b = len(EFF_EDGES_BB) + 1
     if variant == "s2me":
@@ -626,6 +672,8 @@ def theoretical_keys(n: int, k: int, depth: str = "full", variant: str = "") -> 
     b1:    every postflop non-call key also carries the b1 fields: outs (4 buckets + N/A) for basic,
            outs x vuln (3 + N/A) x block (3 + N/A) for the others.
     b2:    b1, and the b2 fields: adv (3 + N/A) for basic, adv x value (3 + N/A) x foldeq (3 + N/A) for the others.
+    c1:    b1 x s2 x the c1 public facts (before/after counts 3 x 3 at every depth); one environment value
+           (`using_env`) and the position name (a rename of the seat) add nothing per table.
     s2me:  every non-call key also carries my depth bucket (8); s2 also the set of the live opponents'
            buckets, at most as many as there are opponents (n_opp "3" / basic "2" covers that many up to n-1).
     Every key also carries one of k equity steps.

@@ -183,6 +183,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     `probe` (#446): also run the preflop-deviation probe (`e3_probe`) on the average policy."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
+    from stalker.e3 import tp_key as K
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
     from stalker.tools.pod_bench import machine
 
@@ -216,6 +217,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
             "avg_rule": m.avg_rule, "key_variant": m.key_variant, "stacks": m.stacks,
+            **({"key_version": K.KEY_VERSIONS[m.key_variant]} if m.key_variant in K.KEY_VERSIONS else {}),
             # #426: the same job and seed gave different tables on different runners, so record which one ran it
             "machine": machine(),
             # #447: the table's bits, so two runs that should match (same sha, seed, workers) can be checked
@@ -334,6 +336,10 @@ JOBS = {"e2-mccfr": _e2_mccfr,
                                    stacks="sampled"),
         "e3-tp-mid-s2me-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2me-w4", workers=4, key_variant="s2me",
                                      stacks="sampled"),
+        # #400: the real-play cash combined key (ADR 0019 C) with every adopted training choice: real menu, average
+        # ranges (#446), own-reach average (#426), 20-250BB tables (#399); the only key the full chain runs on
+        "e3-tp-mid-c1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-c1-w4", workers=4, menu="real", raise_cap=None,
+                                   ranges="average", avg_rule="own", key_variant="c1", stacks="sampled"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
@@ -344,7 +350,8 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
              "e3-tp-mid-real-w4", "e3-tp-mid-real-avgrange-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
-             "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
+             "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4",
+             "e3-tp-mid-c1-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
