@@ -18,8 +18,8 @@ const server = createServer((req, res) => {
   res.end(body);
 });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
-// abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass.
-const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1`;
+// abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass; seed pins the deals.
+const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1&seed=20261027`;
 const shots = resolve(process.env.SCREENSHOT_DIR || resolve(here, "screenshots"));
 const axeSource = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const VIEWPORTS = [["phone", 390, 844], ["tablet", 820, 1180], ["laptop", 1440, 900]];
@@ -843,6 +843,24 @@ await inspect("home-move", "#move");
     console.log(`known leaks: ${cell.pos} AA 퍼스트 인 경고 (+${cell.gain_bb} bb)`);
   }
   await p5.close();
+}
+
+// 9. #444 딜 시드: 고정하지 않은 두 로드는 시드가 다르고, ?seed=N은 두 로드 모두 N으로 고정한다.
+{
+  const base = url.replace(/&seed=\d+/, "");
+  const seedOf = async q => {
+    const p = await browser.newPage();
+    await p.goto(base + q, { waitUntil: "domcontentloaded" });
+    const v = await p.evaluate(() => DEAL_SEED);
+    await p.close();
+    return v;
+  };
+  const [a, b] = [await seedOf(""), await seedOf("")];
+  must(a !== b, `딜 시드: seed 없이 두 번 열었는데 시드가 같음 (${a}) — 페이지 로드마다 crypto 시드를 쓰는지 확인`);
+  const [c, d] = [await seedOf("&seed=20261027"), await seedOf("&seed=20261027")];
+  must(c === 20261027 && d === 20261027, `딜 시드: ?seed=20261027이 시드를 고정하지 않음 (${c}, ${d})`);
+  const e = await seedOf("&seed=abc");
+  must(Number.isInteger(e) && e !== 0, `딜 시드: 숫자가 아닌 seed에서 무작위 시드로 돌아가지 않음 (${e})`);
 }
 
 // 10. #464 Guided: the game waits on the grading after every decision; every hand the hero played ends with
