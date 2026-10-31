@@ -49,6 +49,13 @@ preflop - preflop keys stay as they are). Call-or-fold keys never carry them (TP
 hand.equity). The bucket edges are an initial guess meant to be moved by the b1 vs plain comparison job;
 the variant name keeps every earlier table, checkpoint and key as it was.
 
+Key variant "b3" (#461, ADR 0019 §3.1 B3) is b1 plus the TP.md §1.1 public facts the key lacked, in the public
+part before the legal actions (call-or-fold keys stay as they are): `u<mask>` the live opponents' seats
+(full, pro), `h<last bettor>` where the last bet or raise of this street came from (n none, m me, b a seat
+that acts before me, a one that acts after me) and, after the flop, `g<preflop aggressor>` (n none, m me,
+o a live opponent, x a folded one). Preflop keys carry `u` and `h` only. The beginner key (TP.md §4.1: no
+exact seats) gets the coarse versions: `u<opponents acting before me><after me>` (each capped at 2) and `h`.
+
 Key variants "s2" and "s2me" (#399, ADR 0019 §3.1 S) carry the stack facts of TP.md §1.1. A player's
 effective stack is their stack capped by the deepest other live player who can still act (not folded, not
 all in); 0 if there is none. The key adds, before the legal actions, `s<mine>` ("s2me", "mine only") or
@@ -93,7 +100,8 @@ NUT_TOP = 0.10                   # board.nut: share of combos counted as near-nu
 FOLDY_MIN_OPPS = 6               # opp.foldy is N/A below this many faced bets (TP.md §3)
 FOLDY_PRIOR, FOLDY_PRIOR_N = 0.5, 6.0   # shrinkage toward an even fold rate, worth 6 decisions
 AGGRESSIVE = G.SIZE_LABELS + ("a",)   # every menu's bet/raise labels: v1, tp6 (#339), real (#382)
-VARIANTS = ("", "b1", "s2", "s2me")   # key variants: "" is every table before #398
+VARIANTS = ("", "b1", "b3", "s2", "s2me")   # key variants: "" is every table before #398
+B1_VARIANTS = ("b1", "b3")       # b3 = b1 plus the public facts of `public_facts`
 STACK_VARIANTS = ("s2", "s2me")  # #399: effective-stack depth (and SPR) in the public key; "s2me" = mine only
 EFF_EDGES_BB = (5, 10, 15, 25, 40, 60, 100)   # TP.md §6 effective-stack buckets, upper edge inclusive
 B1_BASE = 10_000                 # encoded b1 part = B1_BASE * (1 + code); below it eq and board.nut (<= 5999)
@@ -131,6 +139,34 @@ def initiative(s: G.State, seat: int) -> int:
         if a in AGGRESSIVE:
             last = int(p)
     return 0 if last is None else 1 if last == seat else 2
+
+
+def _aggressor(entries) -> int | None:
+    last = None
+    for h in entries:
+        p, a = h.split(":")
+        if a in AGGRESSIVE:
+            last = int(p)
+    return last
+
+
+def public_facts(s: G.State, seat: int, depth: str) -> str:
+    """The "b3" key fields (module doc): who is still in, who bet last this street, who raised preflop."""
+    order = list(range(s.n)) if s.street == 0 else G.postflop_order(s.n)
+    me = order.index(seat)
+    opps = [q for q in s.live() if q != seat]
+    before = [q for q in opps if order.index(q) < me]
+    if depth == "basic":
+        out = f"u{min(len(before), 2)}{min(len(opps) - len(before), 2)}"
+    else:
+        out = "u" + "".join(map(str, sorted(opps)))
+    streets = _streets(s.history)
+    last = _aggressor(streets[s.street])
+    out += "|h" + ("n" if last is None else "m" if last == seat else "b" if order.index(last) < me else "a")
+    if s.street > 0 and depth != "basic":
+        pre = _aggressor(streets[0])
+        out += "|g" + ("n" if pre is None else "m" if pre == seat else "x" if s.folded[pre] else "o")
+    return out
 
 
 def raise_level(s: G.State) -> int:
@@ -269,7 +305,7 @@ def equity_steps(s: G.State, seat: int, ranges: list[np.ndarray], k: int, varian
         if nut is not None:
             steps = np.where(steps >= 0, steps + NUT_BASE * (nut + 1), steps)
     variant = _ACTIVE["variant"] if variant is None else variant
-    if variant == "b1" and s.street > 0:   # preflop keys stay as they are
+    if variant in B1_VARIANTS and s.street > 0:   # preflop keys stay as they are
         depth = depth or {TIER_K["beginner"]: "basic", K_PRO: "pro"}.get(k, "full")
         steps = np.where(steps >= 0, steps + B1_BASE * (1 + b1_code(s, seat, ranges, depth)), steps)
     return steps
@@ -429,6 +465,8 @@ def public_key(s: G.State, seat: int, depth: str = "full", variant: str | None =
         return f"call|{s.street}|{n_opp}|{pot_odds_step(s, seat)}|{legal}"
     stacks = variant in STACK_VARIANTS
     st = f"{stack_field(s, seat, variant)}|" if stacks else ""
+    if variant == "b3":
+        st += public_facts(s, seat, depth) + "|"
     if depth == "basic":
         # Beginner TP: where am I, how many opponents, was there a raise, what does a call cost,
         # how strong is my hand. No exact seat, initiative or SPR.
@@ -459,6 +497,17 @@ LEGAL_POSTFLOP = ("fcra", "fca", "kb33b75a", "kb33a", "ka", "k")
 LEGAL_CALL = ("fc", "c")
 
 
+def _facts_mult(variant: str, depth: str, n: int, n_opp: int, cap: int, street: int) -> int:
+    """Key multiplier of the "b3" public facts (an upper bound, like the stack field)."""
+    if variant != "b3":
+        return 1
+    most = n - 1 if n_opp == cap else n_opp
+    if depth == "basic":
+        return 9 * 4   # opponents before / after me (0-2 each), last bettor (4)
+    sets = sum(math.comb(n - 1, m) for m in range(1, min(most, n - 1) + 1))
+    return sets * 4 * (4 if street > 0 else 1)
+
+
 def _stack_mult(variant: str, n: int, n_opp: int, cap: int) -> int:
     """Key multiplier of the #399 stack field for one n_opp key value (the last one, `cap`, means cap or more)."""
     if variant not in STACK_VARIANTS:
@@ -479,6 +528,8 @@ def theoretical_keys(n: int, k: int, depth: str = "full", variant: str = "") -> 
     call:  n_opp(3) x pot odds(5) x legal(2), per street.
     pro:   full, with every heads-up postflop key (call keys included) also carrying one of NUT_K
            board.nut steps (opp.foldy is always N/A in this table).
+    b3:    b1 plus the public facts: opponents' seat set (basic: before/after counts 3 x 3), last bettor (4) and,
+           after the flop, preflop aggressor (4); preflop has no preflop-aggressor field.
     b1:    every postflop non-call key also carries the b1 fields: outs (4 buckets + N/A) for basic,
            outs x vuln (3 + N/A) x block (3 + N/A) for the others.
     s2me:  every non-call key also carries my depth bucket (8); s2 also the set of the live opponents'
@@ -490,15 +541,15 @@ def theoretical_keys(n: int, k: int, depth: str = "full", variant: str = "") -> 
     total = 0
     for street in range(4):
         legal = len(LEGAL_PREFLOP if street == 0 else LEGAL_POSTFLOP)
-        mult = b1 if variant == "b1" and street > 0 else 1
+        mult = b1 if variant in B1_VARIANTS and street > 0 else 1
         if depth == "basic":
-            total += sum(3 * 3 * po * legal * mult * _stack_mult(variant, n, j, 2) for j in (1, 2))
+            total += sum(3 * 3 * po * legal * mult * _stack_mult(variant, n, j, 2) * _facts_mult(variant, depth, n, j, 2, street) for j in (1, 2))
         elif street == 0:
-            total += sum(n * 4 * po * legal * _stack_mult(variant, n, j, 3) for j in (1, 2, 3))
+            total += sum(n * 4 * po * legal * _stack_mult(variant, n, j, 3) * _facts_mult(variant, depth, n, j, 3, 0) for j in (1, 2, 3))
         else:
             for j in (1, 2, 3):
                 hu = NUT_K if depth == "pro" and j == 1 else 1
-                total += n * hu * 4 * 3 * po * (len(SPR_EDGES) + 1) * legal * mult * _stack_mult(variant, n, j, 3)
+                total += n * hu * 4 * 3 * po * (len(SPR_EDGES) + 1) * legal * mult * _stack_mult(variant, n, j, 3) * _facts_mult(variant, depth, n, j, 3, street)
         hu = NUT_K if depth == "pro" and street > 0 else 1
         total += (2 + hu) * po * len(LEGAL_CALL)
     return total * k
