@@ -12,6 +12,7 @@ and RNG state) resumes exactly, so N iterations + save + load + M iterations equ
 from __future__ import annotations
 
 import json
+import math
 import sys
 import time
 from collections import defaultdict
@@ -113,7 +114,7 @@ class MCCFR:
                 add = _SHORT[a] if len(ns.history) == n + 1 else "".join(_SHORT[h] for h in ns.history[n:])
                 vals.append(self._walk(ns, trav, hk + add))
             vals = np.array(vals)
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # not BLAS `@` (#481)
             r = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(r + (vals - v), 0, out=r)
             self._sig.pop(key, None)
