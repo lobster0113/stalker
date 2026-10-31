@@ -345,3 +345,36 @@ test("nextCardShift: against a range of flush draws every unseen heart is a bad 
   for (const c of hearts) assert.ok(x.down.some((u) => u.c === c), `${T.cardStr(c)} should be a bad card`);
   assert.ok(x.down.every((u) => u.d <= -0.1 + 1e-12) && x.up.every((u) => u.d >= 0.1 - 1e-12));
 });
+
+test("rangeResponse (#465): a bet that makes every weaker combo fold reports ~100% weaker-fold", () => {
+  // Heads-up flop, hero holds AA on K72r; the opponent's whole range is public and uniform.
+  const c = T.card;
+  const s0 = T.newHand({ n: 2, holes: [[c("Qc"), c("Jc")], [c("Ah"), c("Ad")]], board: [c("Ks"), c("7d"), c("2h"), c("9c"), c("3s")] });
+  // Walk to the flop, hero (BB, seat 1) to act first postflop? Use the engine's own order: SB(0) calls, BB checks.
+  let s = s0;
+  s = T.apply(s, "c"); s = T.apply(s, "c");
+  assert.equal(s.street, 1);
+  const ranges = T.initialRanges(2);
+  const hero = s.toAct;
+  // A policy that folds every step but the strongest and continues with the rest.
+  const d0 = T.decisionKey(T.apply(s, "b75"), ranges, "mid");
+  const half = T.TIER_K.mid - 1;   // only the strongest step continues
+  const pol = new Proxy({}, { get: (_, k) => {
+    const step = Number(String(k).split("|e")[1]);
+    const m = d0.acts.length, row = new Array(m).fill(0);
+    row[d0.acts.indexOf("f")] = step < half ? 1 : 0;
+    row[d0.acts.indexOf("c")] = step < half ? 0 : 1;
+    return typeof k === "string" && k.includes("|e") ? row : undefined;
+  } });
+  const r = T.rangeResponse(pol, s, ranges, "mid", hero, "b75");
+  assert.ok(r.reply, "the opponent replies on the same street");
+  assert.ok(r.reply.canFold);
+  assert.ok(r.reply.weakFold > 0.85, `weaker combos fold: ${r.reply.weakFold}`);
+  assert.ok(r.reply.strongFold < 0.2, `stronger combos stay: ${r.reply.strongFold}`);
+  assert.ok(r.reply.strongOfContinuing > 0.3 && r.reply.strongOfContinuing > 1 - r.reply.weakShare, "what stays is far stronger than the range average");
+  const b = r.beats[0].beats;
+  assert.ok(b > 0.9, `AA beats most of a uniform range on K72: ${b}`);
+  // Folding side: ending the street gives no reply.
+  const rf = T.rangeResponse(pol, s, ranges, "mid", hero, null);
+  assert.equal(rf.reply, null);
+});

@@ -362,6 +362,32 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 .dial { padding: 6px 2px 2px; }
 .dial input[data-unset]::-webkit-slider-thumb { opacity: .55; }
 .dial input[data-unset]::-moz-range-thumb { opacity: .55; }
+/* 내 게임 저장·리플레이 (#465) */
+.mg { margin-bottom: 14px; display: grid; gap: 10px; }
+.mg h2 { margin: 0; font-size: 18px; }
+.mg-list { display: grid; gap: 6px; }
+.mg-row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; justify-content: space-between; width: 100%; text-align: left; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 10px; padding: 9px 12px; color: inherit; font-size: 13px; }
+.mg-row:hover, .mg-row:focus-visible { border-color: var(--line); background: var(--panel-3); }
+.mg-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mg-table { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px; display: grid; gap: 8px; }
+.mg-board { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; min-height: 28px; }
+.mg-seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; }
+.mg-seat { border: 1px solid var(--line-soft); border-radius: 8px; padding: 6px 8px; font-size: 12px; display: grid; gap: 2px; background: var(--panel); }
+.mg-seat.act { border-color: var(--brass, #c69d48); }
+.mg-seat.out { opacity: .45; }
+.mg-seat .nm { font-weight: 600; }
+.mg-acts { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; max-height: 240px; overflow: auto; }
+.mg-acts button { width: 100%; text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 5px 8px; color: var(--muted); font-size: 12.5px; }
+.mg-acts button.cur { background: var(--panel-3); color: inherit; }
+.mg-acts .st { color: var(--muted); font-size: 11px; padding: 4px 8px 0; }
+.mg-an { border-left: 3px solid var(--line); padding: 4px 0 4px 10px; display: grid; gap: 4px; font-size: 13px; }
+.mg-an ul { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
+.mg-badge { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); }
+.mg-badge.good { color: var(--good); border-color: var(--good); }
+.mg-badge.warn { color: #d6ab55; border-color: #d6ab55; }
+.mg-badge.bad { color: var(--bad); border-color: var(--bad); }
+.mg-an .bad { color: var(--bad); }
+.mg-an .good { color: var(--good); }
 .hand-review { display: grid; gap: 8px; }
 .hand-review .rp-note { color: var(--muted); font-size: 12.5px; }
 .size-num { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
@@ -852,6 +878,7 @@ details.why[open] > summary { margin-bottom: 8px; }
       <h1>실전 핸드를 입력하면, 갈린 판단을 찾아드려요.</h1>
       <p class="lede">포지션 → 핸드 → 프리플랍 → 플랍 → 턴 → 리버 → 쇼다운 순서로, 테이블 위에서 자리마다 액션을 눌러 입력하세요. 마지막 내 결정을 TP-GTO(학습된 정책이 없는 설정은 규칙 기반 모의 교사)의 판단과 비교하고, 비슷한 상황으로 바로 훈련할 수 있어요.</p>
     </div>
+    <div class="box mg" id="mg-box" data-my-games><h2>내 게임</h2><div id="mg-body"></div></div>
     <div class="review">
       <div class="box rv-left"><div id="rv-table" class="mt-host"></div><div class="rv-bar" id="rv-bar"></div></div>
       <div class="box rv-right"><nav class="rv-steps" id="rv-steps" aria-label="복기 단계"></nav><div class="rv-body" id="rv-body"></div><div class="rv-nav" id="rv-nav"></div></div>
@@ -1392,6 +1419,7 @@ function showView(v) {
   $$(".view").forEach(s => s.classList.toggle("active", s.id === "view-" + v));
   if (v === "home") renderWeakHome();
   if (v === "learn") renderMods();
+  if (v === "review") renderGames();
   if (v === "train" && !G) startGame();
   window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" });
 }
@@ -1634,6 +1662,7 @@ async function playHand(token) {
   G.currentBet = G.bb; G.minRaise = G.bb; G.sbI = sbI; G.bbI = bbI; G.streetRaises = 1; // the big blind counts as the first raise (stalker/e3/game.py)
   addLog("프리플랍", `${G.seats[sbI].name} SB, ${G.seats[bbI].name} BB${G.ante ? " (+BB앤티)" : ""}`);
   if (G.eng) engStart();
+  recStart();
   renderSeats();
   // streets
   for (let st = 0; st < 4; st++) {
@@ -1666,7 +1695,106 @@ function recordHandResult() {
   const me = G.seats.find(x => x.isHero);
   if (!me || G.heroStart == null) return;
   (G.hands ||= []).push({ no: G.handNo, net: (me.bank || 0) + me.stack - G.heroStart, cards: me.cards.map(cardTxt).join(" "), folded: me.folded });
+  saveHandRec(me, G.hands.at(-1).net);
   renderInfo();
+}
+/* ---------- 내 게임 저장·리플레이 (#465): app/games.js keeps the format, bounds and reason text ---------- */
+let GM = null;
+function recSnap() {
+  return { pot: G.pot + G.seats.reduce((a, x) => a + x.bet, 0), bets: G.seats.map(x => x.bet), stacks: G.seats.map(x => x.stack), folded: G.seats.map(x => !!x.folded) };
+}
+function recStart() { G.showdownSeen = null; G.rec = { tier: G.tier, start: recSnap(), acts: [] }; }
+// The hero's decision as numbers: how often the policy plays my action, how the opponent's public range
+// answers it, and the TP items I missed most. Computed from the engine state before the action moves it.
+function heroAnalysis(a, L) {
+  const base = (G.decs || []).at(-1);
+  if (!base || base.hand !== G.handNo || base.used || !base.act) return null;
+  base.used = true;
+  const an = { name: base.act.me, p: base.act.p, approx: base.act.approx || undefined, top: base.act.top, topP: base.act.topP, leak: base.act.leak || undefined,
+    tp: base.total != null ? { total: base.total, worst: base.rows.slice().sort((x, y) => x.score - y.score).slice(0, 2) } : undefined };
+  if (!engOn()) return an;
+  try {
+    const E = G.eng, tg = TPG.mod, seat = E.s.toAct, r3 = x => x == null ? null : Math.round(x * 1000) / 1000;
+    const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
+    const label = engLabelAt(E.s, a.type, to, engReadRng(E.ent, E.s)).label;
+    const rr = tg.rangeResponse(E.pol, E.s, E.ranges, E.tier, seat, label);
+    const bs = rr.beats.filter(x => x.beats != null);
+    if (bs.length) an.beats = r3(bs.reduce((x, y) => x + y.beats, 0) / bs.length);
+    an.opps = rr.beats.length;
+    // Pot odds compare with a real equity only heads-up (the multiway product is not a win probability).
+    if (an.opps === 1) {
+      an.eq = r3(tg.multiEquity(E.s, seat, E.ranges)[tg.comboIndex(E.s.hole[seat])]);
+      const tc = tg.toCall(E.s);
+      if (tc > 0) an.need = r3(tc / (tg.pot(E.s) + tc));
+    }
+    if (rr.reply) an.reply = Object.fromEntries(["canFold", "weakFold", "strongFold", "weakRaise", "strongRaise", "fold", "strongOfContinuing", "weakShare"].map(k => [k, typeof rr.reply[k] === "number" ? r3(rr.reply[k]) : rr.reply[k]]));
+  } catch (e) { console.warn("[games] range response failed", e?.message || e); }
+  return an;
+}
+function recAct(s, a, label, an) {
+  if (!G.rec) return;
+  G.rec.acts.push({ st: G.street, seat: s.i, hero: !!s.isHero, type: a.type, txt: `${s.isHero ? "나" : s.name}(${posName(s)}) ${label}`, board: G.board.length, ...recSnap(), ...(an ? { an } : {}) });
+}
+function saveHandRec(me, net) {
+  try {
+    if (!GM || !G.rec || !G.rec.acts.length) return;
+    const shown = G.showdownSeen?.shown || [];
+    const hand = { no: G.handNo, tier: G.rec.tier, cards: me.cards.map(cardTxt).join(" "), net, folded: !!me.folded, board: G.board.map(cardTxt), start: G.rec.start, acts: G.rec.acts,
+      seats: G.seats.map(s => ({ i: s.i, name: s.name, pos: posName(s), hero: !!s.isHero, cards: s.isHero || shown.includes(s.i) ? s.cards.map(cardTxt) : null })) };
+    G.gameId ||= "g" + Date.now().toString(36);
+    const meta = { id: G.gameId, ts: Date.now(), tier: G.tier, mode: G.tour ? "토너먼트" : "캐시게임", n: G.n };
+    store.set("games", GM.wrap(GM.addHand(GM.loadGames(store.get("games", null)), meta, hand)));
+    G.rec = null;
+    if (VIEW === "review") renderGames();
+  } catch (e) { console.warn("[games] save failed", e?.message || e); }
+}
+const MG = { gid: null, no: null, step: 0 };
+const cx = t => `<span class="mc${/[♦♥]/.test(t) ? " red" : ""}">${t[0] === "T" ? "10" : t[0]}${t.slice(1)}</span>`;
+const bbc = c => (Math.round(c / 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 });   // saved chips (BB = 100)
+function renderGames() {
+  const el = $("#mg-body"); if (!el) return;
+  if (!GM) { el.innerHTML = `<p class="rp-note">저장 기능을 불러오는 중이에요…</p>`; return; }
+  const games = GM.loadGames(store.get("games", null)), sgn = x => (x > 0 ? "+" : "") + bbc(x);
+  const g = games.find(x => x.id === MG.gid), hd = g?.hands.find(x => x.no === MG.no);
+  if (!g) {
+    el.innerHTML = games.length ? `<div class="mg-list">${games.slice().reverse().map(x => `<button class="mg-row" data-mg-game="${x.id}"><span>${new Date(x.ts).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · ${x.mode} ${x.n}인${x.tier ? " · " + (TIERS[x.tier]?.name || x.tier) : ""}</span><span class="num">${x.hands.length}핸드 · ${sgn(x.hands.reduce((a, y) => a + y.net, 0))} BB</span></button>`).join("")}</div><p class="rp-note">이 기기(브라우저)에만 저장돼요. 오래된 핸드부터 지워져요(최대 ${GM.LIMITS.hands}핸드).</p>`
+      : `<p class="rp-note" data-mg-empty>아직 저장된 게임이 없어요. 훈련 게임을 하면 핸드가 이 기기에 자동으로 저장돼요.</p>`;
+    $$("[data-mg-game]", el).forEach(b => b.onclick = () => { MG.gid = b.dataset.mgGame; MG.no = null; renderGames(); });
+    return;
+  }
+  if (!hd) {
+    el.innerHTML = `<div class="mg-bar"><button class="cta ghost small" data-mg-back>← 게임 목록</button></div><div class="mg-list">${g.hands.slice().reverse().map(x => { const s = GM.handStats(x); return `<button class="mg-row" data-mg-hand="${x.no}"><span>#${x.no} · ${x.cards.split(" ").map(cx).join("")}</span><span class="num ${x.net > 0 ? "good" : x.net < 0 ? "bad" : ""}">${sgn(x.net)} BB · 결정 ${s.decisions}${s.compared ? ` (비교 ${s.compared})` : ""}</span></button>`; }).join("")}</div>`;
+    $("[data-mg-back]", el).onclick = () => { MG.gid = null; renderGames(); };
+    $$("[data-mg-hand]", el).forEach(b => b.onclick = () => { MG.no = +b.dataset.mgHand; MG.step = 0; renderGames(); });
+    return;
+  }
+  const acts = hd.acts, st = Math.max(0, Math.min(MG.step, acts.length)), cur = st ? acts[st - 1] : null, snap = cur || hd.start || { pot: 0, bets: [], stacks: [], folded: [] };
+  const end = st === acts.length, nb = end ? hd.board.length : acts[st].board, pcode = ["프리플랍", "플랍", "턴", "리버"];
+  const seats = hd.seats.map(s => {
+    const cs = s.cards && (s.hero || end) ? s.cards.map(cx).join("") : s.hero ? "" : `<span class="mc">?</span><span class="mc">?</span>`;
+    return `<div class="mg-seat${cur && cur.seat === s.i ? " act" : ""}${snap.folded[s.i] ? " out" : ""}"><span class="nm">${s.hero ? "나" : s.name} · ${s.pos}</span><span>${cs}</span><span class="num">${bbc(snap.stacks[s.i] ?? 0)} BB${snap.bets[s.i] ? ` · 벳 ${bbc(snap.bets[s.i])}` : ""}${snap.folded[s.i] ? " · 폴드" : ""}</span></div>`;
+  }).join("");
+  const firstOf = k => acts.findIndex(a => a.st === k);
+  const jumps = [0, 1, 2, 3].map(k => firstOf(k) < 0 ? "" : `<button class="cta ghost small" data-mg-jump="${firstOf(k)}">${pcode[k]}</button>`).join("");
+  let last = -1;
+  const list = acts.map((a, i) => { const hdr = a.st !== last ? `<li class="st">${pcode[a.st]}</li>` : ""; last = a.st; const v = a.hero && GM.verdict(a.an);
+    return `${hdr}<li><button data-mg-step="${i + 1}" data-mg-act class="${i + 1 === st ? "cur" : ""}">${a.txt}${v ? ` <span class="mg-badge ${v.key}">${v.text}</span>` : ""}</button></li>`; }).join("");
+  let an = "";
+  if (cur && cur.hero) {
+    const v = GM.verdict(cur.an), rs = GM.reasons(cur.an, cur, { items: SHORT, verb: cur.st === 0 ? "레이즈" : "벳" });
+    an = `<div class="mg-an" data-mg-analysis>${v ? `<div><span class="mg-badge ${v.key}" data-mg-verdict>${v.text}</span> <span class="num">${cur.an.p != null ? Math.round(cur.an.p * 100) + "%" : ""}</span></div>` : ""}<ul>${rs.map(r => `<li class="${r.kind === "bad" || r.kind === "good" ? r.kind : ""}">${r.text}</li>`).join("")}</ul></div>`;
+  } else if (cur) an = `<p class="rp-note">내 결정을 고르면 이유가 보여요.</p>`;
+  el.innerHTML = `<div class="mg-bar"><button class="cta ghost small" data-mg-back>← 핸드 목록</button><b>#${hd.no}</b><span class="num ${hd.net > 0 ? "good" : hd.net < 0 ? "bad" : ""}">${sgn(hd.net)} BB</span></div>
+    <div class="mg-table" data-mg-table><div class="mg-board">${hd.board.slice(0, nb).map(cx).join("")}<span class="num" style="margin-left:auto">팟 ${bbc(snap.pot)} BB</span></div><div class="mg-seats">${seats}</div></div>
+    <div class="mg-bar"><button class="cta ghost small" data-mg-first ${st === 0 ? "disabled" : ""}>처음</button><button class="cta ghost small" data-mg-prev ${st === 0 ? "disabled" : ""}>이전 액션</button><button class="cta small" data-mg-next ${end ? "disabled" : ""}>다음 액션</button>${jumps}<span class="num" data-mg-pos>${st}/${acts.length}</span></div>
+    ${an}<ul class="mg-acts" data-mg-acts>${list}</ul>`;
+  const go = n => { MG.step = n; renderGames(); };
+  $("[data-mg-back]", el).onclick = () => { MG.no = null; renderGames(); };
+  $("[data-mg-first]", el).onclick = () => go(0);
+  $("[data-mg-prev]", el).onclick = () => go(st - 1);
+  $("[data-mg-next]", el).onclick = () => go(st + 1);
+  $$("[data-mg-jump]", el).forEach(b => b.onclick = () => go(+b.dataset.mgJump));
+  $$("[data-mg-step]", el).forEach(b => b.onclick = () => go(+b.dataset.mgStep));
 }
 function sessHTML(net) {
   const hs = G.hands || [], sgn = x => (x > 0 ? "+" : "") + bbf(x);
@@ -1765,6 +1893,7 @@ function legal(s) {
 function applyAction(s, a) {
   const L = legal(s), pre = G.street === 0, facing = L.toCall > 0;
   tellHook(s, a, L);
+  const an = s.isHero ? heroAnalysis(a, L) : null;   // before engApply moves the engine on
   if (G.eng) engApply(s, a, L);
   if (facing) { s.stats.faced++; if (a.type === "fold") s.stats.foldsFaced++; }
   if (L.canRaise) s.stats.aggOpp++;
@@ -1788,6 +1917,7 @@ function applyAction(s, a) {
   bubble(s, label, cls);
   sfx(s.allin && a.type !== "fold" && a.type !== "check" ? "allin" : a.type === "raise" ? (facing || pre ? "raise" : "bet") : a.type);
   addLog(["프리플랍", "플랍", "턴", "리버"][G.street], `${s.isHero ? "나" : s.name}(${posName(s)}) ${label}`);
+  recAct(s, a, label, an);
   return raised;
 }
 
@@ -1854,6 +1984,7 @@ function ruleBot(s) {
    its own chip logic for display; if the two ever disagree on whose turn it is, the mirror switches
    off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
 const APP_BASE = window.STALKER_APP_BASE || "../app/";
+import(APP_BASE + "games.js").then(m => { GM = m; if (VIEW === "review") renderGames(); }).catch(e => console.warn("[games] load failed; hands are not saved", e));
 const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 const modelMeta = tier => TPG.index?.tiers?.[tier] || null;

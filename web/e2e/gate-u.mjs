@@ -976,6 +976,37 @@ await inspect("home-move", "#move");
   console.log(`세션 분석: 결정 ${r.dec}회 · 핸드 ${r.hands}개 · 항목 ${r.items}개`);
   await p6.click("#rp-close");
   must((await p6.textContent("#end-game")).includes("분석 다시 보기"), "종료 뒤 헤더 버튼이 '분석 다시 보기'가 아님");
+  // 11. #465 내 게임: every played hand is saved, survives a reload, and the replay steps through the saved
+  // action list; a hero decision shows its label and the reasons; a broken record never breaks the page.
+  const saved = await p6.evaluate(() => { const d = JSON.parse(localStorage.getItem("stalker.games") || "null"); return { n: d?.games?.reduce((a, g) => a + g.hands.length, 0) ?? 0, played: G.hands.length, an: d?.games?.flatMap(g => g.hands).flatMap(h => h.acts).filter(a => a.an && a.an.p != null).length ?? 0 }; });
+  must(saved.n === saved.played && saved.n >= 2, `내 게임: 저장된 핸드 ${saved.n}개, 끝난 핸드 ${saved.played}개`);
+  must(saved.an > 0, "내 게임: 정책 비교가 담긴 결정이 하나도 저장되지 않음");
+  await p6.reload();
+  await p6.click("[data-view='review']");
+  await p6.waitForSelector("[data-mg-game]");
+  await p6.click("[data-mg-game]");
+  const listed = await p6.evaluate(() => ({ rows: $$("[data-mg-hand]").length, text: $$("[data-mg-hand]").map(b => b.textContent).join("|") }));
+  must(listed.rows === saved.n && /결정 \d+/.test(listed.text), `내 게임: 목록에 핸드 ${listed.rows}개 (저장 ${saved.n}), 결정 수 표시: ${listed.text}`);
+  const withAn = await p6.evaluate(() => { const g = JSON.parse(localStorage.getItem("stalker.games")).games[0]; return g.hands.filter(h => h.acts.some(a => a.an && a.an.p != null)).map(h => h.no); });
+  must(withAn.length > 0, "내 게임: 첫 게임에 정책 비교가 있는 핸드가 없음");
+  await p6.click(`[data-mg-hand='${withAn[0]}']`);
+  const want = await p6.evaluate(no => JSON.parse(localStorage.getItem("stalker.games")).games[0].hands.find(h => h.no === no).acts.map(a => a.txt), withAn[0]);
+  const got = await p6.evaluate(() => $$("[data-mg-act]").map(b => b.firstChild.textContent.trim()));
+  must(JSON.stringify(got) === JSON.stringify(want), `내 게임 리플레이: 액션 목록이 저장과 다름 (${JSON.stringify(got)} vs ${JSON.stringify(want)})`);
+  let stepped = 0;
+  while (!(await p6.locator("[data-mg-next]").isDisabled())) { await p6.click("[data-mg-next]"); stepped++; }
+  must(stepped === want.length && (await p6.textContent("[data-mg-pos]")) === `${want.length}/${want.length}`, `내 게임 리플레이: 다음 액션 ${stepped}번, 액션 ${want.length}개`);
+  await p6.click("[data-mg-first]");
+  const heroStep = await p6.evaluate(no => JSON.parse(localStorage.getItem("stalker.games")).games[0].hands.find(h => h.no === no).acts.findIndex(a => a.hero && a.an && a.an.p != null) + 1, withAn[0]);
+  await p6.click(`[data-mg-step='${heroStep}']`);
+  const an = await p6.evaluate(() => ({ v: $("[data-mg-verdict]")?.textContent, li: $$("[data-mg-analysis] li").length, text: $("[data-mg-analysis]")?.textContent }));
+  must(["잘함", "아쉬움", "실수", "채점 안 함"].includes(an.v) && an.li >= 1 && /정책이/.test(an.text), `내 게임 리플레이: 결정 분석이 없음 (${JSON.stringify(an)})`);
+  await inspect("games-replay", "[data-mg-table]", p6);
+  await p6.evaluate(() => { localStorage.setItem("stalker.games", "{broken"); });
+  await p6.reload();
+  await p6.click("[data-view='review']");
+  await p6.waitForSelector("[data-mg-empty]");
+  console.log(`내 게임: 핸드 ${saved.n}개 저장·재로드·리플레이 ${want.length}액션 · 분석 "${an.v}"`);
   await p6.close();
 }
 
