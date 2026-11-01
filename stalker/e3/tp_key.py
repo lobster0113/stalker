@@ -88,7 +88,8 @@ Key variant "c1" (#400, ADR 0019 §3.1 C) is the real-play cash combined key, `K
 and blockers, required) + s2 (my and the live opponents' effective-stack depth, TP.md §1.1) + b3 with the opponent
 seat set shrunk to the before/after counts (`u<before><after>`, each capped at 2, as the beginner key: the b3 vs b1
 run #475 found the exact seat set multiplied the keys most and the field got worse) + `h`/`g`. The absolute seat is
-replaced by the button-relative position name and the player count (`BTN|n6`, `game.position_names`), and the
+replaced by the button-relative position name and the player count (`BTN|n6`, `C1_POSITIONS`: 2-6 players use the
+short-table names, heads-up `BTN`/`BB`, #486; other counts `game.position_names`), and the
 environment slots #384/#385 continue from are reserved now: `t<stage><ante>` (stage `c` cash, `e` early, `b` bubble,
 `m` in the money, `f` final table; ante `0`/`1`), read from `using_env` (default cash, no ante). In a 6-max cash deal
 `n6` and `tc0` are constant and the position name is a one-to-one rename of the seat, so the reserved slots add no
@@ -582,6 +583,17 @@ def position_group(n: int, seat: int) -> str:
     return "late" if seat >= n - 4 else "early"
 
 
+# c1 position names by player count (#486): the names players use at short tables, counted back from the button.
+# Heads-up the button posts the small blind (seat 0) and is called BTN, as players say; 6-max is game.POSITIONS[6],
+# so every 6-handed c1 key (each run before #486) is unchanged. Other counts fall back to game.position_names.
+C1_POSITIONS = {2: ("BTN", "BB"), 3: ("BTN", "SB", "BB"), 4: ("CO", "BTN", "SB", "BB"),
+                5: ("HJ", "CO", "BTN", "SB", "BB"), 6: G.POSITIONS[6]}
+
+
+def c1_position_names(n: int) -> tuple[str, ...]:
+    return C1_POSITIONS.get(n) or G.position_names(n)
+
+
 def public_key(s: G.State, seat: int, depth: str = "full", variant: str | None = None) -> str:
     """`variant` None reads `using_variant` (the referee evaluators pass none)."""
     variant = _ACTIVE["variant"] if variant is None else variant
@@ -606,7 +618,7 @@ def public_key(s: G.State, seat: int, depth: str = "full", variant: str | None =
         return (f"b|{players}{position_group(s.n, seat)}|{s.street}|{min(n_opp, 2)}|{min(raise_level(s), 2)}|"
                 f"{pot_odds_step(s, seat)}|{st}{legal}")
     sp = spr_step_tp(s, seat) if stacks else spr_step(s, seat)
-    where = f"{G.position_names(s.n)[seat]}|n{s.n}" if c1 else f"{seat}"
+    where = f"{c1_position_names(s.n)[seat]}|n{s.n}" if c1 else f"{seat}"
     full = (f"{where}|{s.street}|{n_opp}|{raise_level(s)}|{initiative(s, seat)}|"
             f"{pot_odds_step(s, seat)}|{sp}|{st}{legal}")
     # Pro: a single hand never has the 6 faced bets opp.foldy needs, so it is N/A here (module doc).
