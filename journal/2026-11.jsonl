@@ -28,3 +28,4 @@
 {"ts":"2026-11-01T04:12:20Z","role":"planner","outcome":"planned","issue":401,"pr":480,"notes":"PR #480/#466 merged (exp 030 retry worked); closed #462/#373 labels cleaned; #401 unblocked->ready; ready 6","friction":null}
 {"ts":"2026-11-01T04:41:34Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 PR 없음","friction":""}
 {"ts":"2026-11-01T05:11:18Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run --sweep printed RUN although there were zero open PRs"}
+{"ts":"2026-11-01T05:37:51Z","role":"builder-b","outcome":"pr_opened","issue":397,"pr":493,"notes":"임시 정책·미학습 표시 + index.json placeholder, gates full PASS(로컬)","friction":"Bash cwd가 web/e2e로 남으면 상대경로 guard 훅이 모든 Bash를 막음(shim으로 우회); gates quick/full 테스트 단계 1257초라 10분 제한 내 포그라운드 불가"}
