@@ -60,3 +60,4 @@
 {"ts":"2026-11-01T13:50:21Z","role":"builder-b","outcome":"changes","issue":397,"pr":493,"notes":"PR #493 CHANGES 해결: 4인 좌석 반지름 축소 + Gate U 좌석 경계 검사, 푸시 61340d7 (CI 대기)","friction":"gates quick 로컬 10분+ (목표 90초), 변경이 web뿐이라 CI에 맡김"}
 {"ts":"2026-11-01T13:50:47Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":493,"notes":"not my parity","friction":""}
 {"ts":"2026-11-01T14:12:36Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #493,#495 are odd (reviewer); no even PRs or merge retries","friction":""}
+{"ts":"2026-11-01T14:19:37Z","role":"reviewer","outcome":"merged","issue":397,"pr":493,"notes":"CHANGES(847b1fc) 대응 확인: 4인 좌석 반지름 축소+Gate U 좌석 경계 검사, CI 전부 success, squash 머지","friction":"CI web-screenshots 아티팩트가 프록시(blob.core.windows.net 403)에 막힘; 로컬 Gate U 첫 실행은 브라우저 크래시(자원 부족)라 재실행 필요"}
