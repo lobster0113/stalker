@@ -91,3 +91,27 @@ def test_policy_names_its_size_menu():
     assert (old["menu"], old["raise_cap"]) == ("v1", 3)
     real = X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1, "menu": "real", "raise_cap": None}, None, "1", "")
     assert (real["menu"], real["raise_cap"]) == ("real", None)
+
+
+def test_placeholder_flag_is_written_and_read_and_defaults_false(tmp_path):
+    # #397: the web shows 임시 AI only for entries that say so; a file without the field is not a placeholder.
+    m = E3MCCFR(1, 5, 3, "basic")
+    m.iterate(3)
+    ck = tmp_path / "c.ckpt.json"
+    ck.write_text(json.dumps(m.state()), encoding="utf-8")
+    on, off = tmp_path / "on.json", tmp_path / "off.json"
+    assert X.main(["--ckpt", str(ck), "--run", "1", "--placeholder", "--out", str(on)]) == 0
+    assert X.main(["--ckpt", str(ck), "--run", "1", "--out", str(off)]) == 0
+    d_on, d_off = (json.loads(p.read_text(encoding="utf-8")) for p in (on, off))
+    assert X.placeholder_of(d_on) is True and d_on["trained_on"] == {"game": "cash", "players": 3, "stack_bb": 100, "menu": "v1"}
+    assert X.placeholder_of(d_off) is False and "trained_on" not in d_off
+    assert X.placeholder_of({}) is False and X.placeholder_of({"placeholder": "yes"}) is False
+
+
+def test_shipped_index_marks_every_tier_placeholder_with_its_rules():
+    from pathlib import Path
+
+    idx = json.loads((Path(__file__).resolve().parents[1] / "web/app/policy/index.json").read_text(encoding="utf-8"))
+    for tier, e in idx["tiers"].items():
+        assert X.placeholder_of(e), f"{tier}: v1 6-max 100BB policy must stay marked 임시 until a real-rules one replaces it"
+        assert {"game", "players", "stack_bb", "menu"} <= set(e["trained_on"])

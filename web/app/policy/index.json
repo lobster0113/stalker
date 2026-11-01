@@ -23,7 +23,14 @@
    "q": 255,
    "min_visits": 0,
    "keys": 1724,
-   "keys_dropped": 0
+   "keys_dropped": 0,
+   "placeholder": true,
+   "trained_on": {
+    "game": "cash",
+    "players": 6,
+    "stack_bb": 100,
+    "menu": "v1"
+   }
   },
   "mid": {
    "file": "mid-6.json",
@@ -43,7 +50,14 @@
    "q": 255,
    "min_visits": 0,
    "keys": 62724,
-   "keys_dropped": 0
+   "keys_dropped": 0,
+   "placeholder": true,
+   "trained_on": {
+    "game": "cash",
+    "players": 6,
+    "stack_bb": 100,
+    "menu": "v1"
+   }
   },
   "pro": {
    "file": "pro-6.json",
@@ -64,7 +78,14 @@
    "q": 255,
    "min_visits": 0,
    "keys": 209639,
-   "keys_dropped": 0
+   "keys_dropped": 0,
+   "placeholder": true,
+   "trained_on": {
+    "game": "cash",
+    "players": 6,
+    "stack_bb": 100,
+    "menu": "v1"
+   }
   }
  }
 }
