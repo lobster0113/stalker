@@ -1010,6 +1010,69 @@ await inspect("home-move", "#move");
   await p6.close();
 }
 
+// 7. #397 임시 정책·미학습 표시: (a) 6인 100BB → 임시 배지, (b) 4인 → 미학습(규칙 봇), (c) placeholder:false 픽스처 → 배지 없음
+{
+  const open = async (pg, seats) => {
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    if (seats) await pg.selectOption("#c-seats", seats);
+    await pg.click("#start-btn");
+    await pg.waitForSelector("#tp-body [data-card='quick-act']");
+  };
+  const info = pg => pg.evaluate(() => ({
+    badge: [...document.querySelectorAll("#infobar [data-placeholder]")].map(e => ({ t: e.textContent, role: e.getAttribute("role") })),
+    untrained: document.querySelectorAll("#infobar [data-untrained]").length,
+    seats: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent) }));
+  const p7 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p7);
+  p7.setDefaultTimeout(60_000);
+  p7.on("pageerror", e => must(false, `page error (임시 표시): ${e.message}`));
+  await open(p7);
+  const a = await info(p7);
+  must(a.badge.length === 1 && /임시 AI/.test(a.badge[0].t) && /실전 규칙 정책 학습 중/.test(a.badge[0].t) && a.badge[0].role === "note" && a.untrained === 0
+    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 중수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
+  for (const [name, width, height] of VIEWPORTS) { await p7.setViewportSize({ width, height }); await p7.screenshot({ path: `${shots}/placeholder-${name}.png` }); }
+  await p7.setViewportSize({ width: 1440, height: 900 });
+  await inspect("placeholder-badge", "#infobar [data-placeholder]", p7);
+  await p7.close();
+
+  const p8 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p8);
+  p8.setDefaultTimeout(60_000);
+  p8.on("pageerror", e => must(false, `page error (미학습): ${e.message}`));
+  await open(p8, "4");
+  const b = await info(p8);
+  must(b.untrained === 1 && b.badge.length === 0 && b.seats.length === 3 && b.seats.every(t => t.includes("규칙 봇")), `미학습 표시: 4인 테이블에 미학습(규칙 봇) 표시가 없음 (${JSON.stringify(b)})`);
+  for (const [name, width, height] of VIEWPORTS) {
+    await p8.setViewportSize({ width, height });
+    if (name === "phone") await p8.evaluate(() => document.querySelector("#tp")?.classList.remove("open", "full"));
+    const out = await p8.evaluate(() => {
+      const box = document.querySelector("#layer").getBoundingClientRect(), vw = innerWidth;
+      return [...document.querySelectorAll("#layer .seat:not(.hero)")].map(e => e.getBoundingClientRect())
+        .filter(r => r.width > 0 && (r.left < box.left - 1 || r.right > box.right + 1 || r.left < 0 || r.right > vw + 1)).length;
+    });
+    must(out === 0, `미학습 표시: 4인 테이블 ${name}에서 좌석 ${out}개가 테이블 영역/뷰포트 밖으로 잘림`);
+    await p8.screenshot({ path: `${shots}/untrained-table-${name}.png` });
+  }
+  await p8.setViewportSize({ width: 1440, height: 900 });
+  await inspect("untrained-table", "#infobar [data-untrained]", p8);
+  await p8.close();
+
+  const p9 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p9);
+  p9.setDefaultTimeout(60_000);
+  await p9.route("**/policy/index.json", async r => {
+    const res = await r.fetch(), j = await res.json();
+    for (const t of Object.values(j.tiers)) t.placeholder = false;
+    await r.fulfill({ response: res, json: j });
+  });
+  await open(p9);
+  const c = await info(p9);
+  must(c.badge.length === 0 && c.untrained === 0 && c.seats.every(t => !t.includes("임시")), `임시 배지: placeholder:false 픽스처인데 배지가 보임 (${JSON.stringify(c)})`);
+  await p9.close();
+  console.log("임시 정책·미학습 표시 ok");
+}
+
 await browser.close();
 server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }

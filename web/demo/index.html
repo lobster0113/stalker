@@ -135,6 +135,7 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .infobar { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 12px; color: var(--muted); }
 .infobar .num { font-size: 15px; color: var(--text); }
 .infobar .pill { padding: 3px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line-soft); }
+.infobar .pill.warn { color: var(--brass-hi); border-color: rgba(214,171,85,.4); }
 .infobar .pill.hot { color: var(--brass-hi); border-color: rgba(214,171,85,.4); }
 .infobar .spacer { flex: 1; }
 .sess { position: relative; }
@@ -754,7 +755,7 @@ details.why[open] > summary { margin-bottom: 8px; }
         <div class="setting" id="set-cash">
           <div class="lab">설정 1-2 · 캐시게임 조건</div>
           <div class="grid2">
-            <label class="field"><span>인원</span><select id="c-seats"><option value="6" selected>6인</option></select></label>
+            <label class="field"><span>인원</span><select id="c-seats"><option value="6" selected>6인</option><option value="4">4인 (미학습)</option></select></label>
             <label class="field"><span>블라인드</span><select id="c-blinds"><option>1 / 2</option><option>2 / 5</option><option>5 / 10</option></select></label>
             <label class="field"><span>스택</span><select id="c-stack"><option value="100" selected>100 BB (탑업)</option></select></label>
             <label class="field"><span>베팅</span><select id="c-limit"><option selected>노리밋</option></select></label>
@@ -1557,7 +1558,7 @@ function renderSeats() {
     el.classList.toggle("folded", s.folded); el.classList.toggle("out", s.out);
     $(".nm", el).textContent = s.isHero ? "나 (Hero)" : s.name;
     $(".stk", el).textContent = s.out ? "—" : s.allin ? "올인" : bbf(s.stack) + " BB";
-    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag || PERSONAS[s.persona].name);
+    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag ? s.tag + (isPlaceholder(G.eng?.meta) ? " · 임시" : "") : PERSONAS[s.persona].name + " · 규칙 봇");
     $(".persona", el).classList.toggle("gto", !!s.tag);
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";
@@ -1573,7 +1574,8 @@ function renderInfo() {
     el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
   } else {
     const hero = G.seats.find(x => x.isHero), net = hero ? hero.bank + hero.stack - 100 * G.bb : 0;
-    const src = G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" title="이 설정의 TP-GTO는 학습 중이에요">규칙 봇 · 모의 정답</span>`;
+    const src = (G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" data-untrained title="이 설정을 덮는 학습 정책이 없어요: 규칙 봇이 상대하고 정답은 모의값이에요">미학습(규칙 봇)</span>`)
+      + (G.eng && isPlaceholder(G.eng.meta) ? `<span class="pill warn" data-placeholder role="note">${tempNote(G.eng.meta)}</span>` : "");
     el.innerHTML = `<span class="pill">캐시게임 · ${G.n}인 · 노리밋</span>${src}<span>블라인드 <b class="num">${$("#c-blinds").value}</b></span><span>스택 <b class="num">100 BB</b> · 매 핸드 탑업</span>${sessHTML(net)}${G.tier !== S.tier ? `<span class="pill" data-tier-next>${tierNextMsg()}</span>` : ""}<span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
   }
   $("#new-game").onclick = () => { G.dead = true; G = null; startGame(); };
@@ -1819,7 +1821,7 @@ function sessionReport() {
   const acts = ds.filter(d => d.act && !d.act.leak), low = acts.filter(d => d.act.p < LOW_FREQ);
   return { hands: hs.length, decisions: ds.length, net, graded: graded.length,
     score: graded.length ? Math.round(graded.reduce((a, d) => a + d.total, 0) / graded.length) : null, byItem,
-    compared: acts.length, leaks: ds.filter(d => d.act?.leak).length,
+    compared: acts.length, placeholder: acts.length > 0 && isPlaceholder(modelMeta(G.tier)), leaks: ds.filter(d => d.act?.leak).length,
     meanFreq: acts.length ? acts.reduce((a, d) => a + d.act.p, 0) / acts.length : null, low };
 }
 function reportHTML(r) {
@@ -1828,7 +1830,7 @@ function reportHTML(r) {
   const kpis = `<div class="rp-kpis">${kpi(r.hands, "끝난 핸드", "data-rp-hands")}${kpi(r.decisions, "내 결정", "data-rp-decisions")}${r.net == null ? "" : kpi(`<span class="${r.net > 0 ? "good" : r.net < 0 ? "bad" : ""}">${sgn(r.net)} BB</span>`, "세션 손익", "data-rp-net")}${kpi(r.score ?? "—", "TP 점수 평균", "data-rp-score")}</div>`;
   const items = r.byItem.length ? `<h3>항목별 점수 (약한 순)</h3><table data-rp-items><tbody>${r.byItem.map(it => `<tr data-k="${it.k}"><th scope="row">${SHORT[it.k] || it.k}</th><td class="r num">${it.avg}점</td><td class="r num">${it.n}회</td></tr>`).join("")}</tbody></table>`
     : `<p class="rp-note">채점된 판단 항목이 없어요. Guided로 두거나 Quick에서 '분석 보기'를 열면 항목별 점수가 쌓여요.</p>`;
-  const act = r.compared ? `<h3>TP-GTO 액션 비교</h3><p class="rp-note" data-rp-act>비교한 결정 <b class="num">${r.compared}</b>회 · 내 선택의 평균 정책 빈도 <b class="num">${pc(r.meanFreq)}</b> · 정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만) <b class="num">${r.low.length}</b>회${r.leaks ? ` · 알려진 결함 칸 ${r.leaks}회는 빼고 셌어요` : ""}</p>
+  const act = r.compared ? `<h3>TP-GTO 액션 비교${r.placeholder ? ` <span class="conf model" data-rp-placeholder>임시 정책 기준</span>` : ""}</h3><p class="rp-note" data-rp-act>비교한 결정 <b class="num">${r.compared}</b>회 · 내 선택의 평균 정책 빈도 <b class="num">${pc(r.meanFreq)}</b> · 정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만) <b class="num">${r.low.length}</b>회${r.leaks ? ` · 알려진 결함 칸 ${r.leaks}회는 빼고 셌어요` : ""}</p>
     ${r.low.length ? `<table data-rp-low><tbody>${r.low.map(d => `<tr><td>#${d.hand} · ${d.street}</td><td>${d.cards}</td><td>내 선택 ${d.act.me} <span class="num">${d.act.approx ? "≈" : ""}${pc(d.act.p)}</span></td><td>정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span></td></tr>`).join("")}</tbody></table>` : ""}`
     : `<p class="rp-note">TP-GTO 정책과 비교한 결정이 없어요(캐시게임 6인 100BB에서 비교돼요).</p>`;
   const hands = r.hands ? `<details data-rp-hands-list><summary>핸드별 결과 ${r.hands}개</summary><table><tbody>${(G.hands || []).slice().reverse().map(x => `<tr><td>#${x.no}</td><td>${x.cards}</td><td>${x.folded ? "폴드" : x.net > 0 ? "획득" : x.net < 0 ? "패배" : "본전"}</td><td class="r num ${x.net > 0 ? "good" : x.net < 0 ? "bad" : ""}">${sgn(x.net)}</td></tr>`).join("")}</tbody></table></details>` : "";
@@ -1992,7 +1994,12 @@ function modelLine(m) {
   const lbr = m.lbr_bb != null ? ` · LBR ${m.lbr_bb.toFixed(2)}${m.lbr_stderr_bb != null ? "±" + m.lbr_stderr_bb.toFixed(2) : ""} bb/hand` : "";
   return `반복 ${fmtIters(m.iterations)}회${lbr} · run ${m.run_id}`;
 }
-const modelTag = m => `<span class="conf model" title="정답 출처: 학습된 TP-GTO 정책(${TIERS[m.tier].name}, ${modelLine(m)}). 승인 상태: 미검증, Gate 판정 전 학습 중간본이에요.">TP-GTO · 학습 중간본</span>`;
+// #397 (ADR 0019 §7): a policy trained on rules the table does not play (placeholder) is called 임시; a table
+// no policy covers (not 6-max 100BB cash) is 미학습(규칙 봇). Neither may look like a learned real-rules AI.
+const isPlaceholder = m => !!m && m.placeholder === true;
+const trainedLine = m => { const t = m?.trained_on; return t ? `${t.game === "cash" ? "캐시게임" : t.game} ${t.players}인 ${t.stack_bb}BB·사이즈 ${t.menu}` : "6인 100BB 캐시게임"; };
+const tempNote = m => `임시 AI: ${trainedLine(m)}로 학습한 정책 — 실전 규칙 정책 학습 중`;
+const modelTag = m => `<span class="conf model" title="정답 출처: 학습된 TP-GTO 정책(${TIERS[m.tier].name}, ${modelLine(m)}). 승인 상태: 미검증, Gate 판정 전 학습 중간본이에요.${isPlaceholder(m) ? " " + tempNote(m) + "." : ""}">TP-GTO · 학습 중간본${isPlaceholder(m) ? " · 임시 정책 기준" : ""}</span>`;
 async function fetchJSON(url, onFrac) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url} 응답 ${r.status}`);
@@ -3096,7 +3103,7 @@ function rhLogHTML(h) {
 
 /* ---------- static poker table (same look as the training table) ---------- */
 function ringPos(k, n, portrait) {
-  const ang = Math.PI / 2 + k * 2 * Math.PI / n, rx = portrait ? 37 : 43, ry = portrait ? 42 : 39;
+  const ang = Math.PI / 2 + k * 2 * Math.PI / n, rx = (portrait ? 37 : 43) * (n < 6 ? .85 : 1), ry = portrait ? 42 : 39;  // n<6: side seats land at 0°/180° and clipped at 7%/93%
   const x = 50 + rx * Math.cos(ang), y = 50 + ry * Math.sin(ang);
   // The button sits beside the seat's bet line, not on it: on the top seat the two used to stack (#445).
   const da = ang + .3;

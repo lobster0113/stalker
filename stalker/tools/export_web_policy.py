@@ -51,7 +51,19 @@ def export(policy: dict[str, list[float]], meta: dict, visits: dict[str, int] | 
             "policy": {k: quantize(v) for k, v in sorted(kept.items())}}
 
 
-def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: str = "current") -> dict:
+def placeholder_of(doc: dict) -> bool:
+    """A policy/index entry marks itself a stand-in until a real-rules policy replaces it (#397, ADR 0019 §7);
+    a file written before the field existed is not one."""
+    return doc.get("placeholder") is True
+
+
+def trained_on(model: dict) -> dict:
+    """What the table was trained on, in words the web shows next to the 임시 AI badge."""
+    return {"game": "cash", "players": model["n"], "stack_bb": 100, "menu": model.get("menu", "v1")}
+
+
+def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: str = "current",
+              placeholder: bool = False) -> dict:
     s = summary or {}
     field = s.get("field") or {}
     worst = field.get("worst") if isinstance(field, dict) else None
@@ -61,7 +73,8 @@ def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: s
     return {"tier": s.get("tier", tier), "players": model["n"], "k": model["k"], "depth": model["depth"],
             "iterations": model["iterations"], "run_id": str(run), "sha": sha or s.get("sha", ""),
             "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst if strategy == "current" else None, "job": s.get("job", ""),
-            "strategy": strategy, **nut_k(model), **rules(model)}
+            "strategy": strategy, **nut_k(model), **rules(model),
+            **({"placeholder": True, "trained_on": trained_on(model)} if placeholder else {})}
 
 
 def rules(model: dict) -> dict:
@@ -89,6 +102,8 @@ def main(argv=None) -> int:
     ap.add_argument("--summary", type=Path, help="the seed's summary JSON (<job>-seed<s>.json): LBR, field, job")
     ap.add_argument("--run", default="", help="the training run id the checkpoint came from")
     ap.add_argument("--sha", default="")
+    ap.add_argument("--placeholder", action="store_true",
+                    help="mark the policy 임시(rules it was not trained on: 6-max 100BB cash only) so the web says so (#397)")
     ap.add_argument("--min-visits", type=int, default=0, help="drop keys updated fewer times than this")
     ap.add_argument("--max-bytes", type=int, default=MAX_BYTES)
     ap.add_argument("--out", type=Path, required=True)
@@ -111,7 +126,7 @@ def main(argv=None) -> int:
         st = json.loads(a.ckpt.read_text(encoding="utf-8"))
     m = E3MCCFR.from_state(st)
     policy = m.policy() if a.strategy == "average" else m.current_policy()
-    meta = meta_from(st, summary, a.run, a.sha, a.strategy)
+    meta = meta_from(st, summary, a.run, a.sha, a.strategy, a.placeholder)
     doc = export(policy, meta, dict(m.visits), a.min_visits)
     body = json.dumps(doc, separators=(",", ":")).encode()
     if len(body) > a.max_bytes:
