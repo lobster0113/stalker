@@ -104,3 +104,64 @@ def test_leduc_cfr_plus_matches_a_pure_python_fsum_reference_bit_for_bit():
     want = _reference_cfr_plus(game, 300)
     assert got == want, "CFRPlus drifted from the fsum reference: keep every float sum in math.fsum (#488)"
     assert float(exploitability(game, got)).hex() == float(exploitability(game, want)).hex()
+
+
+def _reference_exploitability(root, strategy) -> float:
+    """Exact best response in lists and `math.fsum` only, mirroring `referee.anchors.toy.game` (#497)."""
+    from referee.anchors.toy.game import CHANCE, PLAYER, TERMINAL
+
+    def probs(n):
+        if n.kind == CHANCE:
+            return list(n.probs)
+        p = strategy.get(n.infoset)
+        return [1.0 / len(n.actions)] * len(n.actions) if p is None else [float(x) for x in p]
+
+    def br(br_player):
+        sign = 1.0 if br_player == 0 else -1.0
+        weight, members, stack = {}, {}, [(root, 1.0)]
+        while stack:
+            n, w = stack.pop()
+            weight[id(n)] = w
+            if n.kind == TERMINAL:
+                continue
+            if n.kind == PLAYER and n.player == br_player:
+                members.setdefault(n.infoset, []).append(n)
+                stack.extend((c, w) for c in n.children)
+            else:
+                stack.extend((c, w * p) for c, p in zip(n.children, probs(n)))
+        choice, memo = {}, {}
+
+        def v(n):
+            if id(n) in memo:
+                return memo[id(n)]
+            if n.kind == TERMINAL:
+                r = sign * n.utility
+            elif n.kind == PLAYER and n.player == br_player:
+                r = v(n.children[choice[n.infoset]])
+            else:
+                r = math.fsum(p * v(c) for p, c in zip(probs(n), n.children) if p > 0)
+            memo[id(n)] = r
+            return r
+
+        for info in sorted(members, key=lambda i: -members[i][0].depth):
+            nodes = members[info]
+            scores = [math.fsum(weight[id(h)] * v(h.children[a]) for h in nodes) for a in range(len(nodes[0].actions))]
+            choice[info] = scores.index(max(scores))
+        return v(root)
+
+    return (br(0) + br(1)) / 2
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("name", ["kuhn", "leduc"])
+def test_exploitability_matches_a_pure_python_fsum_reference_bit_for_bit(name):
+    from referee.anchors.toy import exploitability, kuhn, leduc
+    from stalker.toy.cfr import CFRPlus
+
+    game = {"kuhn": kuhn, "leduc": leduc}[name].game()
+    solver = CFRPlus(game)
+    solver.iterate(300)
+    for label, strat in {"uniform": {}, "cfr+300": solver.average_strategy()}.items():
+        got = float(exploitability(game, strat)).hex()
+        want = _reference_exploitability(game, strat).hex()
+        assert got == want, f"{name}/{label}: referee exploitability drifted from the fsum reference (#497)"

@@ -6,6 +6,7 @@ Utilities are for player 0; player 1 receives the negation.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -33,7 +34,7 @@ def finalize(root: Node) -> Node:
         n, d = stack.pop()
         n.depth = d
         if n.kind == CHANCE:
-            if len(n.probs) != len(n.children) or abs(sum(n.probs) - 1) > 1e-12:
+            if len(n.probs) != len(n.children) or abs(math.fsum(n.probs) - 1) > 1e-12:
                 raise ValueError(f"chance node at depth {d}: probs must match children and sum to 1")
         elif n.kind == PLAYER:
             if len(n.actions) != len(n.children) or not n.actions:
@@ -62,7 +63,7 @@ def _probs(strategy: dict, n: Node) -> np.ndarray:
     if p is None:
         return np.full(len(n.actions), 1.0 / len(n.actions))
     p = np.asarray(p, dtype=float)
-    if p.shape != (len(n.actions),) or (p < -1e-12).any() or abs(p.sum() - 1) > 1e-9:
+    if p.shape != (len(n.actions),) or (p < -1e-12).any() or abs(math.fsum(p.tolist()) - 1) > 1e-9:
         raise ValueError(f"strategy at {n.infoset!r} must be {len(n.actions)} probabilities summing to 1")
     return p
 
@@ -73,7 +74,8 @@ def expected_value(root: Node, strategy: dict) -> float:
         if n.kind == TERMINAL:
             return n.utility
         w = n.probs if n.kind == CHANCE else _probs(strategy, n)
-        return sum(p * v(c) for p, c in zip(w, n.children) if p > 0)
+        # math.fsum, not built-in sum: 3.12 made sum() of floats compensated, so 3.11/3.12 differ (#488).
+        return math.fsum(p * v(c) for p, c in zip(w, n.children) if p > 0)
     return v(root)
 
 
@@ -112,13 +114,13 @@ def best_response_value(root: Node, strategy: dict, br_player: int) -> float:
             r = v(n.children[choice[n.infoset]])
         else:
             ps = n.probs if n.kind == CHANCE else _probs(strategy, n)
-            r = sum(p * v(c) for p, c in zip(ps, n.children) if p > 0)
+            r = math.fsum(p * v(c) for p, c in zip(ps, n.children) if p > 0)
         memo[k] = r
         return r
 
     for info in sorted(members, key=lambda i: -members[i][0].depth):
         nodes = members[info]
-        scores = [sum(weight[id(h)] * v(h.children[a]) for h in nodes) for a in range(len(nodes[0].actions))]
+        scores = [math.fsum(weight[id(h)] * v(h.children[a]) for h in nodes) for a in range(len(nodes[0].actions))]
         choice[info] = int(np.argmax(scores))
     return v(root)
 
