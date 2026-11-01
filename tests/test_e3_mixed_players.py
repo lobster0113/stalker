@@ -88,7 +88,6 @@ def test_c1_key_players_and_position_names_match_the_table():
 
 
 def test_mixed_deals_keep_blinds_and_action_order():
-    rng = np.random.default_rng(4861)
     for s in _dealt(_c1(player_mix=MIX), 200):
         n = s.n
         assert s.bet[n - 2:] == (G.SB, G.BB) and sum(s.bet) == G.SB + G.BB
