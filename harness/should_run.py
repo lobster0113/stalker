@@ -38,6 +38,7 @@ DEFAULT_LOCK_HOURS = 3
 LOCK_TRIES = 3
 DEFAULT_READY_FLOOR = 1
 DEFAULT_QUEUE_LOW_MIN_HOURS = 2
+MERGE_RETRY_MAX = 3  # reviewer.md §2: MERGE-RETRY attempts per PR before NEEDS_HUMAN
 
 
 def _git(*args: str, env: dict | None = None, stdin: str | None = None) -> str:
@@ -120,6 +121,87 @@ def ready_count() -> int | None:
                and not held & {lb["name"] for lb in i.get("labels", [])})
 
 
+def _api(path: str):
+    m = re.search(r"github\.com[/:]([^/]+/[^/]+?)(?:\.git)?/?$", _git("remote", "get-url", "origin").strip())
+    if not m:
+        return None
+    req = urllib.request.Request(f"https://api.github.com/repos/{m.group(1)}/{path}",
+                                 headers={"Accept": "application/vnd.github+json"})
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.load(r)
+
+
+def trusted_actors() -> set[str]:
+    f = ROOT / "harness" / "TRUSTED_ACTORS"
+    return {ln.strip() for ln in f.read_text(encoding="utf-8").splitlines()
+            if ln.strip() and not ln.lstrip().startswith("#")}
+
+
+def checks_green(runs: list[dict]) -> bool:
+    """Newest run per check name decides: an old cancelled run beside a newer success is green."""
+    latest: dict[str, dict] = {}
+    for r in runs:
+        if r["name"] not in latest or r["id"] > latest[r["name"]]["id"]:
+            latest[r["name"]] = r
+    return bool(latest) and all(r["conclusion"] in ("success", "skipped", "neutral")
+                                for r in latest.values())
+
+
+def _verdict_sha_ok(pr: dict, trusted: set[str]) -> bool:
+    return any(c["user"] in trusted and c["body"].lstrip().startswith(f"VERDICT: MERGE sha={pr['head_sha']}")
+               for c in pr["comments"])
+
+
+def merge_retry_candidates(prs: list[dict], role: str, trusted: set[str] | None = None) -> list[int]:
+    """PR numbers of this reviewer's parity that need a merge retry, no re-review (#482).
+
+    Each pr: {number, head_sha, comments: [{user, body}], checks_ok, mergeable}. Eligible when a
+    TRUSTED_ACTORS-written `VERDICT: MERGE sha=<current head>` exists, required checks are green,
+    there is no conflict, and fewer than MERGE_RETRY_MAX trusted `MERGE-RETRY failed` comments
+    exist (after that the reviewer files one NEEDS_HUMAN item and the PR no longer counts as work).
+    Outsiders' comments are data, never a verdict or a retry count (PROTOCOL §8).
+    """
+    trusted = trusted_actors() if trusted is None else trusted
+    odd = role != "reviewer-b"
+    out = []
+    for pr in prs:
+        if (pr["number"] % 2 == 1) != odd or not pr.get("checks_ok") or pr.get("mergeable") is not True:
+            continue
+        if not _verdict_sha_ok(pr, trusted):
+            continue
+        fails = sum(c["user"] in trusted and c["body"].lstrip().startswith("MERGE-RETRY failed")
+                    for c in pr["comments"])
+        if fails < MERGE_RETRY_MAX:
+            out.append(pr["number"])
+    return out
+
+
+def merge_retry_pending(role: str) -> int | None:
+    """Count of open PRs awaiting a merge retry for this reviewer, or None if GitHub is unreachable."""
+    try:
+        trusted = trusted_actors()
+        odd = role != "reviewer-b"
+        prs = []
+        for p in _api("pulls?state=open&per_page=100") or []:
+            if (p["number"] % 2 == 1) != odd:
+                continue  # other reviewer's parity: skip the extra API calls
+            comments = [{"user": c["user"]["login"], "body": c["body"]}
+                        for c in _api(f"issues/{p['number']}/comments?per_page=100") or []]
+            pr = {"number": p["number"], "head_sha": p["head"]["sha"], "comments": comments}
+            if not _verdict_sha_ok(pr, trusted):
+                continue  # only PRs with a trusted same-sha MERGE verdict need checks/mergeable lookups
+            runs = _api(f"commits/{pr['head_sha']}/check-runs?per_page=100")["check_runs"]
+            pr["checks_ok"] = checks_green(runs)
+            pr["mergeable"] = _api(f"pulls/{p['number']}").get("mergeable")
+            prs.append(pr)
+        return len(merge_retry_candidates(prs, role, trusted))
+    except Exception:
+        return None
+
+
 def run_id() -> str:
     return os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID") or socket.gethostname()
 
@@ -129,6 +211,7 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
            last_sweep: Callable[[str], datetime | None] = last_sweep,
            ready_count: Callable[[], int | None] = ready_count,
            main_updated_at: Callable[[], datetime | None] = main_updated_at,
+           merge_retry_pending: Callable[[str], int | None] = merge_retry_pending,
            now: datetime | None = None) -> tuple[bool, str]:
     if role != "auditor" and (ROOT / "harness" / "PAUSE").exists():
         return False, "harness/PAUSE present"
@@ -156,6 +239,10 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
             merged = main_updated_at()
             if merged is not None and merged > prev:
                 return True, f"main updated {now - merged} ago, after last run {elapsed} ago"
+        if role.startswith("reviewer"):
+            n = merge_retry_pending(role)
+            if n:
+                return True, f"{n} PR(s) with a same-sha MERGE verdict need a merge retry"
         if role == "planner":
             floor = cfg.get("ready_floor", DEFAULT_READY_FLOOR)
             min_hours = cfg.get("queue_low_min_hours", DEFAULT_QUEUE_LOW_MIN_HOURS)

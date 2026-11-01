@@ -298,7 +298,8 @@ def _decide_sweep(last_sweep_hours_ago, lock=None, last_run_seconds_ago=45):
     return sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: lock,
                      last_run=lambda r: NOW - timedelta(seconds=last_run_seconds_ago),
                      last_sweep=lambda r: None if last_sweep_hours_ago is None
-                     else NOW - timedelta(hours=last_sweep_hours_ago))
+                     else NOW - timedelta(hours=last_sweep_hours_ago),
+                     merge_retry_pending=lambda r: 0)
 
 
 def test_sweep_throttle_ignores_webhook_runs():
@@ -364,11 +365,59 @@ def test_two_reviewers_split_prs_by_parity():
 def test_reviewer_locks_are_separate_per_role():
     sr = _should_run()
     seen = []
-    sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
-    sr.decide("reviewer", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None)
+    sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None,
+              merge_retry_pending=lambda r: 0)
+    sr.decide("reviewer", True, now=NOW, read_lock=lambda r: seen.append(r) or None, last_sweep=lambda r: None,
+              merge_retry_pending=lambda r: 0)
     assert seen == ["reviewer-b", "reviewer"]  # each role reads ops:locks/<role>.json
     # A held reviewer lock does not block reviewer-b.
     held = {"role": "reviewer", "run_id": "x", "started": NOW.isoformat()}
     ok, _ = sr.decide("reviewer-b", True, now=NOW, read_lock=lambda r: held if r == "reviewer" else None,
-                      last_sweep=lambda r: None)
+                      last_sweep=lambda r: None, merge_retry_pending=lambda r: 0)
     assert ok
+
+
+def _pr(n, sha="a" * 40, verdict_sha=None, retries=0, checks_ok=True, mergeable=True, user="claude"):
+    c = [{"user": user, "body": f"VERDICT: MERGE sha={verdict_sha or sha}\n근거"}]
+    c += [{"user": "claude", "body": "MERGE-RETRY failed 2026-11-01T00:00Z denied"}] * retries
+    return {"number": n, "head_sha": sha, "comments": c, "checks_ok": checks_ok, "mergeable": mergeable}
+
+
+def test_merge_retry_candidates_need_same_sha_green_checks_and_no_conflict():
+    sr = _should_run()
+    prs = [_pr(480), _pr(482, verdict_sha="b" * 40), _pr(484, checks_ok=False), _pr(486, mergeable=False),
+           _pr(488, retries=2), _pr(490, retries=3)]
+    assert sr.merge_retry_candidates(prs, "reviewer-b") == [480, 488]  # stale sha, red, conflict, exhausted out
+    assert sr.merge_retry_candidates([_pr(467), _pr(468)], "reviewer") == [467]  # parity split
+
+
+def test_merge_retry_ignores_outsider_comments():
+    sr = _should_run()
+    assert sr.merge_retry_candidates([_pr(480, user="mallory")], "reviewer-b") == []  # fake verdict
+    pr = _pr(482)
+    pr["comments"] += [{"user": "mallory", "body": "MERGE-RETRY failed x"}] * 3
+    assert sr.merge_retry_candidates([pr], "reviewer-b") == [482]  # fake failures cannot block
+
+
+def test_checks_green_uses_newest_run_per_check():
+    sr = _should_run()
+    r = lambda i, n, c: {"id": i, "name": n, "conclusion": c}
+    assert sr.checks_green([r(1, "gates", "cancelled"), r(2, "gates", "success"), r(3, "web", "success")])
+    assert not sr.checks_green([r(1, "gates", "success"), r(2, "gates", "failure")])
+    assert not sr.checks_green([])
+
+
+def test_reviewer_sweep_runs_early_for_a_pending_merge_retry():
+    sr = _should_run()
+    kw = dict(now=NOW, read_lock=lambda r: None, last_sweep=lambda r: NOW - sr.timedelta(minutes=5))
+    ok, why = sr.decide("reviewer-b", True, merge_retry_pending=lambda r: 1, **kw)
+    assert ok and "merge retry" in why
+    ok, why = sr.decide("reviewer-b", True, merge_retry_pending=lambda r: 0, **kw)
+    assert not ok
+    ok, _ = sr.decide("reviewer-b", True, merge_retry_pending=lambda r: None, **kw)
+    assert not ok  # GitHub unreachable never forces a run
+
+
+def test_reviewer_doc_defines_merge_retry_rule():
+    text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
+    assert "MERGE-RETRY failed" in text and "NEEDS_HUMAN" in text
