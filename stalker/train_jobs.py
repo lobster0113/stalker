@@ -32,6 +32,11 @@ E3_FIELD_HANDS = 1000
 E3_SYNC_BATCH = 500
 # Noisy-learner hands per (form, level): 4000 gave CI ~±0.1-0.15 bb/hand per seed (#261 note).
 NOISE_SIM_HANDS = 4000
+# #446: the #413 preflop-deviation probe run in the job on the average policy (artifacts are not reachable
+# from every agent session, so the result rides in the summary). A small registered cell set: first in,
+# every seat, the groups where the served policies limped (#391); ~3 min per seed on one core at 300 deals.
+E3_PROBE_DEALS = 300
+E3_PROBE_GROUPS = ("AA", "KK", "AKs")
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
 ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
 # Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
@@ -165,18 +170,20 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
            workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
-           avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform") -> dict:
+           avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform", probe: bool = False) -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
     `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
     `avg_rule` (#426): how the average strategy is accumulated (stalker/e3/mccfr.py); a checkpoint of the
     other rule is refused.
-    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`); likewise kept on resume.
+    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`), "b2" (#460) also board.adv/opp.value/plan.foldeq; likewise kept on resume.
     `stacks` (#399): "sampled" deals 20-250BB tables in training (`stalker.e3.mccfr`); LBR and the field stay at
-    100BB, where the stack variants' new key field is constant."""
+    100BB, where the stack variants' new key field is constant.
+    `probe` (#446): also run the preflop-deviation probe (`e3_probe`) on the average policy."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
+    from stalker.e3 import tp_key as K
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
     from stalker.tools.pod_bench import machine
 
@@ -196,6 +203,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
         raise SystemExit(f"{resume / ckpt} trained with {m.ranges} ranges, but {name} uses {ranges} (#405)")
     if m.key_variant != key_variant:
         raise SystemExit(f"{resume / ckpt} trained with key variant {m.key_variant!r}, but {name} uses {key_variant!r} (#398)")
+    if probe and key_variant:
+        raise SystemExit(f"{name}: the preflop probe reads default keys only; key variant {key_variant!r} (#446)")
     if m.stacks != stacks:
         raise SystemExit(f"{resume / ckpt} trained with {m.stacks} stacks, but {name} uses {stacks} (#399)")
     prev = m.iterations
@@ -208,12 +217,32 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
             "avg_rule": m.avg_rule, "key_variant": m.key_variant, "stacks": m.stacks,
+            **({"key_version": K.KEY_VERSIONS[m.key_variant]} if m.key_variant in K.KEY_VERSIONS else {}),
             # #426: the same job and seed gave different tables on different runners, so record which one ran it
             "machine": machine(),
             # #447: the table's bits, so two runs that should match (same sha, seed, workers) can be checked
             "regret_sha256": m.regret_hash(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
-            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur),
+            **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
+
+
+def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
+    """#446: the #413 preflop-deviation probe on a trained average policy, first in at every seat; per cell
+    only what a comparison needs (best deviation, its gain and uncorrected 95% CI; the leak flag keeps the run's Bonferroni bound), so it fits the summary."""
+    from referee.e3.preflop_probe import probe
+
+    t = {"policy": avg, "k": m.k, "depth": m.depth, "players": m.n, "menu": m.menu, "raise_cap": m.raise_cap}
+    deals, groups = E3_PROBE_DEALS, E3_PROBE_GROUPS
+    t0 = time.monotonic()
+    r = probe(t, deals, seed, ("first_in",), None, groups, workers)
+    cells = [{"seat": c["seat"], "group": c["group"], "deals": c["deals"], "best": c["best"],
+              "gain_bb": c["actions"][c["best"]]["vs_row_bb"] if c["best"] else None,
+              "gain_ci": c["actions"][c["best"]]["vs_row_ci"] if c["best"] else None,
+              "call_row": c["actions"].get("c", {}).get("row"), "leak": c["leak"]} for c in r["cells"]]
+    return {"probe": r["probe"], "deals_per_cell": deals, "seed": seed, "spot": "first_in", "groups": list(groups),
+            "z_corrected": r["z_corrected"], "leaks": r["leaks"], "leak_cells": r["leak_cells"], "cells": cells,
+            "seconds": round(time.monotonic() - t0, 1)}
 
 
 def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) -> dict:
@@ -286,7 +315,10 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #382: the real-play size menu (TP.md section 6); preflop the menu keeps its own cap of 3,
         # postflop raise wars run uncapped up to ALLIN_MERGE
         "e3-tp-mid-real-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-real-w4", workers=4, menu="real",
-                                     raise_cap=None),
+                                     raise_cap=None, probe=True),
+        # #446: e3-tp-mid-real-w4 with TP-feature ranges from the average strategy (#405 on the real menu)
+        "e3-tp-mid-real-avgrange-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-real-avgrange-w4", workers=4,
+                                              menu="real", raise_cap=None, ranges="average", probe=True),
         # #405: TP-feature ranges from the average strategy vs e3-tp-mid-w4 (current strategy)
         "e3-tp-mid-avgrange-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-avgrange-w4", workers=4,
                                          ranges="average"),
@@ -294,12 +326,20 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-ownavg-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4", workers=4, avg_rule="own"),
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
+        # #460: b1 plus board.adv/opp.value/plan.foldeq (B2) vs e3-tp-mid-b1-w4, same iterations and seeds
+        "e3-tp-mid-b2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b2-w4", workers=4, key_variant="b2"),
+        # #461: b1 plus the public facts (opponent seats, last bettor, preflop aggressor) vs e3-tp-mid-b1-w4
+        "e3-tp-mid-b3-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b3-w4", workers=4, key_variant="b3"),
         # #399: effective-stack depth of me and every live opponent in the key (S) vs mine only, both on
         # 20-250BB tables, same iterations and seeds
         "e3-tp-mid-s2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2-w4", workers=4, key_variant="s2",
                                    stacks="sampled"),
         "e3-tp-mid-s2me-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2me-w4", workers=4, key_variant="s2me",
                                      stacks="sampled"),
+        # #400: the real-play cash combined key (ADR 0019 C) with every adopted training choice: real menu, average
+        # ranges (#446), own-reach average (#426), 20-250BB tables (#399); the only key the full chain runs on
+        "e3-tp-mid-c1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-c1-w4", workers=4, menu="real", raise_cap=None,
+                                   ranges="average", avg_rule="own", key_variant="c1", stacks="sampled"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
@@ -309,8 +349,9 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
-             "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
-             "e3-tp-mid-b1-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
+             "e3-tp-mid-real-w4", "e3-tp-mid-real-avgrange-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
+             "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4",
+             "e3-tp-mid-c1-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
@@ -406,6 +447,9 @@ def summarize(job: str, folder: Path) -> dict:
         rows = [_first_in_rows(folder, job, r) for r in runs]
         if all(rows):
             out["preflop_first_in_average_by_seed"] = rows
+    if job.startswith("e3-") and runs and all(r.get("probe_average") for r in runs):   # #446
+        out["probe_average_leaks_by_seed"] = [r["probe_average"]["leaks"] for r in runs]
+        out["probe_average_by_seed"] = [r["probe_average"] for r in runs]
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set

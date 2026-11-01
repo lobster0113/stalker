@@ -78,3 +78,63 @@ def test_uniform_play_loses_to_tight_and_aggressive_fields():
     for c in r["configs"]:
         assert c["ci95"][1] < 0, c
     assert r["worst"]["bb100"] == min(c["bb100"] for c in r["configs"])
+
+
+def test_v2_adds_registered_champions_and_v1_still_loads():
+    spec, sha = F.load()
+    assert spec["version"] == 2 and F.load(F.CONFIGS_V1)[0]["version"] == 1 and sha != F.load(F.CONFIGS_V1)[1]
+    champs = {o for c in spec["configs"] for o in c["opponents"] if o.startswith(F.CHAMPION)}
+    assert len(champs) >= 2 and champs <= {F.CHAMPION + n for n in F.champion_names(spec)}
+    c = F.champion("beginner-40783153094")
+    assert (c.k, c.depth, c.menu, c.raise_cap, c.variant) == (5, "basic", "v1", G.RAISE_CAP, "")
+    assert len(c.sha256) == 64 and c.policy
+
+
+def test_unregistered_champion_and_tampered_file_are_rejected(tmp_path):
+    spec, _ = F.load()
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({**spec, "configs": [{"name": "x", "opponents": ["champion:nobody"] * 5}]}),
+                   encoding="utf-8")
+    with pytest.raises(F.FieldError, match="unknown opponents"):
+        F.load(bad)
+    reg = json.loads((F.HERE / F.REGISTRY).read_text(encoding="utf-8"))
+    entry = dict(reg["champions"][0], file=str(F.HERE / "champions" / reg["champions"][0]["file"]), sha256="0" * 64)
+    fake = tmp_path / "reg.json"
+    fake.write_text(json.dumps({"champions": [entry]}), encoding="utf-8")
+    with pytest.raises(F.FieldError, match="sha256"):
+        F.champion(entry["name"], str(fake))
+
+
+def test_a_champion_reads_its_own_beliefs_like_the_same_policy_as_target():
+    # The target is the champion's own table read the same way: every rotation plays the same hand -> zero.
+    c = F.champion("beginner-40783153094")
+    for d in range(3):
+        assert F.play_deal(c.policy, [c] * 5, d, k=c.k, depth=c.depth).sum() == pytest.approx(0.0, abs=1e-9)
+
+
+def test_a_champion_keeps_its_key_variant_under_the_targets():
+    c = F.champion("beginner-40783153094")
+    s = G.deal(np.random.default_rng(4), 6)
+    ranges = F.K.initial_ranges(6)
+    base = c.probs(s, s.to_act, ranges)
+    with F.K.using_variant("s2"):
+        assert np.array_equal(c.probs(s, s.to_act, ranges), base)
+
+
+def test_rows_report_pairing_and_seat_mix_and_champion_hashes():
+    r = F.evaluate(F.uniform, 2, configs=["mixed_styles", "champions_mixed"])
+    by = {c["name"]: c for c in r["configs"]}
+    mixed = by["champions_mixed"]
+    assert mixed["hands"] == 12 and mixed["deals"] == 2 and mixed["ci95_low"] == mixed["ci95"][0]
+    assert mixed["opponents"][0].startswith(F.CHAMPION) and sum(mixed["seat_mix"].values()) == 5
+    assert by["mixed_styles"]["seat_mix"] == {"tag": 1, "lag": 1, "nit": 1, "calling_station": 1, "maniac": 1}
+    assert set(r["champions"]) == {o[len(F.CHAMPION):] for o in mixed["opponents"]} and "duplicate" in r["pairing"]
+
+
+def test_champion_configs_are_skipped_on_rules_they_were_not_trained_on():
+    with G.rules("real", None):
+        r = F.evaluate(F.uniform, 2, configs=["tag5", "champion_mid5"])
+    assert [c["name"] for c in r["configs"]] == ["tag5"] and r["champions"] == {}
+    assert r["skipped"][0]["name"] == "champion_mid5" and "menu v1" in r["skipped"][0]["reason"]
+    with G.rules("real", None), pytest.raises(F.FieldError, match="skipped"):
+        F.evaluate(F.uniform, 2, configs=["champion_mid5"])

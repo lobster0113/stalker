@@ -122,7 +122,7 @@ def test_checkpoint_keeps_the_variant_and_refuses_older_code_via_version():
     assert E3MCCFR.from_state(st).key_variant == "b1"
     assert E3MCCFR(1, 5, 3, "basic").state()["version"] == 1
     with pytest.raises(ValueError, match="key_variant"):
-        E3MCCFR(0, 5, 3, "basic", key_variant="b2")
+        E3MCCFR(0, 5, 3, "basic", key_variant="b9")
 
 
 @pytest.mark.slow

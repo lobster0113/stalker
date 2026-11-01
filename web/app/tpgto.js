@@ -1066,3 +1066,74 @@ export function rangeClasses(s, seat, ranges, thr = 0.5) {
   for (let c = 0; c < NC; c++) if (top > 0 && cnt[c] > 0 && acc[c] / cnt[c] >= thr * top) out.add(HAND_CLASSES[c]);
   return out;
 }
+
+// ---------------------------------------------------------------- replay analysis (#465)
+
+const TIE_EPS = 1e-9;
+
+/**
+ * How the opponents' public ranges stand against `seat`'s real hand, and (when `action` is given) how the
+ * next opponent to act reacts to it: the share of their range that folds, split by whether the combo is
+ * weaker or stronger than my hand (hero equity per combo, a one-hot range of my hand against every combo).
+ * `s` is the state where `seat` is to act. `beats` (per live opponent) is the weight of their range my hand
+ * is ahead of; ties count half. `reply` is null when the action ends the street/hand or the next to act is
+ * the seat itself. Pure function of its arguments.
+ */
+export function rangeResponse(policy, s, ranges, tier, seat, action = null) {
+  const hi = comboIndex(s.hole[seat]), dead = boardDead(s.board);
+  const mine = new Float64Array(N); mine[hi] = 1;
+  const vsMe = equityVs(s.board, mine);      // each combo's equity against my exact hand
+  const hc = [s.hole[seat][0], s.hole[seat][1]];
+  const wOf = (q) => {
+    const w = new Float64Array(N);
+    for (let i = 0; i < N; i++) w[i] = dead[i] || hc.includes(COMBO_HI[i]) || hc.includes(COMBO_LO[i]) ? 0 : ranges[q][i];
+    return w;
+  };
+  const split = (w) => {
+    let weak = 0, strong = 0, tot = 0;
+    for (let i = 0; i < N; i++) {
+      if (!(w[i] > 0) || Number.isNaN(vsMe[i])) continue;
+      const e = vsMe[i];
+      tot += w[i];
+      if (e < 0.5 - TIE_EPS) weak += w[i]; else if (e > 0.5 + TIE_EPS) strong += w[i]; else { weak += w[i] / 2; strong += w[i] / 2; }
+    }
+    return { weak, strong, tot };
+  };
+  const beats = [];
+  for (const q of live(s)) {
+    if (q === seat) continue;
+    const { weak, tot } = split(wOf(q));
+    beats.push({ seat: q, beats: tot > 0 ? weak / tot : null });
+  }
+  let reply = null;
+  if (action != null) {
+    const ns = apply(s, action);
+    if (!ns.done && ns.street === s.street && ns.toAct !== seat && !ns.folded[ns.toAct]) {
+      const opp = ns.toAct, d = decisionKey(ns, ranges, tier), m = d.acts.length;
+      const P = seatProbs(policy, d.public, d.steps, m);
+      const kinds = d.acts.map((a) => (a === "f" ? "fold" : a === "k" || a === "c" ? "pass" : "raise"));
+      const w = wOf(opp);
+      const acc = { weak: { fold: 0, pass: 0, raise: 0, w: 0 }, strong: { fold: 0, pass: 0, raise: 0, w: 0 } };
+      for (let i = 0; i < N; i++) {
+        if (!(w[i] > 0) || Number.isNaN(vsMe[i])) continue;
+        const e = vsMe[i], parts = e < 0.5 - TIE_EPS ? [["weak", 1]] : e > 0.5 + TIE_EPS ? [["strong", 1]] : [["weak", 0.5], ["strong", 0.5]];
+        for (const [side, f] of parts) {
+          const a = acc[side], ww = w[i] * f;
+          a.w += ww;
+          for (let j = 0; j < m; j++) a[kinds[j]] += ww * P[i * m + j];
+        }
+      }
+      const tot = acc.weak.w + acc.strong.w, sh = (a, k) => (a.w > 0 ? a[k] / a.w : null);
+      const cont = (acc.weak.pass + acc.weak.raise) + (acc.strong.pass + acc.strong.raise);
+      reply = {
+        opp, acts: d.acts, canFold: kinds.includes("fold"),
+        weakShare: tot > 0 ? acc.weak.w / tot : null,           // weaker combos' weight in their range
+        weakFold: sh(acc.weak, "fold"), strongFold: sh(acc.strong, "fold"),
+        weakRaise: sh(acc.weak, "raise"), strongRaise: sh(acc.strong, "raise"),
+        fold: tot > 0 ? (acc.weak.fold + acc.strong.fold) / tot : null,
+        strongOfContinuing: cont > 0 ? (acc.strong.pass + acc.strong.raise) / cont : null,
+      };
+    }
+  }
+  return { beats, reply };
+}

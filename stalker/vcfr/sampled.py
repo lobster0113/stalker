@@ -12,6 +12,7 @@ at the traverser's rows and `S += sigma` at the other's. The keys must not move 
 from __future__ import annotations
 
 import json
+import math
 import sys
 
 import numpy as np
@@ -123,8 +124,9 @@ class RiverSampler:
             s = tab[row]
             if q == p:
                 vals = np.array([walk(ch) for ch in node.children])
-                table(reg, tid, nrows, len(s))[row] += vals - s @ vals
-                return float(s @ vals)
+                v = math.fsum((s * vals).tolist())   # not BLAS `@` (#481)
+                table(reg, tid, nrows, len(s))[row] += vals - v
+                return v
             table(avg, tid, nrows, len(s))[row] += s
             return walk(node.children[int(rng.choice(len(s), p=s))])
 

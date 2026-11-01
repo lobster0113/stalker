@@ -11,6 +11,8 @@ With an empty field the loop is exactly `MCCFR.iterate`'s (regression test).
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from stalker.e2 import game as G
@@ -53,7 +55,7 @@ class FieldMCCFR(MCCFR):
 
         if p == seat:
             vals = np.array([child(a) for a in acts])
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # not BLAS `@` (#481)
             r = who.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(r + (vals - v), 0, out=r)
             return v
