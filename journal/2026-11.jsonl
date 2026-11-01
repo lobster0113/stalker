@@ -75,3 +75,4 @@
 {"ts":"2026-11-01T17:06:17Z","role":"reviewer","outcome":"skipped","issue":499,"pr":502,"notes":"not my parity","friction":""}
 {"ts":"2026-11-01T17:21:33Z","role":"builder-b","outcome":"waiting_ci","issue":479,"pr":null,"notes":"claimed #479, dispatched b1 run 41331041564 and b2 run 41331043854 (40000 iters resume segment 1/2)","friction":""}
 {"ts":"2026-11-01T17:35:00Z","role":"reviewer-b","outcome":"merged","issue":499,"pr":502,"notes":"c1 _next_card_eq value-keyed cache; CI green, bit-equality test exercises cache (1163 calls/6 iters, local); squash merged bea9bc8","friction":"gh pr/gh CLI GraphQL blocked and guard hook blocks mutating gh api; had to use GitHub MCP for comment+merge, unlike reviewer.md which says gh pr merge. Stale cancelled-run gates failure shares check name with the live one."}
+{"ts":"2026-11-01T17:41:28Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PR 0개","friction":""}
