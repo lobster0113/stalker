@@ -71,9 +71,22 @@ def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.nd
     return out
 
 
+def _runout_fulls(board: tuple[int, ...]) -> np.ndarray:
+    """The sampled runouts as rows of 5 cards (board + drawn cards); the rng draws are the contract for the keys."""
+    rng = np.random.default_rng([20261028, *board])
+    live = np.array([c for c in range(52) if c not in board])
+    need = 5 - len(board)
+    b = np.array(board, dtype=np.int64)
+    rows = [np.concatenate([b, rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)])
+            for _ in range(EQ_RUNOUTS if need else 1)]
+    return np.stack(rows)
+
+
 @lru_cache(maxsize=256)
 def _flat_runouts(board: tuple[int, ...]):
     """`_runouts` concatenated for the compiled kernel: idx, order, lo, hi, segment offsets."""
+    if fast_eval.HAVE_NUMBA:
+        return fast_eval.runout_tables(COMBO_ARR, ~_board_dead(board), _runout_fulls(board), len(board))
     rs = _runouts(board)
     off = np.cumsum([0] + [len(r[0]) for r in rs])
     return (np.concatenate([r[0] for r in rs]), np.concatenate([r[1] for r in rs]),

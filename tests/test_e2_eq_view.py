@@ -92,6 +92,27 @@ def test_range_equity_kernel_path_equals_the_numpy_path(monkeypatch):
         assert np.array_equal(kernel, numpy_path, equal_nan=True)
 
 
+def test_runout_kernel_tables_equal_the_numpy_runouts(monkeypatch):
+    # #462: the one-call kernel replaces the per-runout numpy build. #237 rule: HAVE_NUMBA is forced
+    # so the kernel logic (plain Python without numba) is checked on flop, turn and river, incl. flush boards.
+    from stalker.core import fast_eval as F
+    from stalker.core.cards import cards
+    from stalker.e2 import eq_view as V
+
+    boards = [tuple(cards("Kc7d2s")), tuple(cards("Ah9h4h")), tuple(cards("5c6c7cKd")), tuple(cards("Qs2s9s3sAd")), tuple(cards("TdTcTh9s9d"))]
+    monkeypatch.setattr(F, "HAVE_NUMBA", True)
+    V._flat_runouts.cache_clear()
+    try:
+        for b in boards:
+            ref = V._runouts(b)
+            got = V._flat_runouts(b)
+            for i in range(4):
+                assert np.array_equal(got[i], np.concatenate([r[i] for r in ref])), (b, i)
+            assert np.array_equal(got[4], np.cumsum([0] + [len(r[0]) for r in ref]))
+    finally:
+        V._flat_runouts.cache_clear()
+
+
 # #244 review: the static view must equal the default LBR path. Golden values re-derived after the #259
 # fix (LBR no longer reads an undealt runout; the ae8b068 values included that clairvoyance):
 # `exploitability_lb({}, 20, seed=3)` and the 30-iteration MCCFR(5) policy below.
