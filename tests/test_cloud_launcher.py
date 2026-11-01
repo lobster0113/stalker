@@ -852,3 +852,287 @@ def test_push_ledger_union_merges_parallel_appends(tmp_path):
     git(tmp_path, "clone", "-q", "-b", "ops", str(remote), str(check))
     lines = (check / "budget" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
     assert sorted(lines) == ['{"n": 0}', '{"n": 1}', '{"n": 2}']
+
+
+# ---------- #401: flavor list, capacity retries, slow-host reissue ----------
+
+FLAVOR_SPEC = """name: chain
+image: python:3.12-slim
+command: python3 -m stalker.tools.pod_train --out /result/r.json
+cpu_flavors: [cpu5c, cpu3c]
+flavor_hourly_usd: [1.2, 1.0]
+median_iters_per_s: [161, 138]
+vcpu: 32
+max_minutes: 120
+hourly_usd: 1.2
+result_path: /result/r.json
+"""
+
+
+def _fjob(**kw):
+    job = L.parse_spec(FLAVOR_SPEC, "jobs/chain.yaml")
+    return L.Job(**{**job.__dict__, **kw}) if kw else job
+
+
+def test_flavor_list_spec_parses_and_single_flavor_stays_compatible():
+    job = _fjob()
+    assert job.flavors == [("cpu5c", 1.2, 161.0), ("cpu3c", 1.0, 138.0)]
+    assert job.worst_case_usd == pytest.approx(2.4)
+    one = L.parse_spec(SPEC.replace("gpu_type: NVIDIA GeForce RTX 4090", "cpu_flavor: cpu3c"), "jobs/a.yaml")
+    assert one.flavors == [("cpu3c", 0.40, 0.0)] and one.cpu_flavors == ()
+    assert _job().flavors == [(None, 0.40, 0.0)]  # GPU job
+
+
+@pytest.mark.parametrize("old,new,msg", [
+    ("vcpu: 32", "vcpu: 16", "vcpu: 32"),
+    ("cpu_flavors: [cpu5c, cpu3c]", "cpu_flavors: cpu5c", "one-line list"),
+    ("cpu_flavors: [cpu5c, cpu3c]", "cpu_flavors: [cpu5c, cpu5c]", "distinct"),
+    ("flavor_hourly_usd: [1.2, 1.0]", "flavor_hourly_usd: [1.2]", "one non-negative number per flavor"),
+    ("flavor_hourly_usd: [1.2, 1.0]", "flavor_hourly_usd: [1.5, 1.0]", "<= hourly_usd"),
+    ("median_iters_per_s: [161, 138]", "median_iters_per_s: [161, -1]", "non-negative"),
+    ("result_path: /result/r.json", "", "needs result_path"),
+    ("vcpu: 32", "vcpu: 32\ncpu_flavor: cpu3c", "exactly one of"),
+])
+def test_flavor_list_spec_rejects(old, new, msg):
+    with pytest.raises(L.LauncherError, match=msg):
+        L.parse_spec(FLAVOR_SPEC.replace(old, new), "jobs/chain.yaml")
+
+
+class FlavorRunPod(FakeRunPod):
+    """Refuses creates for (round, flavor) pairs in `full` with RunPod's capacity error; costs per flavor."""
+
+    def __init__(self, full=(), costs=None, **kw):
+        super().__init__(**kw)
+        self.full, self.costs, self.creates, self.made = set(full), costs or {}, [], 0
+
+    def __call__(self, method, url, body):
+        if method == "POST" and url.endswith("/pods"):
+            flavor = (body.get("cpuFlavorIds") or [None])[0]
+            self.creates.append(flavor)
+            if (len(self.creates), flavor) in self.full or ("*", flavor) in self.full:
+                raise L.CapacityError("RunPod POST: HTTP 500 b'There are no longer any instances available'")
+            self.cost = self.costs.get(flavor, self.cost)
+            self.made += 1
+            pid = f"p{self.made}"  # unique even after a delete (the base fake reuses p1)
+            self.calls.append((method, url, body))
+            self.pods[pid] = {"id": pid, "name": body["name"], "costPerHr": self.cost, "desiredStatus": "RUNNING"}
+            return dict(self.pods[pid])
+        return super().__call__(method, url, body)
+
+
+class SpeedProxy:
+    """Per-pod result server: progress.json reports `its[pod]`, status.json is ready after `ready_after` polls."""
+
+    def __init__(self, its, ready_after=5):
+        self.its, self.ready_after, self.polls = its, ready_after, {}
+
+    def send(self, url, body):
+        return 200, json.dumps({"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}).encode()
+
+    def __call__(self, url, max_bytes):
+        pod, name = url.split("//")[1].split("-")[0], url.rsplit("/", 1)[1]
+        if name == "progress.json":
+            v = self.its.get(pod)
+            return (200, json.dumps({"iters_per_s": v}).encode()) if v is not None else (404, b"")
+        if name == "status.json":
+            self.polls[pod] = self.polls.get(pod, 0) + 1
+            return (200, b'{"exit": 0}') if self.polls[pod] > self.ready_after else (0, b"")
+        return 200, b'{"lbr_bb": 0.5}'
+
+
+def _frun(tmp_path, api, proxy=None, job=None, clock=None, cap=100.0, sleep=None):
+    ledger, clock = tmp_path / "l.jsonl", clock or Clock()
+    proxy = proxy or SpeedProxy({})
+    res = L.run_job(job or _fjob(), L.RunPod(api), ledger, "42", cap=cap, now=clock, sleep=sleep or clock.sleep,
+                    poll_s=60, log=lambda *_: None, result_out=tmp_path / "r.json", fetch=proxy, send=proxy.send,
+                    token=TOKEN)
+    return res, L.read_ledger(ledger), clock
+
+
+def test_capacity_error_falls_back_to_next_flavor_at_its_own_rate_cap(tmp_path):
+    api = FlavorRunPod(full={("*", "cpu5c")}, costs={"cpu3c": 0.96})
+    res, led, clock = _frun(tmp_path, api)
+    assert res["status"] == "completed" and api.creates == ["cpu5c", "cpu3c"] and clock.t - T0 < timedelta(minutes=10)
+    assert [e["event"] for e in led] == ["create_failed", "start", "end"]
+    assert led[0] | {"ts": None} == {"event": "create_failed", "ts": None, "month": "2026-11", "job": "chain",
+                                     "run_id": "42", "flavor": "cpu5c", "attempt": 1, "error": "capacity",
+                                     "actual_usd": 0.0}
+    assert led[1]["flavor"] == "cpu3c"
+    # cpu3c's own cap is $1.0/h: a $1.1 cpu3c pod is stopped although the job-wide hourly_usd is 1.2
+    api2 = FlavorRunPod(full={("*", "cpu5c")}, costs={"cpu3c": 1.1})
+    with pytest.raises(L.LauncherError, match="cpu3c"):
+        _frun(tmp_path / "b", api2)
+    assert L.read_ledger(tmp_path / "b" / "l.jsonl")[-1]["status"] == "rate_exceeded"
+
+
+def test_capacity_waits_15_30_60_then_succeeds_or_gives_up_with_run_id(tmp_path):
+    # 2 creates per round: rounds 1-2 full on both flavors, round 3 (after 15 + 30 min) gets cpu5c
+    full = {(i, f) for i in range(1, 5) for f in ("cpu5c", "cpu3c")}
+    sleeps = []
+    clock = Clock()
+
+    def sleep(s):
+        sleeps.append(s)
+        clock.sleep(s)
+
+    api = FlavorRunPod(full=full)
+    res, led, _ = _frun(tmp_path, api, clock=clock, sleep=sleep)
+    assert res["status"] == "completed" and api.creates[:5] == ["cpu5c", "cpu3c"] * 2 + ["cpu5c"]
+    assert [s for s in sleeps if s >= 60 * 15] == [15 * 60, 30 * 60]
+    assert sum(e["event"] == "create_failed" for e in led) == 4
+    # every flavor full on every try: 4 rounds, 15+30+60 min of waits, no pod, $0, the run id in the error
+    clock2, sleeps2 = Clock(), []
+    api2 = FlavorRunPod(full={("*", "cpu5c"), ("*", "cpu3c")})
+    with pytest.raises(L.CapacityExhausted, match="run 42: no capacity"):
+        _frun(tmp_path / "b", api2, clock=clock2, sleep=lambda s: (sleeps2.append(s), clock2.sleep(s)))
+    led2 = L.read_ledger(tmp_path / "b" / "l.jsonl")
+    assert sleeps2 == [15 * 60, 30 * 60, 60 * 60] and len(api2.creates) == 8
+    assert [e["event"] for e in led2] == ["create_failed"] * 8 and all(e["run_id"] == "42" for e in led2)
+    assert L.month_total(led2, "2026-11") == 0.0 and not api2.terminated()
+
+
+def test_capacity_wait_never_pushes_the_pod_past_the_runner_limit(tmp_path):
+    api = FlavorRunPod(full={("*", "cpu5c"), ("*", "cpu3c")})
+    sleeps = []
+    with pytest.raises(L.CapacityExhausted, match="would pass the launcher's 330 min"):
+        _frun(tmp_path, api, job=_fjob(max_minutes=320), sleep=sleeps.append)
+    assert sleeps == [] and len(api.creates) == 2
+
+
+def test_main_exits_3_on_capacity(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(L, "run_job", lambda *a, **k: (_ for _ in ()).throw(L.CapacityExhausted("run 7: no capacity")))
+    monkeypatch.setattr(L, "load_spec", lambda p: _fjob())
+    monkeypatch.setenv("RUNPOD_API_KEY", "k")
+    assert L.main(["run", "jobs/chain.yaml", "--ledger", str(tmp_path / "l")]) == 3
+    assert "run 7: no capacity" in capsys.readouterr().err
+    assert not (tmp_path / "journal").exists()  # no --journal, no line
+
+
+def test_capacity_give_up_leaves_a_failed_journal_line_with_the_run_id(tmp_path, monkeypatch):
+    # #401 review: the give-up must reach ops:journal (what routines and the auditor read), not only the ledger
+    monkeypatch.setattr(L, "run_job", lambda *a, **k: (_ for _ in ()).throw(L.CapacityExhausted("run 7: no capacity")))
+    monkeypatch.setattr(L, "load_spec", lambda p: _fjob())
+    monkeypatch.setenv("RUNPOD_API_KEY", "k")
+    jd = tmp_path / "journal"
+    for _ in range(2):
+        assert L.main(["run", "jobs/chain.yaml", "--ledger", str(tmp_path / "l"), "--run-id", "7",
+                       "--journal", str(jd)]) == 3
+    files = list(jd.glob("*.jsonl"))
+    assert len(files) == 1 and re.fullmatch(r"\d{4}-\d{2}\.jsonl", files[0].name)
+    lines = [json.loads(x) for x in files[0].read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == 2  # appended, never overwritten
+    e = lines[0]
+    assert e["role"] == "cloud" and e["outcome"] == "failed" and e["run_id"] == "7" and e["job"] == "chain"
+    assert "run 7" in e["notes"] and e["ts"][:7] == files[0].stem
+    # other failures are not capacity give-ups and write nothing
+    monkeypatch.setattr(L, "run_job", lambda *a, **k: (_ for _ in ()).throw(L.LauncherError("boom")))
+    assert L.main(["run", "jobs/chain.yaml", "--ledger", str(tmp_path / "l"), "--journal", str(tmp_path / "j2")]) == 1
+    assert not (tmp_path / "j2").exists()
+
+
+def test_cloud_workflow_passes_the_ops_journal_and_push_commits_it(tmp_path):
+    import subprocess
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    launch = wf.split("- name: launcher", 1)[1].split("- name:", 1)[0]
+    assert '--journal "$GITHUB_WORKSPACE/ops/journal"' in launch
+    assert "if: always()" in wf.split("- name: push ledger", 1)[1].split("- name:", 1)[0]
+
+    def git(*a, cwd):
+        subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+
+    remote, wt = tmp_path / "remote.git", tmp_path / "ops"
+    git("init", "-q", "--bare", "-b", "ops", str(remote), cwd=tmp_path)
+    git("clone", "-q", str(remote), str(wt), cwd=tmp_path)
+    git("checkout", "-q", "-b", "ops", cwd=wt)
+    L.journal_failure(wt / "journal", "chain", "7", "no capacity", datetime(2026, 11, 1, tzinfo=timezone.utc))
+    subprocess.run(["bash", str(ROOT / "harness" / "cloud" / "push_ledger.sh"), str(wt), "cloud: ledger 7"],
+                   check=True, capture_output=True)
+    files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
+                           capture_output=True, text=True, encoding="utf-8").stdout.split()
+    assert files == ["journal/2026-11.jsonl"]
+
+
+def test_http_transport_raises_capacity_error_only_for_no_instances(monkeypatch):
+    import io
+    import urllib.error
+
+    def boom(body):
+        def urlopen(req, timeout):
+            raise urllib.error.HTTPError(req.full_url, 500, "x", {}, io.BytesIO(body))
+        return urlopen
+
+    t = L.http_transport("k")
+    monkeypatch.setattr(L.urllib.request, "urlopen", boom(
+        b'{"error":"create pod: There are no longer any instances available with the requested specifications."}'))
+    with pytest.raises(L.CapacityError):
+        t("POST", L.REST_URL + "/pods", {})
+    monkeypatch.setattr(L.urllib.request, "urlopen", boom(b'{"error":"internal"}'))
+    with pytest.raises(L.LauncherError) as e:
+        t("POST", L.REST_URL + "/pods", {})
+    assert not isinstance(e.value, L.CapacityError)
+
+
+def test_slow_host_is_replaced_once_and_both_pods_are_billed(tmp_path):
+    # p1 is a 0.45x host (cpu5c median 161), p2 is slow too: replaced only once, p2 runs to the end
+    api = FlavorRunPod(costs={"cpu5c": 1.12})
+    res, led, _ = _frun(tmp_path, api, SpeedProxy({"p1": 72.0, "p2": 80.0}))
+    assert res["status"] == "completed" and res["pod_id"] == "p2" and res["replaced_pods"] == ["p1"]
+    assert api.terminated() == ["p1", "p2"] and api.creates == ["cpu5c", "cpu5c"]
+    assert [(e["event"], e["pod_id"]) for e in led] == [("start", "p1"), ("end", "p1"), ("start", "p2"), ("end", "p2")]
+    assert led[1]["status"] == "slow_host" and led[1]["iters_per_s"] == 72.0 and led[1]["actual_usd"] > 0
+    assert L.open_entries(led) == {}
+    assert L.month_total(led, "2026-11") == pytest.approx(led[1]["actual_usd"] + led[3]["actual_usd"])
+
+
+def test_fast_host_and_no_median_are_not_replaced(tmp_path):
+    for i, (job, its) in enumerate([(_fjob(), 150.0), (_fjob(median_iters_per_s=()), 10.0)]):
+        api = FlavorRunPod()
+        res, led, _ = _frun(tmp_path / str(i), api, SpeedProxy({"p1": its}), job=job)
+        assert res["status"] == "completed" and "replaced_pods" not in res and api.creates == ["cpu5c"]
+
+
+def test_slow_host_is_kept_when_a_new_pod_would_not_fit(tmp_path):
+    api = FlavorRunPod()
+    res, led, _ = _frun(tmp_path, api, SpeedProxy({"p1": 50.0}, ready_after=20), job=_fjob(max_minutes=330))
+    assert res["status"] == "completed" and api.creates == ["cpu5c"] and "replaced_pods" not in res
+
+
+def test_slow_host_replacement_still_checks_the_cap(tmp_path):
+    # cap fits one worst case ($2.4) but not that plus the slow pod's minute ($1.12/60)
+    api = FlavorRunPod(costs={"cpu5c": 1.12})
+    with pytest.raises(L.BudgetExceeded):
+        _frun(tmp_path, api, SpeedProxy({"p1": 50.0}), cap=2.41)
+    led = L.read_ledger(tmp_path / "l.jsonl")
+    assert [e["event"] for e in led] == ["start", "end"] and led[1]["status"] == "slow_host"
+    assert api.creates == ["cpu5c"]
+
+
+def test_pod_server_reports_only_the_first_progress_number(pod_server):
+    port, _, rdir = pod_server
+    assert _http(port, f"/{TOKEN}/progress.json")[0] == 404
+    (rdir / "job.log").write_text('pip noise\n{"iters": 5}\n{"iters": 9, "keys": 3, "iters_per_s": 71.2}\n'
+                                  '{"iters_per_s": 150}\n', encoding="utf-8")
+    assert _http(port, f"/{TOKEN}/progress.json") == (200, b'{"iters_per_s": 71.2}')
+    assert _http(port, f"/{'u' * 32}/progress.json")[0] == 404
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the pod script is bash on Linux")
+def test_pod_command_copies_job_stderr_to_the_progress_log(tmp_path):
+    import subprocess
+    work = tmp_path / "work"
+    cmd = f"mkdir -p {work}; echo '{{\"iters_per_s\": 99.5}}' >&2; echo '{{}}' > {work}/r.json"
+    job = _job(command=cmd, result_path=f"{work}/r.json")
+    script = L.pod_command(job, serve_dir=str(tmp_path / "srv"), port=_free_port(), resume_dir=str(tmp_path / "rs"),
+                           wait_s=0).replace("sleep infinity", "exit 0")
+    script = script.replace("python3 - ", "true ", 1)
+    (tmp_path / "rs").mkdir()
+    (tmp_path / "rs" / "signal").write_text("none", encoding="utf-8")
+    r = subprocess.run(["bash", "-c", script], env={"PATH": "/usr/bin:/bin", L.TOKEN_ENV: TOKEN}, timeout=30,
+                       check=True, capture_output=True, text=True, encoding="utf-8")
+    assert '"iters_per_s": 99.5' in r.stderr  # still on the job's stderr
+    for _ in range(50):  # tee runs in a process substitution; give it a moment to flush
+        if (tmp_path / "rs" / "job.log").exists() and "99.5" in (tmp_path / "rs" / "job.log").read_text(encoding="utf-8"):
+            break
+        __import__("time").sleep(0.1)
+    assert '"iters_per_s": 99.5' in (tmp_path / "rs" / "job.log").read_text(encoding="utf-8")
+    assert json.loads((tmp_path / "srv" / TOKEN / "status.json").read_text(encoding="utf-8")) == {"exit": 0}

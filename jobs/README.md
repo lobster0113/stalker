@@ -3,13 +3,15 @@
 에이전트가 돈을 쓰는 유일한 경로(ADR 0004 §5, #20). **CPU 학습은 여기가 아니라 무료인 `train.yml`(GitHub Actions, #184)에서 돌린다. RunPod은 GPU가 필요한 작업에만 쓴다.** 예외는 CI 러너 기반 예산 추정을 검증하는 1회 측정 `e2-throughput-cpu.yaml`(#264, 최악 $0.12)뿐이다. 작업은 `jobs/<name>.yaml`을 PR로 올리고, 머지 후
 `cloud.yml`을 dispatch해서만 실행된다. 키(`RUNPOD_API_KEY`)는 Secret에만 있다.
 
-## 형식 (평면 `key: value`만 — 중첩·목록·여러 줄 없음, ` #` 뒤는 주석)
+## 형식 (평면 `key: value`만 — 중첩·여러 줄 없음, 목록은 아래 세 키의 한 줄 `[a, b]`뿐, ` #` 뒤는 주석)
 | 키 | 필수 | 뜻 |
 |---|---|---|
 | `name` | ✔ | 소문자 `[a-z0-9-]`, pod 이름 `stalker-<name>-<run_id>` |
 | `image` | ✔ | 컨테이너 이미지 |
 | `command` | ✔ | `bash -lc`로 실행. 끝나면 컨테이너가 종료돼야 한다 |
-| `gpu_type` 또는 `cpu_flavor` | 둘 중 하나 | RunPod GPU 타입 ID(`gpu_count`, 기본 1) / CPU flavor ID(`vcpu`, 기본 2) |
+| `gpu_type`·`cpu_flavor`·`cpu_flavors` | 셋 중 하나 | RunPod GPU 타입 ID(`gpu_count`, 기본 1) / CPU flavor ID(`vcpu`, 기본 2) / 순서 있는 CPU flavor 목록 `[cpu5c, cpu3c]`(`vcpu: 32` 필수, 아래 "용량과 느린 호스트") |
+| `flavor_hourly_usd` | | flavor별 단가 상한 목록(flavor 수만큼, 각각 ≤ `hourly_usd`). 없으면 모두 `hourly_usd` |
+| `median_iters_per_s` | | flavor별 이 잡의 실측 중앙 it/s 목록(0 = 검사 안 함). `result_path` 필요 |
 | `max_minutes` | ✔ | 최대 시간(≤330: GitHub 러너 잡 한도 360분 안에서 종료·원장 push까지 끝나야 함). 넘으면 종료. 더 긴 학습은 재개 가능한 조각으로 나눈다 |
 | `hourly_usd` | ✔ | 허용 단가 상한. 실제 단가가 더 높으면 즉시 종료 |
 | `est_cost_usd` | | 예상 비용. 예산 검사는 `max(est_cost_usd, hourly_usd × max_minutes / 60)`(최악)로 한다 |
@@ -39,4 +41,10 @@
 - 업로드 상한 95 MB(`RESUME_MAX_BYTES`): RunPod 프록시 앞의 Cloudflare가 요청 본문을 100 MB에서 끊는다. 서버도 그보다 큰 `Content-Length`는 413으로 거부하고, 런처는 상한을 넘는 결과로는 파드를 만들지 않는다. `pod_train`은 체크포인트를 이 상한 안에 두려고 float64가 넘치면 float32로 저장한다. float32로도 넘치면 결과에는 남지만(`--unpack`용) 이어 달릴 수 없다는 `checkpoint_note`가 붙는다.
 - 상태: 파드가 업로드를 거부하거나 받은 내용이 다르면 `resume_failed`.
 
-원장: `ops:budget/ledger.jsonl` (start/end 이벤트). 상한(`harness/budget.json`)을 올리는 PR은 사용자 결정 없이는 금지(reviewer.md).
+## 용량과 느린 호스트 (#401, ADR 0019 §6)
+- **flavor 대체.** 런처는 목록 순서대로 하나씩 pod를 만든다. RunPod가 HTTP 500 "no longer any instances available"(용량 부족, 비용 0)로 거절하면 다음 flavor로 바로 다시 만든다. 단가 검사는 실제로 잡힌 flavor의 `flavor_hourly_usd`로 한다.
+- **지연 재시도.** 목록이 모두 용량 부족이면 15·30·60분 기다렸다가 목록을 다시 돈다(최대 3회). 거절마다 원장에 `create_failed` 줄(`run_id`·`flavor`·`attempt`, `actual_usd` 0)이 남는다. 다 실패하면 run id가 든 메시지로 종료 코드 3. 다음 디스패치 판단은 그 줄을 보고 한다.
+- **느린 호스트 재발급.** `result_path` 잡의 stderr는 파드 안 `job.log`로도 복사되고, 결과 서버가 첫 진행 줄의 `iters_per_s` 숫자 하나만 `/<토큰>/progress.json`으로 내준다(로그 본문은 나가지 않는다). `median_iters_per_s`가 있고 그 값이 중앙값의 0.6배 미만이면 그 pod를 종료(원장 end `status: slow_host`, 실제 비용)하고 예산을 다시 검사한 뒤 **한 번만** 다시 만든다. 새 pod도 느리면 그대로 돌린다. 결과에 `replaced_pods`가 남는다.
+- **벽시계 한도.** 기다림과 재발급은 그 뒤 pod가 `max_minutes`를 다 써도 런처 시작부터 330분(`MAX_JOB_MINUTES`) 안에 끝날 때만 한다. GitHub 러너가 360분에 잡을 죽이면 종료·원장 기록이 안 되기 때문이다. 그래서 `max_minutes: 320` 잡은 flavor 대체만 하고 지연 재시도는 못 한다(15분 대기도 넘친다). 재발급은 pod 시작 후 약 10분 안에 결정될 때만 들어간다.
+
+원장: `ops:budget/ledger.jsonl` (start/end 이벤트, 용량 거절은 `create_failed`). 상한(`harness/budget.json`)을 올리는 PR은 사용자 결정 없이는 금지(reviewer.md).

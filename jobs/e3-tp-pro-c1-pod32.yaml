@@ -6,7 +6,9 @@
 name: e3-tp-pro-c1-pod32
 image: python:3.12-slim
 command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier pro --players 6 --workers 32 --minutes 240 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --stacks sampled --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-pro-c1-pod32.json
-cpu_flavor: cpu3c
+# #401: cpu5c first (1.55x iters per $, #373), cpu3c when cpu5c is out of capacity; median_iters_per_s waits for a c1 measurement
+cpu_flavors: [cpu5c, cpu3c]
+flavor_hourly_usd: [1.2, 1.0]
 vcpu: 32
 disk_gb: 10
 max_minutes: 320
