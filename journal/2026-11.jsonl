@@ -81,3 +81,4 @@
 {"ts":"2026-11-01T18:41:32Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-01T19:07:59Z","role":"planner","outcome":"planned","issue":499,"pr":502,"notes":"PR #501 (#497) and #502 (#499) merged; #497/#499 labels cleaned; new ready #503 (P1 c1 CI it/s re-measure + NH-11 re-estimate) #504 (P2 batched next-card equity kernel); ready unstarted 4; STATE condensed","friction":"should_run --sweep counting unchanged draft PRs is now a 3+ friction topic (recorded as harness candidate)"}
 {"ts":"2026-11-01T19:11:35Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
+{"ts":"2026-11-01T19:24:36Z","role":"builder-b","outcome":"pr_opened","issue":492,"pr":505,"notes":"Gate R E3 SEATS 2~6·9 확장 + 헤즈업 자기 검사, full PASS","friction":"gates quick 로컬 941초(목표 90초), full 약 40분; 포그라운드 540초 제한 때문에 nohup+kill -0 대기 루프 필요"}
