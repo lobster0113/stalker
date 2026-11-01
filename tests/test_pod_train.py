@@ -54,7 +54,7 @@ def test_oversized_model_falls_back_to_float32_then_summary_only():
 @pytest.mark.parametrize("spec", sorted((ROOT / "jobs").glob("e3-tp-*-pod32.yaml")), ids=lambda p: p.stem)
 def test_job_spec_is_bounded_and_leaves_time_to_evaluate(spec):
     job = L.load_spec(spec)
-    assert job.cpu_flavor and not job.gpu_type and job.vcpu == 32
+    assert job.flavors[0][0] and not job.gpu_type and job.vcpu == 32
     assert job.worst_case_usd <= 7.0, "one pod training run must stay cheap against the monthly cap"
     args = shlex.split(job.command.split("python3 -m stalker.tools.pod_train", 1)[1])
     assert args[args.index("--out") + 1] == job.result_path
