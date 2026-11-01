@@ -1043,6 +1043,18 @@ await inspect("home-move", "#move");
   await open(p8, "4");
   const b = await info(p8);
   must(b.untrained === 1 && b.badge.length === 0 && b.seats.length === 3 && b.seats.every(t => t.includes("규칙 봇")), `미학습 표시: 4인 테이블에 미학습(규칙 봇) 표시가 없음 (${JSON.stringify(b)})`);
+  for (const [name, width, height] of VIEWPORTS) {
+    await p8.setViewportSize({ width, height });
+    if (name === "phone") await p8.evaluate(() => document.querySelector("#tp")?.classList.remove("open", "full"));
+    const out = await p8.evaluate(() => {
+      const box = document.querySelector("#layer").getBoundingClientRect(), vw = innerWidth;
+      return [...document.querySelectorAll("#layer .seat:not(.hero)")].map(e => e.getBoundingClientRect())
+        .filter(r => r.width > 0 && (r.left < box.left - 1 || r.right > box.right + 1 || r.left < 0 || r.right > vw + 1)).length;
+    });
+    must(out === 0, `미학습 표시: 4인 테이블 ${name}에서 좌석 ${out}개가 테이블 영역/뷰포트 밖으로 잘림`);
+    await p8.screenshot({ path: `${shots}/untrained-table-${name}.png` });
+  }
+  await p8.setViewportSize({ width: 1440, height: 900 });
   await inspect("untrained-table", "#infobar [data-untrained]", p8);
   await p8.close();
 

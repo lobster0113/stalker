@@ -3103,7 +3103,7 @@ function rhLogHTML(h) {
 
 /* ---------- static poker table (same look as the training table) ---------- */
 function ringPos(k, n, portrait) {
-  const ang = Math.PI / 2 + k * 2 * Math.PI / n, rx = portrait ? 37 : 43, ry = portrait ? 42 : 39;
+  const ang = Math.PI / 2 + k * 2 * Math.PI / n, rx = (portrait ? 37 : 43) * (n < 6 ? .85 : 1), ry = portrait ? 42 : 39;  // n<6: side seats land at 0°/180° and clipped at 7%/93%
   const x = 50 + rx * Math.cos(ang), y = 50 + ry * Math.sin(ang);
   // The button sits beside the seat's bet line, not on it: on the top seat the two used to stack (#445).
   const da = ang + .3;
