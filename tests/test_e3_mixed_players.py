@@ -106,8 +106,8 @@ def test_mixed_deals_keep_blinds_and_action_order():
 
 
 def test_mixed_deals_replay_chip_for_chip_in_pokerkit():
-    # The Gate R E3 replay on the trainer's own mixed deals (Gate R's SEATS stay 6 and 9: widening them is a
-    # referee-change follow-up, #486).
+    # The Gate R E3 replay on the trainer's own mixed deals (Gate R now replays 2-6 and 9 handed too, #492; this
+    # test keeps the trainer's own deals covered).
     rng = np.random.default_rng(4862)
     tally = R.tally_for_e3()
     hands = _dealt(_c1(player_mix=MIX), 250)

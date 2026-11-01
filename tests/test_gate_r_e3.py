@@ -51,3 +51,24 @@ def test_a_reopening_short_all_in_is_caught(monkeypatch):
     t = E.run_edge_cases()
     assert t.counts["e3_raise"][0] < t.counts["e3_raise"][1]
     assert any("short all in does not reopen" in f and "PokerKit raise False" in f for f in t.failures)
+
+
+def test_gate_covers_every_short_table_size():
+    assert E.SEATS == (2, 3, 4, 5, 6, 9)   # #492: mixed-player deals (2-6) are replayed, not just 6 and 9
+
+
+def test_each_short_table_size_agrees_with_pokerkit():
+    for n in (2, 3, 4, 5):
+        t = E.tally_for_e3()
+        for h in range(20):
+            E.replay_hand(np.random.default_rng([492, n, h]), n, t, f"{n}-max hand {h}")
+        assert t.total > 0 and t.passed == t.total, (n, t.failures[:2])
+
+
+def test_a_flipped_heads_up_blind_order_is_caught(monkeypatch):
+    # Heads-up BTN=SB: if E3 and PokerKit disagreed on who posts which blind, the replay must fail.
+    monkeypatch.setattr(E, "pk_index", lambda n: [0, 1] if n == 2 else [p + 2 for p in range(n - 2)] + [0, 1])
+    t = E.tally_for_e3()
+    for h in range(5):
+        E.replay_hand(np.random.default_rng(h), 2, t, f"hu hand {h}")
+    assert t.passed < t.total and t.counts["e3_stacks"][0] < t.counts["e3_stacks"][1]
