@@ -1,6 +1,9 @@
 """E0 CFR+ must not depend on the runner's CPU (#481): Leduc's exploitability flipped between two
-values across CI runners because a node's value `sigma @ vals` went to BLAS (the #447 pattern)."""
+values across CI runners because a node's value `sigma @ vals` went to BLAS (the #447 pattern).
+It must not depend on the Python version either (#488): 3.12 made built-in `sum()` of floats
+compensated, so CI (3.12) and local 3.11 runs disagreed until every sum went through `math.fsum`."""
 import json
+import math
 import os
 import subprocess
 import sys
@@ -10,11 +13,16 @@ import pytest
 from stalker.tools import e3_determinism as D
 
 PROBE = """
-import hashlib, json, math
+import hashlib, json, math, os
 import numpy as np
 from referee.anchors.toy import leduc
 from stalker.toy.cfr import CFRPlus
 s = CFRPlus(leduc.game())
+if os.environ.get("E0_STRIDED"):
+    # Non-contiguous views take numpy's strided loops instead of the contiguous SIMD ones.
+    for d in (s.regret, s.avg):
+        for k, a in d.items():
+            d[k] = np.zeros(2 * len(a))[::2]
 s.iterate(300)
 h = hashlib.sha256()
 for k, v in sorted(s.average_strategy().items()):
@@ -32,5 +40,67 @@ def _probe(env: dict[str, str]) -> str:
 @pytest.mark.slow
 def test_leduc_cfr_plus_average_strategy_is_identical_under_emulated_runners():
     # Each setting is a fresh process with another OpenBLAS kernel/thread count or numpy SIMD level.
-    results = {name: _probe(env) for name, env in D.settings(numba_off=False).items()}
+    settings = {**D.settings(numba_off=False), "strided-views": {"E0_STRIDED": "1"}}
+    results = {name: _probe(env) for name, env in settings.items()}
     assert len(set(results.values())) == 1, f"average strategy differs by runner setting: {results}"
+
+
+def _reference_cfr_plus(root, iterations: int) -> dict[str, list[float]]:
+    """CFR+ in lists and `math.fsum` only, mirroring `stalker.toy.cfr.CFRPlus` operation by operation."""
+    from referee.anchors.toy.game import CHANCE, TERMINAL, infosets
+
+    info = infosets(root)
+    regret = {k: [0.0] * len(a) for k, (_, a) in info.items()}
+    avg = {k: [0.0] * len(a) for k, (_, a) in info.items()}
+
+    def current(r):
+        s = math.fsum(r)
+        return [x / s for x in r] if s > 0 else [1.0 / len(r)] * len(r)
+
+    for t in range(1, iterations + 1):
+        for player in (0, 1):
+            sigma = {k: current(r) for k, r in regret.items()}
+            delta = {k: [0.0] * len(a) for k, (_, a) in info.items()}
+
+            def walk(n, rs, ro):
+                if n.kind == TERMINAL:
+                    return n.utility if player == 0 else -n.utility
+                if n.kind == CHANCE:
+                    return math.fsum(p * walk(c, rs, ro * p) for p, c in zip(n.probs, n.children))
+                sg = sigma[n.infoset]
+                if n.player == player:
+                    vals = [walk(c, rs * sg[i], ro) for i, c in enumerate(n.children)]
+                    v = math.fsum(a * b for a, b in zip(sg, vals))
+                    d = delta[n.infoset]
+                    for i, x in enumerate(vals):
+                        d[i] += ro * (x - v)
+                    w = t * rs
+                    av = avg[n.infoset]
+                    for i, x in enumerate(sg):
+                        av[i] += w * x
+                    return v
+                return math.fsum(sg[i] * walk(c, rs, ro * sg[i]) for i, c in enumerate(n.children))
+
+            walk(root, 1.0, 1.0)
+            for k, d in delta.items():
+                if info[k][0] == player:
+                    regret[k] = [max(r + x, 0.0) for r, x in zip(regret[k], d)]
+    out = {}
+    for k, s in avg.items():
+        tot = math.fsum(s)
+        out[k] = [x / tot for x in s] if tot > 0 else [1.0 / len(s)] * len(s)
+    return out
+
+
+@pytest.mark.slow
+def test_leduc_cfr_plus_matches_a_pure_python_fsum_reference_bit_for_bit():
+    from referee.anchors.toy import exploitability, leduc
+    from stalker.toy.cfr import CFRPlus
+
+    game = leduc.game()
+    solver = CFRPlus(game)
+    solver.iterate(300)
+    got = solver.average_strategy()
+    want = _reference_cfr_plus(game, 300)
+    assert got == want, "CFRPlus drifted from the fsum reference: keep every float sum in math.fsum (#488)"
+    assert float(exploitability(game, got)).hex() == float(exploitability(game, want)).hex()
