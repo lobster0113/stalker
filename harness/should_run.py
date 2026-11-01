@@ -38,6 +38,7 @@ DEFAULT_LOCK_HOURS = 3
 LOCK_TRIES = 3
 DEFAULT_READY_FLOOR = 1
 DEFAULT_QUEUE_LOW_MIN_HOURS = 2
+MERGE_RETRY_MAX = 3  # reviewer.md §2: MERGE-RETRY attempts per PR before NEEDS_HUMAN
 
 
 def _git(*args: str, env: dict | None = None, stdin: str | None = None) -> str:
@@ -120,6 +121,56 @@ def ready_count() -> int | None:
                and not held & {lb["name"] for lb in i.get("labels", [])})
 
 
+def _api(path: str):
+    m = re.search(r"github\.com[/:]([^/]+/[^/]+?)(?:\.git)?/?$", _git("remote", "get-url", "origin").strip())
+    if not m:
+        return None
+    req = urllib.request.Request(f"https://api.github.com/repos/{m.group(1)}/{path}",
+                                 headers={"Accept": "application/vnd.github+json"})
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.load(r)
+
+
+def merge_retry_candidates(prs: list[dict], role: str) -> list[int]:
+    """PR numbers of this reviewer's parity that need a merge retry, no re-review (#482).
+
+    Each pr: {number, head_sha, comments: [str], checks_ok, mergeable}. Eligible when a
+    `VERDICT: MERGE sha=<current head>` exists, required checks are green, there is no
+    conflict, and fewer than MERGE_RETRY_MAX `MERGE-RETRY failed` comments exist (after that
+    the reviewer files one NEEDS_HUMAN item and the PR no longer counts as work).
+    """
+    odd = role != "reviewer-b"
+    out = []
+    for pr in prs:
+        if (pr["number"] % 2 == 1) != odd or not pr.get("checks_ok") or pr.get("mergeable") is not True:
+            continue
+        if not any(c.lstrip().startswith(f"VERDICT: MERGE sha={pr['head_sha']}") for c in pr["comments"]):
+            continue
+        if sum(c.lstrip().startswith("MERGE-RETRY failed") for c in pr["comments"]) < MERGE_RETRY_MAX:
+            out.append(pr["number"])
+    return out
+
+
+def merge_retry_pending(role: str) -> int | None:
+    """Count of open PRs awaiting a merge retry for this reviewer, or None if GitHub is unreachable."""
+    try:
+        prs = []
+        for p in _api("pulls?state=open&per_page=100") or []:
+            runs = _api(f"commits/{p['head']['sha']}/check-runs?per_page=100")["check_runs"]
+            comments = [c["body"] for c in _api(f"issues/{p['number']}/comments?per_page=100") or []]
+            detail = _api(f"pulls/{p['number']}")
+            prs.append({"number": p["number"], "head_sha": p["head"]["sha"], "comments": comments,
+                        "checks_ok": bool(runs) and all(r["conclusion"] in ("success", "skipped", "neutral")
+                                                        for r in runs),
+                        "mergeable": detail.get("mergeable")})
+        return len(merge_retry_candidates(prs, role))
+    except Exception:
+        return None
+
+
 def run_id() -> str:
     return os.environ.get("CLAUDE_CODE_REMOTE_SESSION_ID") or socket.gethostname()
 
@@ -129,6 +180,7 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
            last_sweep: Callable[[str], datetime | None] = last_sweep,
            ready_count: Callable[[], int | None] = ready_count,
            main_updated_at: Callable[[], datetime | None] = main_updated_at,
+           merge_retry_pending: Callable[[str], int | None] = merge_retry_pending,
            now: datetime | None = None) -> tuple[bool, str]:
     if role != "auditor" and (ROOT / "harness" / "PAUSE").exists():
         return False, "harness/PAUSE present"
@@ -156,6 +208,10 @@ def decide(role: str, sweep: bool, *, read_lock: Callable[[str], dict | None] = 
             merged = main_updated_at()
             if merged is not None and merged > prev:
                 return True, f"main updated {now - merged} ago, after last run {elapsed} ago"
+        if role.startswith("reviewer"):
+            n = merge_retry_pending(role)
+            if n:
+                return True, f"{n} PR(s) with a same-sha MERGE verdict need a merge retry"
         if role == "planner":
             floor = cfg.get("ready_floor", DEFAULT_READY_FLOOR)
             min_hours = cfg.get("queue_low_min_hours", DEFAULT_QUEUE_LOW_MIN_HOURS)
