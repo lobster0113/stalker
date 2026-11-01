@@ -98,7 +98,8 @@ def test_env_and_player_slots_change_for_other_deals():
         with K.using_env("x"):
             pass
     hu = _play([], n=2)
-    assert _fields(K.public_key(hu, hu.to_act, "full", "c1"))[:2] == ["SB", "n2"]
+    # heads-up the button posts the small blind; c1 names it BTN, as players do (#486, tp_key.C1_POSITIONS)
+    assert _fields(K.public_key(hu, hu.to_act, "full", "c1"))[:2] == ["BTN", "n2"]
 
 
 def test_hidden_cards_and_call_keys():
