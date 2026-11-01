@@ -86,6 +86,25 @@ def test_run_output_size_cap(tmp_path, monkeypatch):
         T.run("e2-mccfr", 5, 1, tmp_path)
 
 
+def test_oversized_tables_are_dropped_but_the_measurement_survives(tmp_path, monkeypatch):
+    # #487: c1 wrote 476 MB > the cap after 3-4 h, the step failed, the upload was skipped and ops got nothing
+    import referee.e2.lbr as lbr
+
+    monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, abstraction: {"lbr_bb": 1.0, "hands": hands})
+    T.run("e2-mccfr", 5, 1, tmp_path / "small")
+    pol = tmp_path / "small" / "e2-mccfr-seed1.policy.json"
+    summary = (tmp_path / "small" / "e2-mccfr-seed1.json").stat().st_size
+    monkeypatch.setattr(T, "ARTIFACT_MAX_BYTES", summary + pol.stat().st_size // 2)
+    path = T.run("e2-mccfr", 5, 1, tmp_path / "big")
+    assert not (tmp_path / "big" / "e2-mccfr-seed1.policy.json").exists()
+    r = json.loads(path.read_text(encoding="utf-8"))
+    assert [d["file"] for d in r["artifact_dropped"]] == ["e2-mccfr-seed1.policy.json"]
+    assert r["artifact_dropped"][0]["bytes"] == pol.stat().st_size and r["lbr"]["lbr_bb"] == 1.0
+    s = json.loads(T.summary_text("e2-mccfr", tmp_path / "big"))
+    assert s["lbr_bb_by_seed"] == [1.0] and s["artifact_dropped_by_seed"] == [r["artifact_dropped"]]
+    assert "artifact_dropped_by_seed" not in json.loads(T.summary_text("e2-mccfr", tmp_path / "small"))
+
+
 def test_summarize_step_validates_before_touching_ops():
     text = (ROOT / ".github" / "workflows" / "train.yml").read_text(encoding="utf-8")
     step = text[text.index("- name: summary to ops"):]
