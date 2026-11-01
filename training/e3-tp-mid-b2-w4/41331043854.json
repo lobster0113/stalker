@@ -1,0 +1,191 @@
+{
+ "job": "e3-tp-mid-b2-w4",
+ "runs": 4,
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "ref": "main",
+ "sha": "b3089c00f96f4d69f269a44eeb324436cb646433",
+ "run_id": "41331043854",
+ "resumed_from_run": "41196672478",
+ "iters": 60000,
+ "iters_per_s_mean": 2.73,
+ "lbr_bb_mean": 1.2302,
+ "lbr_bb_by_seed": [
+  1.1812,
+  0.8556,
+  1.5044,
+  1.3795
+ ],
+ "lbr_stderr_by_seed": [
+  0.3021,
+  0.2796,
+  0.3119,
+  0.2999
+ ],
+ "infosets_by_seed": [
+  559759,
+  563899,
+  553822,
+  552851
+ ],
+ "cpu_model_by_seed": [
+  "AMD EPYC 7763 64-Core Processor",
+  "AMD EPYC 7763 64-Core Processor",
+  "AMD EPYC 7763 64-Core Processor",
+  "AMD EPYC 9V45 96-Core Processor"
+ ],
+ "regret_sha256_by_seed": [
+  "79890ed88eb62ea26e90f3b97019dd396ddf0998f2eac3756237901c5b24ecff",
+  "a656b5be32859fbc479acb8a8b6c1ad32a47e05aa875c91c7cb39c5df9a6c521",
+  "043cd56e45cb79e77fea436865d2d74dee234b1e0a2512ce97b76cff828e3211",
+  "6eb90dce2f09a0abb28658a9fcd7253f748d259b274af5e1d972a8f94fcab98e"
+ ],
+ "lbr_offmenu_bb_by_seed": [
+  1.1598,
+  1.2619,
+  2.1093,
+  1.622
+ ],
+ "lbr_average_bb_by_seed": [
+  1.0863,
+  1.2154,
+  1.8139,
+  1.469
+ ],
+ "lbr_average_stderr_by_seed": [
+  0.322,
+  0.3136,
+  0.3364,
+  0.3006
+ ],
+ "artifact_dropped_by_seed": [
+  [
+   {
+    "file": "e3-tp-mid-b2-w4-seed1.policy.json",
+    "bytes": 132217436
+   },
+   {
+    "file": "e3-tp-mid-b2-w4-seed1.ckpt.json",
+    "bytes": 156614766
+   }
+  ],
+  [
+   {
+    "file": "e3-tp-mid-b2-w4-seed2.policy.json",
+    "bytes": 132610098
+   },
+   {
+    "file": "e3-tp-mid-b2-w4-seed2.ckpt.json",
+    "bytes": 157157397
+   }
+  ],
+  [
+   {
+    "file": "e3-tp-mid-b2-w4-seed3.policy.json",
+    "bytes": 130800205
+   },
+   {
+    "file": "e3-tp-mid-b2-w4-seed3.ckpt.json",
+    "bytes": 154933313
+   }
+  ],
+  [
+   {
+    "file": "e3-tp-mid-b2-w4-seed4.policy.json",
+    "bytes": 131567392
+   },
+   {
+    "file": "e3-tp-mid-b2-w4-seed4.ckpt.json",
+    "bytes": 155709278
+   }
+  ]
+ ],
+ "resumed_from_iters_by_seed": [
+  20000,
+  20000,
+  20000,
+  20000
+ ],
+ "field_sha256": "4640929985e564f9a625cabea921fd3189a2c605e556061ffd6ddc173e10d439",
+ "field_deals": 1000,
+ "field_worst_by_seed": [
+  {
+   "name": "tag5",
+   "bb100": -183.28,
+   "ci95_low": -261.65
+  },
+  {
+   "name": "mixed_regs",
+   "bb100": -231.36,
+   "ci95_low": -318.64
+  },
+  {
+   "name": "lag5",
+   "bb100": -109.48,
+   "ci95_low": -197.23
+  },
+  {
+   "name": "mixed_regs",
+   "bb100": -181.8,
+   "ci95_low": -273.72
+  }
+ ],
+ "field_bb100_by_seed": [
+  {
+   "tag5": -183.28,
+   "lag5": -84.36,
+   "nit5": -138.38,
+   "station5": 28.11,
+   "maniac5": -6.25,
+   "mixed_styles": -74.86,
+   "mixed_regs": -124.67,
+   "uniform5": 494.76,
+   "champion_mid5": -134.81,
+   "champions_mixed": -113.06,
+   "self5": 0.0
+  },
+  {
+   "tag5": -205.75,
+   "lag5": -170.69,
+   "nit5": -218.6,
+   "station5": -181.87,
+   "maniac5": -86.11,
+   "mixed_styles": -132.35,
+   "mixed_regs": -231.36,
+   "uniform5": 604.88,
+   "champion_mid5": -111.77,
+   "champions_mixed": -163.79,
+   "self5": 0.0
+  },
+  {
+   "tag5": -86.35,
+   "lag5": -109.48,
+   "nit5": -108.23,
+   "station5": -20.64,
+   "maniac5": 7.66,
+   "mixed_styles": -24.71,
+   "mixed_regs": -87.86,
+   "uniform5": 686.94,
+   "champion_mid5": 21.29,
+   "champions_mixed": -50.62,
+   "self5": 0.0
+  },
+  {
+   "tag5": -146.35,
+   "lag5": -170.03,
+   "nit5": -107.1,
+   "station5": -5.13,
+   "maniac5": 7.85,
+   "mixed_styles": -19.61,
+   "mixed_regs": -181.8,
+   "uniform5": 671.67,
+   "champion_mid5": -65.49,
+   "champions_mixed": -153.34,
+   "self5": 0.0
+  }
+ ]
+}
