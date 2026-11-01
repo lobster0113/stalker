@@ -27,6 +27,9 @@ gives every seat 100BB. `stacks="sampled"` draws each hand's table with `game.sa
 the tables equal) from the same generator, so the stack key variants (tp_key "s2", "s2me") see short, deep
 and mixed tables; a checkpoint of it is version 5.
 
+A combined key (tp_key "c1", #400) also writes its `key_version`; `from_state` refuses a checkpoint of another
+version of the same variant, since its keys mean other things.
+
     python -m stalker.e3.mccfr --tier beginner --iters 50 --seed 1
 """
 from __future__ import annotations
@@ -182,6 +185,8 @@ class E3MCCFR:
             st.update(version=5, stacks=self.stacks, key_variant=self.key_variant, ranges=self.ranges,
                       range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()})
+        if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
+            st["key_version"] = K.KEY_VERSIONS[self.key_variant]
         return st
 
     def _grid(self) -> dict:
@@ -204,6 +209,10 @@ class E3MCCFR:
         if st["depth"] == "pro" and st.get("nut_k", K.K_PRO) != K.NUT_K:
             raise ValueError(f"checkpoint board.nut has {st.get('nut_k', K.K_PRO)} steps; this code uses {K.NUT_K} "
                              "(#332) - start a fresh run instead of resuming it")
+        kv = st.get("key_variant", "")
+        if kv in K.KEY_VERSIONS and st.get("key_version") != K.KEY_VERSIONS[kv]:
+            raise ValueError(f"checkpoint key {kv!r} version {st.get('key_version')!r}; this code builds version "
+                             f"{K.KEY_VERSIONS[kv]} (#400) - its keys mean other things, start a fresh run")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
                 st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""),
                 st.get("stacks", "uniform"))
@@ -258,7 +267,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-raise-cap", action="store_true")
     ap.add_argument("--ranges", choices=RANGES, default="current", help="strategy that moves the TP-feature ranges (#405)")
     ap.add_argument("--key-variant", choices=K.VARIANTS, default="",
-                    help="b1: suit-aware outs/vuln/block key (#398); b2: b1 + board.adv/opp.value/plan.foldeq (#460); b3: b1 + public facts (#461); s2 / s2me: effective-stack depth (#399)")
+                    help="b1: suit-aware outs/vuln/block key (#398); b2: b1 + board.adv/opp.value/plan.foldeq (#460); b3: b1 + public facts (#461); s2 / s2me: effective-stack depth (#399); c1: combined cash key (#400)")
     ap.add_argument("--stacks", choices=STACKS, default="uniform", help="sampled: 20-250BB tables (#399)")
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
     ap.add_argument("--avg-rule", choices=AVG_RULES, default="legacy")
