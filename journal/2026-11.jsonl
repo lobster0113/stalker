@@ -97,3 +97,4 @@
 {"ts":"2026-11-01T22:41:12Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-01T23:12:43Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-01T23:18:42Z","role":"builder-b","outcome":"pr_opened","issue":504,"pr":506,"notes":"batch next-card equity_segments kernel, bit-identical; local it/s change within noise","friction":"gates quick took 665s locally vs 90s target; a bare grep-for-ok poll loop matched early lines"}
+{"ts":"2026-11-01T23:19:11Z","role":"reviewer","outcome":"skipped","issue":504,"pr":506,"notes":"not my parity","friction":""}
