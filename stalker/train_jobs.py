@@ -365,14 +365,32 @@ def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) 
         raise SystemExit(f"{job} cannot resume; resumable jobs: {sorted(RESUMABLE)} (leave resume_run empty)")
     res = JOBS[job](iters, seed, out, **({"resume": resume} if resume is not None else {}))
     path = out / f"{job}-seed{seed}.json"
-    path.write_text(json.dumps({"job": job, "seed": seed, "wall_seconds": round(time.monotonic() - t0, 1),
-                                **res}, indent=1), encoding="utf-8")
+    summary = {"job": job, "seed": seed, "wall_seconds": round(time.monotonic() - t0, 1), **res}
+    path.write_text(json.dumps(summary, indent=1), encoding="utf-8")
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
     if size > ARTIFACT_MAX_BYTES:
-        raise SystemExit(f"{out}: {size} bytes > {ARTIFACT_MAX_BYTES}; write a smaller policy (prune or quantize) "
-                         "or raise ARTIFACT_MAX_BYTES with a reason in the PR")
+        # #487: a failed step skips the upload, so hours of training lost the measurement with the policy.
+        # Keep the summary (what ops records) and drop the tables; the job then cannot be resumed or served.
+        dropped = _drop_tables(out, job, seed)
+        size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
+        if size > ARTIFACT_MAX_BYTES:
+            raise SystemExit(f"{out}: {size} bytes > {ARTIFACT_MAX_BYTES}; write a smaller policy (prune or quantize) "
+                             "or raise ARTIFACT_MAX_BYTES with a reason in the PR")
+        summary["artifact_dropped"] = dropped
+        path.write_text(json.dumps(summary, indent=1), encoding="utf-8")
+        print(f"{out}: tables over {ARTIFACT_MAX_BYTES} bytes, dropped {[d['file'] for d in dropped]} "
+              "(summary kept; this run cannot be resumed or exported)", file=sys.stderr)
     check_clean(path.read_text(encoding="utf-8"), str(path))
     return path
+
+
+def _drop_tables(out: Path, job: str, seed: int) -> list[dict]:
+    dropped = []
+    for f in (out / f"{job}-seed{seed}.policy.json", out / f"{job}-seed{seed}.ckpt.json"):
+        if f.is_file():
+            dropped.append({"file": f.name, "bytes": f.stat().st_size})
+            f.unlink()
+    return dropped
 
 
 def check_clean(text: str, where: str) -> None:
@@ -450,6 +468,8 @@ def summarize(job: str, folder: Path) -> dict:
     if job.startswith("e3-") and runs and all(r.get("probe_average") for r in runs):   # #446
         out["probe_average_leaks_by_seed"] = [r["probe_average"]["leaks"] for r in runs]
         out["probe_average_by_seed"] = [r["probe_average"] for r in runs]
+    if any(r.get("artifact_dropped") for r in runs):   # #487: these seeds left no table to resume or export
+        out["artifact_dropped_by_seed"] = [r.get("artifact_dropped", []) for r in runs]
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set
