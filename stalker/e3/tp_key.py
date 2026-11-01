@@ -279,7 +279,7 @@ def _equity_cached(board: tuple[int, ...], w: np.ndarray) -> np.ndarray:
     return eq
 
 
-_NEXT_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray]] = {}
+_NEXT_CACHE: dict[tuple, np.ndarray] = {}
 _HAS_CARD = np.stack([(COMBO_ARR == c).any(axis=1) for c in range(52)])
 
 
@@ -288,12 +288,14 @@ def _next_card_eq(board: tuple[int, ...], w: np.ndarray, cards: list[int]) -> np
 
     Per-card calls spent most of their time in Python between the compiled kernels (49 cards x opponents
     x nodes); here the kernels run back to back and the nan mask and divide happen once. Cached per
-    (board, range object) like `_equity_cached`: siblings in a walk share the opponents' ranges.
+    (board, range values), not per range object as `_equity_cached`: the walks of one deal (one per
+    traverser) rebuild equal ranges as new arrays, so an object key missed ~40% of the work it could
+    reuse (#499). The row is a function of the values alone, so a hit returns the same bits.
     """
-    key = (board, id(w))
+    key = (board, w.tobytes())
     hit = _NEXT_CACHE.get(key)
-    if hit is not None and hit[0] is w:
-        return hit[1]
+    if hit is not None:
+        return hit
     if not fast_eval.HAVE_NUMBA:
         out = np.stack([equity_vs(board + (c,), w) for c in cards])
     else:
@@ -303,9 +305,9 @@ def _next_card_eq(board: tuple[int, ...], w: np.ndarray, cards: list[int]) -> np
             fast_eval.equity_segments(wc, *_flat_runouts(board + (c,)), acc[i], cnt[i])
         out = np.divide(acc, cnt, out=np.full(acc.shape, 0.5), where=cnt > 0)
         out[_board_dead(board)[None, :] | _HAS_CARD[cards]] = np.nan
-    if len(_NEXT_CACHE) >= 64:  # 49 x 1326 floats = ~0.5 MB each
+    if len(_NEXT_CACHE) >= 64:  # 49 x 1326 floats = ~0.5 MB each (+ the 10 KB key)
         _NEXT_CACHE.clear()
-    _NEXT_CACHE[key] = (w, out)
+    _NEXT_CACHE[key] = out
     return out
 
 
