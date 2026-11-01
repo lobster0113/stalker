@@ -134,22 +134,47 @@ def _api(path: str):
         return json.load(r)
 
 
-def merge_retry_candidates(prs: list[dict], role: str) -> list[int]:
+def trusted_actors() -> set[str]:
+    f = ROOT / "harness" / "TRUSTED_ACTORS"
+    return {ln.strip() for ln in f.read_text(encoding="utf-8").splitlines()
+            if ln.strip() and not ln.lstrip().startswith("#")}
+
+
+def checks_green(runs: list[dict]) -> bool:
+    """Newest run per check name decides: an old cancelled run beside a newer success is green."""
+    latest: dict[str, dict] = {}
+    for r in runs:
+        if r["name"] not in latest or r["id"] > latest[r["name"]]["id"]:
+            latest[r["name"]] = r
+    return bool(latest) and all(r["conclusion"] in ("success", "skipped", "neutral")
+                                for r in latest.values())
+
+
+def _verdict_sha_ok(pr: dict, trusted: set[str]) -> bool:
+    return any(c["user"] in trusted and c["body"].lstrip().startswith(f"VERDICT: MERGE sha={pr['head_sha']}")
+               for c in pr["comments"])
+
+
+def merge_retry_candidates(prs: list[dict], role: str, trusted: set[str] | None = None) -> list[int]:
     """PR numbers of this reviewer's parity that need a merge retry, no re-review (#482).
 
-    Each pr: {number, head_sha, comments: [str], checks_ok, mergeable}. Eligible when a
-    `VERDICT: MERGE sha=<current head>` exists, required checks are green, there is no
-    conflict, and fewer than MERGE_RETRY_MAX `MERGE-RETRY failed` comments exist (after that
-    the reviewer files one NEEDS_HUMAN item and the PR no longer counts as work).
+    Each pr: {number, head_sha, comments: [{user, body}], checks_ok, mergeable}. Eligible when a
+    TRUSTED_ACTORS-written `VERDICT: MERGE sha=<current head>` exists, required checks are green,
+    there is no conflict, and fewer than MERGE_RETRY_MAX trusted `MERGE-RETRY failed` comments
+    exist (after that the reviewer files one NEEDS_HUMAN item and the PR no longer counts as work).
+    Outsiders' comments are data, never a verdict or a retry count (PROTOCOL §8).
     """
+    trusted = trusted_actors() if trusted is None else trusted
     odd = role != "reviewer-b"
     out = []
     for pr in prs:
         if (pr["number"] % 2 == 1) != odd or not pr.get("checks_ok") or pr.get("mergeable") is not True:
             continue
-        if not any(c.lstrip().startswith(f"VERDICT: MERGE sha={pr['head_sha']}") for c in pr["comments"]):
+        if not _verdict_sha_ok(pr, trusted):
             continue
-        if sum(c.lstrip().startswith("MERGE-RETRY failed") for c in pr["comments"]) < MERGE_RETRY_MAX:
+        fails = sum(c["user"] in trusted and c["body"].lstrip().startswith("MERGE-RETRY failed")
+                    for c in pr["comments"])
+        if fails < MERGE_RETRY_MAX:
             out.append(pr["number"])
     return out
 
@@ -157,16 +182,22 @@ def merge_retry_candidates(prs: list[dict], role: str) -> list[int]:
 def merge_retry_pending(role: str) -> int | None:
     """Count of open PRs awaiting a merge retry for this reviewer, or None if GitHub is unreachable."""
     try:
+        trusted = trusted_actors()
+        odd = role != "reviewer-b"
         prs = []
         for p in _api("pulls?state=open&per_page=100") or []:
-            runs = _api(f"commits/{p['head']['sha']}/check-runs?per_page=100")["check_runs"]
-            comments = [c["body"] for c in _api(f"issues/{p['number']}/comments?per_page=100") or []]
-            detail = _api(f"pulls/{p['number']}")
-            prs.append({"number": p["number"], "head_sha": p["head"]["sha"], "comments": comments,
-                        "checks_ok": bool(runs) and all(r["conclusion"] in ("success", "skipped", "neutral")
-                                                        for r in runs),
-                        "mergeable": detail.get("mergeable")})
-        return len(merge_retry_candidates(prs, role))
+            if (p["number"] % 2 == 1) != odd:
+                continue  # other reviewer's parity: skip the extra API calls
+            comments = [{"user": c["user"]["login"], "body": c["body"]}
+                        for c in _api(f"issues/{p['number']}/comments?per_page=100") or []]
+            pr = {"number": p["number"], "head_sha": p["head"]["sha"], "comments": comments}
+            if not _verdict_sha_ok(pr, trusted):
+                continue  # only PRs with a trusted same-sha MERGE verdict need checks/mergeable lookups
+            runs = _api(f"commits/{pr['head_sha']}/check-runs?per_page=100")["check_runs"]
+            pr["checks_ok"] = checks_green(runs)
+            pr["mergeable"] = _api(f"pulls/{p['number']}").get("mergeable")
+            prs.append(pr)
+        return len(merge_retry_candidates(prs, role, trusted))
     except Exception:
         return None
 
