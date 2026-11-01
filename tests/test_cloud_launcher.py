@@ -1005,6 +1005,51 @@ def test_main_exits_3_on_capacity(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("RUNPOD_API_KEY", "k")
     assert L.main(["run", "jobs/chain.yaml", "--ledger", str(tmp_path / "l")]) == 3
     assert "run 7: no capacity" in capsys.readouterr().err
+    assert not (tmp_path / "journal").exists()  # no --journal, no line
+
+
+def test_capacity_give_up_leaves_a_failed_journal_line_with_the_run_id(tmp_path, monkeypatch):
+    # #401 review: the give-up must reach ops:journal (what routines and the auditor read), not only the ledger
+    monkeypatch.setattr(L, "run_job", lambda *a, **k: (_ for _ in ()).throw(L.CapacityExhausted("run 7: no capacity")))
+    monkeypatch.setattr(L, "load_spec", lambda p: _fjob())
+    monkeypatch.setenv("RUNPOD_API_KEY", "k")
+    jd = tmp_path / "journal"
+    for _ in range(2):
+        assert L.main(["run", "jobs/chain.yaml", "--ledger", str(tmp_path / "l"), "--run-id", "7",
+                       "--journal", str(jd)]) == 3
+    files = list(jd.glob("*.jsonl"))
+    assert len(files) == 1 and re.fullmatch(r"\d{4}-\d{2}\.jsonl", files[0].name)
+    lines = [json.loads(x) for x in files[0].read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == 2  # appended, never overwritten
+    e = lines[0]
+    assert e["role"] == "cloud" and e["outcome"] == "failed" and e["run_id"] == "7" and e["job"] == "chain"
+    assert "run 7" in e["notes"] and e["ts"][:7] == files[0].stem
+    # other failures are not capacity give-ups and write nothing
+    monkeypatch.setattr(L, "run_job", lambda *a, **k: (_ for _ in ()).throw(L.LauncherError("boom")))
+    assert L.main(["run", "jobs/chain.yaml", "--ledger", str(tmp_path / "l"), "--journal", str(tmp_path / "j2")]) == 1
+    assert not (tmp_path / "j2").exists()
+
+
+def test_cloud_workflow_passes_the_ops_journal_and_push_commits_it(tmp_path):
+    import subprocess
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    launch = wf.split("- name: launcher", 1)[1].split("- name:", 1)[0]
+    assert '--journal "$GITHUB_WORKSPACE/ops/journal"' in launch
+    assert "if: always()" in wf.split("- name: push ledger", 1)[1].split("- name:", 1)[0]
+
+    def git(*a, cwd):
+        subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+
+    remote, wt = tmp_path / "remote.git", tmp_path / "ops"
+    git("init", "-q", "--bare", "-b", "ops", str(remote), cwd=tmp_path)
+    git("clone", "-q", str(remote), str(wt), cwd=tmp_path)
+    git("checkout", "-q", "-b", "ops", cwd=wt)
+    L.journal_failure(wt / "journal", "chain", "7", "no capacity", datetime(2026, 11, 1, tzinfo=timezone.utc))
+    subprocess.run(["bash", str(ROOT / "harness" / "cloud" / "push_ledger.sh"), str(wt), "cloud: ledger 7"],
+                   check=True, capture_output=True)
+    files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
+                           capture_output=True, text=True, encoding="utf-8").stdout.split()
+    assert files == ["journal/2026-11.jsonl"]
 
 
 def test_http_transport_raises_capacity_error_only_for_no_instances(monkeypatch):

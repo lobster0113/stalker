@@ -30,7 +30,7 @@ download artifacts (their blob storage host is outside the egress allow-list, #2
 Over 1 MB it writes `<run id>.summary.json` with long strings (model blobs) left out (#358).
 Capacity and hosts (#401, ADR 0019 §6): `cpu_flavors` are tried in order, a RunPod "no instances" refusal moves
 to the next one and, when all are full, waits CAPACITY_RETRY_MINUTES and tries again (each refusal a $0
-`create_failed` ledger line, exit 3 when they run out). With `median_iters_per_s` the result server also answers
+`create_failed` ledger line, exit 3 when they run out, plus an `outcome: failed` line in `--journal`). With `median_iters_per_s` the result server also answers
 `/<token>/progress.json` (the first progress line's it/s only) and a pod below SLOW_HOST_FRACTION of the median
 is replaced once. Waits and replacements happen only if the pod still ends inside MAX_JOB_MINUTES.
 """
@@ -100,6 +100,20 @@ class CapacityError(LauncherError):
 
 class CapacityExhausted(LauncherError):
     pass
+
+
+def journal_failure(journal_dir: Path, job: str, run_id: str, message: str, now: datetime) -> None:
+    """One `outcome: failed` line in `ops:journal/YYYY-MM.jsonl` for a run that never got a pod.
+
+    The launcher has no GitHub credential to comment on an issue; the journal is what the routines
+    and the auditor already read, so a capacity give-up shows up there with its run id (#401)."""
+    journal_dir.mkdir(parents=True, exist_ok=True)
+    ts = _iso(now)
+    line = {"ts": ts, "role": "cloud", "outcome": "failed", "issue": None, "pr": None,
+            "notes": f"cloud run {run_id} job {job}: {message}"[:500], "friction": "",
+            "run_id": run_id, "job": job}
+    with open(journal_dir / f"{ts[:7]}.jsonl", "a", encoding="utf-8") as f:
+        f.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
 # ---------- job spec ----------
@@ -901,6 +915,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--result-out", type=Path, help="where to write the job's result_path JSON (required if set)")
     r.add_argument("--resume-file", type=Path, help="an earlier run's result JSON to continue from (#354)")
     r.add_argument("--resume-run", help="the cloud.yml run id that produced --resume-file")
+    r.add_argument("--journal", type=Path, help="ops journal dir: a capacity give-up (exit 3) appends a failed line")
     g = sub.add_parser("reap")
     g.add_argument("--ledger", type=Path, required=True)
     g.add_argument("--job", type=Path, help="with --run-id: reap only this run's pod (name from the parsed spec)")
@@ -944,6 +959,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     except CapacityExhausted as e:
         print(e, file=sys.stderr)
+        if a.cmd == "run" and a.journal:
+            journal_failure(a.journal, job.name, a.run_id, str(e), datetime.now(timezone.utc))
         return 3
     except LauncherError as e:
         print(e, file=sys.stderr)
