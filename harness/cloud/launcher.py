@@ -28,6 +28,11 @@ earlier run's result there, trimmed to what a resume needs and gzipped; without 
 `publish` copies a checked result to `ops:cloud/results/<run id>.json`: agent sandboxes cannot
 download artifacts (their blob storage host is outside the egress allow-list, #264), but read ops.
 Over 1 MB it writes `<run id>.summary.json` with long strings (model blobs) left out (#358).
+Capacity and hosts (#401, ADR 0019 §6): `cpu_flavors` are tried in order, a RunPod "no instances" refusal moves
+to the next one and, when all are full, waits CAPACITY_RETRY_MINUTES and tries again (each refusal a $0
+`create_failed` ledger line, exit 3 when they run out). With `median_iters_per_s` the result server also answers
+`/<token>/progress.json` (the first progress line's it/s only) and a pod below SLOW_HOST_FRACTION of the median
+is replaced once. Waits and replacements happen only if the pod still ends inside MAX_JOB_MINUTES.
 """
 from __future__ import annotations
 
@@ -89,11 +94,29 @@ class BudgetExceeded(LauncherError):
     pass
 
 
+class CapacityError(LauncherError):
+    """RunPod has no instance of the requested flavor right now; no pod was made, so it cost nothing."""
+
+
+class CapacityExhausted(LauncherError):
+    pass
+
+
 # ---------- job spec ----------
 
 SPEC_FIELDS = {"name", "image", "command", "gpu_type", "gpu_count", "cpu_flavor", "vcpu",
-               "max_minutes", "hourly_usd", "est_cost_usd", "disk_gb", "cloud", "result_path"}
+               "max_minutes", "hourly_usd", "est_cost_usd", "disk_gb", "cloud", "result_path",
+               "cpu_flavors", "flavor_hourly_usd", "median_iters_per_s"}
 REQUIRED = {"name", "image", "command", "max_minutes", "hourly_usd"}
+# one-line `[a, b]` lists (#401); everything else stays a scalar
+LIST_FIELDS = {"cpu_flavors", "flavor_hourly_usd", "median_iters_per_s"}
+# ADR 0019 §6: pod chains keep 32 parallel MCCFR workers, so a fallback flavor must not change the vCPU count
+FLAVOR_LIST_VCPU = 32
+# a host below this fraction of the job's measured median it/s gets one reissue (cpu3c 7713/9754 ran ~0.45×, #373)
+SLOW_HOST_FRACTION = 0.6
+# RunPod HTTP 500 "no longer any instances available" costs nothing; wait and try the flavor list again
+CAPACITY_RETRY_MINUTES = (15, 30, 60)
+CAPACITY_RE = re.compile(rb"no longer any instances available|no instances available", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -111,6 +134,17 @@ class Job:
     disk_gb: int = 20
     cloud: str = "COMMUNITY"
     result_path: str | None = None
+    cpu_flavors: tuple[str, ...] = ()
+    flavor_hourly_usd: tuple[float, ...] = ()
+    median_iters_per_s: tuple[float, ...] = ()
+
+    @property
+    def flavors(self) -> list[tuple[str | None, float, float]]:
+        """(flavor, hourly cap, median it/s or 0) in try order; a GPU job is one (None, hourly_usd, 0) entry."""
+        names = list(self.cpu_flavors) or [self.cpu_flavor]
+        caps = list(self.flavor_hourly_usd) or [self.hourly_usd] * len(names)
+        medians = list(self.median_iters_per_s) or [0.0] * len(names)
+        return list(zip(names, caps, medians))
 
     @property
     def worst_case_usd(self) -> float:
@@ -144,12 +178,18 @@ def parse_spec(text: str, source: str = "job") -> Job:
             raise LauncherError(f"{source}:{n}: unknown key {key!r}; allowed: {', '.join(sorted(SPEC_FIELDS))}")
         if key in data:
             raise LauncherError(f"{source}:{n}: duplicate key {key!r}")
+        if key in LIST_FIELDS:
+            v = val.strip()
+            if not (v.startswith("[") and v.endswith("]")) or not v[1:-1].strip():
+                raise LauncherError(f"{source}:{n}: {key} must be a one-line list like [cpu5c, cpu3c] — got {val!r}")
+            data[key] = tuple(_scalar(x) for x in v[1:-1].split(","))
+            continue
         data[key] = _scalar(val)
     missing = REQUIRED - data.keys()
     if missing:
         raise LauncherError(f"{source}: missing required keys: {', '.join(sorted(missing))}")
-    if bool(data.get("gpu_type")) == bool(data.get("cpu_flavor")):
-        raise LauncherError(f"{source}: set exactly one of gpu_type or cpu_flavor")
+    if sum(bool(data.get(k)) for k in ("gpu_type", "cpu_flavor", "cpu_flavors")) != 1:
+        raise LauncherError(f"{source}: set exactly one of gpu_type, cpu_flavor or cpu_flavors")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,40}", str(data["name"])):
         raise LauncherError(f"{source}: name must be lowercase [a-z0-9-], ≤41 chars")
     for k in ("max_minutes", "gpu_count", "vcpu", "disk_gb"):
@@ -168,7 +208,33 @@ def parse_spec(text: str, source: str = "job") -> Job:
         raise LauncherError(f"{source}: result_path must be an absolute path of [A-Za-z0-9._/-]")
     data["hourly_usd"] = float(data["hourly_usd"])
     data["est_cost_usd"] = float(data.get("est_cost_usd", 0.0))
+    _check_flavor_lists(data, source)
     return Job(**data)
+
+
+def _check_flavor_lists(data: dict, source: str) -> None:
+    names = data.get("cpu_flavors") or ((data["cpu_flavor"],) if data.get("cpu_flavor") else ())
+    if data.get("cpu_flavors"):
+        if not all(isinstance(f, str) and re.fullmatch(r"[a-z0-9]+", f) for f in names) or len(set(names)) != len(names):
+            raise LauncherError(f"{source}: cpu_flavors must be distinct RunPod CPU flavor ids like [cpu5c, cpu3c]")
+        if data.get("vcpu") != FLAVOR_LIST_VCPU:
+            raise LauncherError(f"{source}: cpu_flavors needs vcpu: {FLAVOR_LIST_VCPU} (same workers and checkpoints "
+                                "on every flavor, ADR 0019 §6)")
+    for key in ("flavor_hourly_usd", "median_iters_per_s"):
+        vals = data.get(key)
+        if vals is None:
+            continue
+        if not names:
+            raise LauncherError(f"{source}: {key} is for CPU jobs (cpu_flavor or cpu_flavors)")
+        if len(vals) != len(names) or not all(isinstance(v, (int, float)) and v >= 0 for v in vals):
+            raise LauncherError(f"{source}: {key} needs one non-negative number per flavor ({len(names)})")
+        data[key] = tuple(float(v) for v in vals)
+    if any(c > data["hourly_usd"] for c in data.get("flavor_hourly_usd", ())):
+        # hourly_usd stays the budget's worst-case rate, so no flavor may be allowed to cost more
+        raise LauncherError(f"{source}: every flavor_hourly_usd must be <= hourly_usd {data['hourly_usd']}")
+    if any(data.get("median_iters_per_s", ())) and not data.get("result_path"):
+        raise LauncherError(f"{source}: median_iters_per_s needs result_path (it/s comes through the result server)")
+
 
 
 def _rel_posix(path: PurePath, root: PurePath) -> str:
@@ -251,7 +317,10 @@ def http_transport(api_key: str) -> Transport:
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return None
-            body = e.read()[:300]
+            full = e.read()
+            body = full[:300]
+            if e.code == 500 and CAPACITY_RE.search(full):
+                raise CapacityError(f"RunPod {method} {url}: HTTP 500 {body!r}") from e
             hint = (" — Cloudflare rejected the client signature; check USER_AGENT in harness/cloud/launcher.py"
                     if e.code == 403 and b"1010" in body else "")
             raise LauncherError(f"RunPod {method} {url}: HTTP {e.code} {body!r}{hint}") from e
@@ -270,7 +339,7 @@ class RunPod:
         except (TypeError, KeyError) as e:
             raise LauncherError(f"RunPod balance query: unexpected response {str(r)[:300]}") from e
 
-    def create(self, job: Job, pod_name: str, token: str | None = None) -> dict:
+    def create(self, job: Job, pod_name: str, token: str | None = None, flavor: str | None = None) -> dict:
         body = {"name": pod_name, "imageName": job.image, "cloudType": job.cloud,
                 "containerDiskInGb": job.disk_gb, "dockerStartCmd": ["bash", "-lc", pod_command(job)]}
         if job.result_path:
@@ -279,7 +348,7 @@ class RunPod:
         if job.gpu_type:
             body |= {"computeType": "GPU", "gpuTypeIds": [job.gpu_type], "gpuCount": job.gpu_count}
         else:
-            body |= {"computeType": "CPU", "cpuFlavorIds": [job.cpu_flavor], "vcpuCount": job.vcpu}
+            body |= {"computeType": "CPU", "cpuFlavorIds": [flavor or job.flavors[0][0]], "vcpuCount": job.vcpu}
         pod = self.t("POST", f"{REST_URL}/pods", body)
         if not pod or "id" not in pod:
             raise LauncherError(f"RunPod create: no pod id in response {str(pod)[:300]}")
@@ -315,6 +384,8 @@ class H(http.server.BaseHTTPRequestHandler):
     def name(self):
         return self.path[len(pre):] if self.path.startswith(pre) else ""
     def do_GET(self):
+        if self.name() == "progress.json":
+            return self.progress()
         if self.name() not in ("status.json", "result.json"):
             return self.reply(404)
         try:
@@ -326,6 +397,21 @@ class H(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(os.fstat(f.fileno()).st_size))
             self.end_headers()
             shutil.copyfileobj(f, self.wfile)
+    def progress(self):
+        # only the first progress line's number leaves the pod, never the log text
+        try:
+            with open(os.path.join(rdir, "job.log"), "rb") as f:
+                lines = f.read(1 << 20).splitlines()
+        except OSError:
+            lines = []
+        for b in lines:
+            try:
+                v = json.loads(b).get("iters_per_s")
+            except (ValueError, AttributeError):
+                continue
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                return self.reply(200, json.dumps({"iters_per_s": float(v)}).encode())
+        self.reply(404)
     def do_PUT(self):
         kind = {"resume": "ready", "resume-none": "none"}.get(self.name())
         if kind is None:
@@ -385,7 +471,8 @@ def pod_command(job: Job, serve_dir: str = RESULT_DIR, port: int = RESULT_PORT, 
         f'sig=$(cat {sig} 2>/dev/null); {RESUME_ENV}=""; [ "$sig" = ready ] && {RESUME_ENV}={resume_dir}/resume.bin',
         f"export {RESUME_ENV}",
         'if [ "$sig" = ready ] || [ "$sig" = none ]; then',
-        "(", job.command, ")",
+        # stderr also goes to job.log, where the server finds the first progress line (#401)
+        "(", job.command, f") 2> >(tee -a {resume_dir}/job.log >&2)",
         "rc=$?",
         f'else echo "no resume signal from the launcher in {wait_s} s" >&2; rc=97; fi',
         f"cp {job.result_path} {d}/result.json 2>/dev/null",
@@ -495,9 +582,13 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, log=print,
             result_out: Path | None = None, fetch: Fetch = http_fetch, token: str | None = None,
             forbidden: Sequence[str] = (), resume: bytes | None = None, send: Send = http_send) -> dict:
+    """Create the job's pod (flavor list, capacity retries), run it, and at most once replace a slow host (#401).
+
+    Every wait and every replacement must still leave the whole pod run inside MAX_JOB_MINUTES of this
+    launcher's start, or the runner's 360-min limit would kill the job before its finally (terminate, ledger)."""
     cap = load_cap() if cap is None else cap
-    start = now()
-    month = start.strftime("%Y-%m")
+    launch = now()
+    month = launch.strftime("%Y-%m")
     spent = check_budget(job, read_ledger(ledger), cap, month)
     pod_name = pod_name_for(job, run_id)
     log(f"budget ok: {month} ${spent:.2f} + worst case ${job.worst_case_usd:.2f} <= cap ${cap:.2f}")
@@ -506,19 +597,73 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
     if dry_run:
         if resume is not None:
             log(f"dry run: resume upload {len(resume)} bytes ok")
-        log(f"dry run: would create pod {pod_name} ({job.gpu_type or job.cpu_flavor}, max {job.max_minutes} min)")
+        what = job.gpu_type or ", ".join(f for f, _, _ in job.flavors)
+        log(f"dry run: would create pod {pod_name} ({what}, max {job.max_minutes} min)")
         return {"status": "dry_run", "pod_name": pod_name, "worst_case_usd": job.worst_case_usd}
     assert api is not None
     if job.result_path and result_out is None:
         raise LauncherError(f"{job.name}: result_path is set but no --result-out; the result would be lost")
     token = token or secrets.token_hex(16)
-    pod = api.create(job, pod_name, token)
+
+    def fits(extra_min: float = 0.0) -> bool:
+        return (now() - launch).total_seconds() / 60 + extra_min + job.max_minutes <= MAX_JOB_MINUTES
+
+    replaced: list[str] = []
+    while True:
+        pod, (flavor, rate_cap, median) = _create(job, api, pod_name, token, ledger, run_id, month, fits, now, sleep, log)
+        res = _run_pod(job, api, pod, flavor, rate_cap, median if not replaced else 0.0, fits, ledger, run_id, month,
+                       cap, sync=sync, now=now, sleep=sleep, poll_s=poll_s, log=log, result_out=result_out,
+                       fetch=fetch, token=token, forbidden=forbidden, resume=resume, send=send)
+        if res["status"] != "slow_host":
+            return res | ({"replaced_pods": replaced} if replaced else {})
+        replaced.append(res["pod_id"])
+        # the slow pod's actual cost is in the ledger now; the replacement must still fit the cap
+        check_budget(job, read_ledger(ledger), cap, month)
+
+
+def _create(job: Job, api: RunPod, pod_name: str, token: str, ledger: Path, run_id: str, month: str,
+            fits: Callable[[float], bool], now: Callable[[], datetime], sleep: Callable[[float], None],
+            log) -> tuple[dict, tuple]:
+    """Try the flavors in order; when all are out of capacity, wait CAPACITY_RETRY_MINUTES and go again.
+
+    Each refused create is a zero-cost `create_failed` ledger line with the run id, so the record shows
+    every try even though no pod (and no start/end pair) exists for it."""
+    waits = list(CAPACITY_RETRY_MINUTES)
+    attempt = 0
+    while True:
+        for entry in job.flavors:
+            attempt += 1
+            try:
+                return api.create(job, pod_name, token, entry[0]), entry
+            except CapacityError as e:
+                append_ledger(ledger, {"event": "create_failed", "ts": _iso(now()), "month": month,
+                                       "job": job.name, "run_id": run_id, "flavor": entry[0], "attempt": attempt,
+                                       "error": "capacity", "actual_usd": 0.0})
+                log(f"no capacity for {entry[0] or job.gpu_type} (try {attempt}): {e}")
+        if not waits:
+            raise CapacityExhausted(f"run {run_id}: no capacity for {', '.join(str(f) for f, _, _ in job.flavors)} after "
+                                    f"{attempt} tries over {'+'.join(map(str, CAPACITY_RETRY_MINUTES))} min of waits "
+                                    "($0); dispatch again later — the tries are create_failed lines in the ledger")
+        wait = waits.pop(0)
+        if not fits(wait):
+            raise CapacityExhausted(f"run {run_id}: no capacity, and a {wait} min wait + max_minutes {job.max_minutes} "
+                                    f"would pass the launcher's {MAX_JOB_MINUTES} min ($0); dispatch again later "
+                                    "(a shorter max_minutes leaves room for capacity waits)")
+        log(f"all flavors out of capacity; waiting {wait} min")
+        sleep(wait * 60)
+
+
+def _run_pod(job: Job, api: RunPod, pod: dict, flavor: str | None, rate_cap: float, median: float,
+             fits: Callable[[float], bool], ledger: Path, run_id: str, month: str, cap: float, *,
+             sync, now, sleep, poll_s, log, result_out, fetch, token, forbidden, resume, send) -> dict:
+    start = now()
     pod_id = pod["id"]
-    rate = _cost_per_hr(pod) or job.hourly_usd
+    pod_name = pod.get("name") or pod_name_for(job, run_id)
+    rate = _cost_per_hr(pod) or rate_cap
     # reserve before anything can fail, so a crash still counts the worst case against the cap
     append_ledger(ledger, {"event": "start", "ts": _iso(start), "month": month, "job": job.name, "pod_id": pod_id,
                            "pod_name": pod_name, "run_id": run_id, "max_minutes": job.max_minutes,
-                           "reserved_usd": job.worst_case_usd})
+                           "reserved_usd": job.worst_case_usd, **({"flavor": flavor} if flavor else {})})
     status = "error"
     result: dict = {}
     try:
@@ -536,11 +681,13 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             status = "over_cap"
             raise BudgetExceeded(f"budget: {month} reserved ${total:.2f} > cap ${cap:.2f} after a parallel run "
                                  f"reserved too; {pod_id} terminated. Dispatch it again when a run finishes.")
-        if rate > job.hourly_usd:
+        if rate > rate_cap:
             status = "rate_exceeded"
-            raise LauncherError(f"pod {pod_id} costs ${rate}/h > job hourly_usd ${job.hourly_usd}; terminated")
+            raise LauncherError(f"pod {pod_id} costs ${rate}/h > hourly_usd ${rate_cap} for {flavor or job.gpu_type}; "
+                                "terminated")
         deadline = start + timedelta(minutes=job.max_minutes)
         signalled = not job.result_path
+        speed_checked = not median
         while True:
             info = api.get(pod_id)
             if info is None or info.get("desiredStatus") in ("EXITED", "TERMINATED"):
@@ -553,6 +700,19 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
                 signalled = _signal(pod_id, token, resume, send, log)
                 status = "error"
             elif job.result_path:
+                if not speed_checked:
+                    its = _first_its(fetch(proxy_url(pod_id, token, "progress.json"), 1024))
+                    if its is not None:
+                        speed_checked = True
+                        if its < SLOW_HOST_FRACTION * median:
+                            if fits(0.0):
+                                status = "slow_host"
+                                result = {"iters_per_s": its}
+                                log(f"slow host: {its} it/s < {SLOW_HOST_FRACTION} x median {median}; replacing "
+                                    f"{pod_id} once")
+                                break
+                            log(f"slow host: {its} it/s < {SLOW_HOST_FRACTION} x median {median}, but a new pod "
+                                f"would not finish inside {MAX_JOB_MINUTES} min; keeping it")
                 code, raw = fetch(proxy_url(pod_id, token, "status.json"), 1024)
                 if code == 200:
                     status, result = _collect(job, pod_id, token, raw, result_out, fetch, [token, *forbidden], log)
@@ -574,6 +734,17 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
                                    "actual_usd": actual, **result})
             log(f"pod {pod_id} {status}: {hours * 60:.1f} min, ${actual:.4f}")
     return {"status": status, "pod_id": pod_id, "actual_usd": actual, **result}
+
+
+def _first_its(reply: tuple[int, bytes]) -> float | None:
+    code, raw = reply
+    if code != 200:
+        return None
+    try:
+        v = json.loads(raw)["iters_per_s"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
 def _signal(pod_id: str, token: str, resume: bytes | None, send: Send, log) -> bool:
@@ -771,6 +942,9 @@ def main(argv: list[str] | None = None) -> int:
     except BudgetExceeded as e:
         print(e, file=sys.stderr)
         return 2
+    except CapacityExhausted as e:
+        print(e, file=sys.stderr)
+        return 3
     except LauncherError as e:
         print(e, file=sys.stderr)
         return 1
