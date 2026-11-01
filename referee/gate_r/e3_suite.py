@@ -39,8 +39,9 @@ from stalker.e3 import game as G
 from stalker.e3 import translate as T
 
 E3_ITEMS = ("e3_actor", "e3_stacks", "e3_raise", "e3_result", "e3_chips")
-SEATS = (6, 9)
+SEATS = (2, 3, 4, 5, 6, 9)
 QUICK_HANDS = 1000  # per table size; the issue's floor
+SHORT_TABLE_DIVISOR = 4  # 2-5 handed tables (#492) replay hands//4: gate_r_e3 grows ~15s, not ~36s
 AUTO = (A.ANTE_POSTING, A.BET_COLLECTION, A.BLIND_OR_STRADDLE_POSTING, A.CARD_BURNING,
         A.RUNOUT_COUNT_SELECTION, A.HOLE_CARDS_SHOWING_OR_MUCKING, A.HAND_KILLING, A.CHIPS_PUSHING,
         A.CHIPS_PULLING)
@@ -193,18 +194,19 @@ def run_edge_cases(tally: Tally | None = None, cases=EDGE_CASES, seed: int = 412
 def run_e3_suite(hands: int = QUICK_HANDS, seats=SEATS, seed: int = 203) -> Tally:
     tally = tally_for_e3()
     for n in seats:
+        hands_n = hands if n >= 6 else max(1, hands // SHORT_TABLE_DIVISOR)
         rng = np.random.default_rng([seed, n])
-        for h in range(hands):
+        for h in range(hands_n):
             replay_hand(rng, n, tally, f"{n}-max hand {h}")
         rng = np.random.default_rng([seed, n, 396])   # seat-specific 20-250BB stacks: side pots (#396)
-        for h in range(hands):
+        for h in range(hands_n):
             replay_hand(rng, n, tally, f"{n}-max unequal-stack hand {h}", unequal=True)
     return run_edge_cases(tally)
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="python -m referee.gate_r.e3_suite")
-    ap.add_argument("--hands", type=int, default=QUICK_HANDS, help="random hands per table size (6, 9)")
+    ap.add_argument("--hands", type=int, default=QUICK_HANDS, help="random hands per table size (6, 9; 2-5 handed use a quarter)")
     a = ap.parse_args(argv)
     tally = run_e3_suite(a.hands)
     for item, (passed, total) in tally.counts.items():
