@@ -26,7 +26,7 @@ class CFRPlus:
 
     def _current(self, key: str) -> np.ndarray:
         r = self.regret[key]
-        s = r.sum()
+        s = math.fsum(r.tolist())
         return r / s if s > 0 else np.full(len(r), 1.0 / len(r))
 
     def _walk(self, n: Node, player: int, reach_self: float, reach_other: float, t: int) -> float:
@@ -34,8 +34,10 @@ class CFRPlus:
         if n.kind == TERMINAL:
             return n.utility if player == 0 else -n.utility
         if n.kind == CHANCE:
-            return sum(p * self._walk(c, player, reach_self, reach_other * p, t)
-                       for p, c in zip(n.probs, n.children))
+            # math.fsum, not built-in sum: Python 3.12 made sum() of floats compensated, so 3.11
+            # and 3.12 disagreed in the last bits and CFR+ amplified it (#488).
+            return math.fsum(p * self._walk(c, player, reach_self, reach_other * p, t)
+                             for p, c in zip(n.probs, n.children))
         sigma = self._sigma[n.infoset]
         if n.player == player:
             vals = np.array([self._walk(c, player, reach_self * sigma[i], reach_other, t)
@@ -44,8 +46,8 @@ class CFRPlus:
             self._delta[n.infoset] += reach_other * (vals - v)
             self.avg[n.infoset] += t * reach_self * sigma
             return v
-        return sum(sigma[i] * self._walk(c, player, reach_self, reach_other * sigma[i], t)
-                   for i, c in enumerate(n.children))
+        return math.fsum(sigma[i] * self._walk(c, player, reach_self, reach_other * sigma[i], t)
+                         for i, c in enumerate(n.children))
 
     def iterate(self, n: int = 1) -> None:
         for _ in range(n):
@@ -62,7 +64,7 @@ class CFRPlus:
     def average_strategy(self) -> dict[str, list[float]]:
         out = {}
         for k, s in self.avg.items():
-            tot = s.sum()
+            tot = math.fsum(s.tolist())
             out[k] = (s / tot if tot > 0 else np.full(len(s), 1.0 / len(s))).tolist()
         return out
 
