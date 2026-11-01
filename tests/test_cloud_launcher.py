@@ -1083,10 +1083,10 @@ def test_pod_command_copies_job_stderr_to_the_progress_log(tmp_path):
     (tmp_path / "rs").mkdir()
     (tmp_path / "rs" / "signal").write_text("none", encoding="utf-8")
     r = subprocess.run(["bash", "-c", script], env={"PATH": "/usr/bin:/bin", L.TOKEN_ENV: TOKEN}, timeout=30,
-                       check=True, capture_output=True, text=True)
+                       check=True, capture_output=True, text=True, encoding="utf-8")
     assert '"iters_per_s": 99.5' in r.stderr  # still on the job's stderr
     for _ in range(50):  # tee runs in a process substitution; give it a moment to flush
-        if (tmp_path / "rs" / "job.log").exists() and "99.5" in (tmp_path / "rs" / "job.log").read_text():
+        if (tmp_path / "rs" / "job.log").exists() and "99.5" in (tmp_path / "rs" / "job.log").read_text(encoding="utf-8"):
             break
         __import__("time").sleep(0.1)
     assert '"iters_per_s": 99.5' in (tmp_path / "rs" / "job.log").read_text(encoding="utf-8")
