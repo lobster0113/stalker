@@ -21,6 +21,7 @@ blocked: #486·#487(#485), #391(RFC-03), #406·#427(예산, 소유자), #387(기
 - E3 파드(참고, #333·ADR 0017 §8): 고수 NUT5 2.18M회 195,084키 LBR 현재 0.466±0.189 / 평균 0.774. 필드 worst 값은 #374(머지) 이전 기록이라 재계산 전까지 신뢰 불가.
 - 클라우드 지출: 월 $9.45 / $100(실험 025 기록).
 ## 경보
+- **[auditor 11-01, W44]** 무결성 위반 0(머지 206건 모두 같은 sha MERGE, metrics는 CI만 커밋). 경계 사례 #171: 같은 sha에서 순서가 뒤집힌 run의 guard가 failure로 남았다. **최대 비용 = MERGE 판정 후 머지 거부로 정체된 PR(#466·#480)** → 실험 030 #482에 harness-change·ready 부여(builder 착수). main push ci run 60%가 cancelled. CHANGES 비율 50%. E1·Gate F는 주간 내내 평평하다(북극성 Gate A/B/C 미산출). 리포트 `reports/2026-W44.md`.
 - **friction 3회+ (11-01 집계)**: (a) 장시간 CI 체인 이슈가 builder 한 실행에 안 맞음(builder 17:35·builder-b 19:21·22:21) → planner 대응: 측정 이슈는 디스패치/기록 2회 실행 전제로 작성(#487·#479 코멘트). (b) gates quick 로컬 540~846초·25분+(목표 90초, 4회) → area:harness 후보(Auditor). (c) MERGE 판정 후 머지 거부(#482).
 - main CI red(ab1d186·51e7849) → P0 #469 PR #471 머지(52e310a, 정수 코드만 해시). 52e310a push CI 결과 확인 대기. 교훈: float 원바이트 digest 고정 금지; #459 머지 시 CI 확인 누락 의심(Auditor).
 - **PR CI 지표 스냅샷 확인 불가**: record-metrics가 PR run 값을 ops에 안 남기고 로그·아티팩트는 프록시 차단 → "PR CI 지표를 본문에" 기준 검증 불가(reviewer #483 friction, builder #483 후속) → area:harness 후보(스냅샷을 잡 요약/로그에 출력, Auditor). planner: 그 전까지 이런 기준은 이슈에 넣지 않는다.
@@ -46,6 +47,7 @@ blocked: #486·#487(#485), #391(RFC-03), #406·#427(예산, 소유자), #387(기
 - **ready 큐 범람**: 소유자 세션이 외부 리뷰 RFC 10건을 한 번에 ready로 올림 → planner가 선행 미충족분 blocked. 선행이 열린 이슈에 ready를 붙이지 않도록 대화 세션에 권고(후보).
 - NEEDS_HUMAN: NH-3, NH-5, NH-6, NH-7 open (NH-8·NH-9 resolved). 리포 상호작용 제한 2027-04-23 만료.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
-- 001 builder 자가 언블록 (#55 머지 PR #57, 10-25 03:50Z). 측정창: 머지 후 14일. 성공 기준: builder no_work ≤10%(기준 24%), 처리량 80% 이상 유지.
-- 009 planner run_on_merge (#130 PR #131 머지 51686a6, 10-27 12:38Z). 기록: harness/experiments.
-- 015 gates 시간 상한 50분 (#199 PR #200 머지 6508d38, 10-27 18:28Z). 기록: harness/experiments.
+- **030 MERGE 판정 후 머지 재시도 (#482, ready, 11-01 부여).** 측정창: 머지 후 7일. 성공 기준: 판정 후 3시간 넘게 열려 있고 NH 항목도 없는 PR 0건, 같은 sha 정체 friction 3건 이하.
+- 001 builder 자가 언블록 (#55, 10-25 머지). 측정창 11-08 종료. 중간값 no_work 16%(목표 ≤10%, 기준 24%).
+- 009 planner run_on_merge: 잠정 성공(W44). 013 두 번째 리뷰어: 성공(W44, 머지 21→206). 문서에 결과 기록 대기.
+- 015~020·023·024·028: 7일 창 종료, 판정 보류(다음 감사 우선). 나머지(002~008·010~012·014·021·022·025~027·029)는 측정 중. 실험 문서 30개 모두 '진행 중'으로 결과 기록 없음.
