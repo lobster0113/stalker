@@ -9,10 +9,12 @@ from stalker.agents.persona import PRESETS, PRESETS_V2, PersonaAgent, PersonaPar
 from stalker.agents.persona_stats import _Counter, measure_session
 
 TYPES = list(PRESETS_V2)
+# note §9 target WTSD (docs/research/2026-10-30-population-stats.md)
+WTSD = dict(zip(TYPES, (0.21, 0.23, 0.27, 0.28, 0.33, 0.40, 0.35, 0.28)))
 
 
 def test_optional_fields_default_none_and_old_presets_untouched():
-    assert all(dataclasses.astuple(p)[4:] == (None,) * 7 for p in PRESETS.values())
+    assert all(dataclasses.astuple(p)[4:] == (None,) * 10 for p in PRESETS.values())
     assert len(PRESETS_V2) == 8 and PRESETS_V2["tag"].cbet_flop == 0.65 and PRESETS_V2["pro"].fold_river == 0.62
     with pytest.raises(ValueError):
         PersonaParams(0.2, 0.1, 0.5, 0.5, cbet_flop=1.5)
@@ -73,7 +75,7 @@ def test_street_style_within_6pp_of_target_in_mixed_field():
             for key in ("vpip", "pfr"):
                 if abs(getattr(st, key) - getattr(p, key)) > 0.05:
                     bad.append(f"{n} {key}: target {getattr(p, key):.2f} measured {getattr(st, key):.3f}")
-            # WTSD is reported but not asserted: the bot checks down ~70% of showdowns and measures 0.48-0.75 against
-            # the note's 0.21-0.40 (see #518 hand-off); asserting it needs probe/give-up mechanics, a separate issue.
-            assert st.wtsd is not None and 0.0 < st.wtsd < 1.0
-    assert len(seen) == 16 and not bad, bad
+            seen.add((n, "wtsd"))
+            if st.wtsd is None or abs(st.wtsd - WTSD[n]) > 0.06:
+                bad.append(f"{n} wtsd: target {WTSD[n]:.2f} measured {st.wtsd}")
+    assert len(seen) == 24 and not bad, bad
