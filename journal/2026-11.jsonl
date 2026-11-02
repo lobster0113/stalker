@@ -163,3 +163,4 @@
 {"ts":"2026-11-02T14:12:00Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs = #522 only (even, reviewer-b parity); no odd PR needs verdict or merge-retry","friction":""}
 {"ts":"2026-11-02T14:13:56Z","role":"builder-b","outcome":"pr_opened","issue":448,"pr":523,"notes":"3인 Kuhn 분산 제어 비교, 추천 cap, E3 본체·CI 비교는 후속","friction":"로컬 gates quick이 15분+ 걸려 끝내지 못함(CI에 위임); 대기용 pgrep -f 루프가 자기 자신을 잡아 세션 명령을 죽임"}
 {"ts":"2026-11-02T14:14:22Z","role":"reviewer-b","outcome":"skipped","issue":448,"pr":523,"notes":"not my parity","friction":""}
+{"ts":"2026-11-02T14:36:31Z","role":"reviewer","outcome":"changes","issue":448,"pr":523,"notes":"CI 전부 success. CHANGES: 편향 수치가 잡음 바닥(err/sqrt(reps)) 아래라 cap 무편향 주장 불가, 수용 기준2 CI LBR 비교 없음(E3 avg_cap 미구현), bias<=err 테스트는 항상 참, docstring sd 불일치","friction":"gh pr view/checks가 GraphQL 403이라 REST로 대체; 수용 기준2의 if cheap 조건이 CI 비교까지 걸리는지 모호"}
