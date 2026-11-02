@@ -168,6 +168,7 @@ class PersonaAgent(Agent):
         fold = (p.fold_cbet_flop, p.fold_cbet_turn, p.fold_river)[street - 1]
         if street < 3:  # a c-bet: the first bet of the street came from the preflop aggressor
             fold = fold if self._first_bettor.get(len(obs.board)) == self._pf_aggr != obs.seat else None
+            # note: also true when facing a re-raise after that first bet, unlike persona_stats' `fcb` (n == 1 only)
         if fold is not None:  # weak hands carry the whole fold frequency, so the mean hits the target
             # past the weak mass (tight ranges hold few weak hands) the surplus is taken from one-pair hands
             q = fold / wm if s <= _WEAK else (fold - wm) / 0.6 if s < 0.75 else 0.0

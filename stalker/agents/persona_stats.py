@@ -6,6 +6,7 @@ Definitions, per seat over all hands dealt to it:
 - PFR: share of hands where the seat raised preflop at least once.
 - aggression: postflop (bets+raises)/(bets+raises+calls), checks and folds excluded; `None` if the seat never bet/raised/called.
 - flop/turn c-bet: of the times the last preflop raiser acts first-to-bet on that street (nobody bet yet), the share it bets.
+  The turn c-bet includes a delayed bet after the flop was checked through.
 - fold to flop c-bet: of the times a seat faces the preflop raiser's first flop bet (no raise in between), the share it folds.
 - WTSD: of the hands where the seat saw the flop, the share where it showed down.
 Every `None` below means the seat never had the opportunity.

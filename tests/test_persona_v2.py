@@ -69,5 +69,11 @@ def test_street_style_within_6pp_of_target_in_mixed_field():
                 seen.add((n, key))
                 if got is None or abs(got - tgt) > 0.06:
                     bad.append(f"{n} {key}: target {tgt:.2f} measured {got}")
-            assert st.wtsd is not None and 0.0 < st.wtsd < 1.0  # reported, not asserted against the note (see PR)
+            # same tolerance as tests/test_persona.py `_fidelity` at 20k hands
+            for key in ("vpip", "pfr"):
+                if abs(getattr(st, key) - getattr(p, key)) > 0.05:
+                    bad.append(f"{n} {key}: target {getattr(p, key):.2f} measured {getattr(st, key):.3f}")
+            # WTSD is reported but not asserted: the bot checks down ~70% of showdowns and measures 0.48-0.75 against
+            # the note's 0.21-0.40 (see #518 hand-off); asserting it needs probe/give-up mechanics, a separate issue.
+            assert st.wtsd is not None and 0.0 < st.wtsd < 1.0
     assert len(seen) == 16 and not bad, bad
