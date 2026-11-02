@@ -119,3 +119,4 @@
 {"ts":"2026-11-02T03:41:48Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-02T03:30:00Z","role":"builder-b","outcome":"pr_opened","issue":507,"pr":512,"notes":"_seat_probs b1 경로 단일 gather, 비트 불변, quick/full 통과","friction":"quick 게이트가 이 환경에서 18분(목표 90초), 로컬 it/s 전후 측정 불가(0.3 it/s)"}
 {"ts":"2026-11-02T03:45:39Z","role":"reviewer","outcome":"skipped","issue":507,"pr":512,"notes":"not my parity","friction":""}
+{"ts":"2026-11-02T04:10:11Z","role":"reviewer-b","outcome":"changes","issue":507,"pr":512,"notes":"code+tests+CI green; AC4 note misplaced under 다음 and lacks before/after local pair","friction":"cancelled first CI run left a failed gates summary check on same sha, must filter by latest run; pytest not installed in routine container so new test could not be run locally"}
