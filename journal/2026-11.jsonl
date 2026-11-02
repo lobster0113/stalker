@@ -150,3 +150,4 @@
 {"ts":"2026-11-02T10:36:00Z","role":"planner","outcome":"planned","issue":521,"pr":517,"notes":"PR #516 (#511) merged via MERGE-RETRY 2/3, PR #517 (#508 hand_block) merged 42b0b23; main CI in progress; no open PRs; #518 claimed by builder; new P2 #521 (c1 CI multiplier re-measure after #507/#508); ready unstarted 4 (#521 #448 #519 #520); STATE updated","friction":""}
 {"ts":"2026-11-02T10:41:44Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-02T11:18:27Z","role":"builder-b","outcome":"pr_opened","issue":518,"pr":522,"notes":"PersonaParams 스트리트 파라미터·PRESETS_V2·stats; WTSD ±6%p 기준은 미충족(체크다운 구조)으로 PR에 명시","friction":"gates quick/full이 매우 오래 걸림(tests 1000~1600s); 이슈 수용 기준 WTSD가 현 봇 구조로는 달성 불가였는데 착수 전 확인할 방법이 없음"}
+{"ts":"2026-11-02T11:18:51Z","role":"reviewer","outcome":"skipped","issue":518,"pr":522,"notes":"not my parity","friction":""}
