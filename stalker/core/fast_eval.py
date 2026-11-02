@@ -288,6 +288,11 @@ def _equity_segments(w, idx, order, lo, hi, off, acc, cnt):
                 cnt[i] += 1
 
 
+def _equity_segments_batch(w, idxs, orders, los, his, offs, acc, cnt):
+    """`_equity_segments` once per table i (row i of acc/cnt): the same calls back to back, so the bits match (#504)."""
+    for i in range(len(idxs)):
+        _equity_segments(w, idxs[i], orders[i], los[i], his[i], offs[i], acc[i], cnt[i])
+
 
 def _quantile_steps(xl, wl, k, total, out):
     """Quantile steps of the live values `xl` (weights `wl`, sum `total`): groups of equal values
@@ -320,6 +325,7 @@ if HAVE_NUMBA:
     _eval_many = njit(cache=True)(_eval_many)
     _rank_runouts = njit(cache=True)(_rank_runouts)
     _equity_segments = njit(cache=True)(_equity_segments)
+    _equity_segments_batch = njit(cache=True)(_equity_segments_batch)
     _runout_tables = njit(cache=True)(_runout_tables)
     _quantile_steps = njit(cache=True)(_quantile_steps)
 
@@ -352,6 +358,13 @@ def runout_tables(combos: np.ndarray, ok: np.ndarray, fulls: np.ndarray, nb: int
 def equity_segments(w, idx, order, lo, hi, off, acc, cnt) -> None:
     """Compiled range-equity accumulation (#201); plain Python without numba (slow but exact); used by the equity view (#188)."""
     _equity_segments(w, idx, order, lo, hi, off, acc, cnt)
+
+
+def equity_segments_batch(w, tables, acc, cnt) -> None:
+    """`equity_segments` for each (idx, order, lo, hi, off) in `tables` into rows of `acc`/`cnt`, in one compiled call (#504)."""
+    t = tuple(tables)
+    _equity_segments_batch(w, tuple(x[0] for x in t), tuple(x[1] for x in t), tuple(x[2] for x in t),
+                           tuple(x[3] for x in t), tuple(x[4] for x in t), acc, cnt)
 
 
 def quantile_steps(xl: np.ndarray, wl: np.ndarray, k: int, total: float) -> np.ndarray:

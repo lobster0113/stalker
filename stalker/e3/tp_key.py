@@ -301,8 +301,7 @@ def _next_card_eq(board: tuple[int, ...], w: np.ndarray, cards: list[int]) -> np
     else:
         wc = np.ascontiguousarray(w, dtype=np.float64)
         acc, cnt = np.zeros((len(cards), N)), np.zeros((len(cards), N))
-        for i, c in enumerate(cards):
-            fast_eval.equity_segments(wc, *_flat_runouts(board + (c,)), acc[i], cnt[i])
+        fast_eval.equity_segments_batch(wc, [_flat_runouts(board + (c,)) for c in cards], acc, cnt)
         out = np.divide(acc, cnt, out=np.full(acc.shape, 0.5), where=cnt > 0)
         out[_board_dead(board)[None, :] | _HAS_CARD[cards]] = np.nan
     if len(_NEXT_CACHE) >= 64:  # 49 x 1326 floats = ~0.5 MB each (+ the 10 KB key)
