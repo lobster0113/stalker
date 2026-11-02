@@ -40,8 +40,9 @@ class PersonaParams:
     river_bluff_share: float | None = None  # share of the river c-bets made with a weak hand
     # WTSD levers (#526): without them checked-down pots keep WTSD far above the note's targets.
     donk_flop: float | None = None  # bet frequency on the flop when checked to by a non-aggressor (replaces aggression-driven bet)
-    probe_turn: float | None = None  # same on turn and river for a non-aggressor (after the aggressor checked)
-    giveup_weak: float | None = None  # extra fold chance facing a turn/river bet (the flop folds are fold_cbet_flop): any hand below trips (weak, pair, two pair)
+    probe_turn: float | None = None  # same on turn and river for a non-aggressor (checked to, whether or not the aggressor acted before)
+    giveup_weak: float | None = None  # extra fold chance facing a turn/river bet (flop folds are fold_cbet_flop): any hand below trips (weak, pair, two pair).
+    # Taken BEFORE fold_cbet_turn/fold_river, so with it set those two are overridden: measured folds land above them (docs/research/2026-11-persona-wtsd-sweep.md)
 
     def __post_init__(self) -> None:
         for name in ("vpip", "pfr", "aggression", "fold_to_bet", "cbet_flop", "cbet_turn", "cbet_river",

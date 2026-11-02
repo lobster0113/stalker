@@ -55,12 +55,13 @@ def test_counter_by_hand():
     assert (c.opp["cb1"][0], c.hit["cb1"][0]) == (2, 1)
     assert (c.opp["cb2"][0], c.hit["cb2"][0]) == (1, 1)
     assert (c.opp["fcb"][1], c.hit["fcb"][1]) == (1, 1) and c.opp["fcb"][2] == 0
+    assert (c.opp["fct"][1], c.hit["fct"][1]) == (1, 0) and c.opp["fr"][1] == 0   # turn c-bet called, no river action
     assert (c.opp["flop"][0], c.hit["sd"][0], c.hit["sd"][1], c.opp["flop"][2]) == (2, 1, 1, 0)
 
 
 def test_street_style_within_6pp_of_target_in_mixed_field():
     # 8 types over three 6-max tables; seats judged only where the opportunity count is large enough
-    bad, seen = [], set()
+    bad, seen, fold = [], set(), {}
     for gi, grp in enumerate([TYPES[:6], TYPES[2:8], TYPES[:2] + TYPES[4:8]]):
         ss = np.random.SeedSequence(gi).spawn(6)
         agents = [PersonaAgent(PRESETS_V2[n], np.random.default_rng(s)) for n, s in zip(grp, ss)]
@@ -75,7 +76,16 @@ def test_street_style_within_6pp_of_target_in_mixed_field():
             for key in ("vpip", "pfr"):
                 if abs(getattr(st, key) - getattr(p, key)) > 0.05:
                     bad.append(f"{n} {key}: target {getattr(p, key):.2f} measured {getattr(st, key):.3f}")
+            fold.setdefault(n, []).append((st.fold_cbet_turn, st.fold_river))
             seen.add((n, "wtsd"))
             if st.wtsd is None or abs(st.wtsd - WTSD[n]) > 0.06:
                 bad.append(f"{n} wtsd: target {WTSD[n]:.2f} measured {st.wtsd}")
     assert len(seen) == 24 and not bad, bad
+    # giveup_weak overrides fold_cbet_turn/fold_river (docs/research/2026-11-persona-wtsd-sweep.md): the measured folds
+    # sit above their targets, so only guard what the servers rely on: loose types fold clearly less than tight ones, no
+    # type folds almost always (reviewer #531: calling_station must not fold to 61% of turn c-bets above the tight group)
+    mean = {n: tuple(np.mean([f[i] for f in v if f[i] is not None]) for i in (0, 1)) for n, v in fold.items()}
+    loose, tight = ("calling_station", "maniac", "loose_passive"), ("nit", "weak_tight", "tag", "lag", "pro")
+    for i, street in enumerate(("turn", "river")):
+        assert max(mean[n][i] for n in loose) < min(mean[n][i] for n in tight), (street, mean)
+        assert max(mean[n][i] for n in mean) < (0.95, 0.80)[i], (street, mean)
