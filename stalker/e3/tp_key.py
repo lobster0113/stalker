@@ -373,6 +373,31 @@ def equity_steps(s: G.State, seat: int, ranges: list[np.ndarray], k: int, varian
 
 
 _UNIFORM = np.ones(N)
+_C0, _C1 = (np.array(COMBOS)[:, i].copy() for i in (0, 1))   # card index of each combo, built once (#508)
+_C01 = np.concatenate([_C0, _C1])
+_NUT_CACHE: dict[tuple[int, ...], tuple[np.ndarray, np.ndarray]] = {}
+
+
+def _card_mass(m: np.ndarray) -> np.ndarray:
+    """Per card, the mass of the combos holding it: the two `np.add.at` passes (first cards, then second
+    cards) as one `bincount`, which adds in the same index order, so the bits are the same (#508)."""
+    return np.bincount(_C01, weights=np.concatenate([m, m]), minlength=N_CARDS)
+
+
+def _near_nut(board: tuple[int, ...]) -> tuple[np.ndarray, np.ndarray]:
+    """(no board collision, near-nut = top NUT_TOP by equity vs a random hand) per combo; a function of the
+    board alone, so the quantile is taken once per board, not once per node (#508). Read-only arrays."""
+    hit = _NUT_CACHE.get(board)
+    if hit is not None:
+        return hit
+    strength = _equity_cached(board, _UNIFORM)
+    ok = ~np.isnan(strength)
+    top = ok & (strength >= np.quantile(strength[ok], 1 - NUT_TOP))
+    ok.flags.writeable = top.flags.writeable = False
+    if len(_NUT_CACHE) >= 4_096:  # 2 x 1326 bools = ~2.7 KB each: ~11 MB
+        _NUT_CACHE.clear()
+    _NUT_CACHE[board] = (ok, top)
+    return ok, top
 
 
 def board_nut(s: G.State, seat: int, ranges: list[np.ndarray]) -> float | None:
@@ -381,9 +406,7 @@ def board_nut(s: G.State, seat: int, ranges: list[np.ndarray]) -> float | None:
     if s.street == 0 or len(live) != 2:
         return None
     opp = live[0] if live[1] == seat else live[1]
-    strength = _equity_cached(tuple(s.board), _UNIFORM)
-    ok = ~np.isnan(strength)
-    top = ok & (strength >= np.quantile(strength[ok], 1 - NUT_TOP))
+    ok, top = _near_nut(tuple(s.board))
     share = []
     for q in (seat, opp):
         w = ranges[q] * ok
@@ -402,20 +425,15 @@ def hand_block(s: G.State, seat: int, ranges: list[np.ndarray]) -> np.ndarray | 
     """
     if s.street == 0:
         return None
-    strength = _equity_cached(tuple(s.board), _UNIFORM)
-    ok = ~np.isnan(strength)
-    top = ok & (strength >= np.quantile(strength[ok], 1 - NUT_TOP))
-    pair = np.array(COMBOS)
+    ok, top = _near_nut(tuple(s.board))
     out = []
     for q in s.live():
         if q == seat:
             continue
         m = ranges[q] * top
         total = m.sum()
-        card_mass = np.zeros(N_CARDS)
-        np.add.at(card_mass, pair[:, 0], m)
-        np.add.at(card_mass, pair[:, 1], m)
-        r = np.where(ok, (card_mass[pair[:, 0]] + card_mass[pair[:, 1]] - m) / total, np.nan) if total > 0 else np.zeros(N)
+        card_mass = _card_mass(m)
+        r = np.where(ok, (card_mass[_C0] + card_mass[_C1] - m) / total, np.nan) if total > 0 else np.zeros(N)
         avg = np.nanmean(np.where(ok, r, np.nan))
         den = r + avg
         out.append(np.where(den > 0, 100.0 * r / np.where(den > 0, den, 1.0), 50.0))
@@ -440,13 +458,10 @@ def hand_outs_vuln(s: G.State, seat: int, ranges: list[np.ndarray]) -> tuple[np.
         return None
     opps = [q for q in s.live() if q != seat]
     now = _multi_eq(board, opps, ranges)
-    pair = np.array(COMBOS)
     free = np.ones(N_CARDS)
     for q in opps:
         mass = ranges[q] * ~np.isnan(_equity_cached(board, _UNIFORM))
-        by_card = np.zeros(N_CARDS)
-        np.add.at(by_card, pair[:, 0], mass)
-        np.add.at(by_card, pair[:, 1], mass)
+        by_card = _card_mass(mass)
         free = free * (1.0 - by_card / mass.sum() if mass.sum() > 0 else 1.0)
     cards = [c for c in range(N_CARDS) if c not in board]
     nxt = np.ones((len(cards), N))
