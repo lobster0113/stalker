@@ -5,6 +5,10 @@ Definitions, per seat over all hands dealt to it:
   the big blind's free check does not count).
 - PFR: share of hands where the seat raised preflop at least once.
 - aggression: postflop (bets+raises)/(bets+raises+calls), checks and folds excluded; `None` if the seat never bet/raised/called.
+- flop/turn c-bet: of the times the last preflop raiser acts first-to-bet on that street (nobody bet yet), the share it bets.
+- fold to flop c-bet: of the times a seat faces the preflop raiser's first flop bet (no raise in between), the share it folds.
+- WTSD: of the hands where the seat saw the flop, the share where it showed down.
+Every `None` below means the seat never had the opportunity.
 """
 from __future__ import annotations
 
@@ -24,6 +28,10 @@ class SeatStats:
     vpip: float
     pfr: float
     aggression: float | None
+    cbet_flop: float | None = None
+    cbet_turn: float | None = None
+    fold_cbet_flop: float | None = None
+    wtsd: float | None = None
 
 
 class _Counter:
@@ -33,31 +41,74 @@ class _Counter:
         self.pfr = [0] * seats
         self.aggr = [0] * seats
         self.calls = [0] * seats
+        self.opp = {k: [0] * seats for k in ("cb1", "cb2", "fcb", "flop")}
+        self.hit = {k: [0] * seats for k in ("cb1", "cb2", "fcb", "sd")}
+        self._new_hand()
+
+    def _new_hand(self) -> None:
         self._vpip_in: set[int] = set()
         self._pfr_in: set[int] = set()
+        self._aggr: int | None = None  # last preflop raiser
+        self._bets: dict[int, int] = {}  # street (board size 0/3/4/5) -> bets/raises so far
+        self._first: dict[int, int] = {}  # street -> first bettor
+        self._players: set[int] = set()
+        self._folded_pre: set[int] = set()
+        self._flop = False
+        self._showdown: set[int] = set()
 
     def __call__(self, event: Event) -> None:
         d = event.data
         if event.type == "NEW_HAND":
-            self._vpip_in, self._pfr_in = set(), set()
+            self._new_hand()
             for s in d["seat_players"]:
                 self.hands[s] += 1
+                self._players.add(s)
         elif event.type == "ACTION":
-            seat, kind = d["seat"], d["action"]
-            if d["street"] == 0:
+            seat, kind, street = d["seat"], d["action"], d["street"]
+            if street > 0:
+                self._flop = True
+                self._postflop_action(seat, kind, street)
+            elif kind == "fold":
+                self._folded_pre.add(seat)
+            if street == 0:
                 if kind == "raise":
                     self._pfr_in.add(seat)
+                    self._aggr = seat
                 if kind == "raise" or (kind == "call" and d["amount"] > 0):
                     self._vpip_in.add(seat)
             elif kind == "raise":
                 self.aggr[seat] += 1
             elif kind == "call" and d["amount"] > 0:
                 self.calls[seat] += 1
+        elif event.type == "SHOWDOWN":
+            self._showdown = set(d["hands"])
+            self._flop = self._flop or len(d["board"]) >= 3
         elif event.type == "HAND_END" and "deltas" in d:
+            if self._flop:
+                for s in self._players - self._folded_pre:
+                    self.opp["flop"][s] += 1
+                    self.hit["sd"][s] += s in self._showdown
             for s in self._vpip_in:
                 self.vpip[s] += 1
             for s in self._pfr_in:
                 self.pfr[s] += 1
+
+    def _postflop_action(self, seat: int, kind: str, street: int) -> None:
+        n = self._bets.get(street, 0)
+        if n == 0 and self._aggr == seat and street <= 4:  # first to bet on the street: a c-bet chance
+            key = f"cb{street - 2}"
+            self.opp[key][seat] += 1
+            self.hit[key][seat] += kind == "raise"
+        elif n == 1 and street == 3 and self._first.get(3) == self._aggr and seat != self._aggr:
+            self.opp["fcb"][seat] += 1  # faces the flop c-bet with no raise in between
+            self.hit["fcb"][seat] += kind == "fold"
+        if kind == "raise":
+            self._bets[street] = n + 1
+            self._first.setdefault(street, seat)
+
+
+def _rate(c: _Counter, opp: str, hit: str, s: int) -> float | None:
+    return c.hit[hit][s] / c.opp[opp][s] if c.opp[opp][s] else None
 
 
 def measure_session(agents: Sequence[Agent], hands: int, seed: int, preset_name: str = "cash_6max_100bb") -> list[SeatStats]:
@@ -69,5 +120,7 @@ def measure_session(agents: Sequence[Agent], hands: int, seed: int, preset_name:
     for s in range(cfg.seats):
         n = counter.aggr[s] + counter.calls[s]
         out.append(SeatStats(counter.hands[s], counter.vpip[s] / counter.hands[s], counter.pfr[s] / counter.hands[s],
-                             counter.aggr[s] / n if n else None))
+                             counter.aggr[s] / n if n else None, _rate(counter, "cb1", "cb1", s),
+                             _rate(counter, "cb2", "cb2", s), _rate(counter, "fcb", "fcb", s),
+                             _rate(counter, "flop", "sd", s)))
     return out
