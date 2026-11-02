@@ -122,10 +122,13 @@ class E3MCCFR:
     def _seat_probs(self, public: str, steps: np.ndarray, m: int) -> np.ndarray:
         # One strategy row per equity step, gathered per combo; board collisions (-1) get zeros.
         if steps.max() >= self.k:  # pro heads-up postflop: steps carry board.nut (tp_key.NUT_BASE)
-            out = np.zeros((len(steps), m))
-            for v in np.unique(steps[steps >= 0]):
-                out[steps == v] = self._range_row(K.key(public, int(v)), m)
-            return out
+            # one row per distinct value, then a single gather (no per-value mask pass)
+            vals, inv = np.unique(steps, return_inverse=True)
+            first = int(np.searchsorted(vals, 0))   # vals[:first] are the -1 collisions
+            table = np.zeros((len(vals), m))
+            for j in range(first, len(vals)):
+                table[j] = self._range_row(K.key(public, int(vals[j])), m)
+            return table[inv.reshape(-1)]
         table = np.array([self._range_row(K.key(public, v), m) for v in range(self.k)])
         out = table[np.maximum(steps, 0)]
         out[steps < 0] = 0.0
