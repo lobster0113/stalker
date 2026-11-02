@@ -30,5 +30,6 @@
 
 ## 4. 추천과 후속
 - **추천: cap, c≈2~8.** 구현이 한 줄(`min(1/Π, c)`)이고 상태가 없다. `E3Sampler(avg_cap=)`로 장난감에는 들어갔다(`avg_cap=None`이면 기존과 비트 동일, 테스트).
-- E3 본체(`E3MCCFR`)에는 넣지 않았다. **구체적 비용**: (a) `avg_cap`은 `E3MCCFR.__init__`·`state`(체크포인트 version 7 신설, cap 다른 재개 거부)·`from_state`·`parallel.py` 인자 튜플(16번째 값)·`pod_train`의 `want` 비교와 CLI·`train_jobs` 입력·각 테스트(기본 None이면 해시 비트 동일)까지 8곳이다. (b) LBR 시드 간 sd(0.40 vs 0.19) 비교는 같은 설정으로 시드 ≥5개 × 2~3개 팔(own, cap2, cap8)의 6인 mid E3 학습을 CI에서 돌려야 하고, 한 번에 수 시간이 걸려 한 번의 builder 실행 안에서 판정까지 받을 수 없다. 이 PR은 장난감 근거와 추천까지로 하고, 아래 후속으로 쪼갠다 — 리뷰어가 수용 기준 2를 분할로 인정하지 않으면 PR은 미달로 남는다.
-- 후속 이슈 제안: ① `avg_cap`을 E3에 추가(체크포인트 version 7, 위 8곳, 테스트) ② 같은 시드 6인 mid에서 own vs own+cap(c=2,8)의 `lbr_average_bb_by_seed` 시드 간 sd를 CI로 비교(①에 의존) ③ 3인 Leduc 장난감 추가.
+- **E3 본체에 넣었다(#448, 이 PR).** `E3MCCFR(avg_cap=)`: `avg_rule="own"`일 때만, `min(1/Π, c)`로 자른다. 체크포인트 version 7(`avg_cap`, 다른 cap 재개 거부, 다른 옵션 필드도 같이 실음), `parallel.py` 워커 인자, `train_jobs`(`avg_cap` 인자, 결과 `avg_cap`), 기본 `None`이면 체크포인트·해시가 기존과 비트 동일(`tests/test_e3_avg_rule.py`). 파드(`pod_train`)는 미지원.
+- **CI 비교는 머지 후에만 돌릴 수 있다**: `train.yml`은 `workflow_dispatch`로 `ref main`에서만 돌기 때문에 avg_cap 학습 잡은 이 PR이 머지된 뒤에야 실행된다. 잡 `e3-tp-mid-ownavg-cap2-w4`·`e3-tp-mid-ownavg-cap8-w4`가 `e3-tp-mid-ownavg-w4`와 `avg_cap`만 다르다. **측정 결과(run id, 시드별 `lbr_average_bb_by_seed`, 시드 간 sd): 미측정** — 머지 후 디스패치해 이 절에 기록한다(후속 ②).
+- 후속: ② 같은 시드 6인 mid에서 own vs own+cap(c=2,8)의 `lbr_average_bb_by_seed` 시드 간 sd를 CI로 비교, ③ 3인 Leduc 장난감 추가.

@@ -67,7 +67,9 @@ class E3MCCFR:
     def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
                  raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY,
                  avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-                 player_mix: tuple[int, ...] = ()):
+                 player_mix: tuple[int, ...] = (), avg_cap: float | None = None):
+        if avg_cap is not None and (avg_rule != "own" or not avg_cap >= 1):
+            raise ValueError(f"avg_cap={avg_cap!r}: needs avg_rule 'own' and a cap >= 1 (#448)")
         player_mix = tuple(int(x) for x in player_mix)
         if player_mix and not all(2 <= x <= 9 for x in player_mix):
             raise ValueError(f"player_mix counts must be 2..9, got {player_mix}")
@@ -82,6 +84,7 @@ class E3MCCFR:
         if avg_rule not in AVG_RULES:
             raise ValueError(f"avg_rule must be one of {AVG_RULES}, got {avg_rule!r}")
         self.avg_rule = avg_rule
+        self.avg_cap = avg_cap   # #448: clips the 'own' weight 1/prod(other reach); None = unclipped (every earlier run)
         self.rng = np.random.default_rng(seed)
         self.k, self.n, self.depth = k, n, depth
         self.menu, self.raise_cap = menu, raise_cap   # game rules (#339); v1 + cap 3 is every earlier run
@@ -172,7 +175,8 @@ class E3MCCFR:
         if self.avg_rule == "legacy":
             self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
             return self._walk(*child(i), trav, reach)
-        w = self.iterations / math.prod(r for m, r in enumerate(reach) if m != p and m != trav)
+        inv = 1 / math.prod(r for m, r in enumerate(reach) if m != p and m != trav)
+        w = self.iterations * (inv if self.avg_cap is None else min(inv, self.avg_cap))
         self.avg[key] = (avg if avg is not None else 0) + w * sigma
         nxt = reach.copy()
         nxt[p] *= float(sigma[i])
@@ -204,6 +208,10 @@ class E3MCCFR:
             st.update(version=6, player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
                       ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()})
+        if self.avg_cap is not None:   # version 7 (#448): code that predates it would resume this with unclipped weights
+            st.update(version=7, avg_cap=self.avg_cap, player_mix=list(self.player_mix), stacks=self.stacks,
+                      key_variant=self.key_variant, ranges=self.ranges, range_every=self.range_every,
+                      snap_at=self.snap_at, snap={k: v.tolist() for k, v in self.snap.items()})
         if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
             st["key_version"] = K.KEY_VERSIONS[self.key_variant]
         return st
@@ -214,13 +222,20 @@ class E3MCCFR:
 
     @classmethod
     def from_state(cls, st: dict, avg_rule: str | None = None,
-                   player_mix: tuple[int, ...] | None = None) -> "E3MCCFR":
-        """`avg_rule` / `player_mix`, if given, are what the caller means to continue with; a checkpoint of
-        another is refused."""
-        if st.get("version") not in (1, 2, 3, 4, 5, 6):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 6")
+                   player_mix: tuple[int, ...] | None = None, avg_cap: float | None = None) -> "E3MCCFR":
+        """`avg_rule` / `player_mix` / `avg_cap`, if given, are what the caller means to continue with; a
+        checkpoint of another is refused."""
+        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 7")
+        cap = st.get("avg_cap")
+        if (cap is not None) != (st["version"] == 7):
+            raise ValueError(f"checkpoint version {st['version']} with avg_cap {cap!r}: a capped-average "
+                             "checkpoint is version 7 and only it has an avg_cap")
+        if avg_cap is not None and avg_cap != cap:
+            raise ValueError(f"checkpoint average strategy was clipped at avg_cap {cap!r}, not {avg_cap!r} (#448); "
+                             "resume it with its own cap or start a fresh run")
         mix = tuple(st.get("player_mix", ()))
-        if bool(mix) != (st["version"] == 6):
+        if bool(mix) != (st["version"] == 6) and st["version"] != 7:
             raise ValueError(f"checkpoint version {st['version']} with player_mix {list(mix)}: a mixed-player "
                              "checkpoint is version 6 and only it has a player_mix")
         if player_mix is not None and tuple(player_mix) != mix:
@@ -243,7 +258,7 @@ class E3MCCFR:
                              f"{K.KEY_VERSIONS[kv]} (#400) - its keys mean other things, start a fresh run")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
                 st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""),
-                st.get("stacks", "uniform"), mix)
+                st.get("stacks", "uniform"), mix, cap)
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
@@ -310,11 +325,12 @@ def main(argv=None) -> int:
     ap.add_argument("--stacks", choices=STACKS, default="uniform", help="sampled: 20-250BB tables (#399)")
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
     ap.add_argument("--avg-rule", choices=AVG_RULES, default="legacy")
+    ap.add_argument("--avg-cap", type=float, default=None, help="clip the 'own' average weight at this (#448)")
     ap.add_argument("--player-mix", type=parse_mix, default=(), help="per-hand player counts, e.g. 2,3,4,5,6 (#486)")
     a = ap.parse_args(argv)
     m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier], a.menu,
                 None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every, a.avg_rule, a.key_variant,
-                a.stacks, a.player_mix)
+                a.stacks, a.player_mix, a.avg_cap)
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0
