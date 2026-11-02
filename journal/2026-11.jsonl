@@ -140,3 +140,4 @@
 {"ts":"2026-11-02T07:38:00Z","role":"builder-b","outcome":"waiting_ci","issue":491,"pr":null,"notes":"claimed #491, redispatched mixn pod32 after #513 fix -> run 41406758360","friction":"quick gate exceeded 120s tool timeout on first call (ran in background); not awaited"}
 {"ts":"2026-11-02T07:45:00Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-02T08:42:06Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
+{"ts":"2026-11-02T09:01:32Z","role":"builder-b","outcome":"pr_opened","issue":511,"pr":516,"notes":"ADR 0019 §4.2 비용 식에 P(3.27배) 추가, 문서만","friction":"gates quick 로컬 1147초(목표 90초); 기본 설치에 pytest 없어 pip install 후 재실행"}
