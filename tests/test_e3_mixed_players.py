@@ -154,7 +154,9 @@ def test_parallel_workers_deal_the_mix():
 def test_pod_job_trains_the_mix_for_90_minutes_and_passes_the_budget_check():
     job = L.load_spec(ROOT / "jobs" / "e3-tp-mid-c1-mixn-pod32.yaml")
     args = shlex.split(job.command.split("python3 -m stalker.tools.pod_train", 1)[1])
+    # 16 workers, not 32: 32 copies of the mixed-n table ran out of cpu3c's 64 GB (#491, exit 137 at 74.8 min)
     want = {"--tier": "mid", "--players": "6", "--player-mix": "2,3,4,5,6", "--minutes": "90", "--menu": "real",
+            "--workers": "16",
             "--ranges": "average", "--avg-rule": "own", "--key-variant": "c1", "--stacks": "sampled"}
     assert {k: args[args.index(k) + 1] for k in want} == want and "--no-raise-cap" in args
     assert '${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}' in job.command

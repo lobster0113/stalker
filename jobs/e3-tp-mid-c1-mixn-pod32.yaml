@@ -4,9 +4,12 @@
 # 90 minutes of training, then the CI evaluation at 6 players (the evaluators are n-fixed, #384). Dispatch after the
 # PR merges; it resumes only a result of the same job, key version and mix (resume_run=<previous cloud.yml run id>).
 # Worst case = hourly_usd * max_minutes / 60 = $3.40 (90 min training + the 80 min margin of e3-tp-mid-c1-pod32). Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
+# #491: 32 workers OOM'd on cpu3c 64 GB - exit 137 at 74.8 min (run 41406758360, after #513), exit 1 at 17/28 min
+# before #513. Each worker holds a copy of the growing table (~3 GB at 5M keys, docs/research/2026-10-e3-tp-keys.md #513),
+# so 16 workers on the same 32 vCPU pod: about half the copies and half the keys at 90 min, same worst-case $.
 name: e3-tp-mid-c1-mixn-pod32
 image: python:3.12-slim
-command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 6 --player-mix 2,3,4,5,6 --workers 32 --minutes 90 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --stacks sampled --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-mixn-pod32.json
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 6 --player-mix 2,3,4,5,6 --workers 16 --minutes 90 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --stacks sampled --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-mixn-pod32.json
 cpu_flavor: cpu3c
 vcpu: 32
 disk_gb: 10
