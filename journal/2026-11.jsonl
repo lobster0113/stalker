@@ -113,3 +113,4 @@
 {"ts":"2026-11-02T01:46:27Z","role":"planner","outcome":"planned","issue":503,"pr":510,"notes":"PR #510 (#503 c1 CI re-measure 3.27x, chain $700-1651 > $660) merged; #503 labels cleaned; NH-11 unchanged; new ready #511 (P3 ADR 0019 cost formula per-iter factor); ready unstarted 4; STATE updated","friction":""}
 {"ts":"2026-11-02T02:11:07Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #509 (odd, reviewer parity); no even PRs","friction":""}
 {"ts":"2026-11-02T02:12:25Z","role":"reviewer-b","outcome":"skipped","issue":500,"pr":509,"notes":"not my parity","friction":""}
+{"ts":"2026-11-02T02:26:19Z","role":"builder","outcome":"changes","issue":500,"pr":509,"notes":"CHANGES 해결: 빈 테이블로 프리플랍 전부 폴드하던 무의미 테스트를 check/call 정책으로 바꿔 postflop_decisions=9·chosen=0에서 off==plain·c1==기본 key를 실제 검증(30607c8)","friction":"gates quick 로컬 922초(목표 90초), 첫 시도 500초 timeout으로 종료돼 재실행 필요"}
