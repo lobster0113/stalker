@@ -25,22 +25,69 @@ import numpy as np
 from stalker.e3.mccfr import E3MCCFR
 
 
+_SEP = "\x1f"
+
+
+def pack_regret(regret: dict[str, np.ndarray]) -> tuple[str, np.ndarray, np.ndarray]:
+    """Regret table as (keys joined by _SEP, row lengths, one flat float64 array): no per-key Python
+    object crosses the process boundary, and the worker keeps one float64 array instead of a second
+    dict of copies (#513)."""
+    keys = list(regret)
+    if any(_SEP in key for key in keys):
+        raise ValueError(f"regret key contains the separator {_SEP!r}; pick another in parallel._SEP")
+    lens = np.fromiter((len(r) for r in regret.values()), dtype=np.int64, count=len(keys))
+    flat = np.concatenate(list(regret.values())) if keys else np.zeros(0)
+    return _SEP.join(keys), lens, np.ascontiguousarray(flat, dtype=np.float64)
+
+
+class _Overlay(dict):
+    """Worker-side regret table: read-only flat base plus a dict of the rows this worker touched.
+
+    Only rows the traverser updates are copied (`setdefault`); `get` returns a read-only view. The base is
+    never written, so the parent's `r - base` delta is just `touched - base`."""
+
+    def __init__(self, keys: str, lens: np.ndarray, flat: np.ndarray):
+        super().__init__()
+        ends = np.cumsum(lens)
+        flat.flags.writeable = False  # reads hand out views of it; only setdefault copies
+        self.flat = flat
+        self.ends, self.lens = ends, lens
+        self.rows = {key: i for i, key in enumerate(keys.split(_SEP) if len(lens) else [])}  # key -> row number
+
+    def base(self, key: str):
+        i = self.rows.get(key)
+        return None if i is None else self.flat[self.ends[i] - self.lens[i]:self.ends[i]]
+
+    def get(self, key, default=None):
+        r = dict.get(self, key)
+        if r is None:
+            r = self.base(key)
+        return default if r is None else r
+
+    def setdefault(self, key, default=None):
+        r = dict.get(self, key)
+        if r is None:
+            b = self.base(key)
+            r = dict.setdefault(self, key, default if b is None else b.copy())
+        return r
+
+
 def _work(args) -> tuple[dict, dict, dict, int, float]:
     k, n, depth, menu, raise_cap, blob, iterations, seed, iters, ranges, snap_blob, avg_rule, key_variant, stacks, mix = args
-    regret = pickle.loads(blob)
+    regret = _Overlay(*pickle.loads(blob))
     m = E3MCCFR(0, k, n, depth, menu, raise_cap, ranges, avg_rule=avg_rule, key_variant=key_variant,
                 stacks=stacks, player_mix=mix)
     if snap_blob is not None:
-        m.snap, m.snap_frozen = pickle.loads(snap_blob), True
+        m.snap, m.snap_frozen = _Overlay(*pickle.loads(snap_blob)), True  # read-only: only .get is used
     m.rng = np.random.default_rng(seed)
-    m.regret = {key: r.copy() for key, r in regret.items()}
+    m.regret = regret
     m.iterations = iterations
     t0 = time.perf_counter()
     m.iterate(iters)
     compute = time.perf_counter() - t0
     delta = {}
-    for key, r in m.regret.items():
-        base = regret.get(key)
+    for key, r in dict.items(regret):
+        base = regret.base(key)
         d = r if base is None else r - base
         if base is None or d.any():
             delta[key] = d
@@ -78,14 +125,14 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
         left = iters
         while left > 0:
             if m.refresh_snapshot() or (m.ranges == "average" and snap_blob is None):
-                snap_blob = pickle.dumps(m.snap, protocol=pickle.HIGHEST_PROTOCOL)
+                snap_blob = pickle.dumps(pack_regret(m.snap), protocol=pickle.HIGHEST_PROTOCOL)
             chunk = min(left, workers * batch)
             shares = [s for s in split(chunk, workers) if s > 0]
             seeds = m.rng.integers(0, 2**63, size=len(shares))
             t0 = time.perf_counter()
             # One pickle of the snapshot per batch, not one per worker: at 32 workers and a pro-sized
             # table the per-job pickling in the pool's single feeder thread was the serial part (#333).
-            blob = pickle.dumps(m.regret, protocol=pickle.HIGHEST_PROTOCOL)
+            blob = pickle.dumps(pack_regret(m.regret), protocol=pickle.HIGHEST_PROTOCOL)
             jobs = [(m.k, m.n, m.depth, m.menu, m.raise_cap, blob, m.iterations, int(sd), s, m.ranges, snap_blob,
                      m.avg_rule, m.key_variant, m.stacks, m.player_mix)
                     for sd, s in zip(seeds, shares)]
