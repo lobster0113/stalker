@@ -67,16 +67,22 @@ def _counted_lbr(monkeypatch, variant, policy, extra_sizes, seats=(0, 3, 5), han
     return r, cnt
 
 
+def _check_or_call(key, acts):
+    """Never folds and never bets: the LBR seat reaches postflop, but nobody bets into it, so no extra size exists."""
+    w = np.array([1.0 if a in ("c", "k") else 0.0 for a in acts])
+    return w / w.sum()
+
+
 @pytest.mark.slow
 def test_c1_off_menu_lbr_matches_default_key_and_plain_lbr_without_extras(monkeypatch):
-    uniform = {}    # an empty table: every key reads uniform, so only the key path can differ
     out = {}
     for variant in ("", "c1"):
-        plain, _ = _counted_lbr(monkeypatch, variant, uniform, False)
-        off, cnt = _counted_lbr(monkeypatch, variant, uniform, True)
+        plain, _ = _counted_lbr(monkeypatch, variant, _check_or_call, False, seats=(5,), hands=3)
+        off, cnt = _counted_lbr(monkeypatch, variant, _check_or_call, True, seats=(5,), hands=3)
+        assert cnt["postflop_decisions"] > 0, f"{variant!r}: the LBR seat never reached postflop: {cnt}"
+        assert cnt["chosen"] == 0, f"{variant!r}: nobody bets, yet an extra size was chosen: {cnt}"
+        assert off == plain, f"{variant!r}: no extra size chosen, so the two LBRs must be the same deals"
         out[variant] = (plain["lbr_bb"], off["lbr_bb"], dict(cnt))
-        if cnt["chosen"] == 0:
-            assert off == plain, f"{variant!r}: no extra size chosen, so the two LBRs must be the same deals"
     assert out[""] == out["c1"], f"c1 changed the off-menu LBR path for a key-independent policy: {out}"
 
 
