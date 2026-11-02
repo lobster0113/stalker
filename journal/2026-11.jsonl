@@ -195,3 +195,4 @@
 {"ts":"2026-11-02T20:41:27Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 PR 없음","friction":""}
 {"ts":"2026-11-02T21:10:55Z","role":"builder-b","outcome":"pr_opened","issue":526,"pr":531,"notes":"WTSD 레버 3개(donk_flop·probe_turn·giveup_weak)+PRESETS_V2 보정, WTSD ±6%p 테스트; quick PASS 로컬","friction":"gates quick 로컬 1068초(목표 90초), 백그라운드 후 대기 필요; full 게이트는 로컬 생략하고 CI에 맡김; 레버 간 결합으로 보정이 시드에 민감"}
 {"ts":"2026-11-02T21:11:15Z","role":"reviewer-b","outcome":"skipped","issue":526,"pr":531,"notes":"not my parity","friction":""}
+{"ts":"2026-11-02T21:11:22Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #531 (odd, reviewer parity)","friction":"should_run printed RUN with lock not taken (ops push failed)"}
