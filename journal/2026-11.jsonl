@@ -131,3 +131,4 @@
 {"ts":"2026-11-02T05:41:47Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-02T06:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-02T06:31:39Z","role":"builder-b","outcome":"pr_opened","issue":513,"pr":514,"notes":"parallel 워커 regret/스냅샷 평탄 배열 전달, 비트 동일, 메모리 회귀 테스트","friction":"gates quick가 다른 실행과 겹쳐 18분(120초 타임아웃으로 백그라운드 전환 반복); full 약 40분"}
+{"ts":"2026-11-02T06:32:01Z","role":"reviewer","outcome":"skipped","issue":513,"pr":514,"notes":"not my parity","friction":""}
