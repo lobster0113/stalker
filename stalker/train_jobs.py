@@ -27,6 +27,11 @@ E3_LBR_HANDS = 1000
 # E3 field deals per configuration (each played in all 6 seat rotations): 500 locally gave a 95% CI of
 # about +-150 bb/100 (#295); about 0.08 s per deal per configuration, so 9 configs x 1000 is ~12 min.
 E3_FIELD_HANDS = 1000
+# #534: a player-mix model is also measured at each other table size it was dealt (2-5). Locally (reference
+# only) LBR over seats 2-5 costs ~1.2x one 6-seat LBR per hand and the 2-5 fields ~1.1x the 6-max field per
+# deal, so 600 / 500 add ~60% to the E3 evaluation (bound: 2x, #534).
+E3_BY_PLAYERS_LBR_HANDS = 600
+E3_BY_PLAYERS_FIELD_HANDS = 500
 # Iterations per worker between syncs (#318): ~1 min of E3 work at CI speed, so pickling the regrets
 # (tens of thousands of keys) stays small next to the work.
 E3_SYNC_BATCH = 500
@@ -248,7 +253,9 @@ def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
 def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) -> dict:
     """The CI E3 evaluation of a trained model: LBR of both policies, coverage, field (6-max only).
     Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare.
-    `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation)."""
+    `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation).
+    A player-mix model (#486) also gets `by_players` (#534): per dealt table size, LBR of both policies
+    and the field of that size (`referee.e3.field.load_players`); `m.n` reuses the top-level numbers."""
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3 import game as G
@@ -269,10 +276,34 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
         cov = coverage(m)
         t2 = time.monotonic()
         field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if m.n == 6 else None
-    return {"field": field, "field_seconds": round(time.monotonic() - t2, 1), "infosets": len(m.regret),
-            "coverage": cov, "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_offmenu": offmenu,
-            "lbr_seconds": round(t2 - t1, 1),
-            "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
+        t3 = time.monotonic()
+        out = {"field": field, "field_seconds": round(t3 - t2, 1), "infosets": len(m.regret),
+               "coverage": cov, "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_offmenu": offmenu,
+               "lbr_seconds": round(t2 - t1, 1),
+               "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
+        if getattr(m, "player_mix", ()):
+            out["by_players"] = _by_players(m, seed, avg, cur, out, t3 - t1)
+    return out
+
+
+def _by_players(m, seed: int, avg: dict, cur: dict, top: dict, top_seconds: float) -> dict:
+    """#534: LBR (both policies) and field per table size of a player-mix model, under the caller's rules."""
+    from referee.e3.field import evaluate as field_eval
+    from referee.e3.lbr import exploitability_lb
+
+    rows = {}
+    for n in sorted(set(m.player_mix)):
+        if n == m.n and top["field"] is not None:
+            rows[str(n)] = {"lbr": top["lbr"], "lbr_average": top["lbr_average"], "field": top["field"],
+                            "seconds": round(top_seconds, 1)}
+            continue
+        t = time.monotonic()
+        lbr = {k: exploitability_lb(pol, E3_BY_PLAYERS_LBR_HANDS, seed=10_000 + seed, k=m.k, n=n, depth=m.depth)
+               for k, pol in (("average", avg), ("current", cur))}
+        field = field_eval(cur, E3_BY_PLAYERS_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth, players=n)
+        rows[str(n)] = {"lbr": lbr["current"], "lbr_average": lbr["average"], "field": field,
+                        "seconds": round(time.monotonic() - t, 1)}
+    return rows
 
 
 def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:

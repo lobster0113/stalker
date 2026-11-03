@@ -1,0 +1,54 @@
+{
+ "version": 3,
+ "note": "Short-handed tables for player-mix models (#534). 6 players keep field_v2.json (its results do not move); this file holds 2-5 players, each with n-1 opponents per config: one table per single persona style, two mixed tables from 3 players (heads-up has one opponent, so every 2-player config is a single style; pro1 stands in for the regs mix), uniform, a champion table and the all-self sanity table. The registered champions were trained 6-handed, so their configs are reported as skipped here until a short-handed champion is registered. The sha256 of this file is recorded with every result; add a new version instead of editing.",
+ "champions": "champions/champions_v1.json",
+ "tables": {
+  "2": {"configs": [
+   {"name": "tag1", "opponents": ["tag"]},
+   {"name": "lag1", "opponents": ["lag"]},
+   {"name": "nit1", "opponents": ["nit"]},
+   {"name": "station1", "opponents": ["calling_station"]},
+   {"name": "maniac1", "opponents": ["maniac"]},
+   {"name": "pro1", "opponents": ["high_stakes_pro"]},
+   {"name": "uniform1", "opponents": ["uniform"]},
+   {"name": "champion_mid1", "opponents": ["champion:mid-40851654734"]},
+   {"name": "self1", "opponents": ["self"]}
+  ]},
+  "3": {"configs": [
+   {"name": "tag2", "opponents": ["tag", "tag"]},
+   {"name": "lag2", "opponents": ["lag", "lag"]},
+   {"name": "nit2", "opponents": ["nit", "nit"]},
+   {"name": "station2", "opponents": ["calling_station", "calling_station"]},
+   {"name": "maniac2", "opponents": ["maniac", "maniac"]},
+   {"name": "mixed_styles", "opponents": ["tag", "calling_station"]},
+   {"name": "mixed_regs", "opponents": ["high_stakes_pro", "lag"]},
+   {"name": "uniform2", "opponents": ["uniform", "uniform"]},
+   {"name": "champion_mid2", "opponents": ["champion:mid-40851654734", "champion:mid-40851654734"]},
+   {"name": "self2", "opponents": ["self", "self"]}
+  ]},
+  "4": {"configs": [
+   {"name": "tag3", "opponents": ["tag", "tag", "tag"]},
+   {"name": "lag3", "opponents": ["lag", "lag", "lag"]},
+   {"name": "nit3", "opponents": ["nit", "nit", "nit"]},
+   {"name": "station3", "opponents": ["calling_station", "calling_station", "calling_station"]},
+   {"name": "maniac3", "opponents": ["maniac", "maniac", "maniac"]},
+   {"name": "mixed_styles", "opponents": ["tag", "lag", "calling_station"]},
+   {"name": "mixed_regs", "opponents": ["high_stakes_pro", "tag", "loose_passive"]},
+   {"name": "uniform3", "opponents": ["uniform", "uniform", "uniform"]},
+   {"name": "champion_mid3", "opponents": ["champion:mid-40851654734", "champion:mid-40851654734", "champion:mid-40851654734"]},
+   {"name": "self3", "opponents": ["self", "self", "self"]}
+  ]},
+  "5": {"configs": [
+   {"name": "tag4", "opponents": ["tag", "tag", "tag", "tag"]},
+   {"name": "lag4", "opponents": ["lag", "lag", "lag", "lag"]},
+   {"name": "nit4", "opponents": ["nit", "nit", "nit", "nit"]},
+   {"name": "station4", "opponents": ["calling_station", "calling_station", "calling_station", "calling_station"]},
+   {"name": "maniac4", "opponents": ["maniac", "maniac", "maniac", "maniac"]},
+   {"name": "mixed_styles", "opponents": ["tag", "lag", "nit", "calling_station"]},
+   {"name": "mixed_regs", "opponents": ["high_stakes_pro", "tag", "lag", "weak_tight"]},
+   {"name": "uniform4", "opponents": ["uniform", "uniform", "uniform", "uniform"]},
+   {"name": "champion_mid4", "opponents": ["champion:mid-40851654734", "champion:mid-40851654734", "champion:mid-40851654734", "champion:mid-40851654734"]},
+   {"name": "self4", "opponents": ["self", "self", "self", "self"]}
+  ]}
+ }
+}
