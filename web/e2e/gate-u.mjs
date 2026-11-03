@@ -66,6 +66,14 @@ function tableOverlaps() {
   }
   for (const d of document.querySelectorAll(".view.active .dealer")) for (const b of d.parentElement.querySelectorAll(".bet")) if (b.childElementCount && hit(vis(d), vis(b))) out.push(`딜러/벳 ${b.textContent.trim()}`);
   for (const p of document.querySelectorAll(".view.active .pot")) { const c = p.querySelector(".chips"), a = p.querySelector(".amt"); if (c && a && hit(vis(c), vis(a))) out.push("팟 칩/팟 금액"); }
+  // #541: the button must not cover any seat's pod or tag (it hid "BTN · …" on 3-handed tablets), and nothing a
+  // seat draws (cards, read tag, action bubble) may reach into the controls above the table (2-handed phones).
+  for (const d of document.querySelectorAll(".view.active .dealer"))
+    for (const e of d.parentElement.querySelectorAll(".seat .pod, .seat .persona")) if (hit(vis(d), vis(e))) out.push(`딜러/좌석 ${e.closest(".seat").querySelector(".nm")?.textContent || e.closest(".seat").dataset.pos || ""} ${e.className}`);
+  for (const bar of document.querySelectorAll(".view.active .infobar"))
+    for (const c of bar.querySelectorAll("button, .pill, summary"))
+      for (const e of document.querySelectorAll(".view.active #layer .seat :is(.card, .pod, .persona, .target-tag, .bubble)"))
+        if (hit(vis(c), vis(e))) out.push(`좌석/상단 컨트롤 ${c.textContent.trim()}`);
   return out;
 }
 
@@ -1108,6 +1116,33 @@ await inspect("home-move", "#move");
     await pg.waitForSelector(QUICK);
     return { pg, errs };
   };
+  // Where the hand happens to be when a screen is taken depends on timing (CI and local runs differed, #541
+  // review), so the table is pinned to its most crowded state first: every live opponent all-in with an action
+  // bubble, the first one tagged 읽기 대상, the button on that opponent. Nothing plays on after this.
+  const pinWorst = pg => pg.evaluate(() => {
+    window.__hold = true;
+    const opp = G.seats.filter(s => !s.isHero && !s.out);
+    for (const s of opp) { s.folded = false; s.bet += s.stack; s.stack = 0; s.allin = true; }
+    G.button = opp[0].i;
+    renderSeats();
+    for (const s of opp) bubble(s, `올인 ${bbf(s.bet)}`, "raise");
+    markTarget(opp[0]);
+  });
+  // The same crowded table with the button on each seat in turn, on all three screens.
+  const sweepButtons = async (pg, tag) => {
+    await pinWorst(pg);
+    await pg.addStyleTag({ content: ".dealer { transition: none !important; }" });
+    for (const [, width, height] of VIEWPORTS) {
+      await pg.setViewportSize({ width, height });
+      const n = await pg.evaluate(() => G.n);
+      for (let b = 0; b < n; b++) {
+        await pg.evaluate(b => { G.button = b; renderSeats(); }, b);
+        const ov = await pg.evaluate(tableOverlaps);
+        must(!ov.length, `${tag} ${width}x${height} 버튼 ${b}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 딜러 버튼·좌석 위치를 고치세요 (#541)`);
+      }
+    }
+    await pg.setViewportSize({ width: 1440, height: 900 });
+  };
   const info = pg => pg.evaluate(() => ({
     n: G.n, polTable: G.polTable, eng: !!G.eng, run: G.eng?.meta?.run_id ?? null,
     untrained: document.querySelectorAll("#infobar [data-untrained]").length,
@@ -1138,7 +1173,9 @@ await inspect("home-move", "#move");
     }
     must(log.length >= 6 && inTable >= 3, `인원별 정책 ${n}인: 검사할 AI 결정이 모자람 (전체 ${log.length}, 픽스처 키 ${inTable})`);
     await pg.waitForSelector(QUICK);
+    await pinWorst(pg);
     await inspect(`by-players-${n}`, "#infobar", pg);
+    await sweepButtons(pg, `인원별 정책 ${n}인`);
     must(!errs.length, `인원별 정책 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
     console.log(`인원별 정책 ${n}인: AI 결정 ${log.length}개(픽스처 ${inTable}) 모두 픽스처 행, 핸드 #${ended?.hand} 거울 유지로 종료`);
     await pg.close();
@@ -1147,9 +1184,12 @@ await inspect("home-move", "#move");
   const c = await info(pg);
   must(c.n === 3 && !c.polTable && !c.eng && c.untrained === 1 && c.seats.length === 2 && c.seats.every(t => t.includes("규칙 봇")),
     `인원별 정책 3인: 픽스처가 없는데 미학습(규칙 봇) 대체가 아님 (${JSON.stringify(c)})`);
+  await pinWorst(pg);
   await inspect("by-players-3", "#infobar [data-untrained]", pg);
+  await sweepButtons(pg, "인원별 정책 3인");
   must(!errs.length, `인원별 정책 3인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
   await pg.close();
+  for (const n of [5, 6]) { const o = await open(n); await sweepButtons(o.pg, `인원별 정책 ${n}인`); await o.pg.close(); }
   console.log("인원별 정책 ok");
 }
 

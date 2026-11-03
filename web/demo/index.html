@@ -153,6 +153,8 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 
 /* ---------- the table ---------- */
 .table-wrap { position: relative; width: 100%; aspect-ratio: 16 / 10; max-height: calc(100vh - 150px); margin: 0 auto; }
+/* #541: a top-row seat's cards and 읽기 대상 tag stand up to ~20px above the rail; this keeps them off the controls. */
+#table { margin-top: 24px; max-height: calc(100vh - 174px); }
 .rail {
   position: absolute; inset: 7% 4%; border-radius: 999px;
   background:
@@ -235,6 +237,9 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .bubble.win { background: var(--good); color: #062014; }
 @keyframes pop { from { transform: translate(-50%, -80%) scale(.6); opacity: 0; } }
 .seat.hero .bubble { top: auto; bottom: -30px; transform: translate(-50%, 0); }
+/* #541: above a top-row seat the bubble ran into the table controls, so it pops under the seat there. */
+.seat.up .bubble { top: auto; bottom: -8px; transform: translate(-50%, 100%); animation-name: popUnder; }
+@keyframes popUnder { from { transform: translate(-50%, 80%) scale(.6); opacity: 0; } }
 .dealer { position: absolute; width: clamp(18px, 1.8vw, 24px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, #d9d4c8); color: #222; font: 700 clamp(10px, 1vw, 13px)/1 var(--font-display); display: grid; place-items: center; box-shadow: 0 3px 6px rgba(0,0,0,.5); transform: translate(-50%, -50%); transition: left .6s cubic-bezier(.3,.7,.2,1), top .6s cubic-bezier(.3,.7,.2,1); }
 .bet { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 5px; transition: opacity .3s; }
 .bet .amt { font: 600 clamp(11px, 1.05vw, 14px)/1 var(--font-display); background: rgba(0,0,0,.45); padding: 3px 7px; border-radius: 999px; white-space: nowrap; }
@@ -1537,7 +1542,7 @@ function buildTable() {
   for (const s of G.seats) {
     const p = P[s.i] = seatPos(s.i);
     const el = h("div", "seat" + (s.isHero ? " hero" : ""));
-    el.id = "seat-" + s.i; el.style.left = p.x + "%"; el.style.top = p.y + "%";
+    el.id = "seat-" + s.i; el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30);
     const per = s.isHero ? { color: "#e9ece7" } : PERSONAS[s.persona];
     el.innerHTML = `<div class="hole"></div><div class="pod"><div class="avatar" style="background:${per.color}">${s.isHero ? "나" : s.name.slice(0, 1)}</div><div class="who"><div class="nm"></div><div class="stk"></div></div></div><div class="persona"></div>`;
     layer.appendChild(el);
@@ -1547,7 +1552,7 @@ function buildTable() {
   $("#board").innerHTML = '<div class="slot"></div>'.repeat(5);
   renderSeats(); renderInfo();
 }
-addEventListener("resize", () => { if (!G) return; for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
+addEventListener("resize", () => { if (!G) return; for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30); const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
 function chipStack(amount, bb = G.bb) {
   const colors = ["--chip-black", "--chip-blue", "--chip-green", "--chip-red"];
   const n = clamp(Math.ceil(Math.log2(amount / bb + 1)), 1, 5);
@@ -1566,9 +1571,43 @@ function renderSeats() {
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";
   }
-  const d = $("#dealer"), p = P[G.button]; d.style.left = p.dx + "%"; d.style.top = p.dy + "%";
+  placeDealer();
   const tot = potTotal();
   $("#pot").innerHTML = G.pot > 0 ? chipStack(G.pot) + `<span class="amt num"><small>팟</small>${bbf(tot)} BB</span>` : tot > 0 ? `<span class="amt num"><small>팟</small>${bbf(tot)} BB</span>` : "";
+}
+// #541: a fixed angle off the seat put the button on a seat's tag or on the bet line once the ring had fewer
+// than 6 seats, so it is placed in pixels: the first spot beside the button seat that touches no seat, no bet
+// spot (sized for an all-in, since bets appear after the button is placed), the pot or the board.
+const BET_RESERVE = { w: 92, h: 30 };
+function placeDealer() {
+  const d = $("#dealer"), L = $("#layer").getBoundingClientRect(), p = P[G.button];
+  if (!L.width || !L.height) { d.style.left = p.dx + "%"; d.style.top = p.dy + "%"; return; }
+  const box = r => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+  const join = (a, b) => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
+  const seatBox = s => [".pod", ".persona", ".hole"].map(q => $(q, $("#seat-" + s.i))).filter(e => e && e.offsetParent !== null)
+    .reduce((u, e) => join(u, box(e.getBoundingClientRect())), box($("#seat-" + s.i).getBoundingClientRect()));
+  const busy = G.seats.map(seatBox);
+  for (const s of G.seats) {
+    const bx = L.left + P[s.i].bx / 100 * L.width, by = L.top + P[s.i].by / 100 * L.height, r = $("#bet-" + s.i).getBoundingClientRect();
+    const w = Math.max(BET_RESERVE.w, r.width) / 2, hh = Math.max(BET_RESERVE.h, r.height) / 2;
+    busy.push({ l: bx - w, t: by - hh, r: bx + w, b: by + hh });
+  }
+  for (const q of ["#pot", "#board"]) { const r = $(q).getBoundingClientRect(); if (r.width) busy.push(box(r)); }
+  const U = busy[G.seats.findIndex(s => s.i === G.button)], pod = $(".pod", $("#seat-" + G.button)).getBoundingClientRect();
+  const rad = (d.offsetWidth || 22) / 2, gap = 4, cx = (U.l + U.r) / 2, cy = (pod.top + pod.bottom) / 2;
+  const inX = cx <= L.left + L.width / 2 ? 1 : -1, inY = (U.t + U.b) / 2 <= L.top + L.height / 2 ? 1 : -1;
+  const side = dir => dir > 0 ? U.r + gap + rad : U.l - gap - rad, vert = dir => dir > 0 ? U.b + gap + rad : U.t - gap - rad;
+  const half = (U.r - U.l) / 2 - rad;
+  const cand = [[side(inX), cy], [cx + inX * half, vert(inY)], [cx - inX * half, vert(inY)], [cx, vert(inY)],
+    [side(-inX), cy], [cx + inX * half, vert(-inY)], [cx - inX * half, vert(-inY)]];
+  const free = ([x, y]) => x - rad >= L.left && x + rad <= L.right && y - rad >= L.top && y + rad <= L.bottom
+    && busy.every(b => x + rad <= b.l || x - rad >= b.r || y + rad <= b.t || y - rad >= b.b);
+  const [x, y] = cand.find(free) || cand[0];
+  // It slides only when the button moves; a resize or re-render puts it in place at once.
+  const moved = d.dataset.btn !== String(G.button); d.dataset.btn = G.button;
+  if (!moved) d.style.transition = "none";
+  d.style.left = (x - L.left) / L.width * 100 + "%"; d.style.top = (y - L.top) / L.height * 100 + "%";
+  if (!moved) { void d.offsetWidth; d.style.transition = ""; }
 }
 function renderInfo() {
   const el = $("#infobar");
