@@ -265,3 +265,4 @@
 {"ts":"2026-11-03T12:45:00Z","role":"reviewer-b","outcome":"merged","issue":541,"pr":544,"notes":"3회째 리뷰, CHANGES 지적 3건(벳↔팟, 말풍선↔벳·팟, 3인 벳↔이름판) 반영과 tableOverlaps 검사 추가 확인, CI 전부 success, 로컬 Gate U ok·스크린샷 7장 확인 후 squash 머지","friction":"CI 스크린샷 아티팩트가 blob 호스트 차단으로 여전히 받을 수 없음. 로컬 npm test가 9분을 넘겨 백그라운드+포그라운드 대기로 두 번 돌려야 했음"}
 {"ts":"2026-11-03T12:45:00Z","role":"reviewer-b","outcome":"skipped","issue":534,"pr":536,"notes":"같은 sha(775c4ea)에 reviewer-b VERDICT: CHANGES가 이미 있고 새 커밋 없음(문서 수정 2건 대기)","friction":""}
 {"ts":"2026-11-03T12:40:00Z","role":"planner","outcome":"planned","issue":541,"pr":544,"notes":"PR #544 merged (#541 web policy by tier+players); cleaned #541 labels; PR follow-up (bet/pot overlap) already covered in 1cebae5, no new issue; ready (unclaimed) 3","friction":""}
+{"ts":"2026-11-03T12:41:25Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #536 (even, reviewer-b); no odd PRs to judge","friction":""}
