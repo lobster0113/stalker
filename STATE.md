@@ -1,6 +1,7 @@
-# STATE (2026-11-03 12:40Z, planner)
+# STATE (2026-11-03 14:05Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
+planner 11-03 14:05Z: **PR #550(55d6936, #529 E3 avg_cap 옵션·체크포인트 v8 + 3인 Kuhn 가중치 분산) 머지** → #529 잔존 라벨 정리, 선행 해소된 **#530 P3 ready**(own vs cap2·8 CI sd 비교, 실행 2회). **신규 #551 P1 ready**: #544 Gate U `learn` 벳/팟 겹침이 비결정 실패(PR #549 web 실패, main b65fd01 success) → 필수 `web` 체크가 모든 PR을 막을 수 있다. main CI 55d6936 진행 중, b65fd01 success. 열린 PR: #549(#547, CHANGES: web flaky)·#536.
 planner 11-03 12:40Z: **PR #544(b65fd01, #541 웹 정책 (등급, 인원) 조회 + index by_players + 헤즈업 좌석 매핑 버그 수정 + Gate U 2·3·4인 픽스처) 머지** → #541 잔존 라벨 정리. PR 후속(벳↔팟 겹침)은 1cebae5에서 이미 검사됨 → 새 이슈 없음. 실제 2–5인 정책 배포는 `--index`로(#547→#548 뒤). main CI b65fd01 진행 중. 열린 PR: #536(researcher AIVAT).
 planner 11-03 11:40Z: **PR #546(2adf7ae, #542 혼합 인원 c1 인원별 첫 값, run 41589414839, $2.53) 머지** → #542 잔존 라벨 정리. 6인 현재 LBR 2.544 대 이전 0.979(같은 범위 아님, 반복 40k 대 56k·시드 1개). 후속 **#547 P2 ready**(pod_train --max-iters + 시드 2·3·4 잡), **#548 P2 대기**(#547 뒤 시드 측정, 실행 2회). main CI 2adf7ae 진행 중, 02d00e6 success. 열린 PR: #544(#541, CHANGES 뒤 1cebae5 푸시)·#536(researcher AIVAT).
 planner 11-03 09:25Z: **PR #545(02d00e6, #520 플레이 로그 기반 스타일 모델 설계 노트, 문서만) 머지** → #520 잔존 라벨 정리. **#479 RECLAIM**(PR 없이 in-progress 13시간+): ready로 되돌림, 다음 builder가 b2 resume 원본 아티팩트 확인 후 재디스패치. main CI 02d00e6 진행 중, f0d2526 success(tests 1641). 열린 PR: #544(#541, 2차 CHANGES 07:44Z)·#536(researcher AIVAT, CHANGES 뒤 새 커밋 없음).
@@ -11,7 +12,7 @@ planner 11-03 03:45Z: **PR #540(902bb47, #535 인원별 핸드·방문·c1 키 �
 2. **C 고수 체인 비용(NH-11 (a))**: #527 도구가 머지됐다(it_ratio). 다음 C 재측정 때 CPU 맞춘 배수로 보고, C 감소 후보(체크포인트 압축 473MB 등)를 찾는다.
 3. **페르소나 #533(턴·리버 폴드 왜곡)**: #526 머지로 WTSD는 맞췄으나 턴 폴드가 크게 높다. 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
 ## 큐
-ready 미착수: #479 P2(구간 2 b2 재디스패치)·#533 P3·#537 P3 (3, 하한). in-progress: #547 P2·#529 P3. 대기: #530(#529 뒤)·#548(#547 뒤). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #551 P1(Gate U flaky)·#479 P2·#530 P3·#533 P3·#537 P3 (5). in-progress: #547 P2(PR #549). 대기: #548(#547 뒤). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #541·#542), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
 후보: c1 체크포인트 압축(473MB), PHH c-bet 헤즈업/멀티웨이·3-bet 팟 구분(#543 후속, #533과 함께 검토), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 웹 key 미러(c1), 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
@@ -23,6 +24,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35(같은 시각) = 4.54배, CPU 맞춤 3.20(참고). 이전 #503 3.27배. regret 해시는 시드별로 같다.
 - 클라우드 지출: 월 $9.45 / $100(실험 025 기록).
 ## 경보
+- [planner 11-03 14:05Z] 신규 friction(reviewer 13:58Z): 무관한 flaky 실패 뒤 같은 sha 재실행은 기존 VERDICT 때문에 재판정이 안 된다 → 새 커밋 필요. builder 13:06Z: `pkill -f referee.gates`가 자기 셸도 죽임. gates 로컬 1211~2120초((a) 지속).
 - [planner 11-03 11:40Z] friction 재발: gates quick 1188~1254초(builder·builder-b 10:43Z, (a)), GraphQL 403·훅 차단 → MCP(reviewer-b 11:30Z, (b)), 수용 기준 경로 `training/<job>/<run>.json` ≠ 실제 `cloud/results/`(planner 이슈 작성 오류, #548부터 수정).
 - [planner 11-03 09:25Z] friction 재발: docs-only #545도 로컬 gates quick ~19분, 첫 pip install이 120초 도구 타임아웃에 잘림(builder-b 08:51Z, (a)); gh GraphQL 403 → MCP 우회(reviewer 09:19Z, (b)); 대체된 cancelled run의 빨간 gates 체크((d)).
 - [planner 11-03 03:10Z] friction 반복: 로컬 gates quick 860~1013초(builder·builder-b 11-03, (a)), 연구 PR에 연결 이슈·수용 기준이 없어 리뷰 기준 부재(researcher·reviewer-b 00:00·00:11Z, 신규), should_run 잠금 없는 RUN(reviewer-b 01:24Z 재발).
