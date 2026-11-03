@@ -255,7 +255,9 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
     Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare.
     `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation).
     A player-mix model (#486) also gets `by_players` (#534): per dealt table size, LBR of both policies
-    and the field of that size (`referee.e3.field.load_players`); `m.n` reuses the top-level numbers."""
+    and the field of that size (`referee.e3.field.load_players`); `m.n` reuses the top-level numbers. Each size's
+    row also has its training counts (#535, `E3MCCFR.mix_counts`: hands, traverser updates, c1 keys), and the
+    output `by_players_counted_from` (iteration the counts start at) and `by_players_shared_keys` (c1 `call|` keys)."""
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3 import game as G
@@ -283,6 +285,9 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
                "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
         if getattr(m, "player_mix", ()):
             out["by_players"] = _by_players(m, seed, avg, cur, out, t3 - t1)
+            for n, c in m.mix_counts().items():
+                out["by_players"][n].update(c)
+            out.update(by_players_counted_from=m.counted_from, by_players_shared_keys=m.shared_keys())
     return out
 
 
@@ -503,6 +508,11 @@ def summarize(job: str, folder: Path) -> dict:
         out["probe_average_by_seed"] = [r["probe_average"] for r in runs]
     if any(r.get("artifact_dropped") for r in runs):   # #487: these seeds left no table to resume or export
         out["artifact_dropped_by_seed"] = [r.get("artifact_dropped", []) for r in runs]
+    if job.startswith("e3-") and runs and all("by_players_counted_from" in r for r in runs):   # #535
+        out["by_players_counts_by_seed"] = [{n: {c: row.get(c) for c in ("hands", "visits", "keys")}
+                                             for n, row in r["by_players"].items()} for r in runs]
+        out["by_players_counted_from_by_seed"] = [r["by_players_counted_from"] for r in runs]
+        out["by_players_shared_keys_by_seed"] = [r["by_players_shared_keys"] for r in runs]
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set

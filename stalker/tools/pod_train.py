@@ -134,8 +134,8 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
     version = 3 if meta.get("avg_rule") == "own" else 1   # a result before #426 has no avg_rule: legacy
     if meta.get("key_variant"):   # E3MCCFR.state versions (#398, #399)
         version = 5 if meta.get("stacks", "uniform") != "uniform" else 4
-    if meta.get("player_mix"):   # #486
-        version = 6
+    if meta.get("player_mix"):   # #486; with the per-size counts (#535) version 7
+        version = 7 if "mix_counts" in meta else 6
     if meta.get("ranges", "current") != "average":
         return {"version": version, "avg_rule": "legacy", **meta, "regret": regret, "avg": avg, "visits": visits}
     snap, si, sv = {}, 0, z["snap"].astype(float).tolist()
@@ -207,7 +207,7 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
         if m.key_variant in K.KEY_VERSIONS:
             res["model"]["key_version"] = K.KEY_VERSIONS[m.key_variant]
     if m.player_mix:   # absent for n-handed deals, so those results stay as before #486
-        res["model"]["player_mix"] = list(m.player_mix)
+        res["model"].update(player_mix=list(m.player_mix), **m._count_state())   # #535: counts resume with the table
     if m.ranges == "average":  # absent for current ranges, so those results stay as before #405
         res["model"].update(ranges=m.ranges, range_every=m.range_every, snap_at=m.snap_at)
     res.update(_checkpoint(m, budget, resume_budget))

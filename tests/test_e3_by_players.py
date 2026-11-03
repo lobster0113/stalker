@@ -6,6 +6,7 @@ from stalker.e3.mccfr import E3MCCFR
 
 TOP = {"field", "field_seconds", "infosets", "coverage", "lbr", "lbr_average", "lbr_offmenu", "lbr_seconds",
        "policy_sha256"}
+MIX_TOP = {"by_players", "by_players_counted_from", "by_players_shared_keys"}   # #534, #535
 
 
 @pytest.fixture
@@ -29,9 +30,9 @@ def test_player_mix_model_reports_each_dealt_table_size(small):
     m = E3MCCFR(1, 5, 3, "basic", player_mix=(2, 3))
     m.iterate(2)
     out = T.e3_evaluate(m, 0)
-    assert set(out) == TOP | {"by_players"} and set(out["by_players"]) == {"2", "3"}
+    assert set(out) == TOP | MIX_TOP and set(out["by_players"]) == {"2", "3"}
     for n, row in out["by_players"].items():
-        assert set(row) == {"lbr", "lbr_average", "field", "seconds"} and row["seconds"] >= 0
+        assert set(row) == {"lbr", "lbr_average", "field", "seconds", "hands", "visits", "keys"} and row["seconds"] >= 0
         assert len(row["lbr"]["by_seat"]) == int(n) and row["lbr"]["hands"] == 2 and "lbr_bb" in row["lbr_average"]
         f = row["field"]
         assert f["version"] == 3 and f["deals"] == 2 and f["worst"]["name"]
