@@ -24,6 +24,10 @@ result of the same variant, key version and stacks.
 `--player-mix 2,3,4,5,6` (#486, ADR 0019 D): each hand is dealt to a player count drawn from the list; `--players`
 is then the evaluation table. The job name carries `-mixn` (`e3-tp-mid-c1-mixn-pod`), and a chain resumes only a
 result of the same mix.
+
+`--max-iters N` (#547): stop once the chain (resume included) has N iterations, the last sync batch cut to land on
+N; `--minutes` stays the ceiling. The result's `stopped_by` says which limit ended training ("max_iters" or
+"minutes"), so runs of different pod speeds compare at the same iteration count. Without it training is as before.
 """
 from __future__ import annotations
 
@@ -150,7 +154,8 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
 def train(tier: str, players: int, workers: int, minutes: float, seed: int, batch: int,
           resume: dict | None = None, menu: str = "v1", raise_cap: int | None | str = "default",
           ranges: str = "current", avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-          player_mix: tuple[int, ...] = (), log=lambda s: print(s, file=sys.stderr, flush=True)):
+          player_mix: tuple[int, ...] = (), max_iters: int | None = None,
+          log=lambda s: print(s, file=sys.stderr, flush=True)):
     from stalker.e3 import game as G
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
@@ -163,8 +168,9 @@ def train(tier: str, players: int, workers: int, minutes: float, seed: int, batc
     t0 = time.monotonic()
     deadline, next_log = t0 + minutes * 60, t0 + PROGRESS_SECONDS
     with ProcessPoolExecutor(workers) if workers > 1 else _NoPool() as p:
-        while time.monotonic() < deadline:
-            parallel.iterate(m, workers * batch, workers, batch, pool=p if workers > 1 else None, timing=timing)
+        while time.monotonic() < deadline and (max_iters is None or m.iterations < max_iters):
+            step = workers * batch if max_iters is None else min(workers * batch, max_iters - m.iterations)
+            parallel.iterate(m, step, workers, batch, pool=p if workers > 1 else None, timing=timing)
             if time.monotonic() >= next_log:
                 dt = time.monotonic() - t0
                 log(json.dumps({"iters": m.iterations, "keys": len(m.regret), "minutes": round(dt / 60, 1),
@@ -173,7 +179,8 @@ def train(tier: str, players: int, workers: int, minutes: float, seed: int, batc
     train_s = time.monotonic() - t0
     done = m.iterations - start_iters
     total = max(timing.get("total", 0.0), 1e-9)
-    return m, {"chunk_iters": done, "resumed_from": start_iters, "train_seconds": round(train_s, 1),
+    stopped = "max_iters" if max_iters is not None and m.iterations >= max_iters else "minutes"
+    return m, {"chunk_iters": done, "max_iters": max_iters, "stopped_by": stopped, "resumed_from": start_iters, "train_seconds": round(train_s, 1),
                "iters_per_s": round(done / max(train_s, 1e-6), 2),
                "sync_frac": round(max(0.0, total - timing.get("compute", 0.0)) / total, 3)}
 
@@ -190,12 +197,12 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
         budget: int = RESULT_BUDGET, resume_budget: int = RESUME_BUDGET, resumed_from_run: str | None = None,
         menu: str = "v1", raise_cap: int | None | str = "default", ranges: str = "current",
         avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-        player_mix: tuple[int, ...] = ()) -> dict:
+        player_mix: tuple[int, ...] = (), max_iters: int | None = None) -> dict:
     from stalker.e3 import tp_key as K
     from stalker.train_jobs import e3_evaluate
 
     m, stats = train(tier, players, workers, minutes, seed, batch, resume, menu, raise_cap, ranges, avg_rule,
-                     key_variant, stacks, player_mix)
+                     key_variant, stacks, player_mix, max_iters)
     res = {"job": job_name(tier, players, m.key_variant, m.player_mix), "tier": tier, "players": players, "seed": seed, "workers": workers,
            "batch": batch, "iters": m.iterations, "resumed_from_run": resumed_from_run, **stats}
     res.update(e3_evaluate(m, seed))
@@ -280,6 +287,8 @@ def main(argv=None) -> int:
                     help="table stacks: 100BB or sampled 20-250BB (#399)")
     ap.add_argument("--player-mix", type=parse_mix, default=(),
                     help="per-hand player counts, e.g. 2,3,4,5,6 (#486); --players is then the evaluation table")
+    ap.add_argument("--max-iters", type=int, help="stop once the chain (resume included) reaches this many "
+                    "iterations (#547); --minutes stays the ceiling")
     ap.add_argument("--resume-result", type=Path, help="an earlier pod result (JSON, may be gzipped) to continue")
     ap.add_argument("--sha-file", type=Path, help="file holding the source commit (the pod reads it from the tarball)")
     ap.add_argument("--unpack", type=Path, help="instead of training: write this pod result's model to --out (a folder)")
@@ -291,6 +300,8 @@ def main(argv=None) -> int:
         return 0
     if a.workers < 1 or a.minutes <= 0 or a.batch < 1:
         raise SystemExit("--workers and --batch must be >= 1 and --minutes > 0")
+    if a.max_iters is not None and a.max_iters < 1:
+        raise SystemExit("--max-iters must be >= 1 (leave it out for a time-limited run)")
     if a.resume and a.resume_result:
         raise SystemExit("pass --resume or --resume-result, not both")
     resume, from_run = (json.loads(a.resume.read_text(encoding="utf-8")) if a.resume else None), None
@@ -300,7 +311,7 @@ def main(argv=None) -> int:
                                               a.key_variant, a.stacks, a.player_mix)
     res = run(a.tier, a.players, a.workers, a.minutes, a.seed, a.batch, resume, resumed_from_run=from_run,
               menu=a.menu, raise_cap=cap, ranges=a.ranges, avg_rule=a.avg_rule, key_variant=a.key_variant,
-              stacks=a.stacks, player_mix=a.player_mix)
+              stacks=a.stacks, player_mix=a.player_mix, max_iters=a.max_iters)
     res["sha"] = a.sha_file.read_text(encoding="utf-8").strip() if a.sha_file and a.sha_file.exists() else ""
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res), encoding="utf-8")
