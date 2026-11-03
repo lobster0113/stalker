@@ -138,3 +138,69 @@ def test_champion_configs_are_skipped_on_rules_they_were_not_trained_on():
     assert r["skipped"][0]["name"] == "champion_mid5" and "menu v1" in r["skipped"][0]["reason"]
     with G.rules("real", None), pytest.raises(F.FieldError, match="skipped"):
         F.evaluate(F.uniform, 2, configs=["champion_mid5"])
+
+
+# #534: short-handed tables (field_v3) and per-player-count evaluation of player-mix models.
+V3_SHA = "0a4639e07a747ea8e0cefcfc8822fdfc6e60ef4c6772b471a42d935c4d33ce1b"
+STYLES = {"tag", "lag", "nit", "calling_station", "maniac"}
+
+
+def _fingerprint(r: dict) -> str:
+    import hashlib
+
+    return hashlib.sha256(json.dumps(r, sort_keys=True).encode()).hexdigest()
+
+
+def test_v3_has_pinned_short_handed_tables_with_single_style_and_mixed_configs():
+    for n in (2, 3, 4, 5):
+        spec, sha = F.load_players(n)
+        assert sha == V3_SHA and spec["version"] == 3 and spec["players"] == n
+        cfgs = spec["configs"]
+        assert all(len(c["opponents"]) == n - 1 for c in cfgs)
+        single = {c["opponents"][0] for c in cfgs if len(set(c["opponents"])) == 1}
+        assert STYLES <= single and {"uniform", "self"} <= single
+        if n >= 3:   # heads-up has one opponent, so no mixed table there
+            assert sum(len(set(c["opponents"])) > 1 for c in cfgs) >= 2
+    spec6, sha6 = F.load_players(6)
+    assert (spec6, sha6) == F.load() and spec6["version"] == 2
+
+
+def test_wrong_player_count_for_a_file_is_rejected():
+    with pytest.raises(F.FieldError, match="no table for players=7"):
+        F.load(F.CONFIGS_V3, 7)
+    with pytest.raises(F.FieldError, match="not 4"):
+        F.load(F.CONFIGS, 4)
+    spec, _ = F.load_players(3)
+    with pytest.raises(F.FieldError, match="not 6"):
+        F.evaluate(F.uniform, 2, spec=spec, players=6)
+
+
+def test_six_max_results_are_bit_identical_to_before_534():
+    # Fingerprints taken on main (479eb96) before the players option: field_v2 sha, every row, worst.
+    assert _fingerprint(F.evaluate(F.uniform, 3, seed=7)) == \
+        "0f049fcdd8ceda622f277f0a8fae0e866b0f1a27a47516112db2c27a3d436c3f"
+    r = F.evaluate({}, 2, seed=11, configs=["mixed_regs", "champions_mixed", "self5"])
+    assert _fingerprint(r) == "99e5069af06bcd48df5c7886c10af56c63613152206d35bed3b463d9f5a1cd4d"
+    assert F.evaluate(F.uniform, 3, seed=7, players=6) == F.evaluate(F.uniform, 3, seed=7)
+
+
+@pytest.mark.parametrize("n", [2, 4])
+def test_short_handed_deal_sums_to_zero_over_seat_rotations(n):
+    tag = personas.Persona("tag")
+    out = F.play_deal(tag, [tag] * (n - 1), 3)
+    assert out.shape == (n,) and out.sum() == pytest.approx(0.0, abs=1e-9) and np.abs(out).sum() > 0
+    pol = {}
+    assert F.play_deal(pol, [pol] * (n - 1), 5).sum() == pytest.approx(0.0, abs=1e-9)
+    r = F.evaluate(F.uniform, 2, players=n, configs=[f"self{n - 1}", f"tag{n - 1}"])
+    by = {c["name"]: c for c in r["configs"]}
+    assert by[f"self{n - 1}"]["bb100"] == 0.0 and by[f"tag{n - 1}"]["hands"] == 2 * n
+    assert r["sha256"] == V3_SHA and r["worst"]["name"] == f"tag{n - 1}"
+
+
+def test_six_handed_champions_are_skipped_at_other_table_sizes():
+    r = F.evaluate(F.uniform, 2, players=2, configs=["tag1", "champion_mid1"])
+    assert [c["name"] for c in r["configs"]] == ["tag1"] and r["champions"] == {}
+    assert r["skipped"][0]["name"] == "champion_mid1" and "at 6 seats" in r["skipped"][0]["reason"]
+    assert F.champion("mid-40851654734").players == 6
+    with pytest.raises(F.FieldError, match="skipped"):
+        F.evaluate(F.uniform, 2, players=4, configs=["champion_mid3"])

@@ -1,7 +1,8 @@
-"""E3 6-max duplicate field evaluation: "max loss vs opponent set" (#295, referee/GATES.md Gate Q, ADR 0015).
+"""E3 duplicate field evaluation (6-max; 2-5 players from #534): "max loss vs opponent set" (#295, referee/GATES.md Gate Q, ADR 0015).
 
 One target policy sits with five opponents from a pre-registered configuration (`field_v2.json`,
-recorded with its sha256; `field_v1.json` is kept for older results). Duplicate: every deal is
+recorded with its sha256; `field_v1.json` is kept for older results). Short-handed tables (2-5
+players, #534) come from `field_v3.json`, one configuration set per player count, played the same way. Duplicate: every deal is
 played once per seat rotation - the target takes each seat's cards in turn and the opponents fill
 the other seats in their listed order, starting after the target - with the same action random stream in every rotation. When every seat plays the
 same policy the hand is identical in all rotations, so the target collects each seat's payoff once
@@ -44,6 +45,7 @@ from stalker.e3 import tp_key as K
 HERE = Path(__file__).resolve().parent
 CONFIGS_V1 = HERE / "field_v1.json"
 CONFIGS = HERE / "field_v2.json"
+CONFIGS_V3 = HERE / "field_v3.json"      # 2-5 players (#534); 6 players stay on CONFIGS
 SPECIAL = ("uniform", "self")
 CHAMPION = "champion:"
 REGISTRY = "champions/champions_v1.json"     # relative to this directory, as field_v2.json names it
@@ -62,11 +64,19 @@ def champion_names(spec: dict) -> set[str]:
     return {c["name"] for c in json.loads((HERE / reg).read_text(encoding="utf-8"))["champions"]}
 
 
-def load(path: Path = CONFIGS) -> tuple[dict, str]:
+def load(path: Path = CONFIGS, players: int | None = None) -> tuple[dict, str]:
+    """A configuration set and the sha256 of its file. A per-player-count file (`tables`, v3) needs
+    `players` and yields that table's set in the single-table shape (`players`, `configs`)."""
     from stalker.agents.persona import PRESETS
 
     raw = path.read_bytes()
     spec = json.loads(raw)
+    if "tables" in spec:
+        if str(players) not in spec["tables"]:
+            raise FieldError(f"{path.name}: no table for players={players}; it has {sorted(spec['tables'], key=int)}")
+        spec = {k: v for k, v in spec.items() if k != "tables"} | {"players": players, **spec["tables"][str(players)]}
+    elif players is not None and players != spec["players"]:
+        raise FieldError(f"{path.name} is for {spec['players']} players, not {players}; use load_players({players})")
     if not spec.get("configs"):
         raise FieldError(f"{path.name}: no configs; list opponent configurations under 'configs'")
     known = set(PRESETS) | set(SPECIAL) | {CHAMPION + n for n in champion_names(spec)}
@@ -80,13 +90,20 @@ def load(path: Path = CONFIGS) -> tuple[dict, str]:
     return spec, hashlib.sha256(raw).hexdigest()
 
 
+def load_players(n: int) -> tuple[dict, str]:
+    """The registered configuration set for an n-player table: 6 keeps field_v2 (results unchanged), 2-5 field_v3."""
+    return load(CONFIGS, 6) if n == 6 else load(CONFIGS_V3, n)
+
+
 class Champion:
     """An archived TP-key policy at the table: it reads its own keys (k, depth, key variant), so its
     rows are the ones it was trained and served with whatever the target's variant is."""
 
-    def __init__(self, name: str, policy: dict, k: int, depth: str, menu: str, raise_cap, variant: str, sha256: str):
+    def __init__(self, name: str, policy: dict, k: int, depth: str, menu: str, raise_cap, variant: str, sha256: str,
+                 players: int = 6):
         self.name, self.policy, self.k, self.depth = name, policy, k, depth
         self.menu, self.raise_cap, self.variant, self.sha256 = menu, raise_cap, variant, sha256
+        self.players = players
 
     def probs(self, s: G.State, seat: int, ranges) -> np.ndarray:
         with K.using_variant(self.variant):
@@ -110,7 +127,8 @@ def champion(name: str, registry: str = REGISTRY) -> Champion:
         raise FieldError(f"champion {name}: not a web policy export (schema stalker.web.policy)")
     q = d["q"]
     return Champion(name, {k: [x / q for x in v] for k, v in d["policy"].items()}, d["k"], d["depth"],
-                    d.get("menu", "v1"), d.get("raise_cap", G.RAISE_CAP), d.get("key_variant", ""), sha)
+                    d.get("menu", "v1"), d.get("raise_cap", G.RAISE_CAP), d.get("key_variant", ""), sha,
+                    d.get("players", 6))
 
 
 def uniform(s: G.State) -> np.ndarray:
@@ -131,8 +149,8 @@ def _actor(kind: str, target, registry: str | None = None):
 
 
 def _mismatch(c: Champion, s: G.State) -> str | None:
-    if (c.menu, c.raise_cap) != (s.menu, s.raise_cap) or s.n != 6:
-        return (f"champion {c.name} plays menu {c.menu} cap {c.raise_cap} at 6 seats; "
+    if (c.menu, c.raise_cap, c.players) != (s.menu, s.raise_cap, s.n):
+        return (f"champion {c.name} plays menu {c.menu} cap {c.raise_cap} at {c.players} seats; "
                 f"these deals use menu {s.menu} cap {s.raise_cap} at {s.n}")
     return None
 
@@ -168,13 +186,16 @@ def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = 
 
 
 def evaluate(target, hands: int, seed: int = 0, spec: dict | None = None, k: int = 5, depth: str = "basic",
-             configs: list[str] | None = None) -> dict:
+             configs: list[str] | None = None, players: int | None = None) -> dict:
     """The target's bb/100 per configuration (95% CI over deals) and the worst configuration
     (all-self configurations are reported in `configs` but excluded from `worst`, #374; champion
-    configurations the deal's rules do not fit are listed in `skipped`)."""
+    configurations the deal's rules do not fit are listed in `skipped`). `players` picks the
+    registered set for that table size (`load_players`, default 6)."""
     sha = None
     if spec is None:
-        spec, sha = load()
+        spec, sha = load_players(6 if players is None else players)
+    elif players is not None and players != spec["players"]:
+        raise FieldError(f"spec is for {spec['players']} players, not {players}")
     if hands < 2:
         raise ValueError("hands must be >= 2 (the CI resamples deals)")
     rules = G.deal(np.random.default_rng(0), spec["players"])
@@ -209,18 +230,20 @@ def evaluate(target, hands: int, seed: int = 0, spec: dict | None = None, k: int
 def main(argv=None) -> int:
     import argparse
 
-    ap = argparse.ArgumentParser(description="E3 6-max field evaluation of a TP-key policy (bb/100, worst configuration)")
+    ap = argparse.ArgumentParser(description="E3 field evaluation of a TP-key policy (bb/100, worst configuration)")
     ap.add_argument("policy", type=Path, help="policy JSON: a dict of TP keys, or {'average': ..., 'current': ...}")
     ap.add_argument("--which", default="current", choices=["current", "average"])
     ap.add_argument("--tier", default="beginner", choices=sorted(K.TIER_K))
     ap.add_argument("--hands", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--configs", nargs="*")
+    ap.add_argument("--players", type=int, default=6, help="table size: 6 uses field_v2, 2-5 field_v3 (#534)")
     a = ap.parse_args(argv)
     pol = json.loads(a.policy.read_text(encoding="utf-8"))
     if isinstance(pol.get(a.which), dict):
         pol = pol[a.which]
-    res = evaluate(pol, a.hands, a.seed, k=K.TIER_K[a.tier], depth=K.TIER_DEPTH[a.tier], configs=a.configs)
+    res = evaluate(pol, a.hands, a.seed, k=K.TIER_K[a.tier], depth=K.TIER_DEPTH[a.tier], configs=a.configs,
+                   players=a.players)
     print(json.dumps(res, indent=1))
     return 0
 
