@@ -307,12 +307,13 @@ class E3Sampler:
     is pi_c pi_i sigma, the intended weight; with two players the divisor is empty and the rules agree."""
 
     def __init__(self, root: Node, key: KeyFn = identity, explore: float = 0.0, uniform_chance: bool = False,
-                 correct: bool = True, avg_rule: str = "legacy"):
+                 correct: bool = True, avg_rule: str = "legacy", avg_cap: float | None = None):
         if avg_rule not in AVG_RULES:
             raise ValueError(f"avg_rule={avg_rule!r}; use one of {AVG_RULES}")
         self.root, self.key = root, key
         self.explore, self.uniform_chance, self.correct = explore, uniform_chance, correct
         self.avg_rule = avg_rule
+        self.avg_cap = avg_cap   # #448: with avg_rule "own", the weight 1/prod(reach) is clipped to this (None = no clip)
 
     def sample(self, sigma: Table, p: int, rng: np.random.Generator) -> tuple[Table, Table]:
         reg: Table = {}
@@ -337,7 +338,8 @@ class E3Sampler:
             else:
                 me = n.player
                 if self.avg_rule == "own":     # divide out the other sampled opponents' reach (module docstring)
-                    _acc(avg, self.key(n.infoset), w / prod(r for m, r in reach.items() if m != me) * probs)
+                    inv = 1 / prod(r for m, r in reach.items() if m != me)
+                    _acc(avg, self.key(n.infoset), w * (inv if self.avg_cap is None else min(inv, self.avg_cap)) * probs)
                 else:
                     _acc(avg, self.key(n.infoset), w * probs)
                 q = (1 - self.explore) * probs + self.explore / len(probs)
