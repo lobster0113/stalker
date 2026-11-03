@@ -1590,8 +1590,8 @@ const rcost = (q, busy) => busy.reduce((a, b) => a + Math.max(0, Math.min(q.r, b
 const bestSpot = (cands, busy, ok = () => true) => cands.find(q => ok(q) && rfree(q, busy))
   || cands.filter(ok).reduce((m, q) => !m || rcost(q, busy) < rcost(m, busy) ? q : m, null);
 // Bets stay on the felt, a stadium (border-radius 999px), not on the rail or off the table.
-function onFelt(x, y, pad) {
-  const F = $("#table .felt").getBoundingClientRect(), r = Math.min(F.width, F.height) / 2 - pad;
+function onFelt(x, y, pad, F = $("#table .felt").getBoundingClientRect()) {
+  const r = Math.min(F.width, F.height) / 2 - pad;
   const cx = clamp(x, F.left + r + pad, F.right - r - pad), cy = clamp(y, F.top + r + pad, F.bottom - r - pad);
   return Math.hypot(x - cx, y - cy) <= r;
 }
@@ -3273,6 +3273,52 @@ function tableHTML(h, o = {}) {
     <div class="layer"><div class="pot">${h.pot > 0 ? chipStack(h.pot, 1) : ""}<span class="amt num"><small>팟</small>${f1(pot)} BB</span></div><div class="board">${board}</div>${seats}${bets}${dealer}</div></div>`;
 }
 
+// The static tables (learn drill, review) had bets at fixed ring percentages while the pot sits at 59.5%, so the
+// bottom seat's bet landed on the pot (#551: 2.5BB on a 820px tablet, flaky because the drill scenario is random).
+// Same idea as the live table's placeBets: each bet keeps its ring spot unless something is in the way, else the
+// free spot nearest it that is no farther from its seat. Redone on every resize (the table is sized in cqi).
+function layoutMini(t) {
+  const lay = t.querySelector(".layer"), felt = t.querySelector(".felt");
+  const L = lay && lay.getBoundingClientRect(), F = felt && felt.getBoundingClientRect();
+  if (!L || !L.width || !L.height) return;
+  if (!t._ro && window.ResizeObserver) { t._ro = new ResizeObserver(() => layoutMini(t)); t._ro.observe(t); }
+  const vis = e => e.offsetParent !== null;
+  const seatBox = el => [".pod", ".hole .card"].flatMap(q => [...el.querySelectorAll(q)]).filter(vis)
+    .map(e => rbox(e.getBoundingClientRect())).reduce(rjoin);
+  const seats = [...t.querySelectorAll(".seat")].filter(e => e.querySelector(".pod")).map(seatBox);
+  const fixed = [...t.querySelectorAll(".pot .chips, .pot .amt, .board")].filter(vis).map(e => rbox(e.getBoundingClientRect()));
+  const dealer = t.querySelector(".dealer");
+  if (dealer) fixed.push(rbox(dealer.getBoundingClientRect()));
+  const tx = L.left + L.width / 2, ty = L.top + L.height * .47, pad = 4;
+  const inside = q => [[q.l, q.t], [q.r, q.t], [q.l, q.b], [q.r, q.b]].every(([x, y]) => onFelt(x, y, pad, F));
+  const onLayer = q => q.l >= L.left && q.r <= L.right && q.t >= L.top && q.b <= L.bottom;
+  const bets = [...t.querySelectorAll(".bet")].filter(b => b.childElementCount);
+  const taken = [], ownerOf = b => {
+    // The bet belongs to the seat nearest to its ring spot.
+    const r = b.getBoundingClientRect(), x = (r.left + r.right) / 2, y = (r.top + r.bottom) / 2;
+    return seats.reduce((m, U) => { const d = Math.hypot((U.l + U.r) / 2 - x, (U.t + U.b) / 2 - y); return !m || d < m.d ? { U, d } : m; }, null).U;
+  };
+  // Bets nearest the pot go first: they have the least room.
+  const order = bets.map(b => ({ b, U: ownerOf(b) })).sort((a, c) => Math.hypot((a.U.l + a.U.r) / 2 - tx, a.U.t - ty) - Math.hypot((c.U.l + c.U.r) / 2 - tx, c.U.t - ty));
+  for (const { b, U } of order) {
+    const r = b.getBoundingClientRect(), ax = (r.left + r.right) / 2, ay = (r.top + r.bottom) / 2;
+    const rs = [b, ...b.querySelectorAll(".chip")].map(e => e.getBoundingClientRect()).filter(q => q.width);
+    const w = Math.max(...rs.map(q => q.right)) - Math.min(...rs.map(q => q.left));
+    const up = ay - Math.min(...rs.map(q => q.top)), down = Math.max(...rs.map(q => q.bottom)) - ay;
+    const spot = (x, y) => ({ x, y, l: x - w / 2, t: y - up, r: x + w / 2, b: y + down });
+    const cx = (U.l + U.r) / 2, cy = (U.t + U.b) / 2, dx = tx - cx, dy = ty - cy, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    const nat = spot(ax, ay), cands = [];
+    for (let o = -2.5; o <= 2.5; o += .25) for (let f = .1; f <= .95; f += .05) cands.push(spot(cx + dx * f + nx * o * w, cy + dy * f + ny * o * w));
+    cands.sort((a, c) => Math.hypot(a.x - ax, a.y - ay) - Math.hypot(c.x - ax, c.y - ay)); cands.unshift(nat);
+    const own = q => Math.hypot(q.x - cx, q.y - cy), reach = own(nat) + w / 2, busy = [...seats, ...fixed, ...taken];
+    const pick = cands.find(q => own(q) <= reach && inside(q) && rfree(q, busy)) || cands.find(q => inside(q) && rfree(q, busy))
+      || bestSpot(cands, busy, onLayer) || nat;
+    b.style.left = (pick.x - L.left) / L.width * 100 + "%"; b.style.top = (pick.y - L.top) / L.height * 100 + "%";
+    taken.push(pick);
+  }
+}
+const layoutMinis = root => root?.querySelectorAll(".table-wrap.mt").forEach(layoutMini);
+
 /* ================= answer explanations (one component: learning, training result, review) ================= */
 const cardTxtHTML = c => `<span class="mc${suitOf(c) === 1 || suitOf(c) === 2 ? " red" : ""}">${RANKS[rankOf(c)] === "T" ? "10" : RANKS[rankOf(c)]}${SUITS[suitOf(c)]}</span>`;
 const comboHTML = cs => `<span class="cb">${cs.slice(0, 2).map(cardTxtHTML).join("")}</span>`;
@@ -3525,6 +3571,7 @@ function renderDrill() {
     <div id="dr-res"></div>
     <div class="start-row" style="margin-top:0"><button class="cta" id="dr-go" ${LM.answered || LM.val != null ? "" : "disabled"}>${LM.answered ? "다음 문제" : "정답 확인"}</button><span class="note">정답은 ${CONF} 값이에요(몬테카를로 계산).</span></div>`;
   bindDrillCommon();
+  layoutMinis(el);
   const qel = $(".dr-q", el), mark = () => { $$("[data-chip]", qel).forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.chip === LM.val)));
     const rg = $("[data-dial]", qel); if (rg && LM.val != null) { rg.value = LM.val; rg.style.setProperty("--fill", LM.val + "%"); rg.removeAttribute("data-unset"); } $("#dr-val").textContent = LM.val == null ? "—" : isRange ? "상위 " + LM.val + "%" : LM.val; $("#dr-go").disabled = !LM.answered && LM.val == null; };
   const setV = v => { if (LM.answered) return; LM.val = clamp(Math.round(v), isRange ? 2 : 0, 100); mark(); };
@@ -3625,6 +3672,7 @@ function renderReview() {
   const s = RV.step, acting = s >= 2 && s <= 5 && h.street === s - 2 && !h.closed && rhActor(h) ? rhActor(h).pos : null;
   const cards = { [RV.heroPos]: RV.hero.slice(), ...RV.sd };
   $("#rv-table").innerHTML = `<div class="rv-cap"><span class="eyebrow">${RV.mode === "tournament" ? "토너먼트" : "캐시게임"} · 6인 · 유효 ${RV.stack}BB</span><span class="rv-st">${s >= 2 && s <= 6 ? ST_NM[Math.min(h.street, 3)] : RV_STEPS[s]}</span></div>${tableHTML(h, { cards, acting, pick: s === 0, noBacks: s < 2 })}`;
+  layoutMinis($("#rv-table"));
   if (s === 0) $$("#rv-table .mseat").forEach(e => { const go = () => { RV.heroPos = e.dataset.pos; RV.acts = []; RV.sd = {}; renderReview(); }; e.onclick = go; e.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); } }; });
   $("#rv-steps").innerHTML = RV_STEPS.map((nm, i) => { const st = rvStepState(i); return `<button class="rvs${i === s ? " cur" : ""}${st === "skip" ? " skip" : ""}${i < s && st === "ok" ? " done" : ""}" data-step="${i}" ${st !== "ok" ? "disabled" : ""}><span class="num">${i + 1}</span>${nm}</button>`; }).join("");
   $$("#rv-steps .rvs").forEach(b => b.onclick = () => { RV.step = +b.dataset.step; RV.sizing = false; renderReview(); });
@@ -3841,7 +3889,7 @@ function rigDeal(r) {
 }
 // Static tables lay seats out differently in portrait; redraw only when that layout flips.
 let lastPortrait = matchMedia("(max-width: 760px)").matches;
-addEventListener("resize", () => { const pt = matchMedia("(max-width: 760px)").matches; if (pt === lastPortrait) return; lastPortrait = pt; renderReview(); const t = $("#drill .dr-table"); if (t && LM.prob?.h) t.innerHTML = tableHTML(LM.prob.h, { cards: { [LM.prob.sc.hero]: LM.prob.hero, ...(LM.lvl === "easy" && !["opp.range", "board.adv"].includes(LM.k) ? { [LM.prob.sc.opp]: LM.prob.oppCards } : {}) }, focus: LM.prob.sc.opp, acting: rhActor(LM.prob.h)?.isHero ? LM.prob.sc.hero : null }); });
+addEventListener("resize", () => { const pt = matchMedia("(max-width: 760px)").matches; if (pt === lastPortrait) return; lastPortrait = pt; renderReview(); const t = $("#drill .dr-table"); if (t && LM.prob?.h) t.innerHTML = tableHTML(LM.prob.h, { cards: { [LM.prob.sc.hero]: LM.prob.hero, ...(LM.lvl === "easy" && !["opp.range", "board.adv"].includes(LM.k) ? { [LM.prob.sc.opp]: LM.prob.oppCards } : {}) }, focus: LM.prob.sc.opp, acting: rhActor(LM.prob.h)?.isHero ? LM.prob.sc.hero : null }); layoutMinis(t); });
 renderReview();
 </script>
 </body>

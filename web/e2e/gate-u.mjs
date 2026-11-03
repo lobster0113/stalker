@@ -622,6 +622,27 @@ await answerQ(page.locator("#drill .dr-q"));
 await page.click("#dr-go");
 must((await page.locator("#dr-res").innerHTML()).trim() !== "", "학습 섹션: 정답 확인 후 결과가 비어 있음");
 await inspect("learn", "#dr-res");
+// #551: the learn drill picks its scenario at random, so a bet sitting on the pot only failed on some runs. Pin every
+// scenario (each one has a bet on a different seat) and check the table at all three sizes, resizing without a re-render.
+{
+  await page.evaluate(() => { window.__hold = true; });
+  const n = await page.evaluate(() => SCENARIOS.length);
+  for (let i = 0; i < n; i++) {
+    await page.evaluate(i => {
+      const sc = SCENARIOS[i], full = [1, 14, 27, 40, 5].slice(0, sc.depth), h = rhScript(sc.acts, sc.hero, 40, full);
+      while (h.board.length < full.length) rhNextStreet(h, h.street === 0 ? full.slice(0, 3) : [full[h.board.length]]);
+      const el = $("#drill .dr-table"); el.innerHTML = tableHTML(h, { focus: sc.opp }); layoutMinis($("#drill"));
+    }, i);
+    for (const [name, width, height] of VIEWPORTS) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(100);
+      const ov = await page.evaluate(tableOverlaps);
+      must(!ov.length, `learn 고정 시나리오 ${i} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} (#551)`);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => { window.__hold = false; });
+}
 {
   // #445: the equity answer and its win/tie/loss explanation come from one sample; answering 0 scores low.
   await page.click("#dr-back");
