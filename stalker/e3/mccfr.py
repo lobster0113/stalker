@@ -72,7 +72,9 @@ class E3MCCFR:
     def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
                  raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY,
                  avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-                 player_mix: tuple[int, ...] = ()):
+                 player_mix: tuple[int, ...] = (), avg_cap: float | None = None):
+        if avg_cap is not None and (avg_rule != "own" or not avg_cap >= 1):
+            raise ValueError(f"avg_cap={avg_cap!r}: needs avg_rule 'own' and a cap >= 1 (#448)")
         player_mix = tuple(int(x) for x in player_mix)
         if player_mix and not all(2 <= x <= 9 for x in player_mix):
             raise ValueError(f"player_mix counts must be 2..9, got {player_mix}")
@@ -87,6 +89,7 @@ class E3MCCFR:
         if avg_rule not in AVG_RULES:
             raise ValueError(f"avg_rule must be one of {AVG_RULES}, got {avg_rule!r}")
         self.avg_rule = avg_rule
+        self.avg_cap = avg_cap   # #529: clips the 'own' weight 1/prod(other reach); None = unclipped (every earlier run)
         self.rng = np.random.default_rng(seed)
         self.k, self.n, self.depth = k, n, depth
         self.menu, self.raise_cap = menu, raise_cap   # game rules (#339); v1 + cap 3 is every earlier run
@@ -186,7 +189,9 @@ class E3MCCFR:
         if self.avg_rule == "legacy":
             self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
             return self._walk(*child(i), trav, reach)
-        w = self.iterations / math.prod(r for m, r in enumerate(reach) if m != p and m != trav)
+        others = math.prod(r for m, r in enumerate(reach) if m != p and m != trav)
+        # no cap keeps the original `t / prod` so earlier runs stay bit for bit (t * (1 / prod) differs by an ulp)
+        w = self.iterations / others if self.avg_cap is None else self.iterations * min(1 / others, self.avg_cap)
         self.avg[key] = (avg if avg is not None else 0) + w * sigma
         nxt = reach.copy()
         nxt[p] *= float(sigma[i])
@@ -219,6 +224,11 @@ class E3MCCFR:
             st.update(version=7, player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
                       ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()}, **self._count_state())
+        if self.avg_cap is not None:   # version 8 (#529): code that predates it would resume this with unclipped weights
+            st.update(version=8, avg_cap=self.avg_cap, player_mix=list(self.player_mix), stacks=self.stacks,
+                      key_variant=self.key_variant, ranges=self.ranges, range_every=self.range_every,
+                      snap_at=self.snap_at, snap={k: v.tolist() for k, v in self.snap.items()},
+                      **(self._count_state() if self.player_mix else {}))
         if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
             st["key_version"] = K.KEY_VERSIONS[self.key_variant]
         return st
@@ -257,13 +267,17 @@ class E3MCCFR:
 
     @classmethod
     def from_state(cls, st: dict, avg_rule: str | None = None,
-                   player_mix: tuple[int, ...] | None = None) -> "E3MCCFR":
+                   player_mix: tuple[int, ...] | None = None, avg_cap: float | None = None) -> "E3MCCFR":
         """`avg_rule` / `player_mix`, if given, are what the caller means to continue with; a checkpoint of
         another is refused."""
-        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 7")
+        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7, 8):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 8")
+        cap = st.get("avg_cap")
+        if (cap is not None) != (st["version"] == 8) or (avg_cap is not None and avg_cap != cap):
+            raise ValueError(f"checkpoint version {st['version']} holds avg_cap {cap!r}, asked {avg_cap!r} (#529); "
+                             "the weights must not mix in one average - resume it with its own cap or start a fresh run")
         mix = tuple(st.get("player_mix", ()))
-        if bool(mix) != (st["version"] in (6, 7)):
+        if st["version"] != 8 and bool(mix) != (st["version"] in (6, 7)):
             raise ValueError(f"checkpoint version {st['version']} with player_mix {list(mix)}: a mixed-player "
                              "checkpoint is version 6 or 7 and only those have a player_mix")
         if player_mix is not None and tuple(player_mix) != mix:
@@ -286,7 +300,7 @@ class E3MCCFR:
                              f"{K.KEY_VERSIONS[kv]} (#400) - its keys mean other things, start a fresh run")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
                 st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""),
-                st.get("stacks", "uniform"), mix)
+                st.get("stacks", "uniform"), mix, cap)
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
@@ -294,11 +308,11 @@ class E3MCCFR:
         m.visits.update(st["visits"])
         m.snap_at = st.get("snap_at", 0)
         m.snap = {k: np.array(v, dtype=float) for k, v in st.get("snap", {}).items()}
-        if st["version"] == 7:
+        if "mix_counts" in st:
             for n, c in st["mix_counts"].items():
                 m.mix_hands[int(n)], m.mix_visits[int(n)] = c["hands"], c["visits"]
             m.counted_from = st["counted_from"]
-        elif mix:   # version 6 (before #535): nothing was counted up to here
+        elif mix and st["version"] == 6:   # version 6 (before #535): nothing was counted up to here
             m.counted_from = m.iterations
         return m
 

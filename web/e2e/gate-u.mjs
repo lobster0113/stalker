@@ -66,6 +66,36 @@ function tableOverlaps() {
   }
   for (const d of document.querySelectorAll(".view.active .dealer")) for (const b of d.parentElement.querySelectorAll(".bet")) if (b.childElementCount && hit(vis(d), vis(b))) out.push(`딜러/벳 ${b.textContent.trim()}`);
   for (const p of document.querySelectorAll(".view.active .pot")) { const c = p.querySelector(".chips"), a = p.querySelector(".amt"); if (c && a && hit(vis(c), vis(a))) out.push("팟 칩/팟 금액"); }
+  // #541: the button must not cover any seat's pod or tag (it hid "BTN · …" on 3-handed tablets), and nothing a
+  // seat draws (cards, read tag, action bubble) may reach into the controls above the table (2-handed phones).
+  for (const d of document.querySelectorAll(".view.active .dealer"))
+    for (const e of d.parentElement.querySelectorAll(".seat .pod, .seat .persona")) if (hit(vis(d), vis(e))) out.push(`딜러/좌석 ${e.closest(".seat").querySelector(".nm")?.textContent || e.closest(".seat").dataset.pos || ""} ${e.className}`);
+  for (const bar of document.querySelectorAll(".view.active .infobar"))
+    for (const c of bar.querySelectorAll("button, .pill, summary"))
+      for (const e of document.querySelectorAll(".view.active #layer .seat :is(.card, .pod, .persona, .target-tag, .bubble)"))
+        if (hit(vis(c), vis(e))) out.push(`좌석/상단 컨트롤 ${c.textContent.trim()}`);
+  // #541 review 2: a bet must not sit on the pot (top-centre seat of 2/4-handed rings), on any seat's pod or
+  // cards (3-handed tablets), or on another bet, and an action bubble must not cover a bet or the pot.
+  const name = e => e.closest(".seat")?.querySelector(".nm")?.textContent || e.closest(".seat")?.dataset.pos || "";
+  for (const t of document.querySelectorAll(".view.active :is(#layer, .mt)")) {
+    // A bet's chips are stacked upward past its own box, so the bet is its box plus its chips.
+    const withChips = b => [...b.querySelectorAll(".chip")].map(vis).filter(Boolean).reduce((u, r) => u && new DOMRect(Math.min(u.left, r.left), Math.min(u.top, r.top),
+      Math.max(u.right, r.right) - Math.min(u.left, r.left), Math.max(u.bottom, r.bottom) - Math.min(u.top, r.top)), vis(b));
+    const bets = [...t.querySelectorAll(".bet")].filter(b => b.childElementCount).map(b => [b, withChips(b)]).filter(([, r]) => r);
+    const pot = [...t.querySelectorAll(".pot .chips, .pot .amt")].map(vis).filter(Boolean);
+    const seatParts = [...t.querySelectorAll(".seat .pod, .seat .hole .card")].map(e => [e, vis(e)]).filter(([, r]) => r);
+    const bubbles = [...t.querySelectorAll(".seat .bubble")].map(e => [e, vis(e)]).filter(([, r]) => r);
+    bets.forEach(([b, r], i) => {
+      const amt = b.textContent.trim();
+      if (pot.some(p => hit(r, p))) out.push(`벳/팟 ${amt}`);
+      for (const [e, q] of seatParts) if (hit(r, q)) out.push(`벳/좌석 ${amt} ${name(e)} ${e.className}`);
+      for (const [o, q] of bets.slice(i + 1)) if (hit(r, q)) out.push(`벳/벳 ${amt} ${o.textContent.trim()}`);
+    });
+    for (const [e, q] of bubbles) {
+      for (const [b, r] of bets) if (hit(q, r)) out.push(`말풍선/벳 ${name(e)} ${b.textContent.trim()}`);
+      if (pot.some(p => hit(q, p))) out.push(`말풍선/팟 ${name(e)}`);
+    }
+  }
   return out;
 }
 
@@ -696,7 +726,7 @@ await inspect("home-move", "#move");
   p3.on("pageerror", e => must(false, `page error (고수 정책): ${e.message}`));
   await p3.goto(url);
   await p3.click("#set-tier [data-v='pro']");
-  await p3.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.pro, null, { timeout: 120_000 });
+  await p3.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol["pro-6"], null, { timeout: 120_000 });
   await p3.click("#start-btn");
   await p3.waitForSelector(QUICK);
   must((await p3.textContent("#infobar")).includes("상대 TP-GTO 고수"), "고수: 상대가 TP-GTO 고수 정책이 아님");
@@ -739,7 +769,7 @@ await inspect("home-move", "#move");
   p4.setDefaultTimeout(90_000);
   p4.on("pageerror", e => must(false, `page error (등급 변경): ${e.message}`));
   await p4.goto(url);
-  await p4.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.mid);
+  await p4.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol["mid-6"]);
   await p4.click("#start-btn");
   await p4.waitForSelector(QUICK);
   const sw = await p4.evaluate(() => G.handNo);
@@ -809,7 +839,7 @@ await inspect("home-move", "#move");
     window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
   });
   await p5.goto(url);
-  await p5.waitForFunction(() => TPG.pol.mid && "mid" in TPG.leaks);
+  await p5.waitForFunction(() => TPG.pol["mid-6"] && "mid-6" in TPG.leaks);
   const card = p5.locator("#model-status [data-known-leak]");
   must(await card.count() === 1 && /학습 중간본/.test(await card.textContent()) && /프리플랍/.test(await card.textContent())
     && /issues\/391$/.test(await card.locator("a").getAttribute("href")), "known leaks: 시작 화면 모델 카드에 알려진 프리플랍 결함·#391 링크가 없음");
@@ -1071,6 +1101,118 @@ await inspect("home-move", "#move");
   must(c.badge.length === 0 && c.untrained === 0 && c.seats.every(t => !t.includes("임시")), `임시 배지: placeholder:false 픽스처인데 배지가 보임 (${JSON.stringify(c)})`);
   await p9.close();
   console.log("임시 정책·미학습 표시 ok");
+}
+
+// 11. #541 (등급, 인원)별 정책: index.json의 tiers.beginner.by_players에 2·4인 픽스처(web/e2e/fixtures, run
+// fixture)를 붙여 내준다. 헤즈업·4인은 AI 결정이 픽스처 행이고 엔진 거울을 켠 채 핸드가 끝까지 가며, 3인(픽스처
+// 없음)은 지금처럼 미학습(규칙 봇)이다. 화면 3종 검사와 콘솔 오류 없음.
+{
+  const fix = Object.fromEntries([2, 4].map(n => [n, readFileSync(resolve(here, `fixtures/beginner-${n}.json`))]));
+  const fixDoc = n => JSON.parse(fix[n].toString("utf8"));
+  const serve = async pg => {
+    await pg.route("**/policy/index.json", async r => {
+      const res = await r.fetch(), j = await res.json();
+      j.tiers.beginner.by_players = Object.fromEntries([2, 4].map(n => {
+        const { schema, schema_version, policy, ...meta } = fixDoc(n);
+        return [n, { file: `beginner-${n}.json`, bytes: fix[n].length, ...meta }];
+      }));
+      await r.fulfill({ response: res, json: j });
+    });
+    for (const n of [2, 4]) await pg.route(`**/policy/beginner-${n}.json`, r => r.fulfill({ status: 200, contentType: "application/json", body: fix[n] }));
+  };
+  const open = async (seats) => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    // The page probes for the separately shipped strategy browser (#189) and the browser asks for a favicon;
+    // both 404 on this server by design.
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    await serve(pg);
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    await pg.click("#set-tier [data-v='beginner']");
+    await pg.selectOption("#c-seats", String(seats));
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    return { pg, errs };
+  };
+  // Where the hand happens to be when a screen is taken depends on timing (CI and local runs differed, #541
+  // review), so the table is pinned to its most crowded state first: every live opponent all-in with an action
+  // bubble, the first one tagged 읽기 대상, the button on that opponent. Nothing plays on after this.
+  const pinWorst = pg => pg.evaluate(() => {
+    window.__hold = true;
+    const opp = G.seats.filter(s => !s.isHero && !s.out);
+    for (const s of opp) { s.folded = false; s.bet += s.stack; s.stack = 0; s.allin = true; }
+    G.button = opp[0].i;
+    renderSeats();
+    for (const s of opp) bubble(s, `올인 ${bbf(s.bet)}`, "raise");
+    markTarget(opp[0]);
+  });
+  // The same crowded table with the button on each seat in turn, on all three screens.
+  const sweepButtons = async (pg, tag) => {
+    await pinWorst(pg);
+    await pg.addStyleTag({ content: ".dealer { transition: none !important; }" });
+    for (const [, width, height] of VIEWPORTS) {
+      await pg.setViewportSize({ width, height });
+      const n = await pg.evaluate(() => G.n);
+      for (let b = 0; b < n; b++) {
+        await pg.evaluate(b => { G.button = b; renderSeats(); }, b);
+        const ov = await pg.evaluate(tableOverlaps);
+        must(!ov.length, `${tag} ${width}x${height} 버튼 ${b}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 딜러 버튼·좌석 위치를 고치세요 (#541)`);
+      }
+    }
+    await pg.setViewportSize({ width: 1440, height: 900 });
+  };
+  const info = pg => pg.evaluate(() => ({
+    n: G.n, polTable: G.polTable, eng: !!G.eng, run: G.eng?.meta?.run_id ?? null,
+    untrained: document.querySelectorAll("#infobar [data-untrained]").length,
+    seats: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent) }));
+  for (const n of [2, 4]) {
+    const { pg, errs } = await open(n);
+    const a = await info(pg);
+    must(a.n === n && a.polTable && a.eng && a.run === "fixture" && a.untrained === 0 && a.seats.length === n - 1 && a.seats.every(t => t.includes("TP-GTO 초보")),
+      `인원별 정책 ${n}인: 픽스처 정책 테이블이 아님 (${JSON.stringify(a)})`);
+    let ended = null;
+    for (let guard = 0; guard < 30; guard++) {
+      ended = await pg.evaluate(() => G.eng?.lastHand?.ok && G.eng.lastHand.done ? G.eng.lastHand : null);
+      if (ended && (await pg.evaluate(() => TPG.botLog.length)) >= 6) break;
+      await pg.waitForSelector(QUICK);
+      await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+      await pg.click("#tp-go");
+    }
+    must(!!ended, `인원별 정책 ${n}인: 엔진 거울을 켠 채 쇼다운·폴드로 끝난 핸드가 없음 (헤즈업 좌석 매핑 engSeatOf 확인)`);
+    const file = fixDoc(n), log = await pg.evaluate(() => TPG.botLog.filter(x => x.tier === "beginner"));
+    let inTable = 0;
+    for (const d of log) {
+      const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
+      must(i >= 0, `인원별 정책 ${n}인: AI가 합법 메뉴 밖 액션 ${d.chosen}을 고름 (${d.key})`);
+      if (!row) { must(!d.fromTable, `인원별 정책 ${n}인: 픽스처에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+      inTable++;
+      must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9) && row[i] > 0,
+        `인원별 정책 ${n}인: 페이지가 쓴 확률이 픽스처 행과 다르거나 확률 0 액션을 고름 (${d.key})`);
+    }
+    must(log.length >= 6 && inTable >= 3, `인원별 정책 ${n}인: 검사할 AI 결정이 모자람 (전체 ${log.length}, 픽스처 키 ${inTable})`);
+    await pg.waitForSelector(QUICK);
+    await pinWorst(pg);
+    await inspect(`by-players-${n}`, "#infobar", pg);
+    await sweepButtons(pg, `인원별 정책 ${n}인`);
+    must(!errs.length, `인원별 정책 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    console.log(`인원별 정책 ${n}인: AI 결정 ${log.length}개(픽스처 ${inTable}) 모두 픽스처 행, 핸드 #${ended?.hand} 거울 유지로 종료`);
+    await pg.close();
+  }
+  const { pg, errs } = await open(3);
+  const c = await info(pg);
+  must(c.n === 3 && !c.polTable && !c.eng && c.untrained === 1 && c.seats.length === 2 && c.seats.every(t => t.includes("규칙 봇")),
+    `인원별 정책 3인: 픽스처가 없는데 미학습(규칙 봇) 대체가 아님 (${JSON.stringify(c)})`);
+  await pinWorst(pg);
+  await inspect("by-players-3", "#infobar [data-untrained]", pg);
+  await sweepButtons(pg, "인원별 정책 3인");
+  must(!errs.length, `인원별 정책 3인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+  await pg.close();
+  for (const n of [5, 6]) { const o = await open(n); await sweepButtons(o.pg, `인원별 정책 ${n}인`); await o.pg.close(); }
+  console.log("인원별 정책 ok");
 }
 
 await browser.close();
