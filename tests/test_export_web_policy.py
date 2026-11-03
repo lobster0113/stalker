@@ -115,3 +115,52 @@ def test_shipped_index_marks_every_tier_placeholder_with_its_rules():
     for tier, e in idx["tiers"].items():
         assert X.placeholder_of(e), f"{tier}: v1 6-max 100BB policy must stay marked 임시 until a real-rules one replaces it"
         assert {"game", "players", "stack_bb", "menu"} <= set(e["trained_on"])
+
+
+def _ckpt(tmp_path, n, name="c"):
+    m = E3MCCFR(1, 5, n, "basic")
+    m.iterate(3)
+    ck = tmp_path / f"{name}.ckpt.json"
+    ck.write_text(json.dumps(m.state()), encoding="utf-8")
+    return ck
+
+
+def test_index_upsert_leaves_the_policy_file_and_6max_entry_unchanged(tmp_path):
+    # #541: --index only adds the model-list entry; the 6-max policy bytes are the same with or without it,
+    # a 6-max upsert keeps the shipped entry shape, and a 4-handed upsert goes to by_players only.
+    from pathlib import Path
+
+    shipped = Path(__file__).resolve().parents[1] / "web/app/policy/index.json"
+    idx = tmp_path / "index.json"
+    idx.write_bytes(shipped.read_bytes())
+    ck6 = _ckpt(tmp_path, 6, "six")
+    plain, indexed = tmp_path / "plain.json", tmp_path / "beginner-6.json"
+    assert X.main(["--ckpt", str(ck6), "--run", "7", "--out", str(plain)]) == 0
+    assert X.main(["--ckpt", str(ck6), "--run", "7", "--out", str(indexed), "--index", str(idx)]) == 0
+    assert plain.read_bytes() == indexed.read_bytes()
+    six = json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]
+    old = json.loads(shipped.read_text(encoding="utf-8"))["tiers"]["beginner"]
+    assert six["file"] == "beginner-6.json" and six["bytes"] == len(plain.read_bytes()) and six["run_id"] == "7"
+    assert [k for k in six if k in old] == [k for k in old if k in six] and "by_players" not in six
+
+    before = idx.read_text(encoding="utf-8")
+    out4 = tmp_path / "beginner-4.json"
+    assert X.main(["--ckpt", str(_ckpt(tmp_path, 4, "four")), "--run", "fixture", "--out", str(out4), "--index", str(idx)]) == 0
+    after = json.loads(idx.read_text(encoding="utf-8"))
+    b = after["tiers"]["beginner"]
+    assert {k: v for k, v in b.items() if k != "by_players"} == json.loads(before)["tiers"]["beginner"]
+    assert after["tiers"]["mid"] == json.loads(before)["tiers"]["mid"] and after["tiers"]["pro"] == json.loads(before)["tiers"]["pro"]
+    e4 = b["by_players"]["4"]
+    assert e4["file"] == "beginner-4.json" and e4["players"] == 4 and e4["run_id"] == "fixture" and "policy" not in e4
+    # a later 6-max re-export keeps the by_players map, and a 2-handed one sorts in front of 4
+    X.main(["--ckpt", str(_ckpt(tmp_path, 2, "two")), "--run", "fixture", "--out", str(tmp_path / "beginner-2.json"), "--index", str(idx)])
+    X.main(["--ckpt", str(ck6), "--run", "8", "--out", str(indexed), "--index", str(idx)])
+    b = json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]
+    assert list(b["by_players"]) == ["2", "4"] and b["run_id"] == "8"
+
+
+def test_index_upsert_refuses_another_schema_and_starts_a_new_list(tmp_path):
+    with pytest.raises(SystemExit, match="index.json"):
+        X.upsert_index({"schema": "stalker.web.policy"}, {"tier": "mid", "players": 6})
+    idx = X.upsert_index(None, {"tier": "mid", "players": 3, "file": "mid-3.json"})
+    assert idx["schema"] == X.INDEX_SCHEMA and idx["tiers"] == {"mid": {"by_players": {"3": {"tier": "mid", "players": 3, "file": "mid-3.json"}}}}

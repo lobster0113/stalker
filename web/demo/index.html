@@ -153,6 +153,8 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 
 /* ---------- the table ---------- */
 .table-wrap { position: relative; width: 100%; aspect-ratio: 16 / 10; max-height: calc(100vh - 150px); margin: 0 auto; }
+/* #541: a top-row seat's cards and 읽기 대상 tag stand up to ~20px above the rail; this keeps them off the controls. */
+#table { margin-top: 24px; max-height: calc(100vh - 174px); }
 .rail {
   position: absolute; inset: 7% 4%; border-radius: 999px;
   background:
@@ -235,6 +237,11 @@ select, .input { background: var(--ink-2); border: 1px solid var(--line); border
 .bubble.win { background: var(--good); color: #062014; }
 @keyframes pop { from { transform: translate(-50%, -80%) scale(.6); opacity: 0; } }
 .seat.hero .bubble { top: auto; bottom: -30px; transform: translate(-50%, 0); }
+/* #541: above a top-row seat the bubble ran into the table controls, so it pops under the seat there. */
+.seat.up .bubble { top: auto; bottom: -8px; transform: translate(-50%, 100%); animation-name: popUnder; }
+@keyframes popUnder { from { transform: translate(-50%, 80%) scale(.6); opacity: 0; } }
+.seat .bubble.placed { bottom: auto; transform: none; animation-name: popIn; }
+@keyframes popIn { from { transform: scale(.6); opacity: 0; } }
 .dealer { position: absolute; width: clamp(18px, 1.8vw, 24px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff, #d9d4c8); color: #222; font: 700 clamp(10px, 1vw, 13px)/1 var(--font-display); display: grid; place-items: center; box-shadow: 0 3px 6px rgba(0,0,0,.5); transform: translate(-50%, -50%); transition: left .6s cubic-bezier(.3,.7,.2,1), top .6s cubic-bezier(.3,.7,.2,1); }
 .bet { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 5px; transition: opacity .3s; }
 .bet .amt { font: 600 clamp(11px, 1.05vw, 14px)/1 var(--font-display); background: rgba(0,0,0,.45); padding: 3px 7px; border-radius: 999px; white-space: nowrap; }
@@ -755,12 +762,12 @@ details.why[open] > summary { margin-bottom: 8px; }
         <div class="setting" id="set-cash">
           <div class="lab">설정 1-2 · 캐시게임 조건</div>
           <div class="grid2">
-            <label class="field"><span>인원</span><select id="c-seats"><option value="6" selected>6인</option><option value="4">4인 (미학습)</option></select></label>
+            <label class="field"><span>인원</span><select id="c-seats"><option value="6" selected>6인</option><option value="5">5인</option><option value="4">4인</option><option value="3">3인</option><option value="2">2인 (헤즈업)</option></select></label>
             <label class="field"><span>블라인드</span><select id="c-blinds"><option>1 / 2</option><option>2 / 5</option><option>5 / 10</option></select></label>
             <label class="field"><span>스택</span><select id="c-stack"><option value="100" selected>100 BB (탑업)</option></select></label>
             <label class="field"><span>베팅</span><select id="c-limit"><option selected>노리밋</option></select></label>
           </div>
-          <p class="sub" style="margin:8px 0 0">학습된 TP-GTO는 6인 100BB 캐시에서 학습했어요. 매 핸드 모든 좌석을 100BB로 맞추고(탑업·초과분 적립), 세션 손익은 따로 보여 줘요. 다른 인원·스택은 학습이 끝나면 열립니다.</p>
+          <p class="sub" style="margin:8px 0 0">학습된 TP-GTO는 100BB 캐시에서 그 인원 정책이 있을 때 상대해요(아래 모델 상태). 매 핸드 모든 좌석을 100BB로 맞추고(탑업·초과분 적립), 세션 손익은 따로 보여 줘요. 다른 인원·스택은 학습이 끝나면 열립니다.</p>
           <div class="model-status" id="model-status" aria-live="polite"></div>
         </div>
         <div class="setting" id="set-diff-row">
@@ -1238,13 +1245,14 @@ function segBind(id, key, after) {
 }
 segBind("set-mode", "mode", () => { $("#set-tour").hidden = S.mode !== "tournament"; $("#set-cash").hidden = S.mode !== "cash"; renderModelStatus(); });
 segBind("set-tier", "tier", () => {
-  renderModelStatus(); if (S.mode === "cash") tpgLoad(S.tier);
+  renderModelStatus(); if (S.mode === "cash") tpgLoad(S.tier, seatsNow());
   if (G) { if (G.tier !== S.tier) toast(tierNextMsg()); renderInfo(); }
 });
 const PLAY_DESC = { quick: "실전용. 내 차례에 액션부터 고르고 바로 진행해요. 원하면 '분석 보기'로 핵심 판단 1~3개를 답하고 TP-GTO와 비교해요.", guided: "집중 훈련용. 등급의 판단을 카드마다 전부 답한 뒤 액션을 고르고 채점해요." };
 const renderPlay = () => { $("#play-desc").textContent = PLAY_DESC[S.play]; };
 segBind("set-play", "play", renderPlay); renderPlay();
-setTimeout(() => { renderModelStatus(); tpgLoad(S.mode === "cash" ? S.tier : null); }, 0);
+$("#c-seats").addEventListener("change", () => { renderModelStatus(); if (S.mode === "cash") tpgLoad(S.tier, seatsNow()); });
+setTimeout(() => { renderModelStatus(); tpgLoad(S.mode === "cash" ? S.tier : null, seatsNow()); }, 0);
 // The strategy browser (#189) ships separately; hide its link where the page is not deployed.
 { const sl = $("#strategy-link"), href = sl.getAttribute("href"); if (!/^https?:/.test(href) && location.protocol !== "file:") fetch(href, { method: "HEAD" }).then(r => { if (!r.ok) sl.hidden = true; }).catch(() => { sl.hidden = true; }); }
 const renderEqabDesc = () => { $("#eqab-desc").textContent = S.eqab === "on" ? "훈련 게임의 에퀴티 질문을 결정마다 A(이길 확률) 또는 B(상위 %) 형태로 무작위로 묻고, 입력 시간과 맞힌 칩을 이 기기에만 기록해요. 이 답은 채점하지 않아요." : "끄면 에퀴티 질문은 지금처럼 0–100 칩으로 묻고 채점해요."; };
@@ -1441,17 +1449,17 @@ function newSeat(i, isHero, stackBB) {
   return s;
 }
 async function startGame() {
-  if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier) && !TPG.pol[S.tier]))) {
+  if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier, seatsNow()) && !TPG.pol[polKey(S.tier, seatsNow())]))) {
     const tok = ++gameToken;
-    $("#infobar").innerHTML = `<span class="pill">캐시게임 · 6인</span><span>TP-GTO 준비 중</span>`;
+    $("#infobar").innerHTML = `<span class="pill">캐시게임 · ${seatsNow()}인</span><span>TP-GTO 준비 중</span>`;
     $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp-strip").hidden = true; $("#tp").classList.add("open");
     const paint = () => { if (tok !== gameToken) return; $("#tp-body").innerHTML = TPG.state === "error" ? "" : `<div class="loadbox" role="status"><div>TP-GTO 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
     const iv = setInterval(paint, 120); paint();
-    const ok = await tpgLoad(S.tier);
+    const ok = await tpgLoad(S.tier, seatsNow());
     clearInterval(iv);
     if (tok !== gameToken || !$("#view-train").classList.contains("active")) return;
     if (!ok) {
-      $("#infobar").innerHTML = `<span class="pill">캐시게임 · 6인</span><span>TP-GTO 연결 실패</span>`;
+      $("#infobar").innerHTML = `<span class="pill">캐시게임 · ${seatsNow()}인</span><span>TP-GTO 연결 실패</span>`;
       $("#tp-body").innerHTML = `<div class="loadbox" role="alert"><div>${TPG.err}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta small" id="tpg-again">다시 시도</button><button class="cta small ghost" id="tpg-mock">모의 정답으로 계속</button></div></div>`;
       $("#tpg-again").onclick = () => startGame();
       $("#tpg-mock").onclick = () => startTable();
@@ -1465,11 +1473,11 @@ function startTable() {
   const tour = S.mode === "tournament";
   const n = tour ? ($("#t-format").value === "9" ? 9 : 6) : +$("#c-seats").value;
   const avg = tour ? +$("#t-stack").value : +$("#c-stack").value;
-  G = { tour, n, bb: 100, sb: 50, ante: tour && $("#t-ante").value === "bb" ? 100 : 0, stage: $("#t-stage").value, seats: [], button: Math.floor(rand() * n),
+  G = { tour, n, avg, bb: 100, sb: 50, ante: tour && $("#t-ante").value === "bb" ? 100 : 0, stage: $("#t-stage").value, seats: [], button: Math.floor(rand() * n),
     handNo: 0, board: [], pot: 0, street: 0, log: [], level: 7, levelLeft: 252, players: 47, field: 180, paid: 27, lastGrade: null };
   if (tour && $("#t-format").value !== "mtt") { G.players = n; G.field = n; G.paid = n === 9 ? 3 : 2; }
-  // Cash 6-max 100BB with a trained policy for the tier: every opponent plays that policy (#337).
-  G.polTable = !tour && n === 6 && avg === 100;
+  // Cash 100BB with a trained policy for (tier, seats): every opponent plays that policy (#337, #541).
+  G.polTable = polCovers(S.tier, n);
   const used = new Set();
   for (let i = 0; i < n; i++) {
     const st = tour ? Math.max(6, Math.round(avg * (0.45 + rand() * 1.1))) : avg;
@@ -1478,13 +1486,13 @@ function startTable() {
     while (used.has(s.name) && !s.isHero) s.name = pick(NAMES);
     used.add(s.name); G.seats.push(s);
   }
-  setTableTier(S.tier, G.polTable && TPG.mod && TPG.pol[S.tier]);
+  setTableTier(S.tier, G.polTable && TPG.mod && TPG.pol[polKey(S.tier, n)]);
   buildTable(); runLoop();
 }
 // One hand = one tier (#364): questions, grading, the opponents' policy, seat tags and the header switch together.
 function setTableTier(tier, pol) {
   G.tier = tier;
-  G.eng = pol ? { tier, pol, meta: modelMeta(tier), ok: false } : null;
+  G.eng = pol ? { tier, pol, meta: modelMeta(tier, G.n), ok: false } : null;
   for (const s of G.seats) {
     if (s.isHero) continue;
     if (G.eng) { s.persona = "gto"; s.tag = `TP-GTO ${TIERS[tier].name}`; }
@@ -1498,17 +1506,19 @@ const tierNextMsg = () => `다음 핸드부터 ${TIERS[S.tier].name} 정책으�
 // retry / mock choice as the game start.
 async function switchTier(alive) {
   const tier = S.tier;
-  if (!G.polTable || !modelMeta(tier)) { setTableTier(tier, null); return; }
+  G.polTable = polCovers(tier, G.n);
+  if (!G.polTable) { setTableTier(tier, null); return; }
+  const pk = polKey(tier, G.n);
   for (;;) {
-    if (!TPG.pol[tier]) {
+    if (!TPG.pol[pk]) {
       $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true;
       const paint = () => { if (alive() && TPG.state !== "error") $("#tp-body").innerHTML = `<div class="loadbox" role="status"><div>TP-GTO ${TIERS[tier].name} 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
       const iv = setInterval(paint, 120); paint();
-      await tpgLoad(tier);
+      await tpgLoad(tier, G.n);
       clearInterval(iv);
       if (!alive()) return;
     }
-    if (TPG.pol[tier]) { setTableTier(tier, TPG.pol[tier]); return; }
+    if (TPG.pol[pk]) { setTableTier(tier, TPG.pol[pk]); return; }
     const mock = await new Promise(res => {
       $("#tp-body").innerHTML = `<div class="loadbox" role="alert"><div>${TPG.err}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta small" id="tpg-again">다시 시도</button><button class="cta small ghost" id="tpg-mock">모의 정답으로 계속</button></div></div>`;
       $("#tpg-again").onclick = () => res(false);
@@ -1534,7 +1544,7 @@ function buildTable() {
   for (const s of G.seats) {
     const p = P[s.i] = seatPos(s.i);
     const el = h("div", "seat" + (s.isHero ? " hero" : ""));
-    el.id = "seat-" + s.i; el.style.left = p.x + "%"; el.style.top = p.y + "%";
+    el.id = "seat-" + s.i; el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30);
     const per = s.isHero ? { color: "#e9ece7" } : PERSONAS[s.persona];
     el.innerHTML = `<div class="hole"></div><div class="pod"><div class="avatar" style="background:${per.color}">${s.isHero ? "나" : s.name.slice(0, 1)}</div><div class="who"><div class="nm"></div><div class="stk"></div></div></div><div class="persona"></div>`;
     layer.appendChild(el);
@@ -1544,7 +1554,7 @@ function buildTable() {
   $("#board").innerHTML = '<div class="slot"></div>'.repeat(5);
   renderSeats(); renderInfo();
 }
-addEventListener("resize", () => { if (!G) return; for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
+addEventListener("resize", () => { if (!G) return; for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30); const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
 function chipStack(amount, bb = G.bb) {
   const colors = ["--chip-black", "--chip-blue", "--chip-green", "--chip-red"];
   const n = clamp(Math.ceil(Math.log2(amount / bb + 1)), 1, 5);
@@ -1563,10 +1573,132 @@ function renderSeats() {
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";
   }
-  const d = $("#dealer"), p = P[G.button]; d.style.left = p.dx + "%"; d.style.top = p.dy + "%";
   const tot = potTotal();
   $("#pot").innerHTML = G.pot > 0 ? chipStack(G.pot) + `<span class="amt num"><small>팟</small>${bbf(tot)} BB</span>` : tot > 0 ? `<span class="amt num"><small>팟</small>${bbf(tot)} BB</span>` : "";
+  layoutTable();
 }
+// #541: fixed percentages off the ring put bets on the pot (top-centre seat of 2/4/6-handed rings), on seat
+// pods and cards (3-handed), and the action bubble on the bet, so the table is laid out in pixels: bets first,
+// then the dealer button, then bubbles, each on the first candidate spot that touches nothing placed before.
+// A bet keeps its ring spot unless something is in the way there, so the usual table looks as before.
+const POT_RESERVE = { w: 84, h: 24 };
+const rbox = r => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+const rjoin = (a, b) => ({ l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) });
+const rfree = (q, busy) => busy.every(b => q.r <= b.l || q.l >= b.r || q.b <= b.t || q.t >= b.b);
+const rcost = (q, busy) => busy.reduce((a, b) => a + Math.max(0, Math.min(q.r, b.r) - Math.max(q.l, b.l)) * Math.max(0, Math.min(q.b, b.b) - Math.max(q.t, b.t)), 0);
+// The first candidate that touches nothing, else the one that covers the least.
+const bestSpot = (cands, busy, ok = () => true) => cands.find(q => ok(q) && rfree(q, busy))
+  || cands.filter(ok).reduce((m, q) => !m || rcost(q, busy) < rcost(m, busy) ? q : m, null);
+// Bets stay on the felt, a stadium (border-radius 999px), not on the rail or off the table.
+function onFelt(x, y, pad) {
+  const F = $("#table .felt").getBoundingClientRect(), r = Math.min(F.width, F.height) / 2 - pad;
+  const cx = clamp(x, F.left + r + pad, F.right - r - pad), cy = clamp(y, F.top + r + pad, F.bottom - r - pad);
+  return Math.hypot(x - cx, y - cy) <= r;
+}
+const centred = (x, y, w, h) => ({ l: x - w / 2, t: y - h / 2, r: x + w / 2, b: y + h / 2 });
+function tableBusy(L) {
+  const seatBox = s => {
+    const el = $("#seat-" + s.i);
+    return [".pod", ".persona", ".hole", ".hole .card", ".target-tag"].flatMap(q => $$(q, el)).filter(e => e.offsetParent !== null)
+      .reduce((u, e) => rjoin(u, rbox(e.getBoundingClientRect())), rbox(el.getBoundingClientRect()));
+  };
+  const pot = $("#pot").getBoundingClientRect(), bd = $("#board").getBoundingClientRect();
+  const fixed = [centred(L.left + L.width / 2, L.top + .3 * L.height, Math.max(POT_RESERVE.w, pot.width), Math.max(POT_RESERVE.h, pot.height))];
+  if (bd.width) fixed.push(rbox(bd));
+  return { seats: G.seats.map(seatBox), fixed };
+}
+// Each bet goes toward the table centre from its seat, on the free spot nearest the seat.
+// Seats nearest the pot go first: the top-centre seat has the least room (only beside the pot).
+function placeBets(L, busy) {
+  const bets = [], pad = 4, tx = L.left + L.width / 2, ty = L.top + L.height * .47, py = L.top + .3 * L.height;
+  const mid = k => { const U = busy.seats[k]; return Math.hypot((U.l + U.r) / 2 - tx, (U.t + U.b) / 2 - py); };
+  const order = G.seats.map((s, k) => k).sort((a, b) => mid(a) - mid(b));
+  const inside = q => [[q.l, q.t], [q.r, q.t], [q.l, q.b], [q.r, q.b]].every(([x, y]) => onFelt(x, y, pad));
+  const onLayer = q => q.l >= L.left && q.r <= L.right && q.t >= L.top && q.b <= L.bottom;
+  const out = [];
+  for (const k of order) {
+    const s = G.seats[k], el = $("#bet-" + s.i), p = P[s.i], z = betSize(el, L, p);
+    const U = busy.seats[k], cx = (U.l + U.r) / 2, cy = (U.t + U.b) / 2;
+    const dx = tx - cx, dy = ty - cy, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    const spot = (x, y) => ({ x, y, l: x - z.w / 2, t: y - z.up, r: x + z.w / 2, b: y + z.down });
+    const n0 = seatPos(s.i), nat = spot(L.left + n0.bx / 100 * L.width, L.top + n0.by / 100 * L.height);
+    // The ring's own spot first; else the free spot nearest it that is no farther from the owner, so a moved
+    // bet still reads as that seat's; on a crowded small table (6-handed tablet) then the rail, then least overlap.
+    const cands = [];
+    for (let o = -2.5; o <= 2.5; o += .25) for (let f = .1; f <= .95; f += .05) cands.push(spot(cx + dx * f + nx * o * z.w, cy + dy * f + ny * o * z.w));
+    const gap = q => Math.hypot(q.x - nat.x, q.y - nat.y);
+    cands.sort((a, b) => gap(a) - gap(b)); cands.unshift(nat);
+    const own = q => Math.hypot(q.x - cx, q.y - cy), reach = own(nat) + z.w / 2;
+    const others = [...busy.seats, ...busy.fixed, ...bets];
+    const pick = cands.find(q => own(q) <= reach && inside(q) && rfree(q, others)) || cands.find(q => inside(q) && rfree(q, others))
+      || bestSpot(cands, others, onLayer) || nat;
+    p.bx = (pick.x - L.left) / L.width * 100; p.by = (pick.y - L.top) / L.height * 100;
+    el.style.left = p.bx + "%"; el.style.top = p.by + "%";
+    bets.push(out[k] = pick);
+  }
+  return out;
+}
+// A bet's box with its chips, which stack upward past it; an empty spot keeps a small reserve so the button
+// is not put where the next bet will appear.
+const BET_MIN = { w: 44, up: 18, down: 10 };
+function betSize(el, L, p) {
+  if (!el.childElementCount) return BET_MIN;
+  const ay = L.top + p.by / 100 * L.height, rs = [el, ...$$(".chip", el)].map(e => e.getBoundingClientRect()).filter(r => r.width);
+  if (!rs.length) return BET_MIN;
+  return { w: Math.max(BET_MIN.w, Math.max(...rs.map(r => r.right)) - Math.min(...rs.map(r => r.left))),
+    up: Math.max(BET_MIN.up, ay - Math.min(...rs.map(r => r.top))), down: Math.max(BET_MIN.down, Math.max(...rs.map(r => r.bottom)) - ay) };
+}
+function layoutTable() {
+  const L = $("#layer").getBoundingClientRect();
+  if (!L.width || !L.height) { placeDealer(null); return; }
+  const busy = tableBusy(L);
+  busy.bets = placeBets(L, busy);
+  busy.dealer = placeDealer(L, busy);
+  for (const s of G.seats) for (const b of $$(".bubble", $("#seat-" + s.i))) placeBubble(s, b, L, busy);
+}
+// The button goes beside its seat on the first spot that touches no seat, bet spot, the pot or the board.
+function placeDealer(L, busy) {
+  const d = $("#dealer"), p = P[G.button];
+  if (!L) { d.style.left = p.dx + "%"; d.style.top = p.dy + "%"; return null; }
+  const all = [...busy.seats, ...busy.fixed, ...busy.bets];
+  const U = busy.seats[G.seats.findIndex(s => s.i === G.button)], pod = $(".pod", $("#seat-" + G.button)).getBoundingClientRect();
+  const rad = (d.offsetWidth || 22) / 2, gap = 4, cx = (U.l + U.r) / 2, cy = (pod.top + pod.bottom) / 2;
+  const inX = cx <= L.left + L.width / 2 ? 1 : -1, inY = (U.t + U.b) / 2 <= L.top + L.height / 2 ? 1 : -1;
+  const side = dir => dir > 0 ? U.r + gap + rad : U.l - gap - rad, vert = dir => dir > 0 ? U.b + gap + rad : U.t - gap - rad;
+  const half = (U.r - U.l) / 2 - rad;
+  const cand = [[side(inX), cy], [cx + inX * half, vert(inY)], [cx - inX * half, vert(inY)], [cx, vert(inY)],
+    [side(-inX), cy], [cx + inX * half, vert(-inY)], [cx - inX * half, vert(-inY)],
+    [side(inX), U.t + rad], [side(inX), U.b - rad], [side(-inX), U.t + rad], [side(-inX), U.b - rad]];
+  const boxes = cand.map(([x, y]) => centred(x, y, 2 * rad, 2 * rad));
+  const q = bestSpot(boxes, all, q => q.l >= L.left && q.r <= L.right && q.t >= L.top && q.b <= L.bottom) || boxes[0];
+  const x = (q.l + q.r) / 2, y = (q.t + q.b) / 2;
+  // It slides only when the button moves; a resize or re-render puts it in place at once.
+  const moved = d.dataset.btn !== String(G.button); d.dataset.btn = G.button;
+  if (!moved) d.style.transition = "none";
+  d.style.left = (x - L.left) / L.width * 100 + "%"; d.style.top = (y - L.top) / L.height * 100 + "%";
+  if (!moved) { void d.offsetWidth; d.style.transition = ""; }
+  return q;
+}
+// The action bubble goes above the seat (below it for the hero and the top row), else beside the pod: the first
+// spot that covers no bet, the pot, the board, another seat or the button, stays below the controls and inside
+// the table's column, and drops at most one bubble's room under the table (where the hero's always went).
+function placeBubble(s, b, L, busy) {
+  const el = $("#seat-" + s.i), S = el.getBoundingClientRect(), k = G.seats.indexOf(s), U = busy.seats[k];
+  const pod = $(".pod", el).getBoundingClientRect(), w = b.offsetWidth, hh = b.offsetHeight, gap = 4;
+  const top = Math.max($("#infobar").getBoundingClientRect().bottom, 0) + 2, T = $("#table").getBoundingClientRect();
+  const inX = (U.l + U.r) / 2 <= L.left + L.width / 2 ? 1 : -1, py = (pod.top + pod.bottom - hh) / 2;
+  const mid = (U.l + U.r - w) / 2, xs = [mid, mid + inX * w / 2, mid - inX * w / 2];
+  const above = xs.map(x => [x, U.t - gap - hh]), below = xs.map(x => [x, U.b + gap]);
+  const sideIn = [inX > 0 ? U.r + gap : U.l - gap - w, py], sideOut = [inX > 0 ? U.l - gap - w : U.r + gap, py];
+  // Last resort on a crowded table: over the seat's own face-down cards, never the hero's.
+  const hole = $(".hole", el).getBoundingClientRect(), onCards = s.isHero ? [] : [[mid, (hole.top + hole.bottom - hh) / 2]];
+  const order = s.isHero || el.classList.contains("up") ? [...below, sideIn, ...above, sideOut, ...onCards] : [...above, sideIn, ...below, sideOut, ...onCards];
+  const others = [...busy.seats.filter((_, j) => j !== k), ...busy.fixed, ...busy.bets, ...(busy.dealer ? [busy.dealer] : [])];
+  const cands = order.map(([x, y]) => ({ l: x, t: y, r: x + w, b: y + hh }));
+  const q = bestSpot(cands, others, q => q.t >= top && q.l >= T.left && q.r <= T.right && q.b <= T.bottom + hh + 30) || cands[0];
+  b.classList.add("placed"); b.style.left = q.l - S.left + "px"; b.style.top = q.t - S.top + "px";
+}
+function placeBubbleNow() { if (G && $("#layer").getBoundingClientRect().width) layoutTable(); }
 function renderInfo() {
   const el = $("#infobar");
   if (G.tour) {
@@ -1590,6 +1722,7 @@ setInterval(() => { if (G && G.tour && !clockFrozen() && $("#view-train").classL
 function bubble(s, text, cls = "") {
   const el = $("#seat-" + s.i); $$(".bubble", el).forEach(b => b.remove());
   const b = h("div", "bubble " + cls, text); el.appendChild(b);
+  placeBubbleNow();
   setTimeout(() => b.remove(), 1700);
 }
 // Where the pot's chip pile sits, in layer %, so flying chips land on the pile and not on the amount (#445).
@@ -1821,7 +1954,7 @@ function sessionReport() {
   const acts = ds.filter(d => d.act && !d.act.leak), low = acts.filter(d => d.act.p < LOW_FREQ);
   return { hands: hs.length, decisions: ds.length, net, graded: graded.length,
     score: graded.length ? Math.round(graded.reduce((a, d) => a + d.total, 0) / graded.length) : null, byItem,
-    compared: acts.length, placeholder: acts.length > 0 && isPlaceholder(modelMeta(G.tier)), leaks: ds.filter(d => d.act?.leak).length,
+    compared: acts.length, placeholder: acts.length > 0 && isPlaceholder(modelMeta(G.tier, G.n)), leaks: ds.filter(d => d.act?.leak).length,
     meanFreq: acts.length ? acts.reduce((a, d) => a + d.act.p, 0) / acts.length : null, low };
 }
 function reportHTML(r) {
@@ -1989,7 +2122,12 @@ const APP_BASE = window.STALKER_APP_BASE || "../app/";
 import(APP_BASE + "games.js").then(m => { GM = m; if (VIEW === "review") renderGames(); }).catch(e => console.warn("[games] load failed; hands are not saved", e));
 const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
-const modelMeta = tier => TPG.index?.tiers?.[tier] || null;
+// #541: a tier's 6-max entry is tiers[tier]; other seat counts live in tiers[tier].by_players[n]. Loaded
+// policies, rules and leaks are cached per (tier, seats).
+const modelMeta = (tier, n = 6) => { const e = TPG.index?.tiers?.[tier]; return !e ? null : n === 6 ? (e.file ? e : null) : e.by_players?.[n] || null; };
+const polKey = (tier, n = 6) => `${tier}-${n}`;
+const seatsNow = () => S.mode === "cash" ? +$("#c-seats").value : 6;
+const polCovers = (tier, n) => !G.tour && G.avg === 100 && !!modelMeta(tier, n);
 function modelLine(m) {
   const lbr = m.lbr_bb != null ? ` · LBR ${m.lbr_bb.toFixed(2)}${m.lbr_stderr_bb != null ? "±" + m.lbr_stderr_bb.toFixed(2) : ""} bb/hand` : "";
   return `반복 ${fmtIters(m.iterations)}회${lbr} · run ${m.run_id}`;
@@ -2012,28 +2150,31 @@ async function fetchJSON(url, onFrac) {
 }
 function tpgSet(state, step, pct) { TPG.state = state; if (step != null) TPG.step = step; if (pct != null) TPG.pct = pct; renderModelStatus(); }
 // Engine, equity table and the model index once; a tier's policy on demand.
-function tpgLoad(tier) {
-  if (TPG.busy) return TPG.busy.then(() => tier && modelMeta(tier) && !TPG.pol[tier] ? tpgLoad(tier) : TPG.state === "ready");
+function tpgLoad(tier, n = 6) {
+  const pk = polKey(tier, n);
+  if (TPG.busy) return TPG.busy.then(() => tier && modelMeta(tier, n) && !TPG.pol[pk] ? tpgLoad(tier, n) : TPG.state === "ready");
   TPG.busy = (async () => {
     try {
       if (!TPG.mod) { tpgSet("loading", "계산 엔진", 5); TPG.mod = await import(APP_BASE + "tpgto.js"); }
       if (!TPG.index) { tpgSet("loading", "모델 목록", 15); TPG.index = await fetchJSON(APP_BASE + "policy/index.json"); }
       if (!TPG.eq) { tpgSet("loading", "프리플랍 에퀴티 표", 25); TPG.mod.setEquityTable(await fetchJSON(APP_BASE + "assets/hu_equity.json")); TPG.eq = true; }
-      const m = tier && modelMeta(tier);
-      if (m && !TPG.pol[tier]) {
-        const step = `${TIERS[tier].name} 정책 ${(m.bytes / 1e6).toFixed(1)}MB`;
+      const m = tier && modelMeta(tier, n);
+      if (m && !TPG.pol[pk]) {
+        const step = `${TIERS[tier].name}${n === 6 ? "" : ` ${n}인`} 정책 ${(m.bytes / 1e6).toFixed(1)}MB`;
         tpgSet("loading", step, 35);
         const doc = await fetchJSON(APP_BASE + "policy/" + m.file, f => tpgSet("loading", step, 35 + Math.round(f * 60)));
         TPG.mod.checkNutK?.(doc.nut_k);   // a pro table built on another board.nut grid would mis-key
-        TPG.rules[tier] = TPG.mod.menuOf(doc);   // the size menu the table was trained on (v1 when the file does not say)
+        TPG.rules[pk] = TPG.mod.menuOf(doc);   // the size menu the table was trained on (v1 when the file does not say)
         const q = doc.q || 255, pol = new Map();
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
-        TPG.pol[tier] = pol;
+        TPG.pol[pk] = pol;
       }
-      if (m && !(tier in TPG.leaks)) {
+      if (m && !(pk in TPG.leaks)) {
         // A missing leaks file must not block play: every strong preflop spot then gets the soft note.
-        try { TPG.leaks[tier] = await fetchJSON(APP_BASE + "policy/" + m.file.replace(/\.json$/, ".leaks.json")); }
-        catch (e) { console.warn("[tpgto] leaks file:", e.message); TPG.leaks[tier] = null; }
+        // Other seat counts name their probe file in the index (`leaks`); without one there is none to fetch.
+        const lf = m.leaks || (n === 6 ? m.file.replace(/\.json$/, ".leaks.json") : null);
+        try { TPG.leaks[pk] = lf ? await fetchJSON(APP_BASE + "policy/" + lf) : null; }
+        catch (e) { console.warn("[tpgto] leaks file:", e.message); TPG.leaks[pk] = null; }
       }
       TPG.err = null; tpgSet("ready", "", 100); return true;
     } catch (e) {
@@ -2047,14 +2188,14 @@ function tpgLoad(tier) {
   return TPG.busy;
 }
 function renderModelStatus() {
-  const box = $("#model-status"), pill = $("#svc-pill"), m = modelMeta(S.tier);
+  const n = seatsNow(), box = $("#model-status"), pill = $("#svc-pill"), m = modelMeta(S.tier, n);
   if (pill) {
     if (TPG.state === "loading") { pill.textContent = "TP-GTO 불러오는 중"; pill.title = TPG.step; }
     else if (TPG.state === "error") { pill.textContent = "모의 정답 · 정책 연결 실패"; pill.title = TPG.err || ""; }
     // #445: the learning drills and the review have their own answer source, so the badge follows the screen.
     else if (VIEW === "learn") { pill.textContent = "학습 문제 · 모의 정답"; pill.title = "학습 섹션 문제의 정답은 규칙 기반 모의값이에요. 훈련 게임의 TP-GTO 비교와 다릅니다."; }
     else if (VIEW === "review") {
-      const rm = RV.mode === "cash" && RV.stack === 100 && TPG.pol[S.tier] ? modelMeta(S.tier) : null;
+      const rm = RV.mode === "cash" && RV.stack === 100 && TPG.pol[polKey(S.tier)] ? modelMeta(S.tier) : null;
       pill.textContent = rm ? `복기 · TP-GTO ${TIERS[S.tier].name} 비교` : "복기 · 모의 정답";
       pill.title = rm ? modelLine(rm) : "학습된 TP-GTO는 캐시게임 6인 100BB 핸드에서만 비교할 수 있어요. 이 복기는 규칙 기반 모의값으로 비교해요.";
     }
@@ -2067,12 +2208,12 @@ function renderModelStatus() {
   if (note) note.textContent = S.mode === "cash" && m ? "다른 플레이어(TP-GTO)는 약 1.5초 간격으로 행동합니다." : "다른 플레이어는 약 1.5초 간격으로 행동합니다.";
   if (!box) return;
   if (TPG.state === "loading") { box.innerHTML = `<div class="loadbox" role="status"><div class="ms">TP-GTO 불러오는 중 · ${TPG.step}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; return; }
-  if (TPG.state === "error") { box.innerHTML = `<div class="ms" role="alert"><span>${TPG.err}</span><button class="cta small ghost" id="tpg-retry">다시 시도</button></div>`; $("#tpg-retry").onclick = () => tpgLoad(S.tier); return; }
+  if (TPG.state === "error") { box.innerHTML = `<div class="ms" role="alert"><span>${TPG.err}</span><button class="cta small ghost" id="tpg-retry">다시 시도</button></div>`; $("#tpg-retry").onclick = () => tpgLoad(S.tier, n); return; }
   if (!TPG.index) { box.innerHTML = ""; return; }
   box.innerHTML = ["beginner", "mid", "pro"].map(t => {
-    const mm = modelMeta(t);
-    return `<div class="ms${mm ? " on" : ""}"><b>${TIERS[t].name}</b>${mm ? `<span>상대 5명 = TP-GTO ${TIERS[t].name} 정책</span><span>${modelLine(mm)}</span>` : `<span>학습 중 · 이 등급은 규칙 봇 상대와 모의 정답으로 진행해요</span>`}</div>`;
-  }).join("") + (["beginner", "mid", "pro"].some(modelMeta) ? `<div class="ms known-leak" data-known-leak><span><b>아직 GTO가 아니에요.</b> 지금 정책은 학습 중간본이고, 프리플랍에 알려진 결함이 있어요: 일부 강한 핸드(AA·KK 등)를 림프하거나 오픈에 플랫해서 손해를 봐요. 검증에서 손해로 확인된 스팟은 비교 화면에 경고를 띄우고 채점하지 않아요.</span><a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391 결함 보기</a></div>` : "");
+    const mm = modelMeta(t, n);
+    return `<div class="ms${mm ? " on" : ""}"><b>${TIERS[t].name}</b>${mm ? `<span>상대 ${n - 1}명 = TP-GTO ${TIERS[t].name} 정책</span><span>${modelLine(mm)}</span>` : `<span>학습 중 · 이 등급은 규칙 봇 상대와 모의 정답으로 진행해요</span>`}</div>`;
+  }).join("") + (["beginner", "mid", "pro"].some(t => modelMeta(t, n)) ? `<div class="ms known-leak" data-known-leak><span><b>아직 GTO가 아니에요.</b> 지금 정책은 학습 중간본이고, 프리플랍에 알려진 결함이 있어요: 일부 강한 핸드(AA·KK 등)를 림프하거나 오픈에 플랫해서 손해를 봐요. 검증에서 손해로 확인된 스팟은 비교 화면에 경고를 띄우고 채점하지 않아요.</span><a href="${LEAK_ISSUE}" target="_blank" rel="noopener">#391 결함 보기</a></div>` : "");
 }
 // #441: where the served policy is known to be wrong (probe #413, web/app/policy/<tier>-6.leaks.json), the
 // comparison must warn instead of presenting the row as GTO. Pure (node test: web/app/test/leaks.test.mjs).
@@ -2103,8 +2244,9 @@ function leakHTML(v) {
     <span>${c.spot === "first_in" ? "퍼스트 인" : "오픈을 마주함"} · ${c.pos} · ${c.group} · 정책 혼합 대비 +${c.gain_bb}bb (95% CI ${c.gain_ci[0]}–${c.gain_ci[1]})${ol ? ` · 오픈−림프 ${ol[1].bb >= 0 ? "+" : ""}${ol[1].bb}bb (95% CI ${ol[1].ci[0]}–${ol[1].ci[1]})` : ""} · 딜 ${c.deals}회 프로브</span>
     <span>그래서 이 결정은 정책 행과 비교해 채점하지 않아요.</span></div>`;
 }
-// Table seat i -> engine seat (preflop order: 0 = UTG ... n-2 = SB, n-1 = BB).
-const engSeatOf = i => ((i - G.button - 3) % G.n + 2 * G.n) % G.n;
+// Table seat i -> engine seat (preflop order: 0 = UTG ... n-2 = SB, n-1 = BB). Heads-up the button is the
+// small blind (engine seat 0), so the big blind sits one seat after the button, not two (#541).
+const engSeatOf = i => ((i - G.button - (G.n === 2 ? 2 : 3)) % G.n + 2 * G.n) % G.n;
 const engOn = () => !!(G && G.eng && G.eng.ok && TPG.mod);
 function engBreak(e) {
   if (!G?.eng) return;
@@ -2119,7 +2261,7 @@ function engStart() {
     for (const s of G.seats) holes[engSeatOf(s.i)] = s.cards.slice();
     const pool = G.deck.slice(), board = [];
     for (let i = 0; i < 5; i++) board.push(G.rigBoard?.[i] ?? pool.pop()); // the order the table deals them
-    E.s = tg.newHand({ n: G.n, holes, board, ...(TPG.rules[E.tier] || tg.menuOf(E.meta)) });
+    E.s = tg.newHand({ n: G.n, holes, board, ...(TPG.rules[polKey(E.tier, G.n)] || tg.menuOf(E.meta)) });
     E.ent = engEntropy(holes, board); E.reads = [];
     E.ranges = tg.initialRanges(G.n); E.ok = true;
   } catch (e) { engBreak(e); }
@@ -2198,7 +2340,7 @@ function engModelAt(s, ranges, pol, tier, meta) {
   const opening = s.street === 0 && s.raises === 1, cur = Math.max(...s.bet);
   const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
   const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening, cur) }; });
-  const leak = s.street === 0 ? leakVerdict(TPG.leaks[tier], s.history, ap.seat, classOf(...s.hole[ap.seat]).key, classesInTop(LEAK_TOP_PCT)) : null;
+  const leak = s.street === 0 ? leakVerdict(TPG.leaks[polKey(tier, s.n)], s.history, ap.seat, classOf(...s.hole[ap.seat]).key, classesInTop(LEAK_TOP_PCT)) : null;
   return { meta, mix, fromTable: ap.fromTable, step: ap.step, k: tg.TIER_K[tier], eq, d: ap, s, leak };
 }
 // Menu label of a real action at engine state s (fold/check/call, or a bet/raise to street total `to`).
@@ -3618,13 +3760,13 @@ function rvRange(log, pos) {
 // A cash 6-max 100BB review hand is replayed on the engine up to the hero's last decision, so the comparison
 // comes from the trained policy (the other seats' cards are unknown and do not enter any public key).
 function rvModel(h, di) {
-  const tier = S.tier, pol = TPG.pol[tier], tg = TPG.mod, meta = modelMeta(tier);
+  const tier = S.tier, pol = TPG.pol[polKey(tier)], tg = TPG.mod, meta = modelMeta(tier);
   if (!pol || !tg || RV.mode !== "cash" || RV.stack !== 100) return null;
   try {
     const used = new Set([...RV.hero, ...h.board]), free = [];
     for (let c = 51; c >= 0; c--) if (!used.has(c)) free.push(c);
     const holes = RPOS.map(p => p === RV.heroPos ? RV.hero.slice() : [free.pop(), free.pop()]);
-    let st = tg.newHand({ n: 6, holes, board: h.board.slice(), ...(TPG.rules[tier] || tg.menuOf(meta)) }), ranges = tg.initialRanges(6);
+    let st = tg.newHand({ n: 6, holes, board: h.board.slice(), ...(TPG.rules[polKey(tier)] || tg.menuOf(meta)) }), ranges = tg.initialRanges(6);
     const ent = engEntropy(holes, h.board);
     for (let i = 0; i <= di; i++) {
       const l = h.log[i], seat = RPOS.indexOf(l.pos);
