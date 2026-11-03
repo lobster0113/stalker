@@ -452,6 +452,8 @@ def summarize(job: str, folder: Path) -> dict:
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
         if all("infosets" in r for r in runs):          # #332: key counts across tables/grids live only in artifacts otherwise
             out["infosets_by_seed"] = [r["infosets"] for r in runs]
+        if all("iters_per_s" in r for r in runs):       # #527: per-seed speed so runs can be compared per CPU model
+            out["iters_per_s_by_seed"] = [r["iters_per_s"] for r in runs]
         if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
             out["cpu_model_by_seed"] = [r["machine"]["cpu_model"] for r in runs]
         if all(r.get("regret_sha256") for r in runs):    # #447: drift between reruns shows as a changed hash

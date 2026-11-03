@@ -335,3 +335,20 @@ def test_exploit_field_job_trains_against_a_field_and_reports_q1_and_lbr(tmp_pat
     assert f["q1"]["field_bb"] is not None and "lbr_bb" in f["lbr"]
     sm = T.summarize("e2-exploit-field-beginner", tmp_path)
     assert sm["runs"] == 1 and len(sm["lbr_bb_by_seed"]) == 1 and len(sm["q1_field_bb_by_seed"]) == 1
+
+
+def _e3_seed_json(seed, **extra):
+    return {"seed": seed, "iters": 10, "lbr": {"lbr_bb": 1.0}, **extra}
+
+
+def test_summarize_records_iters_per_s_by_seed(tmp_path):
+    for s, v in ((1, 2.5), (2, 3.5)):
+        (tmp_path / f"e3-x-seed{s}.json").write_text(json.dumps(_e3_seed_json(s, iters_per_s=v)), encoding="utf-8")
+    out = T.summarize("e3-x", tmp_path)
+    assert out["iters_per_s_by_seed"] == [2.5, 3.5] and out["iters_per_s_mean"] == 3.0
+
+
+def test_summarize_old_result_without_machine_keeps_working(tmp_path):
+    (tmp_path / "e3-x-seed1.json").write_text(json.dumps(_e3_seed_json(1, iters_per_s=2.0)), encoding="utf-8")
+    out = T.summarize("e3-x", tmp_path)
+    assert "cpu_model_by_seed" not in out and out["iters_per_s_by_seed"] == [2.0]
