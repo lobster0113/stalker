@@ -175,7 +175,8 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
            workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
-           avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform", probe: bool = False) -> dict:
+           avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform", probe: bool = False,
+           avg_cap: float | None = None) -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
@@ -185,6 +186,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`), "b2" (#460) also board.adv/opp.value/plan.foldeq; likewise kept on resume.
     `stacks` (#399): "sampled" deals 20-250BB tables in training (`stalker.e3.mccfr`); LBR and the field stay at
     100BB, where the stack variants' new key field is constant.
+    `avg_cap` (#448): clips the own-reach average weight 1/prod(other reach) at this; a resumed run keeps its own.
     `probe` (#446): also run the preflop-deviation probe (`e3_probe`) on the average policy."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
@@ -195,10 +197,10 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     ckpt = f"{name}-seed{seed}.ckpt.json"
     if resume is None:
         m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, avg_rule=avg_rule,
-                    key_variant=key_variant, stacks=stacks)
+                    key_variant=key_variant, stacks=stacks, avg_cap=avg_cap)
     elif (resume / ckpt).is_file():
         try:
-            m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")), avg_rule)
+            m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")), avg_rule, avg_cap=avg_cap)
         except ValueError as e:
             raise SystemExit(f"{resume / ckpt}: {e}") from None
     else:
@@ -221,7 +223,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
-            "avg_rule": m.avg_rule, "key_variant": m.key_variant, "stacks": m.stacks,
+            "avg_rule": m.avg_rule, **({"avg_cap": m.avg_cap} if m.avg_cap is not None else {}),
+            "key_variant": m.key_variant, "stacks": m.stacks,
             **({"key_version": K.KEY_VERSIONS[m.key_variant]} if m.key_variant in K.KEY_VERSIONS else {}),
             # #426: the same job and seed gave different tables on different runners, so record which one ran it
             "machine": machine(),
@@ -360,6 +363,11 @@ JOBS = {"e2-mccfr": _e2_mccfr,
                                          ranges="average"),
         # #426: e3-tp-mid-w4 with the average strategy weighted by own reach only (existing jobs stay legacy)
         "e3-tp-mid-ownavg-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4", workers=4, avg_rule="own"),
+        # #448: e3-tp-mid-ownavg-w4 with the 1/prod(other reach) weight clipped at 2 / 8 (compare lbr_average_bb_by_seed sd)
+        "e3-tp-mid-ownavg-cap2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap2-w4", workers=4,
+                                            avg_rule="own", avg_cap=2.0),
+        "e3-tp-mid-ownavg-cap8-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap8-w4", workers=4,
+                                            avg_rule="own", avg_cap=8.0),
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
         # #460: b1 plus board.adv/opp.value/plan.foldeq (B2) vs e3-tp-mid-b1-w4, same iterations and seeds
@@ -387,7 +395,7 @@ RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
              "e3-tp-mid-real-w4", "e3-tp-mid-real-avgrange-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
              "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4",
-             "e3-tp-mid-c1-w4"}   # #301
+             "e3-tp-mid-c1-w4", "e3-tp-mid-ownavg-cap2-w4", "e3-tp-mid-ownavg-cap8-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:

@@ -1,4 +1,5 @@
 """#426: E3 average-strategy accumulation rule (legacy vs own reach), checkpoints and parallel workers."""
+import hashlib
 import json
 from concurrent.futures import ProcessPoolExecutor
 
@@ -126,7 +127,8 @@ def test_ownavg_job_is_registered_and_existing_jobs_stay_legacy():
     # jobs added after #426 may choose own reach: the combined-key job does (#400)
     assert T.JOBS["e3-tp-mid-c1-w4"].keywords["avg_rule"] == "own"
     assert all(j.keywords.get("avg_rule", "legacy") == "legacy" for n, j in T.JOBS.items()
-               if n.startswith("e3-") and n not in ("e3-tp-mid-ownavg-w4", "e3-tp-mid-c1-w4"))
+               if n.startswith("e3-") and n not in ("e3-tp-mid-ownavg-w4", "e3-tp-mid-c1-w4",
+                                                    "e3-tp-mid-ownavg-cap2-w4", "e3-tp-mid-ownavg-cap8-w4"))
 
 
 def test_ownavg_job_refuses_a_legacy_checkpoint(tmp_path):
@@ -134,3 +136,81 @@ def test_ownavg_job_refuses_a_legacy_checkpoint(tmp_path):
     (tmp_path / "e3-tp-mid-ownavg-w4-seed1.ckpt.json").write_text(json.dumps(m.state()), encoding="utf-8")
     with pytest.raises(SystemExit, match="avg_rule 'legacy', not 'own'"):
         T.run("e3-tp-mid-ownavg-w4", 1, 1, tmp_path / "out", resume=tmp_path)
+
+
+# --- #448: avg_cap clips the own-reach weight --------------------------------------------------------------
+
+def _state(m, n):
+    m.iterate(n)
+    return json.loads(json.dumps(m.state()))
+
+
+def test_no_cap_average_matches_the_hash_computed_on_main():
+    # constant from origin/main at 2adf7ae (before avg_cap): `t / prod`, not `t * (1 / prod)`, which moved 368/1850 keys 1 ulp (#523)
+    m = E3MCCFR(5, 3, 3, avg_rule="own")
+    m.iterate(8)
+    h = hashlib.sha256()
+    for k in sorted(m.avg):
+        h.update(k.encode() + b"\0" + m.avg[k].astype("<f8").tobytes())
+    assert h.hexdigest() == "04a45996ade0896b5bbad9a1a673bf95e56e229eae2dd48e2533d22fafd370cb"
+
+
+def test_no_cap_checkpoint_is_unchanged_and_a_huge_cap_is_no_cap():
+    a, b, c = (E3MCCFR(5, 3, 3, avg_rule="own", avg_cap=cap) for cap in (None, 1e300, 1.0))
+    sa, sb, sc = _state(a, 5), _state(b, 5), _state(c, 5)
+    assert "avg_cap" not in sa and sa["version"] == 3     # default: same checkpoint as before #448
+    assert sb["regret"] == sa["regret"]   # a cap path multiplies t*(1/prod), 1 ulp off t/prod: close, not equal
+    assert sb["avg"].keys() == sa["avg"].keys() and all(np.allclose(sb["avg"][k], sa["avg"][k], rtol=1e-12) for k in sa["avg"])
+    assert sc["regret"] == sa["regret"] and sc["avg"] != sa["avg"]   # the cap moves only the average
+
+
+def test_cap_checkpoint_is_version_8_continues_bit_for_bit_and_refuses_other_caps():
+    whole = E3MCCFR(5, 3, 3, avg_rule="own", avg_cap=2.0)
+    whole.iterate(6)
+    part = E3MCCFR(5, 3, 3, avg_rule="own", avg_cap=2.0)
+    st = _state(part, 3)
+    assert (st["version"], st["avg_cap"]) == (8, 2.0)
+    part = E3MCCFR.from_state(st, "own", avg_cap=2.0)
+    part.iterate(3)
+    assert part.state() == whole.state()
+    assert E3MCCFR.from_state(st).avg_cap == 2.0
+    with pytest.raises(ValueError, match="avg_cap"):
+        E3MCCFR.from_state(st, "own", avg_cap=8.0)
+    with pytest.raises(ValueError, match="avg_cap"):
+        E3MCCFR.from_state({**st, "version": 3})
+    plain = _state(E3MCCFR(5, 3, 3, avg_rule="own"), 2)
+    with pytest.raises(ValueError, match="avg_cap"):
+        E3MCCFR.from_state(plain, "own", avg_cap=2.0)
+
+
+def test_cap_needs_the_own_rule_and_a_cap_of_at_least_one():
+    for kw in ({"avg_rule": "legacy", "avg_cap": 2.0}, {"avg_rule": "own", "avg_cap": 0.5}):
+        with pytest.raises(ValueError, match="avg_cap"):
+            E3MCCFR(0, 3, 3, **kw)
+
+
+def test_cap_keeps_every_other_checkpoint_field_in_version_8():
+    m = E3MCCFR(5, 3, 3, ranges="average", range_every=2, avg_rule="own", avg_cap=2.0, key_variant="b1",
+                stacks="sampled", player_mix=(2, 3))
+    st = _state(m, 3)
+    back = E3MCCFR.from_state(st)
+    assert (back.ranges, back.key_variant, back.stacks, back.player_mix, back.avg_cap) == (
+        "average", "b1", "sampled", (2, 3), 2.0)
+
+
+def test_parallel_workers_apply_the_cap(pool):
+    a, b = (E3MCCFR(7, 3, 3, avg_rule="own", avg_cap=cap) for cap in (None, 1.0))
+    parallel.iterate(a, 4, workers=2, batch=1, pool=pool)
+    parallel.iterate(b, 4, workers=2, batch=1, pool=pool)
+    assert not _tables_equal(a.avg, b.avg)
+    c = E3MCCFR(7, 3, 3, avg_rule="own", avg_cap=1.0)
+    parallel.iterate(c, 4, workers=2, batch=1, pool=pool)
+    assert c.state() == b.state()
+
+
+def test_cap_jobs_are_registered_resumable_and_differ_from_ownavg_only_in_the_cap():
+    base = T.JOBS["e3-tp-mid-ownavg-w4"].keywords
+    for name, cap in (("e3-tp-mid-ownavg-cap2-w4", 2.0), ("e3-tp-mid-ownavg-cap8-w4", 8.0)):
+        kw = T.JOBS[name].keywords
+        assert name in T.RESUMABLE and kw["avg_cap"] == cap
+        assert {k: v for k, v in kw.items() if k not in ("avg_cap", "name")} == {k: v for k, v in base.items() if k != "name"}
