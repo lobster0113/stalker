@@ -16,7 +16,8 @@ def test_no_common_cpu_and_old_format(tmp_path, capsys):
     b = {"iters_per_s_mean": 6.0}
     assert R.compare(a, b)["common_cpu"] is False
     pa, pb = tmp_path / "a.json", tmp_path / "b.json"
-    pa.write_text(json.dumps(a)); pb.write_text(json.dumps(b))
+    pa.write_text(json.dumps(a), encoding="utf-8")
+    pb.write_text(json.dumps(b), encoding="utf-8")
     assert R.main([str(pa), str(pb)]) == 0
     assert "no common CPU" in capsys.readouterr().out
     R.main([str(pa), str(pb), "--json"])
