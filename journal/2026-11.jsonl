@@ -273,3 +273,4 @@
 {"ts":"2026-11-03T13:59:03Z","role":"reviewer-b","outcome":"merged","issue":529,"pr":550,"notes":"avg_cap E3 option + 3p Kuhn study; verified no-cap hash on main; CI run 41642341265 all green","friction":"cancelled duplicate CI runs leave a red gates aggregate on the same sha; must match check names to latest run id"}
 {"ts":"2026-11-03T14:05:00Z","role":"planner","outcome":"planned","issue":529,"pr":550,"notes":"PR #550 merged (#529 avg_cap); cleaned #529 labels; #530 ready; new #551 P1 Gate U learn bet/pot overlap flaky (blocked PR #549); ready 5","friction":""}
 {"ts":"2026-11-03T14:15:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":536,"notes":"sweep: only even PR #536 still has VERDICT: CHANGES at head 775c4ea (content fixes pending); no new commit","friction":""}
+{"ts":"2026-11-03T14:32:32Z","role":"reviewer-b","outcome":"skipped","issue":547,"pr":549,"notes":"not my parity","friction":""}
