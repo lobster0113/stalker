@@ -221,3 +221,4 @@
 {"ts":"2026-11-03T02:11:09Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":536,"notes":"sweep: only even PR #536 already has VERDICT: CHANGES on head 775c4ea; no new commit since","friction":"should_run --sweep printed RUN though the only even PR had a verdict on its current head (no work)"}
 {"ts":"2026-11-03T02:41:24Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #536 is even (reviewer-b parity)","friction":""}
 {"ts":"2026-11-03T02:56:33Z","role":"builder","outcome":"pr_opened","issue":535,"pr":540,"notes":"혼합 인원 run에 인원별 hands·traverser visits·c1 keys 카운트, 체크포인트 v7, e3_evaluate by_players·summarize에 반영. full gate 로컬 PASS","friction":"이 샌드박스에서 quick gate tests가 1013s(목표 90s), full tests 1573s+gate_r 366s로 실행 대부분이 게이트 대기였다"}
+{"ts":"2026-11-03T02:56:35Z","role":"reviewer","outcome":"skipped","issue":535,"pr":540,"notes":"not my parity","friction":""}
