@@ -33,6 +33,11 @@ uniformly from the tuple, from the same generator and before the stacks (repeat 
 c1 key's `n<players>` and position fields see every table size; `n` is then the evaluation table (LBR, field).
 With the default nothing extra is drawn, so seeded runs do not move. A checkpoint of it is version 6.
 
+A player-mix run also counts, per player count, the hands dealt and the traverser updates (#535), so a result
+can say how much of the training each table size got; `mix_counts` reads them with the c1 keys per size.
+They draw no random numbers and n-handed runs keep no counts, so neither table moves. A mixed checkpoint with
+the counts is version 7; resuming a version 6 one counts from there on and says so in `counted_from`.
+
 A combined key (tp_key "c1", #400) also writes its `key_version`; `from_state` refuses a checkpoint of another
 version of the same variant, since its keys mean other things.
 
@@ -94,6 +99,10 @@ class E3MCCFR:
         self.key_variant = key_variant   # "b1" (#398): suit-aware outs/vuln/block in the key; "" is every earlier table
         self.stacks = stacks             # "sampled" (#399): per-hand 20-250BB tables; "uniform" 100BB is every earlier run
         self.player_mix = player_mix     # (#486): per-hand player counts; () deals every hand to n
+        self.mix_hands = dict.fromkeys(sorted(set(player_mix)), 0)   # #535: hands dealt per player count
+        self.mix_visits = dict.fromkeys(self.mix_hands, 0)           # #535: traverser updates per player count
+        self.counted_from = 0   # iteration the counts start at (a version 6 checkpoint resumed later has none before)
+        self.trav_updates = 0   # traverser updates in this process; not saved, only read per hand by iterate
         # average mode: normalized average rows as of iteration `snap_at`; keys not in it use the current strategy
         self.snap: dict[str, np.ndarray] = {}
         self.snap_at = 0
@@ -141,8 +150,12 @@ class E3MCCFR:
             n = self.player_mix[int(self.rng.integers(len(self.player_mix)))] if self.player_mix else self.n
             stacks = G.sample_stacks(self.rng, n) if self.stacks == "sampled" else None
             s = G.deal(self.rng, n, self.menu, self.raise_cap, stacks)
+            t0 = self.trav_updates
             for trav in range(n):
                 self._walk(s, K.initial_ranges(n), trav, [1.0] * n)
+            if self.player_mix:
+                self.mix_hands[n] += 1
+                self.mix_visits[n] += self.trav_updates - t0
 
     def _walk(self, s: G.State, ranges: list[np.ndarray], trav: int, reach: list[float]) -> float:
         # reach[m]: the sigma product of seat m's sampled actions above this node (read by avg_rule "own")
@@ -166,6 +179,7 @@ class E3MCCFR:
             reg = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(reg + (vals - v), 0, out=reg)
             self.visits[key] += 1
+            self.trav_updates += 1
             return v
         i = int(self.rng.choice(len(acts), p=sigma))
         avg = self.avg[key]
@@ -201,12 +215,41 @@ class E3MCCFR:
                       range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()})
         if self.player_mix:   # version 6 (#486): code that predates it would resume this with n-handed deals only
-            st.update(version=6, player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
+            # version 7 (#535): with the per-size counts; code that predates it would resume this and drop them
+            st.update(version=7, player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
                       ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
-                      snap={k: v.tolist() for k, v in self.snap.items()})
+                      snap={k: v.tolist() for k, v in self.snap.items()}, **self._count_state())
         if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
             st["key_version"] = K.KEY_VERSIONS[self.key_variant]
         return st
+
+    def _count_state(self) -> dict:
+        """The #535 counters as checkpoint data (version 7; also the pod summary's `model` block)."""
+        return {"mix_counts": {str(n): {"hands": self.mix_hands[n], "visits": self.mix_visits[n]} for n in self.mix_hands},
+                "counted_from": self.counted_from}
+
+    def mix_counts(self) -> dict[str, dict[str, int | None]]:
+        """Per dealt player count: hands, traverser updates and, for the c1 key (whose non-call keys name the
+        player count, `n<players>`), the regret-table keys of that size; other keys hold no player count, so
+        `keys` is None there. `call|...` keys of every size are shared and counted by `shared_keys`."""
+        per = self._keys_by_players()
+        return {str(n): {"hands": self.mix_hands[n], "visits": self.mix_visits[n],
+                         "keys": None if per is None else per.get(n, 0)} for n in self.mix_hands}
+
+    def shared_keys(self) -> int | None:
+        """c1 keys that no player count owns (the short `call|` keys); None for keys without a player count."""
+        per = self._keys_by_players()
+        return None if per is None else len(self.regret) - sum(per.values())
+
+    def _keys_by_players(self) -> dict[int, int] | None:
+        if self.key_variant != "c1":
+            return None
+        out: dict[int, int] = defaultdict(int)
+        for k in self.regret:
+            n = key_players(k)
+            if n is not None:
+                out[n] += 1
+        return dict(out)
 
     def _grid(self) -> dict:
         # The pro table's board.nut grid is part of its key meaning (#332): 17 -> 5 steps changed `n<nut>`.
@@ -217,12 +260,12 @@ class E3MCCFR:
                    player_mix: tuple[int, ...] | None = None) -> "E3MCCFR":
         """`avg_rule` / `player_mix`, if given, are what the caller means to continue with; a checkpoint of
         another is refused."""
-        if st.get("version") not in (1, 2, 3, 4, 5, 6):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 6")
+        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 7")
         mix = tuple(st.get("player_mix", ()))
-        if bool(mix) != (st["version"] == 6):
+        if bool(mix) != (st["version"] in (6, 7)):
             raise ValueError(f"checkpoint version {st['version']} with player_mix {list(mix)}: a mixed-player "
-                             "checkpoint is version 6 and only it has a player_mix")
+                             "checkpoint is version 6 or 7 and only those have a player_mix")
         if player_mix is not None and tuple(player_mix) != mix:
             raise ValueError(f"checkpoint was dealt with player_mix {list(mix)}, not {list(player_mix)} (#486); "
                              "resume it with its own mix or start a fresh run")
@@ -251,6 +294,12 @@ class E3MCCFR:
         m.visits.update(st["visits"])
         m.snap_at = st.get("snap_at", 0)
         m.snap = {k: np.array(v, dtype=float) for k, v in st.get("snap", {}).items()}
+        if st["version"] == 7:
+            for n, c in st["mix_counts"].items():
+                m.mix_hands[int(n)], m.mix_visits[int(n)] = c["hands"], c["visits"]
+            m.counted_from = st["counted_from"]
+        elif mix:   # version 6 (before #535): nothing was counted up to here
+            m.counted_from = m.iterations
         return m
 
     def regret_hash(self) -> str:
@@ -268,6 +317,17 @@ class E3MCCFR:
     def current_policy(self) -> dict[str, list[float]]:
         """The regret-matching strategy of the last iteration (no early-iteration residue in it)."""
         return {k: self._sigma(k, len(r)).tolist() for k, r in self.regret.items()}
+
+
+def key_players(key: str) -> int | None:
+    """The player count a c1 key names (`<pos>|n<players>|`, `b|n<players>|`, `p|<pos>|n<players>|`); None for
+    a `call|` key, which has no such field. Only c1 keys carry it: other keys must not be read with this."""
+    if key.startswith("call|"):
+        return None
+    for f in key.split("|", 3)[1:3]:
+        if f[:1] == "n" and f[1:].isdigit():
+            return int(f[1:])
+    return None
 
 
 def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:

@@ -117,11 +117,11 @@ def test_mixed_deals_replay_chip_for_chip_in_pokerkit():
     assert tally.passed == tally.total and tally.total > 0, tally.failures[:3]
 
 
-def test_checkpoint_is_version_6_and_resumes_only_the_same_mix():
+def test_checkpoint_is_version_7_and_resumes_only_the_same_mix():
     m = E3MCCFR(5, 5, 6, "basic", player_mix=(2, 3))
     m.iterate(2)
     st = json.loads(json.dumps(m.state()))
-    assert st["version"] == 6 and st["player_mix"] == [2, 3]
+    assert st["version"] == 7 and st["player_mix"] == [2, 3]   # 6 before the counts (#535)
     back = E3MCCFR.from_state(st, player_mix=(2, 3))
     m.iterate(2)
     back.iterate(2)

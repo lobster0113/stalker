@@ -72,7 +72,7 @@ class _Overlay(dict):
         return r
 
 
-def _work(args) -> tuple[dict, dict, dict, int, float]:
+def _work(args) -> tuple[dict, dict, dict, int, float, tuple[dict, dict]]:
     k, n, depth, menu, raise_cap, blob, iterations, seed, iters, ranges, snap_blob, avg_rule, key_variant, stacks, mix = args
     regret = _Overlay(*pickle.loads(blob))
     m = E3MCCFR(0, k, n, depth, menu, raise_cap, ranges, avg_rule=avg_rule, key_variant=key_variant,
@@ -92,7 +92,7 @@ def _work(args) -> tuple[dict, dict, dict, int, float]:
         if base is None or d.any():
             delta[key] = d
     avg = {key: v for key, v in m.avg.items() if v is not None}
-    return delta, avg, dict(m.visits), m.nodes, compute
+    return delta, avg, dict(m.visits), m.nodes, compute, (m.mix_hands, m.mix_visits)
 
 
 def split(iters: int, workers: int) -> list[int]:
@@ -138,7 +138,7 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
                     for sd, s in zip(seeds, shares)]
             results = list(pool.map(_work, jobs))
             t1 = time.perf_counter()
-            for delta, avg, visits, nodes, _ in results:
+            for delta, avg, visits, nodes, _, (hands, trav) in results:
                 for key, d in delta.items():
                     base = m.regret.get(key)
                     m.regret[key] = np.maximum(d if base is None else base + d, 0)
@@ -148,6 +148,9 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
                 for key, c in visits.items():
                     m.visits[key] += c
                 m.nodes += nodes
+                for n, c in hands.items():   # #535: per player count; empty unless player_mix
+                    m.mix_hands[n] += c
+                    m.mix_visits[n] += trav[n]
             if timing is not None:
                 t2 = time.perf_counter()
                 for k, v in (("total", t2 - t0), ("compute", max(r[4] for r in results)), ("merge", t2 - t1)):
