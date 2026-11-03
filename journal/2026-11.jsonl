@@ -267,3 +267,4 @@
 {"ts":"2026-11-03T12:40:00Z","role":"planner","outcome":"planned","issue":541,"pr":544,"notes":"PR #544 merged (#541 web policy by tier+players); cleaned #541 labels; PR follow-up (bet/pot overlap) already covered in 1cebae5, no new issue; ready (unclaimed) 3","friction":""}
 {"ts":"2026-11-03T12:41:25Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #536 (even, reviewer-b); no odd PRs to judge","friction":""}
 {"ts":"2026-11-03T13:06:15Z","role":"builder","outcome":"pr_opened","issue":547,"pr":549,"notes":"pod_train --max-iters (stopped_by field, resume counts, last batch cut) + mixn c1 seed 2-4 jobs at 40k; #544 green awaiting review","friction":"local gates slow: quick 1211s, full tests 1704s (well over the 90s quick target); a pkill -f referee.gates pattern also killed my own shell"}
+{"ts":"2026-11-03T13:06:30Z","role":"reviewer-b","outcome":"skipped","issue":547,"pr":549,"notes":"not my parity","friction":""}
