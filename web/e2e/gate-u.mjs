@@ -74,6 +74,28 @@ function tableOverlaps() {
     for (const c of bar.querySelectorAll("button, .pill, summary"))
       for (const e of document.querySelectorAll(".view.active #layer .seat :is(.card, .pod, .persona, .target-tag, .bubble)"))
         if (hit(vis(c), vis(e))) out.push(`좌석/상단 컨트롤 ${c.textContent.trim()}`);
+  // #541 review 2: a bet must not sit on the pot (top-centre seat of 2/4-handed rings), on any seat's pod or
+  // cards (3-handed tablets), or on another bet, and an action bubble must not cover a bet or the pot.
+  const name = e => e.closest(".seat")?.querySelector(".nm")?.textContent || e.closest(".seat")?.dataset.pos || "";
+  for (const t of document.querySelectorAll(".view.active :is(#layer, .mt)")) {
+    // A bet's chips are stacked upward past its own box, so the bet is its box plus its chips.
+    const withChips = b => [...b.querySelectorAll(".chip")].map(vis).filter(Boolean).reduce((u, r) => u && new DOMRect(Math.min(u.left, r.left), Math.min(u.top, r.top),
+      Math.max(u.right, r.right) - Math.min(u.left, r.left), Math.max(u.bottom, r.bottom) - Math.min(u.top, r.top)), vis(b));
+    const bets = [...t.querySelectorAll(".bet")].filter(b => b.childElementCount).map(b => [b, withChips(b)]).filter(([, r]) => r);
+    const pot = [...t.querySelectorAll(".pot .chips, .pot .amt")].map(vis).filter(Boolean);
+    const seatParts = [...t.querySelectorAll(".seat .pod, .seat .hole .card")].map(e => [e, vis(e)]).filter(([, r]) => r);
+    const bubbles = [...t.querySelectorAll(".seat .bubble")].map(e => [e, vis(e)]).filter(([, r]) => r);
+    bets.forEach(([b, r], i) => {
+      const amt = b.textContent.trim();
+      if (pot.some(p => hit(r, p))) out.push(`벳/팟 ${amt}`);
+      for (const [e, q] of seatParts) if (hit(r, q)) out.push(`벳/좌석 ${amt} ${name(e)} ${e.className}`);
+      for (const [o, q] of bets.slice(i + 1)) if (hit(r, q)) out.push(`벳/벳 ${amt} ${o.textContent.trim()}`);
+    });
+    for (const [e, q] of bubbles) {
+      for (const [b, r] of bets) if (hit(q, r)) out.push(`말풍선/벳 ${name(e)} ${b.textContent.trim()}`);
+      if (pot.some(p => hit(q, p))) out.push(`말풍선/팟 ${name(e)}`);
+    }
+  }
   return out;
 }
 
