@@ -696,7 +696,7 @@ await inspect("home-move", "#move");
   p3.on("pageerror", e => must(false, `page error (고수 정책): ${e.message}`));
   await p3.goto(url);
   await p3.click("#set-tier [data-v='pro']");
-  await p3.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.pro, null, { timeout: 120_000 });
+  await p3.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol["pro-6"], null, { timeout: 120_000 });
   await p3.click("#start-btn");
   await p3.waitForSelector(QUICK);
   must((await p3.textContent("#infobar")).includes("상대 TP-GTO 고수"), "고수: 상대가 TP-GTO 고수 정책이 아님");
@@ -739,7 +739,7 @@ await inspect("home-move", "#move");
   p4.setDefaultTimeout(90_000);
   p4.on("pageerror", e => must(false, `page error (등급 변경): ${e.message}`));
   await p4.goto(url);
-  await p4.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.mid);
+  await p4.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol["mid-6"]);
   await p4.click("#start-btn");
   await p4.waitForSelector(QUICK);
   const sw = await p4.evaluate(() => G.handNo);
@@ -809,7 +809,7 @@ await inspect("home-move", "#move");
     window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
   });
   await p5.goto(url);
-  await p5.waitForFunction(() => TPG.pol.mid && "mid" in TPG.leaks);
+  await p5.waitForFunction(() => TPG.pol["mid-6"] && "mid-6" in TPG.leaks);
   const card = p5.locator("#model-status [data-known-leak]");
   must(await card.count() === 1 && /학습 중간본/.test(await card.textContent()) && /프리플랍/.test(await card.textContent())
     && /issues\/391$/.test(await card.locator("a").getAttribute("href")), "known leaks: 시작 화면 모델 카드에 알려진 프리플랍 결함·#391 링크가 없음");
@@ -1071,6 +1071,86 @@ await inspect("home-move", "#move");
   must(c.badge.length === 0 && c.untrained === 0 && c.seats.every(t => !t.includes("임시")), `임시 배지: placeholder:false 픽스처인데 배지가 보임 (${JSON.stringify(c)})`);
   await p9.close();
   console.log("임시 정책·미학습 표시 ok");
+}
+
+// 11. #541 (등급, 인원)별 정책: index.json의 tiers.beginner.by_players에 2·4인 픽스처(web/e2e/fixtures, run
+// fixture)를 붙여 내준다. 헤즈업·4인은 AI 결정이 픽스처 행이고 엔진 거울을 켠 채 핸드가 끝까지 가며, 3인(픽스처
+// 없음)은 지금처럼 미학습(규칙 봇)이다. 화면 3종 검사와 콘솔 오류 없음.
+{
+  const fix = Object.fromEntries([2, 4].map(n => [n, readFileSync(resolve(here, `fixtures/beginner-${n}.json`))]));
+  const fixDoc = n => JSON.parse(fix[n].toString("utf8"));
+  const serve = async pg => {
+    await pg.route("**/policy/index.json", async r => {
+      const res = await r.fetch(), j = await res.json();
+      j.tiers.beginner.by_players = Object.fromEntries([2, 4].map(n => {
+        const { schema, schema_version, policy, ...meta } = fixDoc(n);
+        return [n, { file: `beginner-${n}.json`, bytes: fix[n].length, ...meta }];
+      }));
+      await r.fulfill({ response: res, json: j });
+    });
+    for (const n of [2, 4]) await pg.route(`**/policy/beginner-${n}.json`, r => r.fulfill({ status: 200, contentType: "application/json", body: fix[n] }));
+  };
+  const open = async (seats) => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    // The page probes for the separately shipped strategy browser (#189) and the browser asks for a favicon;
+    // both 404 on this server by design.
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    await serve(pg);
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    await pg.click("#set-tier [data-v='beginner']");
+    await pg.selectOption("#c-seats", String(seats));
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    return { pg, errs };
+  };
+  const info = pg => pg.evaluate(() => ({
+    n: G.n, polTable: G.polTable, eng: !!G.eng, run: G.eng?.meta?.run_id ?? null,
+    untrained: document.querySelectorAll("#infobar [data-untrained]").length,
+    seats: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent) }));
+  for (const n of [2, 4]) {
+    const { pg, errs } = await open(n);
+    const a = await info(pg);
+    must(a.n === n && a.polTable && a.eng && a.run === "fixture" && a.untrained === 0 && a.seats.length === n - 1 && a.seats.every(t => t.includes("TP-GTO 초보")),
+      `인원별 정책 ${n}인: 픽스처 정책 테이블이 아님 (${JSON.stringify(a)})`);
+    let ended = null;
+    for (let guard = 0; guard < 30; guard++) {
+      ended = await pg.evaluate(() => G.eng?.lastHand?.ok && G.eng.lastHand.done ? G.eng.lastHand : null);
+      if (ended && (await pg.evaluate(() => TPG.botLog.length)) >= 6) break;
+      await pg.waitForSelector(QUICK);
+      await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+      await pg.click("#tp-go");
+    }
+    must(!!ended, `인원별 정책 ${n}인: 엔진 거울을 켠 채 쇼다운·폴드로 끝난 핸드가 없음 (헤즈업 좌석 매핑 engSeatOf 확인)`);
+    const file = fixDoc(n), log = await pg.evaluate(() => TPG.botLog.filter(x => x.tier === "beginner"));
+    let inTable = 0;
+    for (const d of log) {
+      const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
+      must(i >= 0, `인원별 정책 ${n}인: AI가 합법 메뉴 밖 액션 ${d.chosen}을 고름 (${d.key})`);
+      if (!row) { must(!d.fromTable, `인원별 정책 ${n}인: 픽스처에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+      inTable++;
+      must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9) && row[i] > 0,
+        `인원별 정책 ${n}인: 페이지가 쓴 확률이 픽스처 행과 다르거나 확률 0 액션을 고름 (${d.key})`);
+    }
+    must(log.length >= 6 && inTable >= 3, `인원별 정책 ${n}인: 검사할 AI 결정이 모자람 (전체 ${log.length}, 픽스처 키 ${inTable})`);
+    await pg.waitForSelector(QUICK);
+    await inspect(`by-players-${n}`, "#infobar", pg);
+    must(!errs.length, `인원별 정책 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    console.log(`인원별 정책 ${n}인: AI 결정 ${log.length}개(픽스처 ${inTable}) 모두 픽스처 행, 핸드 #${ended?.hand} 거울 유지로 종료`);
+    await pg.close();
+  }
+  const { pg, errs } = await open(3);
+  const c = await info(pg);
+  must(c.n === 3 && !c.polTable && !c.eng && c.untrained === 1 && c.seats.length === 2 && c.seats.every(t => t.includes("규칙 봇")),
+    `인원별 정책 3인: 픽스처가 없는데 미학습(규칙 봇) 대체가 아님 (${JSON.stringify(c)})`);
+  await inspect("by-players-3", "#infobar [data-untrained]", pg);
+  must(!errs.length, `인원별 정책 3인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+  await pg.close();
+  console.log("인원별 정책 ok");
 }
 
 await browser.close();

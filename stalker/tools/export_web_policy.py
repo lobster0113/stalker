@@ -13,6 +13,10 @@ label every answer with the model it came from (iterations, LBR, run).
 
     python -m stalker.tools.export_web_policy --ckpt e3-tp-mid-w4-seed1.ckpt.json --summary e3-tp-mid-w4-seed1.json \
         --run 40793583489 --out web/app/policy/mid-6.json
+
+`--index web/app/policy/index.json` also records the file in the page's model list (#541): a 6-max policy is
+`tiers[tier]`, any other seat count `tiers[tier].by_players["<n>"]`, so the page looks a table up by
+(tier, seats). Other entries are left as they are.
 """
 from __future__ import annotations
 
@@ -25,6 +29,8 @@ import numpy as np
 
 SCHEMA = "stalker.web.policy"
 SCHEMA_VERSION = 1
+INDEX_SCHEMA = "stalker.web.policy-index"
+INDEX_SCHEMA_VERSION = 1
 Q = 255
 MAX_BYTES = 3 * 1024 * 1024  # one tier's file (#336): the page loads it before the first hand
 
@@ -49,6 +55,32 @@ def export(policy: dict[str, list[float]], meta: dict, visits: dict[str, int] | 
     return {"schema": SCHEMA, "schema_version": SCHEMA_VERSION, **meta, "q": Q, "min_visits": min_visits,
             "keys": len(kept), "keys_dropped": len(policy) - len(kept),
             "policy": {k: quantize(v) for k, v in sorted(kept.items())}}
+
+
+def index_entry(doc: dict, file: str, nbytes: int) -> dict:
+    """What the page's model list says about one policy file: everything but the table itself."""
+    return {"file": file, "bytes": nbytes, **{k: v for k, v in doc.items() if k not in ("schema", "schema_version", "policy")}}
+
+
+def upsert_index(index: dict | None, entry: dict) -> dict:
+    """Put a policy into the model list under (tier, players); 6-max keeps the old place (`tiers[tier]`) so
+    pages and tests that read it are unchanged, other seat counts go to `by_players` and leave 6-max alone."""
+    idx = index if index is not None else {"schema": INDEX_SCHEMA, "schema_version": INDEX_SCHEMA_VERSION, "tiers": {}}
+    if idx.get("schema") != INDEX_SCHEMA:
+        raise SystemExit(f"--index: schema {idx.get('schema')!r} is not {INDEX_SCHEMA}; point it at web/app/policy/index.json")
+    tier, n = entry["tier"], int(entry["players"])
+    old = idx["tiers"].get(tier, {})
+    if n == 6:
+        idx["tiers"][tier] = {**entry, **({"by_players": old["by_players"]} if "by_players" in old else {})}
+    else:
+        by = dict(old.get("by_players", {}))
+        by[str(n)] = entry
+        idx["tiers"][tier] = {**old, "by_players": dict(sorted(by.items(), key=lambda kv: int(kv[0])))}
+    return idx
+
+
+def write_index(path: Path, idx: dict) -> None:
+    path.write_text(json.dumps(idx, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def placeholder_of(doc: dict) -> bool:
@@ -107,6 +139,8 @@ def main(argv=None) -> int:
     ap.add_argument("--min-visits", type=int, default=0, help="drop keys updated fewer times than this")
     ap.add_argument("--max-bytes", type=int, default=MAX_BYTES)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--index", type=Path,
+                    help="also upsert the file into this model list (web/app/policy/index.json) under (tier, players)")
     a = ap.parse_args(argv)
     from stalker.e3.mccfr import E3MCCFR
 
@@ -135,6 +169,10 @@ def main(argv=None) -> int:
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_bytes(body)
     print(f"{a.out}: {doc['keys']} keys, {len(body)} bytes")
+    if a.index:
+        old = json.loads(a.index.read_text(encoding="utf-8")) if a.index.exists() else None
+        write_index(a.index, upsert_index(old, index_entry(doc, a.out.name, len(body))))
+        print(f"{a.index}: {doc['tier']} {doc['players']}-handed -> {a.out.name}")
     return 0
 
 
