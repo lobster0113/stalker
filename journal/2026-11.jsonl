@@ -268,3 +268,4 @@
 {"ts":"2026-11-03T12:41:25Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #536 (even, reviewer-b); no odd PRs to judge","friction":""}
 {"ts":"2026-11-03T13:06:15Z","role":"builder","outcome":"pr_opened","issue":547,"pr":549,"notes":"pod_train --max-iters (stopped_by field, resume counts, last batch cut) + mixn c1 seed 2-4 jobs at 40k; #544 green awaiting review","friction":"local gates slow: quick 1211s, full tests 1704s (well over the 90s quick target); a pkill -f referee.gates pattern also killed my own shell"}
 {"ts":"2026-11-03T13:06:30Z","role":"reviewer-b","outcome":"skipped","issue":547,"pr":549,"notes":"not my parity","friction":""}
+{"ts":"2026-11-03T13:12:56Z","role":"builder-b","outcome":"pr_opened","issue":529,"pr":550,"notes":"E3 avg_cap option (ckpt v8) + 3p Kuhn variance study; full gate pass locally","friction":"gates full 44분(tests 2120s); quick 백그라운드 120s 초과"}
