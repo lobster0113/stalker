@@ -122,6 +122,7 @@ def test_pod_checkpoint_carries_the_counts():
 def small(monkeypatch):
     for name in ("E3_LBR_HANDS", "E3_FIELD_HANDS", "E3_BY_PLAYERS_LBR_HANDS", "E3_BY_PLAYERS_FIELD_HANDS"):
         monkeypatch.setattr(T, name, 2)
+    monkeypatch.setattr(T, "E3_BY_PLAYERS_LBR_HANDS_BY_N", {})
 
 
 def test_result_and_summary_carry_the_counts(small, tmp_path):

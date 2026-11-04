@@ -31,6 +31,10 @@ E3_FIELD_HANDS = 1000
 # only) LBR over seats 2-5 costs ~1.2x one 6-seat LBR per hand and the 2-5 fields ~1.1x the 6-max field per
 # deal, so 600 / 500 add ~60% to the E3 evaluation (bound: 2x, #534).
 E3_BY_PLAYERS_LBR_HANDS = 600
+# #556: at 600 hands the 2-3 seat LBR se (1.1-1.7 bb/hand) was about the cross-seed sd (#548), so seeds could not
+# be compared; heads-up evaluation (105-253 s a run) is cheap next to training (3,367-5,897 s), so more hands
+# beat more seeds. 2000 cuts se by ~1.8x. Other sizes keep E3_BY_PLAYERS_LBR_HANDS.
+E3_BY_PLAYERS_LBR_HANDS_BY_N = {2: 2000, 3: 2000}
 E3_BY_PLAYERS_FIELD_HANDS = 500
 # Iterations per worker between syncs (#318): ~1 min of E3 work at CI speed, so pickling the regrets
 # (tens of thousands of keys) stays small next to the work.
@@ -294,6 +298,10 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
     return out
 
 
+def _by_players_lbr_hands(n: int) -> int:
+    return E3_BY_PLAYERS_LBR_HANDS_BY_N.get(n, E3_BY_PLAYERS_LBR_HANDS)
+
+
 def _by_players(m, seed: int, avg: dict, cur: dict, top: dict, top_seconds: float) -> dict:
     """#534: LBR (both policies) and field per table size of a player-mix model, under the caller's rules."""
     from referee.e3.field import evaluate as field_eval
@@ -303,14 +311,15 @@ def _by_players(m, seed: int, avg: dict, cur: dict, top: dict, top_seconds: floa
     for n in sorted(set(m.player_mix)):
         if n == m.n and top["field"] is not None:
             rows[str(n)] = {"lbr": top["lbr"], "lbr_average": top["lbr_average"], "field": top["field"],
-                            "seconds": round(top_seconds, 1)}
+                            "seconds": round(top_seconds, 1), "lbr_hands": E3_LBR_HANDS}
             continue
         t = time.monotonic()
-        lbr = {k: exploitability_lb(pol, E3_BY_PLAYERS_LBR_HANDS, seed=10_000 + seed, k=m.k, n=n, depth=m.depth)
+        hands = _by_players_lbr_hands(n)
+        lbr = {k: exploitability_lb(pol, hands, seed=10_000 + seed, k=m.k, n=n, depth=m.depth)
                for k, pol in (("average", avg), ("current", cur))}
         field = field_eval(cur, E3_BY_PLAYERS_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth, players=n)
         rows[str(n)] = {"lbr": lbr["current"], "lbr_average": lbr["average"], "field": field,
-                        "seconds": round(time.monotonic() - t, 1)}
+                        "seconds": round(time.monotonic() - t, 1), "lbr_hands": hands}
     return rows
 
 
