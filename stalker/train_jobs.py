@@ -20,6 +20,8 @@ import time
 from functools import partial
 from pathlib import Path
 
+from stalker.jsonio import find_table, read_json, write_json_gz
+
 # LBR hands per seat: 400 gave SE ~0.4-0.5 bb/hand, too wide to separate TP tiers (#234); 4000 gives ~0.15.
 LBR_HANDS = 4000
 # E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
@@ -64,7 +66,7 @@ def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: st
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", policy)
     t1 = time.monotonic()
     # Same LBR deals for every tier and seed, so tiers differ only in what the policy sees (#187).
     lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, abstraction=abstraction)
@@ -103,7 +105,7 @@ def _e2_exploit(iters: int, seed: int, out: Path, tier: str, name: str, field: b
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", policy)
     total = max(EXPLOIT_CHECKPOINTS, int(EXPLOIT_RATIO * iters))
     exs = {seat: Exploiter(policy, TIERS[tier], seat, seed + 17 * seat, BASELINE) for seat in (0, 1)}
     curve, done, ex_s = [], 0, 0.0
@@ -148,7 +150,7 @@ def _e2_league(tier: str, exploiter_tier: str | None = None, name: str | None = 
         lg = League(tier, seed=seed, exploiter_tier=exploiter_tier)
         hist = lg.run(LEAGUE_GENERATIONS, per_gen, exploiter_iters=min(20_000, per_gen), hands=1000)
         if lg.champion is not None:
-            (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(lg.champion), encoding="utf-8")
+            write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", lg.champion)
         champ = [g for g in hist if g.promoted]
         return {"iters": per_gen * LEAGUE_GENERATIONS, "tier": tier, "generations": [asdict(g) for g in hist],
                 "exploiter": {"tier": lg.exploiter_tier or tier, "ratio": lg.exploiter_ratio,
@@ -168,7 +170,7 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", policy)
     t1 = time.monotonic()
     lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, view=m.view)
     return {"iters": iters, "tier": tier, "view": m.view.to_json(), "train_seconds": round(train_s, 1),
@@ -198,15 +200,16 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
     from stalker.tools.pod_bench import machine
 
-    ckpt = f"{name}-seed{seed}.ckpt.json"
+    ckpt = f"{name}-seed{seed}.ckpt.json"   # saved as .gz (#560); a plain one from an older run still resumes
+    ck_path = find_table(resume, f"{name}-seed{seed}.ckpt") if resume is not None else None
     if resume is None:
         m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, avg_rule=avg_rule,
                     key_variant=key_variant, stacks=stacks, avg_cap=avg_cap)
-    elif (resume / ckpt).is_file():
+    elif ck_path is not None:
         try:
-            m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")), avg_rule, avg_cap=avg_cap)
+            m = E3MCCFR.from_state(read_json(ck_path), avg_rule, avg_cap=avg_cap)
         except ValueError as e:
-            raise SystemExit(f"{resume / ckpt}: {e}") from None
+            raise SystemExit(f"{ck_path}: {e}") from None
     else:
         raise SystemExit(f"{resume / ckpt} not found: resume_run must be an earlier {name} run with this seed "
                          "(its train-<seed> artifact holds the checkpoint); leave resume_run empty to start fresh")
@@ -222,9 +225,9 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     t0 = time.monotonic()
     parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
     train_s = time.monotonic() - t0
-    (out / ckpt).write_text(json.dumps(m.state()), encoding="utf-8")
+    write_json_gz(out / f"{ckpt}.gz", m.state())
     avg, cur = m.policy(), m.current_policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", {"average": avg, "current": cur})
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
             "avg_rule": m.avg_rule, **({"avg_cap": m.avg_cap} if m.avg_cap is not None else {}),
@@ -439,7 +442,7 @@ def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) 
 
 def _drop_tables(out: Path, job: str, seed: int) -> list[dict]:
     dropped = []
-    for f in (out / f"{job}-seed{seed}.policy.json", out / f"{job}-seed{seed}.ckpt.json"):
+    for f in (out / f"{job}-seed{seed}.{kind}.json{ext}" for kind in ("policy", "ckpt") for ext in (".gz", "")):
         if f.is_file():
             dropped.append({"file": f.name, "bytes": f.stat().st_size})
             f.unlink()
@@ -478,10 +481,10 @@ def _first_in_rows(folder: Path, job: str, r: dict) -> dict | None:
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K, using_variant
     from stalker.tools.preflop_rows import first_in
 
-    found = sorted(folder.rglob(f"{job}-seed{r['seed']}.policy.json"))
-    if not found or r.get("tier") not in TIER_K:
+    found = find_table(folder, f"{job}-seed{r['seed']}.policy", recursive=True)
+    if found is None or r.get("tier") not in TIER_K:
         return None
-    pol = json.loads(found[0].read_text(encoding="utf-8"))["average"]
+    pol = read_json(found)["average"]
     t = {"policy": pol, "k": TIER_K[r["tier"]], "depth": TIER_DEPTH[r["tier"]], "players": r.get("players", 6),
          "menu": r.get("menu", "v1"), "raise_cap": r.get("raise_cap", 3)}
     with using_variant(r.get("key_variant", "")):   # #399: stack variants change preflop keys too

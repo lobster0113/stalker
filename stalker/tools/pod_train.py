@@ -43,6 +43,7 @@ from pathlib import Path
 
 import numpy as np
 
+from stalker.jsonio import read_json
 from stalker.tools.pod_bench import machine, max_child_rss_mb, max_rss_mb
 
 RESULT_BUDGET = 250 * 1024 * 1024  # under the launcher's 256 MB result cap (#346), with room for the summary
@@ -274,7 +275,7 @@ def main(argv=None) -> int:
     ap.add_argument("--minutes", type=float, default=60, help="training wall time; evaluation comes after")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--batch", type=int, default=500, help="iterations per worker between syncs")
-    ap.add_argument("--resume", type=Path, help="a CI-layout .ckpt.json to continue")
+    ap.add_argument("--resume", type=Path, help="a CI-layout .ckpt.json[.gz] to continue")
     ap.add_argument("--menu", default="v1", choices=("v1", "tp6", "real"),
                     help="E3 action menu: v1, tp6 (#339) or real (#382)")
     ap.add_argument("--no-raise-cap", action="store_true", help="no raise cap (#339); default cap 3")
@@ -304,7 +305,7 @@ def main(argv=None) -> int:
         raise SystemExit("--max-iters must be >= 1 (leave it out for a time-limited run)")
     if a.resume and a.resume_result:
         raise SystemExit("pass --resume or --resume-result, not both")
-    resume, from_run = (json.loads(a.resume.read_text(encoding="utf-8")) if a.resume else None), None
+    resume, from_run = (read_json(a.resume) if a.resume else None), None
     cap = None if a.no_raise_cap else "default"
     if a.resume_result:
         resume, from_run = load_resume_result(a.resume_result, a.tier, a.players, a.menu, cap, a.ranges, a.avg_rule,

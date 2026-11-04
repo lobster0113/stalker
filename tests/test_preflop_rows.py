@@ -37,3 +37,12 @@ def test_ci_policy_file_needs_its_tier(tmp_path):
         assert "--tier" in str(e)
     else:
         raise AssertionError("expected SystemExit")
+
+
+def test_ci_policy_file_loads_gz_and_plain(tmp_path):
+    from stalker.jsonio import write_json_gz
+
+    d = {"average": {}, "current": {}}
+    write_json_gz(tmp_path / "x.policy.json.gz", d)
+    (tmp_path / "y.policy.json").write_text(json.dumps(d), encoding="utf-8")
+    assert R.load(tmp_path / "x.policy.json.gz", tier="mid")["k"] == R.load(tmp_path / "y.policy.json", tier="mid")["k"] == 11

@@ -164,3 +164,16 @@ def test_index_upsert_refuses_another_schema_and_starts_a_new_list(tmp_path):
         X.upsert_index({"schema": "stalker.web.policy"}, {"tier": "mid", "players": 6})
     idx = X.upsert_index(None, {"tier": "mid", "players": 3, "file": "mid-3.json"})
     assert idx["schema"] == X.INDEX_SCHEMA and idx["tiers"] == {"mid": {"by_players": {"3": {"tier": "mid", "players": 3, "file": "mid-3.json"}}}}
+
+
+def test_export_reads_gz_and_plain_checkpoints_alike(tmp_path):
+    from stalker.jsonio import write_json_gz
+
+    m = E3MCCFR(1, 5, 3, "basic")
+    m.iterate(5)
+    plain, gz = tmp_path / "c.ckpt.json", tmp_path / "c.ckpt.json.gz"
+    plain.write_text(json.dumps(m.state()), encoding="utf-8")
+    write_json_gz(gz, m.state())
+    for ck, out in ((plain, tmp_path / "a.json"), (gz, tmp_path / "b.json")):
+        assert X.main(["--ckpt", str(ck), "--run", "1", "--out", str(out)]) == 0
+    assert (tmp_path / "a.json").read_bytes() == (tmp_path / "b.json").read_bytes()

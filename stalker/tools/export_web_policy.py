@@ -27,6 +27,8 @@ from pathlib import Path
 
 import numpy as np
 
+from stalker.jsonio import read_json
+
 SCHEMA = "stalker.web.policy"
 SCHEMA_VERSION = 1
 INDEX_SCHEMA = "stalker.web.policy-index"
@@ -127,7 +129,7 @@ def nut_k(model: dict) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     src = ap.add_mutually_exclusive_group(required=True)
-    src.add_argument("--ckpt", type=Path, help="a CI-layout .ckpt.json (or `pod_train --unpack` output)")
+    src.add_argument("--ckpt", type=Path, help="a CI-layout .ckpt.json[.gz] (or `pod_train --unpack` output)")
     src.add_argument("--pod-result", type=Path, help="a RunPod training result (stalker.tools.pod_train), summary included")
     ap.add_argument("--strategy", choices=("current", "average"), default="current",
                     help="regret matching (what CI's field evaluates) or the average strategy (#355)")
@@ -157,7 +159,7 @@ def main(argv=None) -> int:
             raise SystemExit(f"{a.pod_result}: no checkpoint in this result ({summary.get('checkpoint_note', 'missing')})")
         st = unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"])
     else:
-        st = json.loads(a.ckpt.read_text(encoding="utf-8"))
+        st = read_json(a.ckpt)
     m = E3MCCFR.from_state(st)
     policy = m.policy() if a.strategy == "average" else m.current_policy()
     meta = meta_from(st, summary, a.run, a.sha, a.strategy, a.placeholder)
