@@ -279,9 +279,10 @@ def test_mixn_seed_jobs_match_the_seed1_job_but_seed_and_iteration_count():
                                                                                           job.result_path)
         assert job.command == want
         assert (job.cpu_flavor, job.vcpu, job.hourly_usd) == (base.cpu_flavor, base.vcpu, base.hourly_usd)
-        # #553: seed 2 timed out at 170 min on a slow pod (run 41670483215); only it gets 240 min
-        minutes, worst = (240, "$4.80") if s == 2 else (base.max_minutes, "$3.40")
-        assert job.max_minutes == minutes and job.worst_case_usd <= float(worst[1:])
+        # #553: seed 2 timed out at 170 min on a slow pod (run 41670483215); #558: seeds 3-4 follow, since #556's
+        # 2,000-hand 2-3 player LBR lengthens evaluation and seed 4 (run 41670499712) already took 159.82 min
+        assert job.max_minutes == 240 and job.worst_case_usd <= 4.80
         assert L.check_budget(job, [], cap, "2026-11") == 0
         text = (ROOT / "jobs" / f"{job.name}.yaml").read_text(encoding="utf-8")
-        assert worst in text and (s != 2 or "41670483215" in text)
+        assert "1.2 * 240 / 60 = $4.80" in text and "$3.40" not in text
+        assert ("41670483215" if s == 2 else "41670499712") in text
