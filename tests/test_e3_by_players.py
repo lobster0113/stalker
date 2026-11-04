@@ -13,6 +13,7 @@ MIX_TOP = {"by_players", "by_players_counted_from", "by_players_shared_keys"}   
 def small(monkeypatch):
     for name in ("E3_LBR_HANDS", "E3_FIELD_HANDS", "E3_BY_PLAYERS_LBR_HANDS", "E3_BY_PLAYERS_FIELD_HANDS"):
         monkeypatch.setattr(T, name, 2)
+    monkeypatch.setattr(T, "E3_BY_PLAYERS_LBR_HANDS_BY_N", {})
 
 
 def test_model_without_player_mix_keeps_its_output(small, monkeypatch):
@@ -32,8 +33,9 @@ def test_player_mix_model_reports_each_dealt_table_size(small):
     out = T.e3_evaluate(m, 0)
     assert set(out) == TOP | MIX_TOP and set(out["by_players"]) == {"2", "3"}
     for n, row in out["by_players"].items():
-        assert set(row) == {"lbr", "lbr_average", "field", "seconds", "hands", "visits", "keys"} and row["seconds"] >= 0
-        assert len(row["lbr"]["by_seat"]) == int(n) and row["lbr"]["hands"] == 2 and "lbr_bb" in row["lbr_average"]
+        assert set(row) == {"lbr", "lbr_average", "field", "seconds", "lbr_hands", "hands", "visits",
+                            "keys"} and row["seconds"] >= 0
+        assert len(row["lbr"]["by_seat"]) == int(n) and row["lbr"]["hands"] == row["lbr_hands"] == 2 and "lbr_bb" in row["lbr_average"]
         f = row["field"]
         assert f["version"] == 3 and f["deals"] == 2 and f["worst"]["name"]
         assert all(len(c["opponents"]) == int(n) - 1 for c in f["configs"])
@@ -48,3 +50,24 @@ def test_six_seat_entry_reuses_the_top_level_numbers(small, monkeypatch):
     out = T.e3_evaluate(m, 0)
     assert out["by_players"]["6"]["field"] is out["field"] and out["by_players"]["6"]["lbr"] == out["lbr"]
     assert out["by_players"]["5"]["field"] == {"players": 5}
+
+
+def test_lbr_hands_per_table_size(monkeypatch):
+    """#556: 2-3 seats get 2000 LBR hands (600 left se ~ cross-seed sd, #548), 4-5 keep 600; rows say which."""
+    for name in ("E3_LBR_HANDS", "E3_FIELD_HANDS", "E3_BY_PLAYERS_FIELD_HANDS"):
+        monkeypatch.setattr(T, name, 2)
+    calls = []
+
+    def fake_lbr(pol, hands, seed, k, n, depth, **kw):
+        calls.append((n, hands))
+        return {"lbr_bb": 0.0, "hands": hands, "by_seat": [0.0] * n}
+
+    monkeypatch.setattr("referee.e3.lbr.exploitability_lb", fake_lbr)
+    monkeypatch.setattr("referee.e3.field.evaluate", lambda *a, **kw: {"players": kw.get("players", 6)})
+    m = E3MCCFR(1, 5, 6, "basic", player_mix=(2, 3, 4, 5, 6))
+    m.iterate(1)
+    out = T.e3_evaluate(m, 0)
+    by_n = {n: {h for nn, h in calls if nn == n} for n in (2, 3, 4, 5)}
+    assert by_n == {2: {2000}, 3: {2000}, 4: {600}, 5: {600}}
+    assert {n: row["lbr_hands"] for n, row in out["by_players"].items()} == \
+        {"2": 2000, "3": 2000, "4": 600, "5": 600, "6": 2}   # 6 is the model's own size: the top-level LBR
