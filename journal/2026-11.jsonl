@@ -381,3 +381,4 @@
 {"ts":"2026-11-04T21:41:31Z","role":"reviewer","outcome":"no_work","issue":537,"pr":571,"notes":"sweep: odd PR #571 already has VERDICT CHANGES at head fc44cd5; nothing new to judge","friction":"should_run --sweep printed RUN although the only odd PR already had a verdict at its head sha"}
 {"ts":"2026-11-04T22:11:55Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #536 already has CHANGES verdict on head 775c4ea, no new commits","friction":""}
 {"ts":"2026-11-04T22:34:37Z","role":"builder","outcome":"changes","issue":537,"pr":571,"notes":"PR #571 CHANGES 대응: 노트의 분산비(AIVAT/단순 분산)와 SE 배수 정의 분리, negated 분산비≈3.4로 정정. d18a297 push, 해결 내역 코멘트","friction":"로컬 gates quick 1124초 (a) 지속; 문서 한 줄 수정에도 quick 대기가 실행 시간 대부분. 첫 quick을 timeout 300으로 감싸 스스로 죽임"}
+{"ts":"2026-11-04T22:34:47Z","role":"reviewer-b","outcome":"skipped","issue":537,"pr":571,"notes":"not my parity","friction":""}
