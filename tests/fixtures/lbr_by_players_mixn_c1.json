@@ -1,0 +1,206 @@
+[
+ {
+  "run": "41812635702",
+  "job": "e3-tp-mid-c1-mixn-pod",
+  "seed": 2,
+  "policy_sha256": "62dd582243a97551c140af358784fecd51ceafddea472bd8241a3c341746c1ff",
+  "by_players": {
+   "2": {
+    "lbr": {
+     "lbr_bb": 7.0774,
+     "stderr_bb": 0.9242,
+     "hands": 2000
+    },
+    "lbr_average": {
+     "lbr_bb": 7.3842,
+     "stderr_bb": 0.9505,
+     "hands": 2000
+    }
+   },
+   "3": {
+    "lbr": {
+     "lbr_bb": 5.1851,
+     "stderr_bb": 0.6027,
+     "hands": 2000
+    },
+    "lbr_average": {
+     "lbr_bb": 3.6774,
+     "stderr_bb": 0.5974,
+     "hands": 2000
+    }
+   },
+   "4": {
+    "lbr": {
+     "lbr_bb": 3.672,
+     "stderr_bb": 0.705,
+     "hands": 600
+    },
+    "lbr_average": {
+     "lbr_bb": 3.0541,
+     "stderr_bb": 0.6791,
+     "hands": 600
+    }
+   },
+   "5": {
+    "lbr": {
+     "lbr_bb": 2.1362,
+     "stderr_bb": 0.553,
+     "hands": 600
+    },
+    "lbr_average": {
+     "lbr_bb": 1.9928,
+     "stderr_bb": 0.5809,
+     "hands": 600
+    }
+   },
+   "6": {
+    "lbr": {
+     "lbr_bb": 1.5357,
+     "stderr_bb": 0.3529,
+     "hands": 1000
+    },
+    "lbr_average": {
+     "lbr_bb": 1.4545,
+     "stderr_bb": 0.3895,
+     "hands": 1000
+    }
+   }
+  }
+ },
+ {
+  "run": "41812640240",
+  "job": "e3-tp-mid-c1-mixn-pod",
+  "seed": 3,
+  "policy_sha256": "c65f1f8525df513a1293dffbced7923869d5750e63f7d22c1349b2ee740fcff8",
+  "by_players": {
+   "2": {
+    "lbr": {
+     "lbr_bb": 7.3087,
+     "stderr_bb": 0.9422,
+     "hands": 2000
+    },
+    "lbr_average": {
+     "lbr_bb": 7.2962,
+     "stderr_bb": 0.9803,
+     "hands": 2000
+    }
+   },
+   "3": {
+    "lbr": {
+     "lbr_bb": 5.0811,
+     "stderr_bb": 0.5779,
+     "hands": 2000
+    },
+    "lbr_average": {
+     "lbr_bb": 3.6077,
+     "stderr_bb": 0.5734,
+     "hands": 2000
+    }
+   },
+   "4": {
+    "lbr": {
+     "lbr_bb": 2.6483,
+     "stderr_bb": 0.6851,
+     "hands": 600
+    },
+    "lbr_average": {
+     "lbr_bb": 2.4066,
+     "stderr_bb": 0.6608,
+     "hands": 600
+    }
+   },
+   "5": {
+    "lbr": {
+     "lbr_bb": 2.1943,
+     "stderr_bb": 0.5244,
+     "hands": 600
+    },
+    "lbr_average": {
+     "lbr_bb": 2.1104,
+     "stderr_bb": 0.5579,
+     "hands": 600
+    }
+   },
+   "6": {
+    "lbr": {
+     "lbr_bb": 1.8438,
+     "stderr_bb": 0.3771,
+     "hands": 1000
+    },
+    "lbr_average": {
+     "lbr_bb": 2.2142,
+     "stderr_bb": 0.4114,
+     "hands": 1000
+    }
+   }
+  }
+ },
+ {
+  "run": "41813684540",
+  "job": "e3-tp-mid-c1-mixn-pod",
+  "seed": 4,
+  "policy_sha256": "936e049494ca709669f94db2c47c8e8fa83d73fe24a0b3281031e1706e747f01",
+  "by_players": {
+   "2": {
+    "lbr": {
+     "lbr_bb": 7.0181,
+     "stderr_bb": 0.9475,
+     "hands": 2000
+    },
+    "lbr_average": {
+     "lbr_bb": 5.6634,
+     "stderr_bb": 0.9601,
+     "hands": 2000
+    }
+   },
+   "3": {
+    "lbr": {
+     "lbr_bb": 5.2414,
+     "stderr_bb": 0.5956,
+     "hands": 2000
+    },
+    "lbr_average": {
+     "lbr_bb": 4.8872,
+     "stderr_bb": 0.5831,
+     "hands": 2000
+    }
+   },
+   "4": {
+    "lbr": {
+     "lbr_bb": 1.6727,
+     "stderr_bb": 0.5904,
+     "hands": 600
+    },
+    "lbr_average": {
+     "lbr_bb": 1.741,
+     "stderr_bb": 0.6299,
+     "hands": 600
+    }
+   },
+   "5": {
+    "lbr": {
+     "lbr_bb": 1.8007,
+     "stderr_bb": 0.4979,
+     "hands": 600
+    },
+    "lbr_average": {
+     "lbr_bb": 1.6256,
+     "stderr_bb": 0.5028,
+     "hands": 600
+    }
+   },
+   "6": {
+    "lbr": {
+     "lbr_bb": 2.4404,
+     "stderr_bb": 0.4158,
+     "hands": 1000
+    },
+    "lbr_average": {
+     "lbr_bb": 1.9927,
+     "stderr_bb": 0.4092,
+     "hands": 1000
+    }
+   }
+  }
+ }
+]
