@@ -623,19 +623,30 @@ await page.click("#dr-go");
 must((await page.locator("#dr-res").innerHTML()).trim() !== "", "학습 섹션: 정답 확인 후 결과가 비어 있음");
 await inspect("learn", "#dr-res");
 // #551: the learn drill picks its scenario at random, so a bet sitting on the pot only failed on some runs. Pin every
-// scenario (each one has a bet on a different seat) and check the table at all three sizes, resizing without a re-render.
+// scenario (each one has a bet on a different seat) into LM.prob so the resize listener re-renders the SAME scenario,
+// then check at all three sizes that the bets on screen are exactly the pinned scenario's before the overlap check.
 {
   await page.evaluate(() => { window.__hold = true; });
   const n = await page.evaluate(() => SCENARIOS.length);
   for (let i = 0; i < n; i++) {
-    await page.evaluate(i => {
+    const want = await page.evaluate(i => {
       const sc = SCENARIOS[i], full = [1, 14, 27, 40, 5].slice(0, sc.depth), h = rhScript(sc.acts, sc.hero, 40, full);
       while (h.board.length < full.length) rhNextStreet(h, h.street === 0 ? full.slice(0, 3) : [full[h.board.length]]);
-      const el = $("#drill .dr-table"); el.innerHTML = tableHTML(h, { focus: sc.opp }); layoutMinis($("#drill"));
+      LM.prob = { ...LM.prob, h, sc };
+      const amts = el => [...el.querySelectorAll(".bet .amt")].map(e => e.textContent.trim()).join("|");
+      const probe = document.createElement("div"); probe.innerHTML = tableHTML(h, { focus: sc.opp });
+      const t = $("#drill .dr-table");
+      t.innerHTML = tableHTML(h, { cards: { [sc.hero]: LM.prob.hero }, focus: sc.opp }); layoutMinis(t);
+      // bets are cleared on a new street, so only the last street's actions can leave one on the table
+      const last = sc.acts.join(",").split("|").pop();
+      return { amts: amts(probe), expectBet: /\s(r|b|c)/.test(last) };
     }, i);
+    must(!want.expectBet || want.amts !== "", `learn 고정 시나리오 ${i}: 기대한 벳이 없음 — 시나리오 정의 확인 (#551)`);
     for (const [name, width, height] of VIEWPORTS) {
       await page.setViewportSize({ width, height });
       await page.waitForTimeout(100);
+      const shown = await page.evaluate(() => [...document.querySelectorAll("#drill .dr-table .bet .amt")].map(e => e.textContent.trim()).join("|"));
+      must(shown === want.amts, `learn 고정 시나리오 ${i} ${width}x${height}: 화면 벳 "${shown}"이 고정한 시나리오 "${want.amts}"와 다름 (#551)`);
       const ov = await page.evaluate(tableOverlaps);
       must(!ov.length, `learn 고정 시나리오 ${i} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} (#551)`);
     }
