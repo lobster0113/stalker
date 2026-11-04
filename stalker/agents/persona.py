@@ -43,11 +43,12 @@ class PersonaParams:
     probe_turn: float | None = None  # same on turn and river for a non-aggressor (checked to, whether or not the aggressor acted before)
     giveup_weak: float | None = None  # extra fold chance facing a turn/river bet (flop folds are fold_cbet_flop): any hand below trips (weak, pair, two pair).
     # Taken BEFORE fold_cbet_turn/fold_river, so with it set those two are overridden: measured folds land above them (docs/research/2026-11-persona-wtsd-sweep.md)
+    giveup_turn: float | None = None  # replaces giveup_weak on the turn only (#533); None = giveup_weak applies to turn and river
 
     def __post_init__(self) -> None:
         for name in ("vpip", "pfr", "aggression", "fold_to_bet", "cbet_flop", "cbet_turn", "cbet_river",
                      "fold_cbet_flop", "fold_cbet_turn", "fold_river", "river_bluff_share", "donk_flop", "probe_turn",
-                     "giveup_weak"):
+                     "giveup_weak", "giveup_turn"):
             v = getattr(self, name)
             if v is not None and not 0.0 <= v <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1], got {v}")
@@ -93,16 +94,19 @@ PRESETS_V2: dict[str, PersonaParams] = {
     "pro": _v2(*dataclasses.astuple(PRESETS["high_stakes_pro"])[:4], (0.65, 0.48, 0.38), (0.51, 0.58, 0.62), 0.20),
 }
 
-# WTSD levers (#526), (donk_flop, probe_turn, giveup_weak). [assumption] empirical sweep values, fitted so a 6-max mixed
-# field lands on the note's §9 WTSD targets (nit 21 ... station 40); donk/probe loosely follow the note's §7.2 rows,
-# but nit/weak-tight lead far more than the note since opponents must fold for their WTSD to fall that low.
+# WTSD levers (#526, #533), (donk_flop, probe_turn, giveup_weak, giveup_turn). [assumption] empirical sweep values, fitted so a
+# 6-max mixed field lands on the note's §9 WTSD targets (nit 21 ... station 40); donk/probe loosely follow the note's §7.2 rows,
+# but nit/weak-tight lead far more than the note since opponents must fold for their WTSD to fall that low. giveup_turn is
+# lower than giveup_weak so turn folds sit near fold_cbet_turn; giveup_weak (river) of loose types stays below the tight
+# types' so river folds keep their order.
 _WTSD_LEVERS = {
-    "nit": (1.0, 1.0, 1.0), "weak_tight": (0.60, 1.0, 0.98), "tag": (0.15, 0.70, 1.0), "lag": (0.12, 0.70, 1.0),
-    "loose_passive": (0.15, 0.30, 0.60), "calling_station": (0.10, 0.20, 0.57), "maniac": (0.30, 0.85, 0.52),
-    "pro": (0.08, 0.50, 0.80),
+    "nit": (1.0, 1.0, 1.0, 1.0), "weak_tight": (0.60, 1.0, 1.0, 0.7), "tag": (0.15, 0.70, 1.0, 0.60),
+    "lag": (0.12, 0.70, 0.9, 0.68), "loose_passive": (0.15, 0.50, 0.7, 0.4), "calling_station": (0.10, 0.40, 0.68, 0.25),
+    "maniac": (0.30, 0.85, 0.65, 0.25), "pro": (0.08, 0.50, 1.0, 0.65),
 }
 PRESETS_V2 = {k: dataclasses.replace(v, donk_flop=_WTSD_LEVERS[k][0], probe_turn=_WTSD_LEVERS[k][1],
-                                     giveup_weak=_WTSD_LEVERS[k][2]) for k, v in PRESETS_V2.items()}
+                                     giveup_weak=_WTSD_LEVERS[k][2], giveup_turn=_WTSD_LEVERS[k][3])
+              for k, v in PRESETS_V2.items()}
 
 
 def persona_params(name: str) -> PersonaParams:
@@ -185,8 +189,8 @@ class PersonaAgent(Agent):
             if self.rng.random() < g:
                 return self._raise(obs, max(obs.bb, int(obs.pot * (0.5 + 0.5 * s))))
             return Action("call")
-        if p.giveup_weak is not None and street >= 2 and s < 0.9 and la.can_fold \
-                and self.rng.random() < p.giveup_weak:
+        give = p.giveup_turn if street == 2 and p.giveup_turn is not None else p.giveup_weak
+        if give is not None and street >= 2 and s < 0.9 and la.can_fold and self.rng.random() < give:
             return Action("fold")
         fold = (p.fold_cbet_flop, p.fold_cbet_turn, p.fold_river)[street - 1]
         if street < 3:  # a c-bet: the first bet of the street came from the preflop aggressor

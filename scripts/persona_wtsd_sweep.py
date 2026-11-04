@@ -34,20 +34,20 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("hands", type=int, nargs="?", default=20000)
     ap.add_argument("--no-giveup", action="store_true", help="giveup_weak=None for every type (turn/river folds as on main)")
-    ap.add_argument("--lever", action="append", default=[], metavar="TYPE=donk,probe,giveup")
+    ap.add_argument("--lever", action="append", default=[], metavar="TYPE=donk,probe,giveup[,giveup_turn]")
     a = ap.parse_args()
     params = dict(PRESETS_V2)
     if a.no_giveup:
         params = {n: dataclasses.replace(p, giveup_weak=None) for n, p in params.items()}
     for item in a.lever:
         n, v = item.split("=")
-        d, p, g = (float(x) for x in v.split(","))
-        params[n] = dataclasses.replace(params[n], donk_flop=d, probe_turn=p, giveup_weak=g)
+        d, p, g, *t = (float(x) for x in v.split(","))
+        params[n] = dataclasses.replace(params[n], donk_flop=d, probe_turn=p, giveup_weak=g, giveup_turn=t[0] if t else None)
     res = sweep(a.hands, params)
     print("type | donk,probe,giveup | wtsd | fold_turn(tgt) | fold_river(tgt)")
     for n in TYPES:
         p, r = params[n], res[n]
-        print(f"{n} | {p.donk_flop},{p.probe_turn},{p.giveup_weak} | {r['wtsd']:.2f} | "
+        print(f"{n} | {p.donk_flop},{p.probe_turn},{p.giveup_weak},{p.giveup_turn} | {r['wtsd']:.2f} | "
               f"{r['fold_cbet_turn']:.2f}({p.fold_cbet_turn}) | {r['fold_river']:.2f}({p.fold_river})")
 
 
