@@ -34,6 +34,7 @@
 - 검사: 20 MB 이하, UTF-8 JSON, 비밀 패턴(GitHub·RunPod·AWS·Slack 토큰, 개인 키, 런처의 키·토큰 값) 없음. 통과하면 워크플로 아티팩트 `cloud-result-<run id>`(30일)로 올라가고, 원장 end 줄에 `result_bytes`·`result_sha256`이 남는다. 1 MB 이하면 같은 JSON이 `ops:cloud/results/<run id>.json`에도 올라간다(런처 `publish`가 다시 검사). 에이전트 샌드박스는 아티팩트 저장소(blob) 호스트에 닿지 못하므로 결과는 `ops`에서 읽는다(#264). 공개 리포의 아티팩트는 로그인한 누구나 받을 수 있으니 결과에 비밀을 넣지 않는다.
 - 상태: `completed`(회수 성공), `failed`(명령 종료 코드 ≠ 0, 회수 안 함), `no_result`(결과 파일 없음 또는 회수 전에 파드가 스스로 종료), `result_rejected`(검사 실패, 저장 안 함), `timeout`. `completed` 외에는 실행이 실패로 끝난다.
 - 큰 체크포인트는 상한 안의 요약·정책 JSON으로 줄이거나, 재개 가능한 조각으로 나눈다.
+- CI 학습 잡(`stalker/train_jobs.py`)의 표 파일은 gzip이다(#560): `<잡>-seed<시드>.policy.json.gz`·`.ckpt.json.gz`. 시드당 256MiB 한도(`ARTIFACT_MAX_BYTES`)와 `_drop_tables`는 압축 뒤 바이트로 판단한다. resume과 `export_web_policy`·`preflop_rows`·`pod_train --resume`은 `.json.gz`와 이전의 평문 `.json`을 모두 읽는다(`stalker/jsonio.py`).
 
 ## 이어 달리기 (`resume_run`, #354)
 - 러너가 `cloud-result-<resume_run>`을 받아 런처에 `--resume-file`로 준다. 런처는 결과를 `RESUME_FIELDS`(잡·tier·인원·모델·체크포인트 등)와 `run_id`만 남겨 gzip으로 줄이고, 파드 서버가 뜨면 RunPod 프록시로 `PUT /<토큰>/resume` 한다. 파드가 받은 바이트 수와 sha256을 돌려주고 런처가 대조한다. `resume_run`이 없으면 `PUT /<토큰>/resume-none`을 보낸다. 파드에는 GitHub 자격 증명이 가지 않는다.

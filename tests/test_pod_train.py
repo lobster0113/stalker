@@ -286,3 +286,21 @@ def test_mixn_seed_jobs_match_the_seed1_job_but_seed_and_iteration_count():
         text = (ROOT / "jobs" / f"{job.name}.yaml").read_text(encoding="utf-8")
         assert "1.2 * 240 / 60 = $4.80" in text and "$3.40" not in text
         assert ("41670483215" if s == 2 else "41670499712") in text
+
+
+@pytest.mark.parametrize("suffix", [".ckpt.json", ".ckpt.json.gz"])
+def test_resume_reads_plain_and_gz_checkpoints(tmp_path, monkeypatch, suffix):
+    # #560: CI checkpoints are gzipped now; older ones are plain
+    from stalker.jsonio import write_json_gz
+
+    m = E3MCCFR(1, 5, 3, "basic")
+    m.iterate(2)
+    ck = tmp_path / ("c" + suffix)
+    if suffix.endswith(".gz"):
+        write_json_gz(ck, m.state())
+    else:
+        ck.write_text(json.dumps(m.state()), encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(P, "run", lambda *a, **k: seen.update(resume=a[6]) or {})
+    assert P.main(["--resume", str(ck), "--out", str(tmp_path / "o.json")]) == 0
+    assert seen["resume"] == json.loads(json.dumps(m.state()))

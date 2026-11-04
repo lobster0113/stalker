@@ -3,6 +3,7 @@ import json
 import pytest
 import yaml
 
+from stalker.jsonio import read_json
 from stalker import train_jobs as T
 from stalker.e3.mccfr import E3MCCFR
 from pathlib import Path
@@ -20,7 +21,7 @@ def test_run_and_summarize_e2_mccfr(tmp_path, monkeypatch):
     assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text(encoding="utf-8"))["lbr"]["hands"] == T.LBR_HANDS == 4000
     assert s["lbr_stderr_by_seed"] == [0.1, 0.1]
     assert s["runs"] == 2 and s["seeds"] == [1, 2] and s["lbr_bb_mean"] == 1.0 and s["iters"] == 20
-    assert (tmp_path / "e2-mccfr-seed1.policy.json").exists()
+    assert (tmp_path / "e2-mccfr-seed1.policy.json.gz").exists()
     assert json.loads((tmp_path / "e2-mccfr-seed1.json").read_text(encoding="utf-8"))["infosets"] > 0
 
 
@@ -92,13 +93,13 @@ def test_oversized_tables_are_dropped_but_the_measurement_survives(tmp_path, mon
 
     monkeypatch.setattr(lbr, "exploitability_lb", lambda pol, hands, seed, abstraction: {"lbr_bb": 1.0, "hands": hands})
     T.run("e2-mccfr", 5, 1, tmp_path / "small")
-    pol = tmp_path / "small" / "e2-mccfr-seed1.policy.json"
+    pol = tmp_path / "small" / "e2-mccfr-seed1.policy.json.gz"
     summary = (tmp_path / "small" / "e2-mccfr-seed1.json").stat().st_size
     monkeypatch.setattr(T, "ARTIFACT_MAX_BYTES", summary + pol.stat().st_size // 2)
     path = T.run("e2-mccfr", 5, 1, tmp_path / "big")
-    assert not (tmp_path / "big" / "e2-mccfr-seed1.policy.json").exists()
+    assert not (tmp_path / "big" / "e2-mccfr-seed1.policy.json.gz").exists()
     r = json.loads(path.read_text(encoding="utf-8"))
-    assert [d["file"] for d in r["artifact_dropped"]] == ["e2-mccfr-seed1.policy.json"]
+    assert [d["file"] for d in r["artifact_dropped"]] == ["e2-mccfr-seed1.policy.json.gz"]
     assert r["artifact_dropped"][0]["bytes"] == pol.stat().st_size and r["lbr"]["lbr_bb"] == 1.0
     s = json.loads(T.summary_text("e2-mccfr", tmp_path / "big"))
     assert s["lbr_bb_by_seed"] == [1.0] and s["artifact_dropped_by_seed"] == [r["artifact_dropped"]]
@@ -140,7 +141,7 @@ def test_tier_jobs_train_and_are_measured_at_their_tp_resolution(tmp_path, monke
     assert seen == {"abstraction": TIERS[tier], "seed": 10_000 + 3, "hands": T.LBR_HANDS}
     r = json.loads((tmp_path / f"e2-tier-{tier}-seed3.json").read_text(encoding="utf-8"))
     assert r["tier"] == tier and r["abstraction"] == {"pre_k": k, "post_k": k}
-    pol = json.loads((tmp_path / f"e2-tier-{tier}-seed3.policy.json").read_text(encoding="utf-8"))
+    pol = read_json(tmp_path / f"e2-tier-{tier}-seed3.policy.json.gz")
     assert {int(key.split("|")[2]) for key in pol} <= set(range(k))
     assert T.summarize(f"e2-tier-{tier}", tmp_path)["lbr_bb_mean"] == 2.0
 
@@ -176,10 +177,10 @@ def test_e3_job_records_both_policies_and_coverage(tmp_path, monkeypatch):
     assert s["lbr_offmenu_bb_by_seed"] == [4.5]
     assert s["infosets_by_seed"] == [r["infosets"]] and r["infosets"] > 0   # #332
     assert s["cpu_model_by_seed"] == [r["machine"]["cpu_model"]]           # #426
-    ck = json.loads((tmp_path / "e3-tp-beginner-seed1.ckpt.json").read_text(encoding="utf-8"))
+    ck = read_json(tmp_path / "e3-tp-beginner-seed1.ckpt.json.gz")
     assert s["regret_sha256_by_seed"] == [r["regret_sha256"]] == [E3MCCFR.from_state(ck).regret_hash()]  # #447
     assert s["field_worst_by_seed"] == [r["field"]["worst"]] and "self5" in s["field_bb100_by_seed"][0]
-    pol = json.loads((tmp_path / "e3-tp-beginner-seed1.policy.json").read_text(encoding="utf-8"))
+    pol = read_json(tmp_path / "e3-tp-beginner-seed1.policy.json.gz")
     assert set(pol) == {"average", "current"}
     # #426: the average policy's LBR and first-in preflop rows reach the ops summary (artifacts may be unreachable)
     assert s["lbr_average_bb_by_seed"] == [3.0] and "lbr_average_stderr_by_seed" in s
@@ -229,7 +230,7 @@ def test_league_xbase_job_trains_the_exploiter_on_the_baseline_abstraction(tmp_p
     T.run("e2-league-beginner-xbase", 10, 1, tmp_path)
     r = json.loads((tmp_path / "e2-league-beginner-xbase-seed1.json").read_text(encoding="utf-8"))
     assert r["tier"] == "beginner" and r["exploiter"]["tier"] == "baseline"
-    assert not (tmp_path / "e2-league-beginner-seed1.policy.json").exists()
+    assert not (tmp_path / "e2-league-beginner-seed1.policy.json.gz").exists()
     assert T.summarize("e2-league-beginner-xbase", tmp_path)["exploiter"]["tier"] == "baseline"
 
 
@@ -275,7 +276,7 @@ def test_e3_job_resumes_from_an_earlier_runs_checkpoint(tmp_path, monkeypatch):
     monkeypatch.setattr(T, "E3_LBR_HANDS", 2)
     monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
     T.run("e3-tp-beginner", 2, 1, tmp_path / "a")
-    assert (tmp_path / "a" / "e3-tp-beginner-seed1.ckpt.json").is_file()
+    assert (tmp_path / "a" / "e3-tp-beginner-seed1.ckpt.json.gz").is_file()
     T.run("e3-tp-beginner", 3, 1, tmp_path / "b", resume=tmp_path / "a")
     r = json.loads((tmp_path / "b" / "e3-tp-beginner-seed1.json").read_text(encoding="utf-8"))
     assert (r["iters"], r["chunk_iters"], r["resumed_from"]) == (5, 3, 2)
@@ -352,3 +353,44 @@ def test_summarize_old_result_without_machine_keeps_working(tmp_path):
     (tmp_path / "e3-x-seed1.json").write_text(json.dumps(_e3_seed_json(1, iters_per_s=2.0)), encoding="utf-8")
     out = T.summarize("e3-x", tmp_path)
     assert "cpu_model_by_seed" not in out and out["iters_per_s_by_seed"] == [2.0]
+
+
+def test_e3_resume_from_gz_and_plain_checkpoints_match(tmp_path, monkeypatch):
+    # #560: new runs write .ckpt.json.gz; a plain .ckpt.json from before must resume to the same table
+    import gzip
+
+    monkeypatch.setattr(T, "E3_LBR_HANDS", 2)
+    monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
+    T.run("e3-tp-beginner", 2, 1, tmp_path / "gz")
+    (tmp_path / "plain").mkdir()
+    name = "e3-tp-beginner-seed1.ckpt.json"
+    raw = gzip.decompress((tmp_path / "gz" / (name + ".gz")).read_bytes())
+    (tmp_path / "plain" / name).write_bytes(raw)
+    res = {}
+    for kind in ("gz", "plain"):
+        T.run("e3-tp-beginner", 3, 1, tmp_path / f"out-{kind}", resume=tmp_path / kind)
+        res[kind] = json.loads((tmp_path / f"out-{kind}" / "e3-tp-beginner-seed1.json").read_text(encoding="utf-8"))
+    for k in ("iters", "resumed_from", "regret_sha256", "policy_sha256"):
+        assert res["gz"][k] == res["plain"][k]
+    assert res["gz"]["resumed_from"] == 2
+
+
+def test_gzipped_tables_are_a_third_of_the_text_or_less(tmp_path, monkeypatch):
+    import gzip
+
+    monkeypatch.setattr(T, "E3_LBR_HANDS", 2)
+    monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
+    T.run("e3-tp-beginner", 20, 1, tmp_path)
+    for f in ("e3-tp-beginner-seed1.policy.json.gz", "e3-tp-beginner-seed1.ckpt.json.gz"):
+        gz = tmp_path / f
+        assert gz.stat().st_size * 3 <= len(gzip.decompress(gz.read_bytes())), f
+
+
+def test_summary_first_in_rows_read_gz_and_plain_policy(tmp_path):
+    from stalker.jsonio import find_table, write_json_gz
+
+    write_json_gz(tmp_path / "j-seed1.policy.json.gz", {"average": {"a": [1.0]}})
+    assert find_table(tmp_path, "j-seed1.policy", recursive=True).name == "j-seed1.policy.json.gz"
+    (tmp_path / "k-seed1.policy.json").write_text("{}", encoding="utf-8")
+    assert find_table(tmp_path, "k-seed1.policy", recursive=True).name == "k-seed1.policy.json"
+    assert find_table(tmp_path, "none-seed1.policy", recursive=True) is None
