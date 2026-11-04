@@ -1,0 +1,1930 @@
+{
+ "job": "e3-tp-mid-c1-mixn-pod",
+ "tier": "mid",
+ "players": 6,
+ "seed": 3,
+ "workers": 16,
+ "batch": 500,
+ "iters": 40000,
+ "resumed_from_run": null,
+ "chunk_iters": 40000,
+ "max_iters": 40000,
+ "stopped_by": "max_iters",
+ "resumed_from": 0,
+ "train_seconds": 4006.0,
+ "iters_per_s": 9.98,
+ "sync_frac": 0.012,
+ "field": {
+  "version": 2,
+  "sha256": "4640929985e564f9a625cabea921fd3189a2c605e556061ffd6ddc173e10d439",
+  "seed": 20003,
+  "deals": 1000,
+  "pairing": "duplicate: every deal once per target seat; the opponents fill the seats after the target in the listed order, with the same action random stream in every rotation",
+  "champions": {},
+  "configs": [
+   {
+    "name": "tag5",
+    "bb100": -952.03,
+    "ci95": [
+     -1120.11,
+     -778.5
+    ],
+    "ci95_low": -1120.11,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "tag",
+     "tag",
+     "tag",
+     "tag",
+     "tag"
+    ],
+    "seat_mix": {
+     "tag": 5
+    },
+    "by_seat_bb100": [
+     -1091.5,
+     -1000.5,
+     -696.3,
+     -1129.8,
+     -870.3,
+     -923.7
+    ]
+   },
+   {
+    "name": "lag5",
+    "bb100": -1114.55,
+    "ci95": [
+     -1301.67,
+     -920.89
+    ],
+    "ci95_low": -1301.67,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "lag",
+     "lag",
+     "lag",
+     "lag",
+     "lag"
+    ],
+    "seat_mix": {
+     "lag": 5
+    },
+    "by_seat_bb100": [
+     -1308.5,
+     -1113.4,
+     -910.4,
+     -1438.4,
+     -842.1,
+     -1074.5
+    ]
+   },
+   {
+    "name": "nit5",
+    "bb100": -760.13,
+    "ci95": [
+     -903.92,
+     -618.18
+    ],
+    "ci95_low": -903.92,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "nit",
+     "nit",
+     "nit",
+     "nit",
+     "nit"
+    ],
+    "seat_mix": {
+     "nit": 5
+    },
+    "by_seat_bb100": [
+     -837.5,
+     -809.7,
+     -659.9,
+     -801.6,
+     -679.0,
+     -773.1
+    ]
+   },
+   {
+    "name": "station5",
+    "bb100": -1254.1,
+    "ci95": [
+     -1483.54,
+     -1023.54
+    ],
+    "ci95_low": -1483.54,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "calling_station",
+     "calling_station",
+     "calling_station",
+     "calling_station",
+     "calling_station"
+    ],
+    "seat_mix": {
+     "calling_station": 5
+    },
+    "by_seat_bb100": [
+     -1316.8,
+     -1328.8,
+     -1115.5,
+     -1618.3,
+     -1263.3,
+     -881.9
+    ]
+   },
+   {
+    "name": "maniac5",
+    "bb100": -1122.12,
+    "ci95": [
+     -1345.88,
+     -896.78
+    ],
+    "ci95_low": -1345.88,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "maniac",
+     "maniac",
+     "maniac",
+     "maniac",
+     "maniac"
+    ],
+    "seat_mix": {
+     "maniac": 5
+    },
+    "by_seat_bb100": [
+     -1260.9,
+     -1209.6,
+     -775.8,
+     -1306.5,
+     -1206.7,
+     -973.2
+    ]
+   },
+   {
+    "name": "mixed_styles",
+    "bb100": -1097.93,
+    "ci95": [
+     -1282.47,
+     -916.19
+    ],
+    "ci95_low": -1282.47,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "tag",
+     "lag",
+     "nit",
+     "calling_station",
+     "maniac"
+    ],
+    "seat_mix": {
+     "tag": 1,
+     "lag": 1,
+     "nit": 1,
+     "calling_station": 1,
+     "maniac": 1
+    },
+    "by_seat_bb100": [
+     -1323.7,
+     -1100.1,
+     -664.1,
+     -1265.0,
+     -1223.3,
+     -1011.4
+    ]
+   },
+   {
+    "name": "mixed_regs",
+    "bb100": -1110.69,
+    "ci95": [
+     -1278.56,
+     -935.57
+    ],
+    "ci95_low": -1278.56,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "high_stakes_pro",
+     "tag",
+     "lag",
+     "weak_tight",
+     "loose_passive"
+    ],
+    "seat_mix": {
+     "high_stakes_pro": 1,
+     "tag": 1,
+     "lag": 1,
+     "weak_tight": 1,
+     "loose_passive": 1
+    },
+    "by_seat_bb100": [
+     -1213.3,
+     -953.9,
+     -792.4,
+     -1499.9,
+     -1062.2,
+     -1142.4
+    ]
+   },
+   {
+    "name": "uniform5",
+    "bb100": 911.14,
+    "ci95": [
+     687.03,
+     1131.66
+    ],
+    "ci95_low": 687.03,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "uniform",
+     "uniform",
+     "uniform",
+     "uniform",
+     "uniform"
+    ],
+    "seat_mix": {
+     "uniform": 5
+    },
+    "by_seat_bb100": [
+     877.4,
+     349.2,
+     711.8,
+     926.9,
+     1499.0,
+     1102.5
+    ]
+   },
+   {
+    "name": "self5",
+    "bb100": 0.0,
+    "ci95": [
+     -0.0,
+     0.0
+    ],
+    "ci95_low": -0.0,
+    "deals": 1000,
+    "hands": 6000,
+    "opponents": [
+     "self",
+     "self",
+     "self",
+     "self",
+     "self"
+    ],
+    "seat_mix": {
+     "self": 5
+    },
+    "by_seat_bb100": [
+     -290.1,
+     -452.4,
+     22.7,
+     -42.6,
+     210.4,
+     552.0
+    ]
+   }
+  ],
+  "skipped": [
+   {
+    "name": "champion_mid5",
+    "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 6"
+   },
+   {
+    "name": "champions_mixed",
+    "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 6"
+   }
+  ],
+  "worst": {
+   "name": "station5",
+   "bb100": -1254.1,
+   "ci95_low": -1483.54
+  }
+ },
+ "field_seconds": 876.6,
+ "infosets": 1281181,
+ "coverage": {
+  "fc": {
+   "keys": 507,
+   "under10": 22
+  },
+  "fcr25rr4a": {
+   "keys": 48785,
+   "under10": 48616
+  },
+  "fca": {
+   "keys": 367851,
+   "under10": 347886
+  },
+  "ka": {
+   "keys": 148380,
+   "under10": 139546
+  },
+  "fcr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 5764,
+   "under10": 4963
+  },
+  "fcr25rr35r4r5a": {
+   "keys": 12633,
+   "under10": 11607
+  },
+  "fcr2a": {
+   "keys": 2823,
+   "under10": 2745
+  },
+  "fcr2r22r25a": {
+   "keys": 4834,
+   "under10": 4676
+  },
+  "kb20a": {
+   "keys": 77992,
+   "under10": 74104
+  },
+  "kb20b33a": {
+   "keys": 65491,
+   "under10": 62562
+  },
+  "fcr25rr35r4a": {
+   "keys": 1527,
+   "under10": 1502
+  },
+  "kb20b33b50b75b100a": {
+   "keys": 46100,
+   "under10": 44796
+  },
+  "fcr2r22r25ra": {
+   "keys": 16666,
+   "under10": 15032
+  },
+  "fcr25rr4r5r7r10a": {
+   "keys": 52118,
+   "under10": 51877
+  },
+  "kb20b33b50b75a": {
+   "keys": 46573,
+   "under10": 45497
+  },
+  "fcr25a": {
+   "keys": 62330,
+   "under10": 61879
+  },
+  "fcr25rr4r5a": {
+   "keys": 53700,
+   "under10": 53535
+  },
+  "kb20b33b50b75b100b150a": {
+   "keys": 28235,
+   "under10": 27679
+  },
+  "fcr25ra": {
+   "keys": 74280,
+   "under10": 73611
+  },
+  "kb20b33b50b75b100b150b200b300a": {
+   "keys": 33285,
+   "under10": 32562
+  },
+  "kb20b33b50a": {
+   "keys": 56573,
+   "under10": 54161
+  },
+  "kb20b33b50b75b100b150b200a": {
+   "keys": 29932,
+   "under10": 29474
+  },
+  "fcr25rr4r5r7a": {
+   "keys": 39503,
+   "under10": 39384
+  },
+  "fcr25rr35a": {
+   "keys": 847,
+   "under10": 846
+  },
+  "fcr2r22a": {
+   "keys": 3797,
+   "under10": 3673
+  },
+  "kb20b75b100b150b200b300a": {
+   "keys": 391,
+   "under10": 391
+  },
+  "cr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 136,
+   "under10": 132
+  },
+  "kb20b50b75b100b150b200b300a": {
+   "keys": 128,
+   "under10": 128
+  }
+ },
+ "lbr": {
+  "lbr_bb": 1.8438,
+  "stderr_bb": 0.3771,
+  "by_seat": {
+   "UTG": 1.8735,
+   "HJ": 2.5489,
+   "CO": 1.724,
+   "BTN": 2.3758,
+   "SB": 1.7115,
+   "BB": 0.8292
+  },
+  "hands": 1000
+ },
+ "lbr_average": {
+  "lbr_bb": 2.2142,
+  "stderr_bb": 0.4114,
+  "by_seat": {
+   "UTG": 1.4185,
+   "HJ": 4.5212,
+   "CO": 1.3501,
+   "BTN": 1.6018,
+   "SB": 2.4424,
+   "BB": 1.9512
+  },
+  "hands": 1000
+ },
+ "lbr_offmenu": {
+  "lbr_bb": 1.8438,
+  "stderr_bb": 0.3771,
+  "by_seat": {
+   "UTG": 1.8735,
+   "HJ": 2.5489,
+   "CO": 1.724,
+   "BTN": 2.3758,
+   "SB": 1.7115,
+   "BB": 0.8292
+  },
+  "hands": 1000
+ },
+ "lbr_seconds": 335.5,
+ "policy_sha256": "c65f1f8525df513a1293dffbced7923869d5750e63f7d22c1349b2ee740fcff8",
+ "by_players": {
+  "2": {
+   "lbr": {
+    "lbr_bb": 7.3087,
+    "stderr_bb": 0.9422,
+    "by_seat": {
+     "SB": 5.7889,
+     "BB": 8.8286
+    },
+    "hands": 2000
+   },
+   "lbr_average": {
+    "lbr_bb": 7.2962,
+    "stderr_bb": 0.9803,
+    "by_seat": {
+     "SB": 4.7062,
+     "BB": 9.8861
+    },
+    "hands": 2000
+   },
+   "field": {
+    "version": 3,
+    "sha256": "0a4639e07a747ea8e0cefcfc8822fdfc6e60ef4c6772b471a42d935c4d33ce1b",
+    "seed": 20003,
+    "deals": 500,
+    "pairing": "duplicate: every deal once per target seat; the opponents fill the seats after the target in the listed order, with the same action random stream in every rotation",
+    "champions": {},
+    "configs": [
+     {
+      "name": "tag1",
+      "bb100": -211.22,
+      "ci95": [
+       -358.11,
+       -65.96
+      ],
+      "ci95_low": -358.11,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "tag"
+      ],
+      "seat_mix": {
+       "tag": 1
+      },
+      "by_seat_bb100": [
+       -145.7,
+       -276.8
+      ]
+     },
+     {
+      "name": "lag1",
+      "bb100": -307.78,
+      "ci95": [
+       -481.56,
+       -140.13
+      ],
+      "ci95_low": -481.56,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "lag"
+      ],
+      "seat_mix": {
+       "lag": 1
+      },
+      "by_seat_bb100": [
+       -220.3,
+       -395.2
+      ]
+     },
+     {
+      "name": "nit1",
+      "bb100": -97.82,
+      "ci95": [
+       -220.58,
+       23.44
+      ],
+      "ci95_low": -220.58,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "nit"
+      ],
+      "seat_mix": {
+       "nit": 1
+      },
+      "by_seat_bb100": [
+       -74.0,
+       -121.6
+      ]
+     },
+     {
+      "name": "station1",
+      "bb100": -391.58,
+      "ci95": [
+       -622.64,
+       -177.17
+      ],
+      "ci95_low": -622.64,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "calling_station"
+      ],
+      "seat_mix": {
+       "calling_station": 1
+      },
+      "by_seat_bb100": [
+       -352.2,
+       -430.9
+      ]
+     },
+     {
+      "name": "maniac1",
+      "bb100": -225.6,
+      "ci95": [
+       -431.75,
+       -21.63
+      ],
+      "ci95_low": -431.75,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "maniac"
+      ],
+      "seat_mix": {
+       "maniac": 1
+      },
+      "by_seat_bb100": [
+       -359.6,
+       -91.6
+      ]
+     },
+     {
+      "name": "pro1",
+      "bb100": -216.52,
+      "ci95": [
+       -371.48,
+       -66.97
+      ],
+      "ci95_low": -371.48,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "high_stakes_pro"
+      ],
+      "seat_mix": {
+       "high_stakes_pro": 1
+      },
+      "by_seat_bb100": [
+       -149.8,
+       -283.3
+      ]
+     },
+     {
+      "name": "uniform1",
+      "bb100": 707.95,
+      "ci95": [
+       450.48,
+       958.63
+      ],
+      "ci95_low": 450.48,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "uniform"
+      ],
+      "seat_mix": {
+       "uniform": 1
+      },
+      "by_seat_bb100": [
+       475.7,
+       940.2
+      ]
+     },
+     {
+      "name": "self1",
+      "bb100": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "ci95_low": 0.0,
+      "deals": 500,
+      "hands": 1000,
+      "opponents": [
+       "self"
+      ],
+      "seat_mix": {
+       "self": 1
+      },
+      "by_seat_bb100": [
+       88.6,
+       -88.6
+      ]
+     }
+    ],
+    "skipped": [
+     {
+      "name": "champion_mid1",
+      "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 2"
+     }
+    ],
+    "worst": {
+     "name": "station1",
+     "bb100": -391.58,
+     "ci95_low": -622.64
+    }
+   },
+   "seconds": 306.6,
+   "lbr_hands": 2000,
+   "hands": 7960,
+   "visits": 2051718,
+   "keys": 290721
+  },
+  "3": {
+   "lbr": {
+    "lbr_bb": 5.0811,
+    "stderr_bb": 0.5779,
+    "by_seat": {
+     "BTN": 3.676,
+     "SB": 5.1405,
+     "BB": 6.4267
+    },
+    "hands": 2000
+   },
+   "lbr_average": {
+    "lbr_bb": 3.6077,
+    "stderr_bb": 0.5734,
+    "by_seat": {
+     "BTN": 3.3566,
+     "SB": 4.4496,
+     "BB": 3.0169
+    },
+    "hands": 2000
+   },
+   "field": {
+    "version": 3,
+    "sha256": "0a4639e07a747ea8e0cefcfc8822fdfc6e60ef4c6772b471a42d935c4d33ce1b",
+    "seed": 20003,
+    "deals": 500,
+    "pairing": "duplicate: every deal once per target seat; the opponents fill the seats after the target in the listed order, with the same action random stream in every rotation",
+    "champions": {},
+    "configs": [
+     {
+      "name": "tag2",
+      "bb100": -252.48,
+      "ci95": [
+       -439.61,
+       -66.86
+      ],
+      "ci95_low": -439.61,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "tag",
+       "tag"
+      ],
+      "seat_mix": {
+       "tag": 2
+      },
+      "by_seat_bb100": [
+       -354.7,
+       -133.3,
+       -269.4
+      ]
+     },
+     {
+      "name": "lag2",
+      "bb100": -460.94,
+      "ci95": [
+       -679.62,
+       -248.61
+      ],
+      "ci95_low": -679.62,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "lag",
+       "lag"
+      ],
+      "seat_mix": {
+       "lag": 2
+      },
+      "by_seat_bb100": [
+       -727.3,
+       -218.4,
+       -437.1
+      ]
+     },
+     {
+      "name": "nit2",
+      "bb100": -174.66,
+      "ci95": [
+       -312.75,
+       -36.02
+      ],
+      "ci95_low": -312.75,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "nit",
+       "nit"
+      ],
+      "seat_mix": {
+       "nit": 2
+      },
+      "by_seat_bb100": [
+       -124.2,
+       -119.7,
+       -280.1
+      ]
+     },
+     {
+      "name": "station2",
+      "bb100": -700.78,
+      "ci95": [
+       -972.3,
+       -443.17
+      ],
+      "ci95_low": -972.3,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "calling_station",
+       "calling_station"
+      ],
+      "seat_mix": {
+       "calling_station": 2
+      },
+      "by_seat_bb100": [
+       -868.5,
+       -512.0,
+       -721.9
+      ]
+     },
+     {
+      "name": "maniac2",
+      "bb100": -670.56,
+      "ci95": [
+       -932.15,
+       -407.94
+      ],
+      "ci95_low": -932.15,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "maniac",
+       "maniac"
+      ],
+      "seat_mix": {
+       "maniac": 2
+      },
+      "by_seat_bb100": [
+       -790.9,
+       -209.4,
+       -1011.4
+      ]
+     },
+     {
+      "name": "mixed_styles",
+      "bb100": -643.69,
+      "ci95": [
+       -873.89,
+       -416.9
+      ],
+      "ci95_low": -873.89,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "tag",
+       "calling_station"
+      ],
+      "seat_mix": {
+       "tag": 1,
+       "calling_station": 1
+      },
+      "by_seat_bb100": [
+       -968.6,
+       -320.0,
+       -642.4
+      ]
+     },
+     {
+      "name": "mixed_regs",
+      "bb100": -342.43,
+      "ci95": [
+       -547.48,
+       -143.39
+      ],
+      "ci95_low": -547.48,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "high_stakes_pro",
+       "lag"
+      ],
+      "seat_mix": {
+       "high_stakes_pro": 1,
+       "lag": 1
+      },
+      "by_seat_bb100": [
+       -543.2,
+       -92.7,
+       -391.4
+      ]
+     },
+     {
+      "name": "uniform2",
+      "bb100": 717.4,
+      "ci95": [
+       424.86,
+       1010.29
+      ],
+      "ci95_low": 424.86,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "uniform",
+       "uniform"
+      ],
+      "seat_mix": {
+       "uniform": 2
+      },
+      "by_seat_bb100": [
+       642.9,
+       1011.1,
+       498.2
+      ]
+     },
+     {
+      "name": "self2",
+      "bb100": 0.0,
+      "ci95": [
+       -0.0,
+       0.0
+      ],
+      "ci95_low": -0.0,
+      "deals": 500,
+      "hands": 1500,
+      "opponents": [
+       "self",
+       "self"
+      ],
+      "seat_mix": {
+       "self": 2
+      },
+      "by_seat_bb100": [
+       -167.4,
+       -155.9,
+       323.3
+      ]
+     }
+    ],
+    "skipped": [
+     {
+      "name": "champion_mid2",
+      "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 3"
+     }
+    ],
+    "worst": {
+     "name": "station2",
+     "bb100": -700.78,
+     "ci95_low": -972.3
+    }
+   },
+   "seconds": 447.3,
+   "lbr_hands": 2000,
+   "hands": 7891,
+   "visits": 1772197,
+   "keys": 323296
+  },
+  "4": {
+   "lbr": {
+    "lbr_bb": 2.6483,
+    "stderr_bb": 0.6851,
+    "by_seat": {
+     "EP0": 2.2517,
+     "BTN": 2.8108,
+     "SB": 2.7907,
+     "BB": 2.7398
+    },
+    "hands": 600
+   },
+   "lbr_average": {
+    "lbr_bb": 2.4066,
+    "stderr_bb": 0.6608,
+    "by_seat": {
+     "EP0": 0.9633,
+     "BTN": 3.1799,
+     "SB": 0.5678,
+     "BB": 4.9154
+    },
+    "hands": 600
+   },
+   "field": {
+    "version": 3,
+    "sha256": "0a4639e07a747ea8e0cefcfc8822fdfc6e60ef4c6772b471a42d935c4d33ce1b",
+    "seed": 20003,
+    "deals": 500,
+    "pairing": "duplicate: every deal once per target seat; the opponents fill the seats after the target in the listed order, with the same action random stream in every rotation",
+    "champions": {},
+    "configs": [
+     {
+      "name": "tag3",
+      "bb100": -606.29,
+      "ci95": [
+       -817.28,
+       -387.31
+      ],
+      "ci95_low": -817.28,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "tag",
+       "tag",
+       "tag"
+      ],
+      "seat_mix": {
+       "tag": 3
+      },
+      "by_seat_bb100": [
+       -784.7,
+       -499.2,
+       -432.3,
+       -709.0
+      ]
+     },
+     {
+      "name": "lag3",
+      "bb100": -926.05,
+      "ci95": [
+       -1168.14,
+       -674.35
+      ],
+      "ci95_low": -1168.14,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "lag",
+       "lag",
+       "lag"
+      ],
+      "seat_mix": {
+       "lag": 3
+      },
+      "by_seat_bb100": [
+       -986.2,
+       -674.8,
+       -925.8,
+       -1117.3
+      ]
+     },
+     {
+      "name": "nit3",
+      "bb100": -401.45,
+      "ci95": [
+       -570.57,
+       -237.58
+      ],
+      "ci95_low": -570.57,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "nit",
+       "nit",
+       "nit"
+      ],
+      "seat_mix": {
+       "nit": 3
+      },
+      "by_seat_bb100": [
+       -435.7,
+       -393.5,
+       -327.2,
+       -449.3
+      ]
+     },
+     {
+      "name": "station3",
+      "bb100": -957.52,
+      "ci95": [
+       -1239.86,
+       -664.9
+      ],
+      "ci95_low": -1239.86,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "calling_station",
+       "calling_station",
+       "calling_station"
+      ],
+      "seat_mix": {
+       "calling_station": 3
+      },
+      "by_seat_bb100": [
+       -1460.0,
+       -708.1,
+       -1004.4,
+       -657.6
+      ]
+     },
+     {
+      "name": "maniac3",
+      "bb100": -983.4,
+      "ci95": [
+       -1279.73,
+       -682.52
+      ],
+      "ci95_low": -1279.73,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "maniac",
+       "maniac",
+       "maniac"
+      ],
+      "seat_mix": {
+       "maniac": 3
+      },
+      "by_seat_bb100": [
+       -1631.2,
+       -811.3,
+       -817.4,
+       -673.6
+      ]
+     },
+     {
+      "name": "mixed_styles",
+      "bb100": -1050.09,
+      "ci95": [
+       -1293.55,
+       -796.33
+      ],
+      "ci95_low": -1293.55,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "tag",
+       "lag",
+       "calling_station"
+      ],
+      "seat_mix": {
+       "tag": 1,
+       "lag": 1,
+       "calling_station": 1
+      },
+      "by_seat_bb100": [
+       -1108.4,
+       -768.9,
+       -1163.1,
+       -1159.9
+      ]
+     },
+     {
+      "name": "mixed_regs",
+      "bb100": -836.93,
+      "ci95": [
+       -1058.5,
+       -610.64
+      ],
+      "ci95_low": -1058.5,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "high_stakes_pro",
+       "tag",
+       "loose_passive"
+      ],
+      "seat_mix": {
+       "high_stakes_pro": 1,
+       "tag": 1,
+       "loose_passive": 1
+      },
+      "by_seat_bb100": [
+       -906.4,
+       -653.4,
+       -786.2,
+       -1001.7
+      ]
+     },
+     {
+      "name": "uniform3",
+      "bb100": 825.18,
+      "ci95": [
+       527.01,
+       1128.48
+      ],
+      "ci95_low": 527.01,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "uniform",
+       "uniform",
+       "uniform"
+      ],
+      "seat_mix": {
+       "uniform": 3
+      },
+      "by_seat_bb100": [
+       -106.1,
+       939.5,
+       1668.0,
+       799.2
+      ]
+     },
+     {
+      "name": "self3",
+      "bb100": 0.0,
+      "ci95": [
+       -0.0,
+       0.0
+      ],
+      "ci95_low": -0.0,
+      "deals": 500,
+      "hands": 2000,
+      "opponents": [
+       "self",
+       "self",
+       "self"
+      ],
+      "seat_mix": {
+       "self": 3
+      },
+      "by_seat_bb100": [
+       -568.7,
+       98.5,
+       579.4,
+       -109.2
+      ]
+     }
+    ],
+    "skipped": [
+     {
+      "name": "champion_mid3",
+      "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 4"
+     }
+    ],
+    "worst": {
+     "name": "mixed_styles",
+     "bb100": -1050.09,
+     "ci95_low": -1293.55
+    }
+   },
+   "seconds": 361.4,
+   "lbr_hands": 600,
+   "hands": 8019,
+   "visits": 1115768,
+   "keys": 276051
+  },
+  "5": {
+   "lbr": {
+    "lbr_bb": 2.1943,
+    "stderr_bb": 0.5244,
+    "by_seat": {
+     "EP0": 2.375,
+     "EP1": 2.6357,
+     "BTN": 3.0083,
+     "SB": 0.899,
+     "BB": 2.0537
+    },
+    "hands": 600
+   },
+   "lbr_average": {
+    "lbr_bb": 2.1104,
+    "stderr_bb": 0.5579,
+    "by_seat": {
+     "EP0": 1.2408,
+     "EP1": 3.2014,
+     "BTN": 4.1392,
+     "SB": 0.2738,
+     "BB": 1.6967
+    },
+    "hands": 600
+   },
+   "field": {
+    "version": 3,
+    "sha256": "0a4639e07a747ea8e0cefcfc8822fdfc6e60ef4c6772b471a42d935c4d33ce1b",
+    "seed": 20003,
+    "deals": 500,
+    "pairing": "duplicate: every deal once per target seat; the opponents fill the seats after the target in the listed order, with the same action random stream in every rotation",
+    "champions": {},
+    "configs": [
+     {
+      "name": "tag4",
+      "bb100": -770.06,
+      "ci95": [
+       -992.08,
+       -535.83
+      ],
+      "ci95_low": -992.08,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "tag",
+       "tag",
+       "tag",
+       "tag"
+      ],
+      "seat_mix": {
+       "tag": 4
+      },
+      "by_seat_bb100": [
+       -776.0,
+       -848.4,
+       -605.4,
+       -847.4,
+       -773.2
+      ]
+     },
+     {
+      "name": "lag4",
+      "bb100": -917.79,
+      "ci95": [
+       -1170.02,
+       -654.52
+      ],
+      "ci95_low": -1170.02,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "lag",
+       "lag",
+       "lag",
+       "lag"
+      ],
+      "seat_mix": {
+       "lag": 4
+      },
+      "by_seat_bb100": [
+       -1078.1,
+       -1073.5,
+       -691.8,
+       -956.8,
+       -788.8
+      ]
+     },
+     {
+      "name": "nit4",
+      "bb100": -558.92,
+      "ci95": [
+       -731.69,
+       -388.93
+      ],
+      "ci95_low": -731.69,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "nit",
+       "nit",
+       "nit",
+       "nit"
+      ],
+      "seat_mix": {
+       "nit": 4
+      },
+      "by_seat_bb100": [
+       -540.9,
+       -539.0,
+       -438.7,
+       -718.4,
+       -557.6
+      ]
+     },
+     {
+      "name": "station4",
+      "bb100": -1029.33,
+      "ci95": [
+       -1352.97,
+       -703.17
+      ],
+      "ci95_low": -1352.97,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "calling_station",
+       "calling_station",
+       "calling_station",
+       "calling_station"
+      ],
+      "seat_mix": {
+       "calling_station": 4
+      },
+      "by_seat_bb100": [
+       -1510.7,
+       -1381.9,
+       -486.7,
+       -902.5,
+       -864.8
+      ]
+     },
+     {
+      "name": "maniac4",
+      "bb100": -1051.54,
+      "ci95": [
+       -1364.94,
+       -740.06
+      ],
+      "ci95_low": -1364.94,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "maniac",
+       "maniac",
+       "maniac",
+       "maniac"
+      ],
+      "seat_mix": {
+       "maniac": 4
+      },
+      "by_seat_bb100": [
+       -1581.5,
+       -1280.9,
+       -695.4,
+       -530.5,
+       -1169.3
+      ]
+     },
+     {
+      "name": "mixed_styles",
+      "bb100": -878.01,
+      "ci95": [
+       -1121.01,
+       -641.74
+      ],
+      "ci95_low": -1121.01,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "tag",
+       "lag",
+       "nit",
+       "calling_station"
+      ],
+      "seat_mix": {
+       "tag": 1,
+       "lag": 1,
+       "nit": 1,
+       "calling_station": 1
+      },
+      "by_seat_bb100": [
+       -887.3,
+       -957.4,
+       -573.6,
+       -1285.9,
+       -686.0
+      ]
+     },
+     {
+      "name": "mixed_regs",
+      "bb100": -778.24,
+      "ci95": [
+       -998.9,
+       -553.35
+      ],
+      "ci95_low": -998.9,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "high_stakes_pro",
+       "tag",
+       "lag",
+       "weak_tight"
+      ],
+      "seat_mix": {
+       "high_stakes_pro": 1,
+       "tag": 1,
+       "lag": 1,
+       "weak_tight": 1
+      },
+      "by_seat_bb100": [
+       -835.2,
+       -852.1,
+       -689.6,
+       -848.9,
+       -665.4
+      ]
+     },
+     {
+      "name": "uniform4",
+      "bb100": 781.03,
+      "ci95": [
+       471.01,
+       1089.09
+      ],
+      "ci95_low": 471.01,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "uniform",
+       "uniform",
+       "uniform",
+       "uniform"
+      ],
+      "seat_mix": {
+       "uniform": 4
+      },
+      "by_seat_bb100": [
+       342.2,
+       892.0,
+       778.8,
+       654.2,
+       1238.0
+      ]
+     },
+     {
+      "name": "self4",
+      "bb100": 0.0,
+      "ci95": [
+       -0.0,
+       -0.0
+      ],
+      "ci95_low": -0.0,
+      "deals": 500,
+      "hands": 2500,
+      "opponents": [
+       "self",
+       "self",
+       "self",
+       "self"
+      ],
+      "seat_mix": {
+       "self": 4
+      },
+      "by_seat_bb100": [
+       -308.1,
+       13.1,
+       49.2,
+       165.5,
+       80.3
+      ]
+     }
+    ],
+    "skipped": [
+     {
+      "name": "champion_mid4",
+      "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 5"
+     }
+    ],
+    "worst": {
+     "name": "maniac4",
+     "bb100": -1051.54,
+     "ci95_low": -1364.94
+    }
+   },
+   "seconds": 462.2,
+   "lbr_hands": 600,
+   "hands": 8051,
+   "visits": 799379,
+   "keys": 218862
+  },
+  "6": {
+   "lbr": {
+    "lbr_bb": 1.8438,
+    "stderr_bb": 0.3771,
+    "by_seat": {
+     "UTG": 1.8735,
+     "HJ": 2.5489,
+     "CO": 1.724,
+     "BTN": 2.3758,
+     "SB": 1.7115,
+     "BB": 0.8292
+    },
+    "hands": 1000
+   },
+   "lbr_average": {
+    "lbr_bb": 2.2142,
+    "stderr_bb": 0.4114,
+    "by_seat": {
+     "UTG": 1.4185,
+     "HJ": 4.5212,
+     "CO": 1.3501,
+     "BTN": 1.6018,
+     "SB": 2.4424,
+     "BB": 1.9512
+    },
+    "hands": 1000
+   },
+   "field": {
+    "version": 2,
+    "sha256": "4640929985e564f9a625cabea921fd3189a2c605e556061ffd6ddc173e10d439",
+    "seed": 20003,
+    "deals": 1000,
+    "pairing": "duplicate: every deal once per target seat; the opponents fill the seats after the target in the listed order, with the same action random stream in every rotation",
+    "champions": {},
+    "configs": [
+     {
+      "name": "tag5",
+      "bb100": -952.03,
+      "ci95": [
+       -1120.11,
+       -778.5
+      ],
+      "ci95_low": -1120.11,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "tag",
+       "tag",
+       "tag",
+       "tag",
+       "tag"
+      ],
+      "seat_mix": {
+       "tag": 5
+      },
+      "by_seat_bb100": [
+       -1091.5,
+       -1000.5,
+       -696.3,
+       -1129.8,
+       -870.3,
+       -923.7
+      ]
+     },
+     {
+      "name": "lag5",
+      "bb100": -1114.55,
+      "ci95": [
+       -1301.67,
+       -920.89
+      ],
+      "ci95_low": -1301.67,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "lag",
+       "lag",
+       "lag",
+       "lag",
+       "lag"
+      ],
+      "seat_mix": {
+       "lag": 5
+      },
+      "by_seat_bb100": [
+       -1308.5,
+       -1113.4,
+       -910.4,
+       -1438.4,
+       -842.1,
+       -1074.5
+      ]
+     },
+     {
+      "name": "nit5",
+      "bb100": -760.13,
+      "ci95": [
+       -903.92,
+       -618.18
+      ],
+      "ci95_low": -903.92,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "nit",
+       "nit",
+       "nit",
+       "nit",
+       "nit"
+      ],
+      "seat_mix": {
+       "nit": 5
+      },
+      "by_seat_bb100": [
+       -837.5,
+       -809.7,
+       -659.9,
+       -801.6,
+       -679.0,
+       -773.1
+      ]
+     },
+     {
+      "name": "station5",
+      "bb100": -1254.1,
+      "ci95": [
+       -1483.54,
+       -1023.54
+      ],
+      "ci95_low": -1483.54,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "calling_station",
+       "calling_station",
+       "calling_station",
+       "calling_station",
+       "calling_station"
+      ],
+      "seat_mix": {
+       "calling_station": 5
+      },
+      "by_seat_bb100": [
+       -1316.8,
+       -1328.8,
+       -1115.5,
+       -1618.3,
+       -1263.3,
+       -881.9
+      ]
+     },
+     {
+      "name": "maniac5",
+      "bb100": -1122.12,
+      "ci95": [
+       -1345.88,
+       -896.78
+      ],
+      "ci95_low": -1345.88,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "maniac",
+       "maniac",
+       "maniac",
+       "maniac",
+       "maniac"
+      ],
+      "seat_mix": {
+       "maniac": 5
+      },
+      "by_seat_bb100": [
+       -1260.9,
+       -1209.6,
+       -775.8,
+       -1306.5,
+       -1206.7,
+       -973.2
+      ]
+     },
+     {
+      "name": "mixed_styles",
+      "bb100": -1097.93,
+      "ci95": [
+       -1282.47,
+       -916.19
+      ],
+      "ci95_low": -1282.47,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "tag",
+       "lag",
+       "nit",
+       "calling_station",
+       "maniac"
+      ],
+      "seat_mix": {
+       "tag": 1,
+       "lag": 1,
+       "nit": 1,
+       "calling_station": 1,
+       "maniac": 1
+      },
+      "by_seat_bb100": [
+       -1323.7,
+       -1100.1,
+       -664.1,
+       -1265.0,
+       -1223.3,
+       -1011.4
+      ]
+     },
+     {
+      "name": "mixed_regs",
+      "bb100": -1110.69,
+      "ci95": [
+       -1278.56,
+       -935.57
+      ],
+      "ci95_low": -1278.56,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "high_stakes_pro",
+       "tag",
+       "lag",
+       "weak_tight",
+       "loose_passive"
+      ],
+      "seat_mix": {
+       "high_stakes_pro": 1,
+       "tag": 1,
+       "lag": 1,
+       "weak_tight": 1,
+       "loose_passive": 1
+      },
+      "by_seat_bb100": [
+       -1213.3,
+       -953.9,
+       -792.4,
+       -1499.9,
+       -1062.2,
+       -1142.4
+      ]
+     },
+     {
+      "name": "uniform5",
+      "bb100": 911.14,
+      "ci95": [
+       687.03,
+       1131.66
+      ],
+      "ci95_low": 687.03,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "uniform",
+       "uniform",
+       "uniform",
+       "uniform",
+       "uniform"
+      ],
+      "seat_mix": {
+       "uniform": 5
+      },
+      "by_seat_bb100": [
+       877.4,
+       349.2,
+       711.8,
+       926.9,
+       1499.0,
+       1102.5
+      ]
+     },
+     {
+      "name": "self5",
+      "bb100": 0.0,
+      "ci95": [
+       -0.0,
+       0.0
+      ],
+      "ci95_low": -0.0,
+      "deals": 1000,
+      "hands": 6000,
+      "opponents": [
+       "self",
+       "self",
+       "self",
+       "self",
+       "self"
+      ],
+      "seat_mix": {
+       "self": 5
+      },
+      "by_seat_bb100": [
+       -290.1,
+       -452.4,
+       22.7,
+       -42.6,
+       210.4,
+       552.0
+      ]
+     }
+    ],
+    "skipped": [
+     {
+      "name": "champion_mid5",
+      "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 6"
+     },
+     {
+      "name": "champions_mixed",
+      "reason": "champion mid-40851654734 plays menu v1 cap 3 at 6 seats; these deals use menu real cap None at 6"
+     }
+    ],
+    "worst": {
+     "name": "station5",
+     "bb100": -1254.1,
+     "ci95_low": -1483.54
+    }
+   },
+   "seconds": 1212.2,
+   "lbr_hands": 1000,
+   "hands": 8079,
+   "visits": 615162,
+   "keys": 171744
+  }
+ },
+ "by_players_counted_from": 0,
+ "by_players_shared_keys": 507,
+ "model": {
+  "k": 11,
+  "n": 6,
+  "depth": "full",
+  "iterations": 40000,
+  "nodes": 24894888,
+  "menu": "real",
+  "raise_cap": null,
+  "avg_rule": "own",
+  "rng": {
+   "bit_generator": "PCG64",
+   "state": {
+    "state": 80102062463003023385019273363582735399,
+    "inc": 222003063171874261427395693950637096479
+   },
+   "has_uint32": 0,
+   "uinteger": 0
+  },
+  "key_variant": "c1",
+  "stacks": "sampled",
+  "key_version": 1,
+  "player_mix": [
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "mix_counts": {
+   "2": {
+    "hands": 7960,
+    "visits": 2051718
+   },
+   "3": {
+    "hands": 7891,
+    "visits": 1772197
+   },
+   "4": {
+    "hands": 8019,
+    "visits": 1115768
+   },
+   "5": {
+    "hands": 8051,
+    "visits": 799379
+   },
+   "6": {
+    "hands": 8079,
+    "visits": 615162
+   }
+  },
+  "counted_from": 0,
+  "ranges": "average",
+  "range_every": 2000,
+  "snap_at": 32000
+ },
+ "checkpoint": {
+  "format": "npz",
+  "dtype": "float64",
+  "b64": {
+   "omitted_chars": 96053664,
+   "sha256": "58cdd7b4d5b42390369c4a3a22016acc0f0c7b9e2023bddf894225e52aaf79cc"
+  }
+ },
+ "max_rss_mb": 4064.4,
+ "max_child_rss_mb": 1676.5,
+ "machine": {
+  "cpu_model": "AMD EPYC 9654 96-Core Processor",
+  "cpu_count": 192,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "max 100000",
+  "mem_total_mb": 773265,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.41"
+ },
+ "regret_sha256": "633e9841c5bbe8477d86f267a4dd6a8d2802755474d2c2e973d77feb46923e36",
+ "sha": "1fc0b959a7339aa564a258ae48d819bf413dc143",
+ "_summary_of": {
+  "result_bytes": 96076333,
+  "result_sha256": "9d5f74c6a91aafcd6df1496ac8c43d6dfda69e1591730e294e5f6a0613fcada2"
+ }
+}
