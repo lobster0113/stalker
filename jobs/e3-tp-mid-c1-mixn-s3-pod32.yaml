@@ -3,13 +3,16 @@
 # so the seeds compare at the same count (#542's seed 1 reached 40k or 56k in 90 minutes, by pod speed). --minutes 90
 # stays the ceiling; the result's stopped_by says which limit ended it. Dispatch after the PR merges (the
 # measurement is its own issue); it resumes only a result of the same job, key version and mix.
-# Worst case = hourly_usd * max_minutes / 60 = 1.2 * 170 / 60 = $3.40. Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
+# #558: max_minutes 170 -> 240 like seed 2 (#553): #556 raised 2-3 player by_players LBR to 2,000 hands (from 600),
+# so evaluation runs longer, and seed 4 (run 41670499712) already ended at 159.82 min under the old 600-hand setting.
+# Training still stops at --max-iters 40000, so the extra time is evaluation only.
+# Worst case = hourly_usd * max_minutes / 60 = 1.2 * 240 / 60 = $4.80. Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
 name: e3-tp-mid-c1-mixn-s3-pod32
 image: python:3.12-slim
 command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 6 --player-mix 2,3,4,5,6 --workers 16 --minutes 90 --batch 500 --seed 3 --max-iters 40000 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --stacks sampled --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-mixn-s3-pod32.json
 cpu_flavor: cpu3c
 vcpu: 32
 disk_gb: 10
-max_minutes: 170
+max_minutes: 240
 hourly_usd: 1.2
 result_path: /result/e3-tp-mid-c1-mixn-s3-pod32.json
