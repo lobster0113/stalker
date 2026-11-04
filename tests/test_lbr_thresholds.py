@@ -20,7 +20,7 @@ def summ(seed, n, hands, cur, avg=None, **extra):
 
 def test_pinned_and_matches_adr_table():
     assert hashlib.sha256(T.THRESHOLDS.read_bytes()).hexdigest() == T.THRESHOLDS_SHA256
-    rows = re.findall(r"^\| (\d) \| ([\d.]+) \| ([\d.]+) \| (\d+) \| (\d) / (\d) \|$", ADR.read_text(), re.M)
+    rows = re.findall(r"^\| (\d) \| ([\d.]+) \| ([\d.]+) \| (\d+) \| (\d) / (\d) \|$", ADR.read_text(encoding="utf-8"), re.M)
     assert len(rows) == 5
     table = T.load_thresholds()["players"]
     for n, cur, avg, hands, mc, ma in rows:
@@ -49,7 +49,7 @@ def test_rejects_duplicates_and_mixes():
 
 
 def test_real_mixn_c1_runs():
-    r = T.judge(json.loads(FIX.read_text()))
+    r = T.judge(json.loads(FIX.read_text(encoding="utf-8")))
     for n in ("2", "3"):
         assert r[n]["lbr"]["verdict"] == r[n]["lbr_average"]["verdict"] == "pass"
     # the three runs' hand counts equal the ADR table for 4-6 players, so those are judged too
@@ -59,8 +59,8 @@ def test_real_mixn_c1_runs():
 
 def test_cli_exit_codes(tmp_path, capsys):
     ok, bad = tmp_path / "ok.json", tmp_path / "bad.json"
-    ok.write_text(json.dumps(summ(1, 2, 2000, 7.1)))
-    bad.write_text(json.dumps(summ(1, 2, 2000, 9.5)))
+    ok.write_text(json.dumps(summ(1, 2, 2000, 7.1)), encoding="utf-8")
+    bad.write_text(json.dumps(summ(1, 2, 2000, 9.5)), encoding="utf-8")
     assert T.main([str(ok)]) == 0
     assert "insufficient" in capsys.readouterr().out
     assert T.main([str(bad)]) == 1

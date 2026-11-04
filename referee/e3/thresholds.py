@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
         print("usage: python -m referee.e3.thresholds <summary.json>...", file=sys.stderr)
         return 2
     try:
-        result = judge([json.loads(Path(p).read_text()) for p in paths])
+        result = judge([json.loads(Path(p).read_text(encoding="utf-8")) for p in paths])
     except (ThresholdError, OSError, json.JSONDecodeError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
