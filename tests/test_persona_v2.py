@@ -14,7 +14,7 @@ WTSD = dict(zip(TYPES, (0.21, 0.23, 0.27, 0.28, 0.33, 0.40, 0.35, 0.28)))
 
 
 def test_optional_fields_default_none_and_old_presets_untouched():
-    assert all(dataclasses.astuple(p)[4:] == (None,) * 10 for p in PRESETS.values())
+    assert all(dataclasses.astuple(p)[4:] == (None,) * 11 for p in PRESETS.values())
     assert len(PRESETS_V2) == 8 and PRESETS_V2["tag"].cbet_flop == 0.65 and PRESETS_V2["pro"].fold_river == 0.62
     with pytest.raises(ValueError):
         PersonaParams(0.2, 0.1, 0.5, 0.5, cbet_flop=1.5)
@@ -89,3 +89,8 @@ def test_street_style_within_6pp_of_target_in_mixed_field():
     for i, street in enumerate(("turn", "river")):
         assert max(mean[n][i] for n in loose) < min(mean[n][i] for n in tight), (street, mean)
         assert max(mean[n][i] for n in mean) < (0.95, 0.80)[i], (street, mean)
+    # #533: turn fold-to-c-bet error vs target, at most half of PR #531's (giveup_weak on turn and river alike)
+    base = dict(zip(TYPES, (0.84, 0.88, 0.87, 0.90, 0.67, 0.61, 0.60, 0.77)))  # note table, V2 turn column
+    err = np.mean([abs(mean[n][0] - PRESETS_V2[n].fold_cbet_turn) for n in TYPES])
+    err0 = np.mean([abs(base[n] - PRESETS_V2[n].fold_cbet_turn) for n in TYPES])
+    assert err <= err0 / 2, (err, err0, mean)
