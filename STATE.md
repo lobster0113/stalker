@@ -1,18 +1,18 @@
-# STATE (2026-11-04 21:15Z, planner)
+# STATE (2026-11-04 23:30Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
+planner 11-04 23:30Z: **PR #571(ca13b1b, #537 3인 Kuhn AIVAT 스파이크: 비편향 유지, SE 감소 2.7–4.3배(로컬 참고), 나쁜 v는 0.54배) 머지** → #537 잔존 ready·in-progress 정리, 대체된 PR #536 닫음. 신규 **#573 P3 referee-change**(stats.py AIVAT 보정 함수, field 통합은 후속). 열린 PR 없음. main CI ca13b1b 진행 중, e8935b0 success.
 planner 11-04 21:15Z: **PR #567(f91e9e9, #530 own vs cap2·8: 5시드로 sd 차이 판단 불가, 짝지은 cap이 평균 LBR −0.42·−0.27, 기본값 유지) · PR #570(e8935b0, #564 ADR 0020 인원별 LBR 합격선 = 기준 평균+2se, 퇴행 방지선) 머지.** #530은 Closes가 안 먹어 수동 종료, #564 라벨 정리. 신규 **#572 P2 referee-change**(ADR 0020 합격선 판정기·CLI, CI 연결은 후속). 열린 PR #571(#537, CHANGES 20:57Z)·#536(정체). main CI e8935b0 success(tests 1671).
 planner 11-04 17:30Z: **PR #568(e8ae0ae, #533 giveup_turn 분리: 턴 fold 오차 .285→.140, WTSD 유지, 리버 .19→.22) 머지** → #533 잔존 ready·in-progress 정리. 신규 **#569 P3**(레버 4개 자동 탐색, 턴 오차 ≤.10, #568 후속). 열린 PR #567(#530, 판정 대기)·#536(CHANGES 정체). main CI e8ae0ae 진행 중, 5245d55 success.
 planner 11-04 16:10Z: **PR #562(3dbb02f, #559 시드 2–4 2,000핸드 재측정: 2–3인 현재 LBR 시드 간 sd 0.15·0.08 ≪ se, 평가 잡음이 주원인) · PR #563(5245d55, #560 policy·ckpt gzip) 머지.** #479 blocked→ready(선행 #560 해소). 신규 **#564 P2**(인원별 LBR 합격선 ADR), **#565 P3 harness-change**(복기 #rv-table 고정 겹침 검사, #552 후속), **#566 P3**(시드 2 잡 주석 정정, #561 후속). 열린 PR #536(CHANGES 대기, 11-03부터 정체). main CI 5245d55 success(tests 1671).
-planner 11-04 13:15Z: **PR #552(5b1860f, #551 학습·복기 정적 테이블 벳/팟 겹침 레이아웃 수정 + Gate U 시나리오 고정 픽스처) 머지** → #551 잔존 ready·in-progress 정리. 열린 PR: #562(#559 재측정 기록, 판정 대기)·#536(CHANGES 대기). main CI 5b1860f 진행 중, 1fc0b95 success. 후속 후보: 복기 `#rv-table` 고정 픽스처(PR #552 후속), 시드 2 잡 주석 문구 정정(#561 후속).
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **D 2–5인(#384)**: 평가기(#534)·인원별 값(#542)·시드 분산(#548·#559) → 합격선 ADR 0020 머지(#564) → **#572 판정기**(2–3인 현재 LBR은 시드 1개, 평균 전략·4–6인은 2개). 그 뒤 CI 연결(harness-change)과 4–6인 판정 핸드 수 맞춘 측정. 소유자가 크리티컬하다고 한 short-handed.
 2. **C 고수 체인 비용(NH-11 (a))**: #560 gzip 머지로 큰 체인 아티팩트 한도가 풀렸다 → #479(b2 대 b1 10⁵회) 재개, b1 체크포인트 12-01 만료 전. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
 3. **페르소나 턴 폴드(#533 머지 → #569)**: giveup_turn으로 턴 오차 절반(.140)이나 nit .29 잔존, 수동 스윕 한계 → 자동 탐색. 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
 ## 큐
-ready 미착수: #572 P2·#565 P3·#566 P3·#569 P3 (4). in-progress: #479 P2(b2 체인 run 41884879698 진행), #537 P3(PR #571 CHANGES). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #572 P2·#573 P3·#565 P3·#566 P3·#569 P3 (5). in-progress: #479 P2(b2 체인 run 41884879698 진행). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #541·#542), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
-후보: 합격선 CI 연결(#572 뒤, harness-change), avg_cap 3×10⁵ resume 재측정·평균 LBR 평가 시드 8(#567 후속 a·b), own 평균 LBR 1.20>현재 0.89 원인(#567 관찰), 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 웹 key 미러(c1), 프리플랍 프로브 CI 지표(harness-change).
+후보: AIVAT field·LBR 통합+NLHE 가치 함수(#573 뒤, referee-change), 합격선 CI 연결(#572 뒤, harness-change), avg_cap 3×10⁵ resume 재측정·평균 LBR 평가 시드 8(#567 후속 a·b), own 평균 LBR 1.20>현재 0.89 원인(#567 관찰), 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 웹 key 미러(c1), 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
 - CI bea9bc8(18:12Z): tests 1590, failed 0, gate_r·cash·e3 1.0(e3 116,238), gate_l 1.0(32), stalker_loc 15527. 테스트 수 증가 추세(1524→1590, 1일).
 - E1(CI): 착취도 초보 0.0191·중수 0.0033·고수 0.0009, Gate S 초보 분위 passed=false 지속 — 정체 축, ADR 0016 record-only.
@@ -22,7 +22,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35(같은 시각) = 4.54배, CPU 맞춤 3.20(참고). 이전 #503 3.27배. regret 해시는 시드별로 같다.
 - 클라우드 지출: 월 $9.45 / $100(실험 025 기록).
 ## 경보
-- [planner 11-04 21:15Z] 신규: squash 머지 PR #567 본문 `Closes #530`인데 이슈가 열린 채 남음(MCP 머지 경로 의심) → planner가 머지 뒤 연결 이슈 상태 확인. friction 지속: gates quick 로컬 1032~1190초((a), builder·builder-b 18:42·20:50Z), gh merge GraphQL 403 → MCP((b), reviewer·reviewer-b 18:44·19:25Z), 라벨 이벤트 취소 run의 stale gates 체크((d'), reviewer 17:41·20:57Z). #536 정체 → #571이 노트를 흡수, #536은 #571 머지 뒤 닫기 후보.
+- [planner 11-04 21:15Z] 신규: squash 머지 PR #567 본문 `Closes #530`인데 이슈가 열린 채 남음(MCP 머지 경로 의심) → planner가 머지 뒤 연결 이슈 상태 확인. friction 지속: gates quick 로컬 1032~1190초((a), builder·builder-b 18:42·20:50Z), gh merge GraphQL 403 → MCP((b), reviewer·reviewer-b 18:44·19:25Z), 라벨 이벤트 취소 run의 stale gates 체크((d'), reviewer 17:41·20:57Z). #536은 #571 머지로 대체되어 23:30Z 닫음. #537도 Closes 후 ready·in-progress 라벨 잔존(머지 경로가 라벨을 안 지움, 반복).
 - [planner 11-04 17:30Z] friction 재발: reviewer-b 17:18Z `gh pr merge` GraphQL 403·REST 훅 차단 → MCP 머지((b), 오늘 3회+). builder-b 16:55Z·builder 16:49Z gates quick 1219·1296초((a)), PR #568 후속: 느린 테스트 slow 마커 점검 후보.
 - [planner 11-04 16:10Z] friction 반복: reviewer 14:28Z `gh pr merge` GraphQL 403 + REST merge 훅 차단 → MCP로 MERGE-RETRY 14:42Z((b), reviewer.md에 MCP 머지 도구 명시 후보). #536: cancelled run 실패로 내린 같은 sha CHANGES가 재판정 불가로 정체(reviewer-b 14:16·15:20Z, 11-03 14:05Z 경보와 같은 주제 3회+). `--sweep` parity 무시 RUN((h), reviewer 12:42·15:41Z).
 - [planner 11-04 13:15Z] **friction 3회+ (area:harness 후보, Auditor 결정)**: guard 훅(`python harness/hooks/guard_bash.py`)이 상대 경로라 `cd web/e2e` 뒤 Bash 전체가 막힘 → builder-b #552 푸시 3회 실패(reviewer-b 10:11·11:15·12:20Z, PR #552 본문). 훅 명령을 절대 경로(`$CLAUDE_PROJECT_DIR`)로 바꾸는 harness-change 후보. 웹 e2e 9분+·Gate U 로컬 560초 한도 초과(builder-b·reviewer-b 12:30·13:05Z) → 백그라운드+폴링.
