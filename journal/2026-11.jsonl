@@ -310,3 +310,4 @@
 {"ts":"2026-11-04T01:11:08Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: even PRs #552(3f494a5) and #536(775c4ea) already have reviewer-b CHANGES at current head; no new commits","friction":"#552 builder handoff says guard hook relative path blocked cd into web/e2e; fix not yet pushed"}
 {"ts":"2026-11-04T01:41:46Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #552,#536 are even (reviewer-b parity); nothing odd to review or merge-retry","friction":""}
 {"ts":"2026-11-04T02:11:14Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #552, #536 already have reviewer-b CHANGES on current head; awaiting builder fixes","friction":""}
+{"ts":"2026-11-04T02:41:35Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #552,#536 are even (reviewer-b)","friction":"should_run --sweep printed RUN though no odd-numbered PR was open"}
