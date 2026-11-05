@@ -443,3 +443,4 @@
 {"ts":"2026-11-05T11:42:14Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 홀수 PR 없음(#587은 reviewer-b 몫)","friction":""}
 {"ts":"2026-11-05T12:11:27Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #587 (odd, reviewer's share)","friction":""}
 {"ts":"2026-11-05T12:25:04Z","role":"builder-b","outcome":"changes","issue":579,"pr":587,"notes":"PR587 CHANGES 해결: main 머지 커밋(트리=main+문서)·코드경로·시점별 표 추가","friction":"shallow clone이라 git merge가 unrelated histories로 실패, 잘못된 트리 커밋을 한 번 푸시(머지 커밋으로 교정). 강제푸시 금지와 reviewer의 브랜치 재생성 요구가 충돌"}
+{"ts":"2026-11-05T12:25:15Z","role":"reviewer-b","outcome":"skipped","issue":579,"pr":587,"notes":"not my parity","friction":""}
