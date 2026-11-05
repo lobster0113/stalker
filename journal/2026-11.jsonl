@@ -390,3 +390,4 @@
 {"ts":"2026-11-05T00:11:50Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN though there were no open PRs"}
 {"ts":"2026-11-05T00:41:16Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-05T00:59:48Z","role":"builder-b","outcome":"pr_opened","issue":572,"pr":574,"notes":"LBR per-player threshold judge (ADR 0020) + CLI + fixtures; gates full PASS locally","friction":"gates quick ~1000s, full ~2400s; background cmd default 30min limit killed first full run (use timeout 7200000); my new tests missed test_text_encoding rule"}
+{"ts":"2026-11-05T01:00:14Z","role":"reviewer","outcome":"skipped","issue":572,"pr":574,"notes":"not my parity","friction":""}
