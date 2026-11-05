@@ -691,6 +691,59 @@ await inspect("review", "#rv-body h2");
   must(r.hero === 2, `복기: 테이블에 내 카드 2장이 없음 (${r.hero}장)`);
 }
 
+// #565: the review flow above only folds/checks/calls, so #rv-table rarely has a bet on it and the #551 overlap
+// never got checked there. Pin RV to fixed hands (every other seat raising in turn preflop, all six seats in, and
+// bets after the flop), and check at each size that the bets drawn are exactly the pinned hand's before the overlap check.
+{
+  const RV_SIZES = [["laptop", 1440, 900], ["tablet", 820, 1180], ["tablet-768", 768, 1024], ["phone", 390, 844]];
+  const PRE = ["UTG f", "HJ f", "CO f", "BTN f", "SB f"];
+  const RV_HANDS = [
+    ...["UTG", "HJ", "CO"].map((pos, k) => ({ nm: `${pos} 오픈`, acts: [...PRE.slice(0, k), `${pos} r2.5`] })),
+    { nm: "SB 레이즈", acts: ["UTG f", "HJ f", "CO f", "BTN f", "SB r3"] },
+    { nm: "BB 3벳", acts: ["UTG f", "HJ f", "CO f", "BTN r2.5", "SB c", "BB r11"] },
+    { nm: "6좌석 모두 벳", acts: ["UTG r2.5", "HJ r7.5", "CO c", "BTN c", "SB r22", "BB c"], shot: true },
+    { nm: "플랍 벳·레이즈", acts: ["UTG f", "HJ f", "CO r2.5", "BTN c", "SB f", "BB c", "|", "BB k", "CO b50", "BTN r3x"], shot: true },
+    { nm: "턴 벳", acts: ["UTG f", "HJ f", "CO r2.5", "BTN c", "SB c", "BB c", "|", "SB k", "BB k", "CO b33", "BTN c", "SB c", "BB c", "|", "SB b75", "BB r3x"] },
+  ];
+  const saved = await page.evaluate(() => JSON.stringify({ step: RV.step, mode: RV.mode, heroPos: RV.heroPos, stack: RV.stack, hero: RV.hero, acts: RV.acts, buf: RV.buf, sd: RV.sd, sizing: RV.sizing }));
+  await page.evaluate(() => { window.__hold = true; });
+  for (const hand of RV_HANDS) {
+    // Same token grammar as rhScript, turned into the RV.acts entries the review input would have pushed.
+    const want = await page.evaluate(acts => {
+      const board = [1, 14, 27, 40, 5], h = rhNew("BTN", 100), out = [];
+      let bi = 0;
+      for (const t of acts) {
+        if (t === "|") { const n = h.street === 0 ? 3 : 1, deal = board.slice(bi, bi + n); bi += n; rhNextStreet(h, deal); out.push({ deal }); continue; }
+        const [pos, a] = t.split(" "); if (rhActor(h)?.pos !== pos) return { err: `순서가 맞지 않는 액션 ${t}` };
+        const m = a[0], v = parseFloat(a.slice(1));
+        const act = m === "f" ? { type: "fold" } : m === "k" ? { type: "check" } : m === "c" ? { type: "call" } : m === "b" ? { type: "raise", to: Math.round(rhPot(h) * v / 10) / 10 } : { type: "raise", to: a.endsWith("x") ? h.currentBet * v : v };
+        if (!rhAct(h, act)) return { err: `할 수 없는 액션 ${t}` };
+        out.push(act);
+      }
+      Object.assign(RV, { mode: "cash", heroPos: "BTN", stack: 100, hero: [8, 21], acts: out, buf: [], sd: {}, sizing: false, step: 2 + h.street });
+      renderReview();
+      const probe = document.createElement("div"); probe.innerHTML = tableHTML(RV.h, { cards: { BTN: RV.hero } });
+      return { amts: [...probe.querySelectorAll(".bet .amt")].map(e => e.textContent.trim()).join("|"), seats: RV.h.seats.filter(s => s.bet > 0).map(s => s.pos).join(",") };
+    }, hand.acts);
+    must(!want.err, `복기 고정 핸드 '${hand.nm}': ${want.err} — RV_HANDS 정의를 고치세요 (#565)`);
+    if (want.err) continue;
+    must(want.amts !== "", `복기 고정 핸드 '${hand.nm}': 벳이 놓인 좌석이 없음 — 마지막 스트리트에 벳·레이즈를 넣으세요 (#565)`);
+    for (const [name, width, height] of RV_SIZES) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(100);
+      const shown = await page.evaluate(() => [...document.querySelectorAll("#rv-table .bet .amt")].map(e => e.textContent.trim()).join("|"));
+      must(shown === want.amts, `복기 고정 핸드 '${hand.nm}' ${width}x${height}: 화면 벳 "${shown}"이 고정한 핸드 "${want.amts}"와 다름 — 리사이즈 재렌더가 RV를 바꾸는지 확인 (#565)`);
+      const ov = await page.evaluate(tableOverlaps);
+      must(!ov.length, `복기 고정 핸드 '${hand.nm}' (벳 좌석 ${want.seats}) ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — web/demo/index.html layoutMini 배치를 고치세요 (#565)`);
+      const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
+      must(sw <= iw, `복기 고정 핸드 '${hand.nm}' ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw}) (#565)`);
+      if (hand.shot) { await page.locator("#rv-table").scrollIntoViewIfNeeded(); await page.screenshot({ path: `${shots}/review-fixed-${RV_HANDS.indexOf(hand)}-${name}.png` }); }
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(s => { Object.assign(RV, JSON.parse(s)); renderReview(); window.__hold = false; }, saved);
+}
+
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
 await page.click(".tab[data-view='home']");
 await page.click("#move summary");
