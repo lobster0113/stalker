@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "check | run | reap | collect"
+        description: "check | run | reap | collect | export"
         default: check
       job:
         description: "job spec path for mode=run (jobs/<name>.yaml)"
@@ -22,19 +22,31 @@ on:
       resume_run:
         description: "mode=run: run id of an earlier cloud.yml run of the same job; the pod continues its result (#354)"
         default: ""
+      export_run:
+        description: "mode=export: run id of an earlier mixn c1 cloud.yml run; its result becomes 2-6 handed web policy files (#588)"
+        default: ""
+      tier:
+        description: "mode=export: the run's tier (beginner | mid | pro); another tier's result is refused"
+        default: ""
+      export_strategy:
+        description: "mode=export: current | average strategy"
+        default: current
+      export_min_visits:
+        description: "mode=export: drop keys updated fewer times (export_web_policy --min-visits)"
+        default: "0"
   schedule:
     - cron: "17 3 * * *"
 
 # Never cancelled. Runs of different jobs go in parallel (#350): the ledger is union-merged on push
 # and the launcher re-checks the cap after its reservation lands; the same job stays serial.
-# check, reap and collect share one group.
+# check, reap, collect and export share one group.
 concurrency:
   group: ${{ (github.event_name == 'workflow_dispatch' && inputs.mode == 'run') && format('cloud-run-{0}', inputs.job) || 'cloud-budget' }}
   cancel-in-progress: false
 
 permissions:
   contents: write  # push ledger lines and results to ops
-  actions: read    # mode=collect / resume_run: download an earlier run's cloud-result artifact (#264, #354)
+  actions: read    # mode=collect / export / resume_run: download an earlier run's cloud-result artifact (#264, #354, #588)
 
 defaults:
   run:
@@ -54,6 +66,10 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
       COLLECT_RUN: ${{ inputs.collect_run }}
       RESUME_RUN: ${{ inputs.resume_run }}
+      EXPORT_RUN: ${{ inputs.export_run }}
+      TIER: ${{ inputs.tier }}
+      EXPORT_STRATEGY: ${{ inputs.export_strategy }}
+      EXPORT_MIN_VISITS: ${{ inputs.export_min_visits }}
       LEDGER: ${{ github.workspace }}/ops/budget/ledger.jsonl
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +107,12 @@ jobs:
               [[ -n "$RESUME_RUN" ]] && args+=(--resume-file "$RUNNER_TEMP/resume/result.json" --resume-run "$RESUME_RUN")
               python harness/cloud/launcher.py "${args[@]}" ;;
             collect) [[ "$COLLECT_RUN" =~ ^[0-9]+$ ]] || { echo "collect_run must be a cloud.yml run id, got '$COLLECT_RUN'"; exit 1; } ;;
-            *) echo "mode must be check|run|reap|collect, got '$MODE'"; exit 1 ;;
+            export)
+              [[ "$EXPORT_RUN" =~ ^[0-9]+$ ]] || { echo "export_run must be a cloud.yml run id, got '$EXPORT_RUN'"; exit 1; }
+              [[ "$TIER" =~ ^(beginner|mid|pro)$ ]] || { echo "tier must be beginner|mid|pro, got '$TIER'"; exit 1; }
+              [[ "$EXPORT_STRATEGY" =~ ^(current|average)$ ]] || { echo "export_strategy must be current|average, got '$EXPORT_STRATEGY'"; exit 1; }
+              [[ "$EXPORT_MIN_VISITS" =~ ^[0-9]+$ ]] || { echo "export_min_visits must be a whole number, got '$EXPORT_MIN_VISITS'"; exit 1; } ;;
+            *) echo "mode must be check|run|reap|collect|export, got '$MODE'"; exit 1 ;;
           esac
       - name: terminate this run's pods (finally)
         if: always() && env.MODE == 'run' && env.DRY_RUN != 'true'
@@ -123,6 +144,41 @@ jobs:
             echo "no result file for run $id"; [[ "$MODE" == collect ]] && exit 1; exit 0
           fi
           python harness/cloud/launcher.py publish "$src" --run-id "$id" --ops ops
+      - name: check export artifact
+        # no pod, no ledger line (#588): the runner splits an earlier result; a gone artifact fails here first
+        if: env.MODE == 'export'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m pip install -q -e .
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPORT_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/artifacts.json" 2> "$RUNNER_TEMP/artifacts.err" || echo '{}' > "$RUNNER_TEMP/artifacts.json"
+          # the not-found line stays first; gh api's own stderr (e.g. a permission error) follows it for diagnosis
+          python -m stalker.tools.export_web_players check-artifact "$RUNNER_TEMP/artifacts.json" --run "$EXPORT_RUN" \
+            || { [[ -s "$RUNNER_TEMP/artifacts.err" ]] && { echo "gh api stderr:"; cat "$RUNNER_TEMP/artifacts.err"; }; exit 1; }
+      - name: fetch export source
+        if: env.MODE == 'export'
+        uses: actions/download-artifact@v4
+        with:
+          name: cloud-result-${{ env.EXPORT_RUN }}
+          run-id: ${{ env.EXPORT_RUN }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/export-src/
+      - name: export web policies
+        # files go to the web-policy artifact only; shipping them to web/app/policy/ is a PR (#588 out of scope)
+        if: env.MODE == 'export'
+        run: |
+          python -m stalker.tools.export_web_players export --pod-result "$RUNNER_TEMP/export-src/result.json" \
+            --run "$EXPORT_RUN" --tier "$TIER" --strategy "$EXPORT_STRATEGY" --min-visits "$EXPORT_MIN_VISITS" \
+            --index-base web/app/policy/index.json --out-dir "$RUNNER_TEMP/web-policy" \
+            --summary-out "ops/cloud/exports/$EXPORT_RUN.json"
+      - name: upload web policies
+        if: env.MODE == 'export'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-policy-${{ env.EXPORT_RUN }}
+          path: ${{ runner.temp }}/web-policy/
+          if-no-files-found: error
+          retention-days: 30
       - name: push ledger
         if: always() && env.MODE != 'check'
         run: 'bash harness/cloud/push_ledger.sh ops "cloud: ledger ($MODE, run $GITHUB_RUN_ID)"'

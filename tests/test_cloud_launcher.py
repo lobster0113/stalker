@@ -1159,3 +1159,49 @@ def test_pod_command_copies_job_stderr_to_the_progress_log(tmp_path):
         __import__("time").sleep(0.1)
     assert '"iters_per_s": 99.5' in (tmp_path / "rs" / "job.log").read_text(encoding="utf-8")
     assert json.loads((tmp_path / "srv" / TOKEN / "status.json").read_text(encoding="utf-8")) == {"exit": 0}
+
+
+def test_cloud_workflow_export_mode(tmp_path):
+    # #588: no pod, no ledger line; inputs reach scripts through env only; a gone artifact fails before the download
+    import itertools
+    import subprocess
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    for name in ("EXPORT_RUN: ${{ inputs.export_run }}", "TIER: ${{ inputs.tier }}",
+                 "EXPORT_STRATEGY: ${{ inputs.export_strategy }}", "EXPORT_MIN_VISITS: ${{ inputs.export_min_visits }}"):
+        assert name in wf
+    launch = wf.split("- name: launcher", 1)[1].split("- name:", 1)[0]
+    export_case = launch.split("export)", 1)[1].split(";;", 1)[0]
+    assert '"$EXPORT_RUN" =~ ^[0-9]+$' in export_case and "launcher.py" not in export_case
+    steps = ("- name: check export artifact", "- name: fetch export source", "- name: export web policies",
+             "- name: upload web policies", "- name: push ledger")
+    idx = [wf.index(s) for s in steps]
+    assert idx == sorted(idx)
+    for a, b in itertools.pairwise(steps):
+        body = wf[wf.index(a):wf.index(b)]
+        assert "if: env.MODE == 'export'" in body and "${{ inputs." not in body
+    check = wf[idx[0]:idx[1]]
+    assert "export_web_players check-artifact" in check and "actions/runs/$EXPORT_RUN/artifacts" in check
+    fetch = wf[idx[1]:idx[2]]
+    assert "name: cloud-result-${{ env.EXPORT_RUN }}" in fetch and "run-id: ${{ env.EXPORT_RUN }}" in fetch
+    run = wf[idx[2]:idx[3]]
+    assert '--summary-out "ops/cloud/exports/$EXPORT_RUN.json"' in run and "--index-base web/app/policy/index.json" in run
+    assert "git " not in run   # never commits to main or web/app/policy/
+    assert "name: web-policy-${{ env.EXPORT_RUN }}" in wf[idx[3]:idx[4]]
+    # the pod, terminate, upload-result and ledger-writing launcher calls are all run-only
+    for s in ("- name: terminate this run's pods", "- name: upload result"):
+        assert "env.MODE == 'run'" in wf.split(s, 1)[1].split("- name:", 1)[0]
+    # push_ledger.sh commits the export summary
+    def git(*a, cwd):
+        subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+
+    remote, wt = tmp_path / "remote.git", tmp_path / "ops"
+    git("init", "-q", "--bare", "-b", "ops", str(remote), cwd=tmp_path)
+    git("clone", "-q", str(remote), str(wt), cwd=tmp_path)
+    git("checkout", "-q", "-b", "ops", cwd=wt)
+    (wt / "cloud" / "exports").mkdir(parents=True)
+    (wt / "cloud" / "exports" / "5.json").write_text("{}", encoding="utf-8")
+    subprocess.run(["bash", str(ROOT / "harness" / "cloud" / "push_ledger.sh"), str(wt), "cloud: ledger (export, run 6)"],
+                   check=True, capture_output=True)
+    files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
+                           capture_output=True, text=True, encoding="utf-8").stdout.split()
+    assert files == ["cloud/exports/5.json"]
