@@ -204,3 +204,57 @@ def test_six_handed_champions_are_skipped_at_other_table_sizes():
     assert F.champion("mid-40851654734").players == 6
     with pytest.raises(F.FieldError, match="skipped"):
         F.evaluate(F.uniform, 2, players=4, configs=["champion_mid3"])
+
+
+# --- AIVAT behaviour corrections (#593) ---
+
+import zlib  # noqa: E402
+
+_AIVAT_SPEC = {"version": "t", "players": 3, "configs": [{"name": "uni", "opponents": ["tag", "uniform"]}]}
+
+
+def _noise_value(s, seat):
+    # a deterministic but meaningless value of the state: unbiasedness must not depend on v
+    return (zlib.crc32(f"{seat}|{s.history}|{s.street}".encode()) / 2**32 - 0.5) * 20
+
+
+def _corr(value, deals=240, seed=7):
+    rows = [F.play_deal({}, [personas.Persona("tag"), F.uniform], seed * 1_000_003 + d, value=value) for d in range(deals)]
+    raw = np.array([r[0] for r in rows]).mean(axis=1)
+    cor = np.array([r[1] for r in rows]).mean(axis=1)
+    return raw, cor
+
+
+def test_value_none_keeps_the_return_and_the_play():
+    plain = F.play_deal({}, [F.uniform, F.uniform], 11)
+    raw, corr = F.play_deal({}, [F.uniform, F.uniform], 11, value=F.committed_value)
+    assert isinstance(plain, np.ndarray) and plain.tolist() == raw.tolist() and corr.shape == plain.shape
+
+
+@pytest.mark.slow
+def test_corrections_have_mean_zero_for_the_default_and_a_nonsense_value():
+    for value in (F.committed_value, _noise_value):
+        raw, cor = _corr(value)
+        assert abs(cor.mean()) < 2 * cor.std(ddof=1) / len(cor) ** 0.5
+        adj = raw - cor
+        assert abs(adj.mean() - raw.mean()) < 2 * raw.std(ddof=1) / len(raw) ** 0.5
+
+
+def test_unknown_strategies_are_not_corrected():
+    tag = personas.Persona("tag")
+    _, corr = F.play_deal(tag, [tag, tag], 5, value=F.committed_value)
+    assert (corr == 0).all()
+    custom = lambda s: np.full(len(G.legal(s)), 1.0 / len(G.legal(s)))  # noqa: E731
+    _, corr = F.play_deal(custom, [custom, custom], 5, value=F.committed_value)
+    assert (corr == 0).all()
+    _, corr = F.play_deal(F.uniform, [F.uniform, F.uniform], 5, value=F.committed_value)
+    assert (corr != 0).any()
+
+
+def test_evaluate_aivat_is_record_only():
+    base = F.evaluate({}, 6, spec=_AIVAT_SPEC)
+    with_aivat = F.evaluate({}, 6, spec=_AIVAT_SPEC, aivat=True)
+    stripped = {**with_aivat, "configs": [{k: v for k, v in c.items() if k != "aivat"} for c in with_aivat["configs"]]}
+    assert stripped == base and "aivat" not in base["configs"][0]
+    a = with_aivat["configs"][0]["aivat"]
+    assert set(a) == {"bb100", "se", "variance_ratio"} and a["se"] > 0 and a["variance_ratio"] > 0
