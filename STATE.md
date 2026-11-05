@@ -1,18 +1,18 @@
-# STATE (2026-11-05 22:00Z, planner)
+# STATE (2026-11-05 23:05Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
+planner 11-05 23:05Z: **PR #594(d629d84, #593 field play_deal AIVAT 행동 보정항 + evaluate `aivat` record-only) 머지** → #593 잔존 ready·in-progress 정리(반복). 신규 **#597 P3 referee-change**(찬스 노드 보드 공개 보정 + CLI `--aivat`). 열린 PR 없음. main CI d629d84 진행 중.
 planner 11-05 22:00Z: **PR #595(59d5932, #592 M2–M4 export 비교: 세 시드 모두 ADR 0020 선 통과, 서비스 시드 M4(최악 2인 LBR 7.018), 15개 파일 모두 3MB 초과 → 인원별 최소 문턱 2인 10·3–5인 5·6인 2(추정)) 머지** → #592 잔존 ready·in-progress 정리(반복). 신규 **#596 P2 harness-change**(export 인원별 `min_visits` + 상한 안 정책 파일을 `ops:cloud/policies/<run>/`로 → main 반영 경로). 열린 PR #594(#593, web 잡 timeout 재실행 대기). main CI 59d5932 진행 중.
 planner 11-05 16:50Z: **PR #591(6fe2e72, #573 referee/stats.py `adjust_with_corrections` AIVAT 보정 평균·SE·분산비) 머지** → #573 잔존 ready·in-progress 정리(반복, gh issue edit GraphQL 403 → MCP). 신규 **#593 P2 referee-change**(field play_deal 행동 보정항 + evaluate `aivat` record-only). 열린 PR 없음. main CI 6fe2e72 진행 중, 1194ac7 success.
 planner 11-05 16:10Z: **PR #590(1194ac7, #588 cloud.yml `mode=export`: mixn c1 결과 → 2–6인 웹 정책 아티팩트 + `ops:cloud/exports/<run>.json`, 실험 033) 머지** → #588 잔존 ready·in-progress 정리(반복). 신규 **#592 P2**(M2–M4 export 디스패치·요약 비교·시드 선택, 아티팩트 ~12-03 만료 전). 열린 PR #591(#573, CHANGES 해결 8445c2b, reviewer 재판정 대기). main CI 1194ac7 진행 중, 5bbfe0e success.
-planner 11-05 13:15Z: **PR #587(5bbfe0e, #579 avg_cap 3×10⁵ resume 재측정: 10⁵의 cap 평균 이득 재현 안 됨(짝 차이 +0.010/−0.013), 시드 간 sd own 0.299>cap8 0.132>cap2 0.065) 머지** → #579 잔존 ready·in-progress 정리(반복). #580 not planned로 닫음(own 평균 0.72 < 현재 0.785, 3×10⁵에서 해소). 신규 **#589 P3**(평가 전용 경로: 체크포인트 iters=0 + LBR 4000핸드, #579 후속 b). 열린 PR 없음. main CI 5bbfe0e 진행 중, 5d2733f success.
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **D 2–5인(#384)**: 평가기(#534)·인원별 값(#542)·시드 분산(#548·#559) → 합격선 ADR 0020 머지(#564) → #572 판정기 머지(c1 2–6인 pass) → #576 기록 연결 머지 → #581 ADR 0021 머지(mixn c1 한 정책) → #583 웹 c1 key 미러 머지 → #585 인원별 내보내기 머지 → #588 CI 내보내기 머지 → #592 시드 M4·문턱 선택 머지 → **#596 인원별 문턱·ops 정책 경로**, 다음: M4 재-export 디스패치·실측 바이트, 걸러 낸 정책 LBR 재측정, web/app/policy 커밋 PR·서비스 c1 전환(아티팩트 ~12-03 만료 전). 소유자가 크리티컬하다고 한 short-handed.
 2. **C 고수 체인 비용(NH-11 (a))**: #560 gzip 머지로 큰 체인 아티팩트 한도가 풀렸다 → #479(b2 대 b1 10⁵회) 재개, b1 체크포인트 12-01 만료 전. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
 3. **페르소나 턴 폴드(#533 머지 → #569)**: giveup_turn으로 턴 오차 절반(.140)이나 nit .29 잔존, 수동 스윕 한계 → 자동 탐색. 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
 ## 큐
-ready 미착수: #596 P2·#569 P3·#589 P3 (3) + #479 P2(구간 2/4 run 41991776948). in-progress: #593(PR #594). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #596 P2·#569 P3·#589 P3·#597 P3 (4) + #479 P2(구간 2/4 run 41991776948). in-progress: 없음. 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #592), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
-후보: #596 뒤 M4 재-export(인원별 문턱)·필터 정책 LBR 재측정·web/app/policy 커밋 PR·서비스 c1 전환(M3 대안은 화면별 인원 분포로 재판단), ADR 0021 후속 4 c1 9인 첫 측정·5 6인 단독 c1 같은 파드 D 배수, AIVAT 찬스 노드 보정·LBR 통합(#593 뒤, referee-change), #589 뒤 재평가 디스패치·기록, 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change).
+후보: #596 뒤 M4 재-export(인원별 문턱)·필터 정책 LBR 재측정·web/app/policy 커밋 PR·서비스 c1 전환(M3 대안은 화면별 인원 분포로 재판단), ADR 0021 후속 4 c1 9인 첫 측정·5 6인 단독 c1 같은 파드 D 배수, AIVAT 에퀴티 기반 가치 함수·분산비 측정·LBR 통합(#597 뒤, referee-change), #589 뒤 재평가 디스패치·기록, 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
 - CI bea9bc8(18:12Z): tests 1590, failed 0, gate_r·cash·e3 1.0(e3 116,238), gate_l 1.0(32), stalker_loc 15527. 테스트 수 증가 추세(1524→1590, 1일).
 - E1(CI): 착취도 초보 0.0191·중수 0.0033·고수 0.0009, Gate S 초보 분위 passed=false 지속 — 정체 축, ADR 0016 record-only.
@@ -22,6 +22,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35(같은 시각) = 4.54배, CPU 맞춤 3.20(참고). 이전 #503 3.27배. regret 해시는 시드별로 같다.
 - 클라우드 지출: 11월 원장 actual_usd 합 $19.79 / $100(ADR 0021, 이전 STATE 값 $9.45는 낡음).
 ## 경보
+- [planner 11-05 23:05Z] friction 반복: web 잡 timeout으로 cancelled → 같은 sha CHANGES 뒤 재판정 불가 → builder-b가 main 머지 커밋으로 새 head(PR #594, reviewer-b 22:20Z·builder-b 22:21Z). 11-03 14:05Z 경보와 같은 주제 3회+ → infra 실패 CHANGES 재판정 규칙 harness-change 후보(Auditor).
 - [planner 11-05 22:00Z] 신규 friction 2회(builder-b 21:21Z, builder 21:21Z, reviewer-b 21:11Z): web 잡 `playwright install --with-deps` ~10분 → 15분 timeout으로 cancelled, reviewer는 재실행 못 해 스윕이 공회전 → web 잡 timeout 상향·브라우저 캐시 harness-change 후보(Auditor). gh GraphQL 403 → MCP((b), reviewer 21:51Z). gates quick 로컬 1120초((a)).
 - [planner 11-05 16:10Z] friction 반복(오늘 2회): PR을 권한 라벨(harness-change·referee-change) 붙기 전에 열어 guard가 먼저 실패 → 라벨 뒤 full CI ~40분 재실행(reviewer-b 13:30Z #590, reviewer 14:55Z #591). (d')와 같은 계열, builder가 PR 생성 시 라벨을 함께 붙이는 지침 후보(Auditor). gates quick 로컬 540~1197초((a), builder·builder-b 14:12·15:31·15:33Z). `--sweep` 일거리 없는 RUN((h), reviewer 13:42Z).
 - [planner 11-05 11:40Z] PR #587(#579) stale base 51e7849에서 열려 add/add 충돌·CI 0개(reviewer 11:23Z) → builder-b는 PR 전 `git fetch origin main` 후 rebase. gates quick 300초 도구 타임아웃 초과((a), builder 11:04Z).
