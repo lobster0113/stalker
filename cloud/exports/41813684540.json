@@ -1,0 +1,151 @@
+{
+ "schema": "stalker.web.policy-export",
+ "schema_version": 1,
+ "export_run": "41813684540",
+ "artifact": "web-policy-41813684540",
+ "job": "e3-tp-mid-c1-mixn-pod",
+ "tier": "mid",
+ "iterations": 40000,
+ "strategy": "current",
+ "min_visits": 0,
+ "player_mix": [
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "max_bytes": 3145728,
+ "files": [
+  {
+   "file": "mid-2.json",
+   "players": 2,
+   "keys": 294184,
+   "keys_dropped": 0,
+   "bytes": 22619945,
+   "sha256": "c211aa987f3913024873a53a0e91c9a8f5861aea6b48f0a732eafcaec571415b",
+   "within_page_budget": false,
+   "keys_by_min_visits": {
+    "1": 294184,
+    "2": 127001,
+    "5": 42038,
+    "10": 18413,
+    "20": 7967,
+    "50": 2648,
+    "100": 1125
+   },
+   "lbr_bb": 7.0181,
+   "lbr_stderr_bb": 0.9475,
+   "field_worst": {
+    "name": "station1",
+    "bb100": -522.61,
+    "ci95_low": -733.61
+   }
+  },
+  {
+   "file": "mid-3.json",
+   "players": 3,
+   "keys": 319679,
+   "keys_dropped": 0,
+   "bytes": 23895421,
+   "sha256": "31a6411c3570cce48eab9b1c0700b7ecb1467ee9667ed8c42880244791c39414",
+   "within_page_budget": false,
+   "keys_by_min_visits": {
+    "1": 319679,
+    "2": 120243,
+    "5": 36032,
+    "10": 14980,
+    "20": 6155,
+    "50": 1928,
+    "100": 662
+   },
+   "lbr_bb": 5.2414,
+   "lbr_stderr_bb": 0.5956,
+   "field_worst": {
+    "name": "station2",
+    "bb100": -952.39,
+    "ci95_low": -1216.79
+   }
+  },
+  {
+   "file": "mid-4.json",
+   "players": 4,
+   "keys": 273093,
+   "keys_dropped": 0,
+   "bytes": 19740920,
+   "sha256": "ebe9abac016d005a0939403c99e0f6067ba9618c0aa4224d543674fcd066138a",
+   "within_page_budget": false,
+   "keys_by_min_visits": {
+    "1": 273093,
+    "2": 84493,
+    "5": 20443,
+    "10": 7567,
+    "20": 2779,
+    "50": 680,
+    "100": 176
+   },
+   "lbr_bb": 1.6727,
+   "lbr_stderr_bb": 0.5904,
+   "field_worst": {
+    "name": "maniac3",
+    "bb100": -881.72,
+    "ci95_low": -1169.63
+   }
+  },
+  {
+   "file": "mid-5.json",
+   "players": 5,
+   "keys": 213784,
+   "keys_dropped": 0,
+   "bytes": 14945335,
+   "sha256": "3eaffe176a0134939e96c22c235c56521c338f6ffdd450b27e70eb9609846f06",
+   "within_page_budget": false,
+   "keys_by_min_visits": {
+    "1": 213784,
+    "2": 55645,
+    "5": 11361,
+    "10": 3795,
+    "20": 1332,
+    "50": 276,
+    "100": 72
+   },
+   "lbr_bb": 1.8007,
+   "lbr_stderr_bb": 0.4979,
+   "field_worst": {
+    "name": "station4",
+    "bb100": -1529.91,
+    "ci95_low": -1848.73
+   }
+  },
+  {
+   "file": "mid-6.json",
+   "players": 6,
+   "keys": 170771,
+   "keys_dropped": 0,
+   "bytes": 11762688,
+   "sha256": "e325bf027b43fe21b73d672b1d24e4334182d8c989a224088669a61249db74ed",
+   "within_page_budget": false,
+   "keys_by_min_visits": {
+    "1": 170771,
+    "2": 39155,
+    "5": 7267,
+    "10": 2496,
+    "20": 848,
+    "50": 187,
+    "100": 36
+   },
+   "lbr_bb": 2.4404,
+   "lbr_stderr_bb": 0.4158,
+   "field_worst": {
+    "name": "station5",
+    "bb100": -1509.98,
+    "ci95_low": -1746.28
+   }
+  }
+ ],
+ "index": {
+  "file": "index.json",
+  "bytes": 4242,
+  "sha256": "b63b84669d483471f7d7653e290fa44a223951767275ec3169eabb667618e50f"
+ }
+}
