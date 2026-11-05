@@ -218,8 +218,8 @@ def _noise_value(s, seat):
     return (zlib.crc32(f"{seat}|{s.history}|{s.street}".encode()) / 2**32 - 0.5) * 20
 
 
-def _corr(value, deals=240, seed=7):
-    rows = [F.play_deal({}, [personas.Persona("tag"), F.uniform], seed * 1_000_003 + d, value=value) for d in range(deals)]
+def _corr(value, opponents, deals=240, seed=7):
+    rows = [F.play_deal({}, opponents, seed * 1_000_003 + d, value=value) for d in range(deals)]
     raw = np.array([r[0] for r in rows]).mean(axis=1)
     cor = np.array([r[1] for r in rows]).mean(axis=1)
     return raw, cor
@@ -233,11 +233,16 @@ def test_value_none_keeps_the_return_and_the_play():
 
 @pytest.mark.slow
 def test_corrections_have_mean_zero_for_the_default_and_a_nonsense_value():
-    for value in (F.committed_value, _noise_value):
-        raw, cor = _corr(value)
-        assert abs(cor.mean()) < 2 * cor.std(ddof=1) / len(cor) ** 0.5
-        adj = raw - cor
-        assert abs(adj.mean() - raw.mean()) < 2 * raw.std(ddof=1) / len(raw) ** 0.5
+    # 2-handed needs an opponent with a different strategy: {} vs uniform is symmetric, so every mean is exactly 0
+    tables = (
+        [personas.Persona("tag")],  # 2-handed
+        [personas.Persona("tag"), F.uniform],  # 3-handed
+    )
+    for opponents in tables:
+        for value in (F.committed_value, _noise_value):
+            raw, cor = _corr(value, opponents)
+            assert raw.std(ddof=1) > 0 and cor.std(ddof=1) > 0
+            assert abs(cor.mean()) < 2 * cor.std(ddof=1) / len(cor) ** 0.5
 
 
 def test_unknown_strategies_are_not_corrected():
