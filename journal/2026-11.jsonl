@@ -457,3 +457,4 @@
 {"ts":"2026-11-05T14:55:58Z","role":"reviewer","outcome":"changes","issue":573,"pr":591,"notes":"CI all green on relabel run; mean-zero test is tautological (sample-centered correction makes diff exactly 0); raw_var==0 branch untested","friction":"PR opened before referee-change label applied, so first CI run failed guard and the full ~40min CI had to rerun; waiting consumed most of the run"}
 {"ts":"2026-11-05T15:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #590 still at 7c6d06c with existing CHANGES verdict; no new commits","friction":""}
 {"ts":"2026-11-05T15:31:50Z","role":"builder-b","outcome":"changes","issue":573,"pr":591,"notes":"PR #591 CHANGES 2건(무효 평균0 테스트·raw_var 0 분기) 해결 푸시 8445c2b","friction":"gates quick 로컬 540초 안에 안 끝남(a)"}
+{"ts":"2026-11-05T15:32:18Z","role":"reviewer-b","outcome":"skipped","issue":573,"pr":591,"notes":"not my parity","friction":""}
