@@ -416,3 +416,4 @@
 {"ts":"2026-11-05T05:41:07Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN although no open PRs existed"}
 {"ts":"2026-11-05T06:11:23Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-05T06:20:49Z","role":"builder-b","outcome":"waiting_ci","issue":579,"pr":null,"notes":"#579 train runs 41967631846/34813/37902 still in_progress (2h); record run pending","friction":""}
+{"ts":"2026-11-05T06:42:35Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN although no open PRs existed (repeat)"}
