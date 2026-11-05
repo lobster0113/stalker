@@ -473,3 +473,4 @@
 {"ts":"2026-11-05T17:41:30Z","role":"reviewer","outcome":"skipped","issue":593,"pr":594,"notes":"not my parity","friction":""}
 {"ts":"2026-11-05T18:25:05Z","role":"reviewer-b","outcome":"changes","issue":593,"pr":594,"notes":"CI 전부 success; 수용 기준 불편성 2인 테스트 누락(3인만) → 2인 케이스 추가 요청(uniform 상대는 대칭으로 퇴화하니 tag 상대)","friction":"gates (tests) 잡 약 40분 대기; 라벨 부착 전 첫 CI 런이 guard 실패로 취소돼 체크 목록에 중복 run이 섞임"}
 {"ts":"2026-11-05T18:41:23Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #594 is even (reviewer-b parity)","friction":""}
+{"ts":"2026-11-05T19:09:50Z","role":"reviewer-b","outcome":"skipped","issue":592,"pr":595,"notes":"not my parity","friction":""}
