@@ -17,6 +17,11 @@ label every answer with the model it came from (iterations, LBR, run).
 `--index web/app/policy/index.json` also records the file in the page's model list (#541): a 6-max policy is
 `tiers[tier]`, any other seat count `tiers[tier].by_players["<n>"]`, so the page looks a table up by
 (tier, seats). Other entries are left as they are.
+
+`--players <n>` splits a player-mix c1 table (#486, ADR 0021 decision 1: one policy for 2-6 handed) into the
+file of one seat count (#585): only keys whose c1 player field is `n<n>` (`stalker.e3.mccfr.key_players`), with
+that count's LBR and field from the summary's `by_players`. The shared `call|` keys name no count and go to no
+file. On a single-count table `--players` must equal its `n` (the output is then the plain export).
 """
 from __future__ import annotations
 
@@ -111,6 +116,44 @@ def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: s
             **({"placeholder": True, "trained_on": trained_on(model)} if placeholder else {})}
 
 
+def by_players_meta(meta: dict, summary: dict | None, players: int, strategy: str) -> dict:
+    """The one-seat-count file's meta (#585): its player count and that count's LBR / field from the summary's
+    `by_players` row; a summary without the row leaves them empty (the run is still named)."""
+    row = ((summary or {}).get("by_players") or {}).get(str(players)) or {}
+    lbr = row.get("lbr_average" if strategy == "average" else "lbr")
+    lbr, se = (lbr.get("lbr_bb"), lbr.get("stderr_bb")) if isinstance(lbr, dict) else (lbr, None)
+    field = row.get("field") if strategy == "current" else None
+    worst = field.get("worst") if isinstance(field, dict) else None
+    out = {**meta, "players": players, "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst}
+    if "trained_on" in meta:
+        out["trained_on"] = {**meta["trained_on"], "players": players}
+    return out
+
+
+def split_players(st: dict, players: int | None) -> int | None:
+    """Which seat count to keep (#585): None exports the whole table. Refuses what cannot be split."""
+    if players is None:
+        return None
+    mix = [int(x) for x in st.get("player_mix") or []]
+    if not mix:
+        if players != st["n"]:
+            raise SystemExit(f"--players {players}: this table is {st['n']}-handed only (no player_mix); "
+                             f"drop --players or pass --players {st['n']}")
+        return None
+    if st.get("key_variant") != "c1":
+        raise SystemExit(f"--players: key variant {st.get('key_variant')!r} has no player field to split on; "
+                         "only a c1 player-mix table splits (drop --players to export it whole)")
+    if players not in mix:
+        raise SystemExit(f"--players {players}: not in this table's player_mix {sorted(set(mix))}; pick one of those")
+    return players
+
+
+def keep_players(policy: dict[str, list[float]], players: int) -> dict[str, list[float]]:
+    from stalker.e3.mccfr import key_players
+
+    return {k: v for k, v in policy.items() if key_players(k) == players}
+
+
 def rules(model: dict) -> dict:
     """The size menu and raise cap the table was trained on (#386): tpgto.js plays and translates the
     hand under them (`menuOf`). Older checkpoints carry neither: v1 with cap 3, as E3MCCFR.from_state."""
@@ -138,6 +181,8 @@ def main(argv=None) -> int:
     ap.add_argument("--sha", default="")
     ap.add_argument("--placeholder", action="store_true",
                     help="mark the policy 임시(rules it was not trained on: 6-max 100BB cash only) so the web says so (#397)")
+    ap.add_argument("--players", type=int,
+                    help="a c1 player-mix table: export only this seat count's keys, with its by_players LBR (#585)")
     ap.add_argument("--min-visits", type=int, default=0, help="drop keys updated fewer times than this")
     ap.add_argument("--max-bytes", type=int, default=MAX_BYTES)
     ap.add_argument("--out", type=Path, required=True)
@@ -160,9 +205,12 @@ def main(argv=None) -> int:
         st = unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"])
     else:
         st = read_json(a.ckpt)
+    players = split_players(st, a.players)
     m = E3MCCFR.from_state(st)
     policy = m.policy() if a.strategy == "average" else m.current_policy()
     meta = meta_from(st, summary, a.run, a.sha, a.strategy, a.placeholder)
+    if players is not None:
+        policy, meta = keep_players(policy, players), by_players_meta(meta, summary, players, a.strategy)
     doc = export(policy, meta, dict(m.visits), a.min_visits)
     body = json.dumps(doc, separators=(",", ":")).encode()
     if len(body) > a.max_bytes:
