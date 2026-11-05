@@ -429,3 +429,4 @@
 {"ts":"2026-11-05T08:41:56Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 PR 없음","friction":"gh pr list(GraphQL) 403이라 REST로 조회"}
 {"ts":"2026-11-05T09:11:12Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-05T09:41:25Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
+{"ts":"2026-11-05T09:46:03Z","role":"builder-b","outcome":"pr_opened","issue":583,"pr":584,"notes":"c1 public key mirror in tpgto.js + c1_keys vectors (2/4/6p); CI judges full gate","friction":"gates quick ~18min locally and overlapped my own vector regeneration -> spurious failure; node --test <dir> fails on this node, file path works"}
