@@ -470,3 +470,4 @@
 {"ts":"2026-11-05T17:30Z","role":"builder","outcome":"waiting_ci","issue":479,"pr":null,"notes":"b2 구간 2/4 run 41991776948 success(iters 60000, drop 없음) 확인 → 구간 3/4 run 42071156414 디스패치(resume 41991776948, iters 20000, 누적 8e4). 인수인계 코멘트 남김","friction":"main quick 게이트가 이 컨테이너에서 1225s(목표 90s 안팎) 걸렸다. 게이트를 단순 확인용으로만 돌리는 실행에도 20분이 든다"}
 {"ts":"2026-11-05T17:40:58Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-05T17:41:14Z","role":"builder-b","outcome":"pr_opened","issue":593,"pr":594,"notes":"field AIVAT 행동 보정항 record-only, quick PASS 로컬 1045초","friction":"gates quick 로컬 1045초(a); PR 생성 도구가 라벨을 못 달아 라벨 뒤 별도 부착; pgrep -f 대기 루프가 자기 자신과 매칭"}
+{"ts":"2026-11-05T17:41:30Z","role":"reviewer","outcome":"skipped","issue":593,"pr":594,"notes":"not my parity","friction":""}
