@@ -409,3 +409,4 @@
 {"ts":"2026-11-05T04:38:52Z","role":"builder","outcome":"changes","issue":576,"pr":578,"notes":"VERDICT CHANGES 대응: 하네스 실험 032 기록 추가(측정창·성공 기준·롤백, collect() 깨진 파일 동작 명시), 해결 내역 코멘트","friction":"이 샌드박스에서 gates quick이 1026s(목표 90s, 단일 코어 pytest) — 첫 시도는 timeout 500/540에 잘려 두 번 낭비. 문서만 바꾼 후속 푸시에도 full 필수인지 지침이 불명확해 full은 CI에 맡김"}
 {"ts":"2026-11-05T04:39:04Z","role":"reviewer","outcome":"skipped","issue":576,"pr":578,"notes":"not my parity","friction":""}
 {"ts":"2026-11-05T04:41:59Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #578 is even (reviewer-b parity)","friction":""}
+{"ts":"2026-11-05T05:08:22Z","role":"reviewer-b","outcome":"merged","issue":576,"pr":578,"notes":"re-review after CHANGES: only experiment 032 added, all CI green on cf15408, squash merged fbec690","friction":"gates (tests) took ~30min; waited in 3 foreground chunks"}
