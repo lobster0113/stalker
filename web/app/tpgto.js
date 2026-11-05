@@ -501,7 +501,7 @@ export function menuOf(meta) {
 }
 
 /** A new hand. holes: n pairs; deck: remaining cards (board dealt from the front), or board. */
-export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP }) {
+export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP, stacks = null }) {
   if (!(n >= 2 && n <= 9)) throw new Error(`n=${n}: E3 supports 2..9 players`);
   if (!MENUS.includes(menu)) throw new Error(`menu ${JSON.stringify(menu)}: use one of ${MENUS.join(", ")}`);
   if (!holes || holes.length !== n) throw new Error(`holes: need ${n} pairs`);
@@ -514,7 +514,7 @@ export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", 
   const bet = new Array(n).fill(0);
   bet[n - 2] = SB; bet[n - 1] = BB;
   return Object.freeze({
-    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: bet.map((b) => STACK - b), bet,
+    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: bet.map((b, i) => (stacks ? stacks[i] : STACK) - b), bet,
     total: bet.slice(), folded: new Array(n).fill(false), acted: new Array(n).fill(false),
     street: 0, board: [], toAct: 0, raises: 1, lastRaise: BB, history: [], log: [], done: false,
     menu, raiseCap: raiseCap === undefined ? RAISE_CAP : raiseCap,
@@ -869,6 +869,64 @@ export function publicKey(s, seat, depth = "full") {
   }
   const full = `${seat}|${s.street}|${nOpp}|${raiseLevel(s)}|${initiative(s, seat)}|${potOddsStep(s, seat)}|${sprStep(s, seat)}|${lg}`;
   return depth === "pro" ? `p|${full}|f${foldyStep()}` : full;
+}
+
+// ---- c1 key (#583, ADR 0021 / tp_key.py "c1", KEY_VERSIONS.c1 = 1): the public part of the combined key ----
+export const C1_VERSION = 1;
+const EFF_EDGES_BB = [5, 10, 15, 25, 40, 60, 100];
+const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6] };
+export function c1PositionNames(n) { return C1_POSITIONS[n] ? C1_POSITIONS[n].slice() : positionNames(n); }
+function effectiveStack(s, seat) {   // hand-start chips (behind + put in), capped by the deepest other player who can act
+  const chips = s.stack.map((x, i) => x + s.total[i]);
+  const cap = active(s).filter((i) => i !== seat).map((i) => chips[i]);
+  return cap.length ? Math.min(chips[seat], max(cap)) : 0;
+}
+function stackBucket(chips) { let i = 0; while (i < EFF_EDGES_BB.length && EFF_EDGES_BB[i] < chips / BB) i++; return i; }
+export function stackField(s, seat) {
+  const opps = [...new Set(live(s).filter((q) => q !== seat).map((q) => stackBucket(effectiveStack(s, q))))].sort((a, b) => b - a);
+  return `s${stackBucket(effectiveStack(s, seat))}:${opps.join("")}`;
+}
+function streetsOf(history) {
+  const out = [[]];
+  for (const h of history) { if (h === "/") out.push([]); else out[out.length - 1].push(h); }
+  return out;
+}
+function aggressorOf(entries) {
+  let last = null;
+  for (const h of entries) { const [p, a] = h.split(":"); if (AGGRESSIVE.has(a)) last = Number(p); }
+  return last;
+}
+export function publicFactsC1(s, seat, depth) {
+  const order = s.street === 0 ? Array.from({ length: s.n }, (_, i) => i) : postflopOrder(s.n);
+  const me = order.indexOf(seat);
+  const opps = live(s).filter((q) => q !== seat);
+  const before = opps.filter((q) => order.indexOf(q) < me);
+  let out = `u${Math.min(before.length, 2)}${Math.min(opps.length - before.length, 2)}`;
+  const streets = streetsOf(s.history);
+  const last = aggressorOf(streets[s.street]);
+  out += "|h" + (last === null ? "n" : last === seat ? "m" : order.indexOf(last) < me ? "b" : "a");
+  if (s.street > 0 && depth !== "basic") {
+    const pre = aggressorOf(streets[0]);
+    out += "|g" + (pre === null ? "n" : pre === seat ? "m" : s.folded[pre] ? "x" : "o");
+  }
+  return out;
+}
+/** tp_key.public_key(s, seat, depth, variant="c1") with the default environment (cash, no ante) or env = {stage, ante}. */
+export function publicKeyC1(s, seat, depth = "full", env = { stage: "c", ante: false }) {
+  const nOpp = Math.min(live(s).length - 1, 3);
+  const lg = legal(s).join("");
+  if (lg === "fc" || lg === "c") return `call|${s.street}|${nOpp}|${potOddsStep(s, seat)}|${lg}`;
+  const st = `t${env.stage}${env.ante ? 1 : 0}|${stackField(s, seat)}|${publicFactsC1(s, seat, depth)}|`;
+  if (depth === "basic") {
+    return `b|n${s.n}|${positionGroup(s.n, seat)}|${s.street}|${Math.min(nOpp, 2)}|${Math.min(raiseLevel(s), 2)}|${potOddsStep(s, seat)}|${st}${lg}`;
+  }
+  const sp = s.street === 0 ? 0 : searchRight(SPR_EDGES, effectiveStack0(s, seat) / Math.max(pot(s), 1));
+  const full = `${c1PositionNames(s.n)[seat]}|n${s.n}|${s.street}|${nOpp}|${raiseLevel(s)}|${initiative(s, seat)}|${potOddsStep(s, seat)}|${sp}|${st}${lg}`;
+  return depth === "pro" ? `p|${full}|f${foldyStep()}` : full;
+}
+function effectiveStack0(s, seat) {   // TP.md §1.1 SPR numerator: chips behind, capped by the deepest other player who can act
+  const cap = active(s).filter((i) => i !== seat).map((i) => s.stack[i]);
+  return cap.length ? Math.min(s.stack[seat], max(cap)) : 0;
 }
 
 export function key(pub, step) {

@@ -24,7 +24,7 @@ function seqSum(a) { let s = 0.0; for (const v of a) s += v; return s; }
 
 test("schema and constants match the Python side", () => {
   assert.equal(V.schema, "stalker.web.tpgto.vectors");
-  assert.equal(V.schema_version, 3);
+  assert.equal(V.schema_version, 4);
   const c = V.constants;
   assert.deepEqual(c.TIER_K, T.TIER_K, "TIER_K differs: update tpgto.js to stalker/e3/tp_key.py");
   assert.deepEqual(c.TIER_DEPTH, T.TIER_DEPTH);
@@ -377,4 +377,38 @@ test("rangeResponse (#465): a bet that makes every weaker combo fold reports ~10
   // Folding side: ending the street gives no reply.
   const rf = T.rangeResponse(pol, s, ranges, "mid", hero, null);
   assert.equal(rf.reply, null);
+});
+
+test("c1 keys (#583): public key string equals Python at every depth; every c1 element appears for 2, 4 and 6 players", () => {
+  const C = V.c1_keys, DEPTHS = ["basic", "full", "pro"];
+  assert.equal(C.version, T.C1_VERSION, "KEY_VERSIONS.c1 differs: update tpgto.js to stalker/e3/tp_key.py");
+  for (const n of [2, 4, 6]) assert.deepEqual(T.c1PositionNames(n), C.positions[String(n)]);
+  const parts = {};
+  let total = 0, bad = 0;
+  const first = [];
+  for (const h of C.hands) {
+    let s = T.dealFromPermutation(h.perm, h.n, { stacks: h.stacks });
+    const c = (parts[h.n] ??= { players: 0, position: 0, u: 0, stack: 0, g: 0 });
+    for (const d of h.decisions) {
+      total++;
+      DEPTHS.forEach((depth, i) => {
+        const got = T.publicKeyC1(s, s.toAct, depth);
+        if (got !== d.public[i]) { bad++; if (first.length < 5) first.push({ n: h.n, depth, hist: s.history.join(" "), want: d.public[i], got }); }
+      });
+      const full = d.public[1];
+      if (!full.startsWith("call|")) {
+        if (full.includes(`|n${h.n}|`)) c.players++;
+        if (T.c1PositionNames(h.n).includes(full.split("|")[0])) c.position++;
+        if (/\|u\d\d\|/.test(full)) c.u++;
+        if (/\|s\d:\d+\|/.test(full)) c.stack++;
+        if (/\|g[nmxo]\|/.test(full)) c.g++;
+      }
+      s = T.apply(s, d.a);
+    }
+  }
+  console.log(`tpgto c1 keys: ${total} decisions x 3 depths; mismatches ${bad}; elements ${JSON.stringify(parts)}`);
+  assert.deepEqual(first, []);
+  assert.equal(bad, 0);
+  for (const n of [2, 4, 6]) for (const [k, v] of Object.entries(parts[n])) assert.ok(v > 0, `no ${k} element in the ${n}-player c1 vectors`);
+  assert.ok(C.hands.every((h) => h.decisions.length > 0) && C.hands.length >= 24);
 });

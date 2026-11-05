@@ -93,3 +93,19 @@ def test_committed_hte_vectors_are_current(committed):
         "web/app/test/vectors.json hte block is stale: run `python -m stalker.tools.web_vectors`"
     flags = [f for x in committed["hte"] for _, f in x["cases"]]
     assert any(flags) and not all(flags)
+
+
+def test_c1_vectors_cover_every_key_element_per_player_count(committed):
+    c1 = committed["c1_keys"]
+    assert c1["version"] == K.KEY_VERSIONS["c1"]
+    s = W.summary(committed)
+    for n in W.C1_PLAYERS:
+        assert s["c1_hands"][n] >= 8, f"{n} players: fewer than 8 c1 hands; raise W.C1_HANDS and regenerate"
+        missing = [k for k, v in s["c1_parts"][n].items() if v == 0]
+        assert not missing, f"{n} players: no c1 decision with {missing}; change the seed or hands and regenerate"
+
+
+def test_committed_c1_vectors_are_current(committed):
+    p = committed["params"]
+    assert W.c1_vectors(W.C1_HANDS, p["seed"]) == committed["c1_keys"], \
+        "c1_keys in web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"
