@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -41,7 +42,7 @@ ROOT = Path(__file__).resolve().parents[2]
 VECTORS = ROOT / "web" / "app" / "test" / "vectors.json"
 ASSET = ROOT / "web" / "app" / "assets" / "hu_equity.json"
 SCHEMA = "stalker.web.tpgto.vectors"
-SCHEMA_VERSION = 3   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417)
+SCHEMA_VERSION = 4   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417); 4: "c1_keys" (#583)
 TIERS = ("beginner", "mid", "pro")
 PLAYERS = (2, 4, 6, 9)   # 2 and 4: the web looks up per-seat policies (#541)
 FOLD_WEIGHTS = (0.15, 1.0, 4.0)   # per hand: deep multiway hands, plain random, fold-heavy (heads-up postflop)
@@ -50,6 +51,8 @@ MENU_RULES = (("real", None), ("real", 3), ("tp6", 3), ("v1", 3))   # (menu, rai
 # v1 (the served tables) is last so the earlier blocks keep their seeds
 MENU_PLAYERS = (2, 6, 9)
 DEPTHS = ("basic", "full", "pro")
+C1_PLAYERS = (2, 4, 6)   # ADR 0021: the short-handed counts the mixn c1 policy serves
+C1_HANDS = 10
 
 
 def equity_table() -> dict:
@@ -185,6 +188,34 @@ def hte_vectors(seed: int) -> list[dict]:
     return out
 
 
+def _play_c1(n: int, rng: np.random.Generator) -> dict:
+    # One 20-250BB depth per hand (the browser engine has no side pots yet, so no mixed stacks) so the stack field
+    # takes several values; seeded random actions (folds and all ins damped).
+    stacks = G.sample_stacks(rng, n, equal_p=1.0)
+    s = G.deal(rng, n, stacks=stacks)
+    perm = [c for hl in s.hole for c in hl] + list(s.deck)
+    decisions = []
+    while not s.done:
+        acts, p = G.legal(s), s.to_act
+        pub = [K.public_key(s, p, depth, variant="c1") for depth in DEPTHS]
+        wts = np.array([0.4 if a == "f" else 0.05 if a == "a" else 1.0 for a in acts])
+        a = acts[int(rng.choice(len(acts), p=wts / wts.sum()))]
+        decisions.append({"a": a, "legal": acts, "public": pub})
+        s = G.apply(s, a)
+    return {"n": n, "stacks": list(stacks), "perm": perm, "decisions": decisions}
+
+
+def c1_vectors(hands: int, seed: int) -> dict:
+    """c1 public keys (#583, ADR 0021): the web mirrors `tp_key.public_key(variant="c1")` string for string.
+    The equity step and the b1 draw label after it are not mirrored here (a later issue)."""
+    out = []
+    for n in C1_PLAYERS:
+        rng = np.random.default_rng([seed, 583, n])
+        out.extend(_play_c1(n, rng) for _ in range(hands))
+    return {"version": K.KEY_VERSIONS["c1"], "positions": {str(n): list(K.c1_position_names(n)) for n in C1_PLAYERS},
+            "hands": out}
+
+
 def rng_vectors(count: int, seed: int) -> list[dict]:
     rng = np.random.default_rng(seed)
     out = []
@@ -213,7 +244,23 @@ def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, ti
                           "NUT_K": K.NUT_K, "EQ_RUNOUTS": EQ_RUNOUTS},
             "params": {"hands": hands, "iters": iters, "seed": seed},
             "policies": policy_used, "hands": out_hands, "rng": rng_vectors(rng_count, seed),
-            "menus": menu_vectors(menu_hands, seed), "hte": hte_vectors(seed)}
+            "menus": menu_vectors(menu_hands, seed), "hte": hte_vectors(seed),
+            "c1_keys": c1_vectors(C1_HANDS, seed)}
+
+
+def c1_parts(v: dict) -> dict:
+    """Per player count, how many c1 decisions carry each key element (full depth): the test needs each at least once."""
+    pats = {"players": r"\|n(\d)\|", "u": r"\|u\d\d\|", "stack": r"\|s\d:\d+\|", "g": r"\|g[nmxo]\|", "pos": None}
+    out = {}
+    for n in C1_PLAYERS:
+        names = set(K.c1_position_names(n))
+        ds = [d["public"][1] for h in v.get("c1_keys", {}).get("hands", ()) if h["n"] == n for d in h["decisions"]
+              if not d["public"][1].startswith("call|")]
+        c = {k: sum(1 for x in ds if re.search(r, x)) for k, r in pats.items() if r}
+        c["players"] = sum(1 for x in ds if f"|n{n}|" in x)
+        c["pos"] = sum(1 for x in ds if x.split("|")[0] in names)
+        out[n] = c
+    return out
 
 
 def summary(v: dict) -> dict:
@@ -228,6 +275,8 @@ def summary(v: dict) -> dict:
             "menu_decisions": sum(len(h["decisions"]) for h in v["menus"]),
             "menu_bets": sum(1 for h in v["menus"] for d in h["decisions"] if "bet" in d),
             "menu_bets_split": sum(1 for h in v["menus"] for d in h["decisions"] if len(d.get("split", ())) == 2),
+            "c1_hands": {n: sum(1 for h in v.get("c1_keys", {}).get("hands", ()) if h["n"] == n) for n in C1_PLAYERS},
+            "c1_parts": c1_parts(v),
             "hte_cases": sum(len(x["cases"]) for x in v.get("hte", ())),
             "hte_flagged": sum(f for x in v.get("hte", ()) for _, f in x["cases"]),
             "menu_bets_hte": sum(1 for h in v["menus"] for d in h["decisions"] if d.get("hte")),
