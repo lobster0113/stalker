@@ -458,3 +458,4 @@
 {"ts":"2026-11-05T15:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #590 still at 7c6d06c with existing CHANGES verdict; no new commits","friction":""}
 {"ts":"2026-11-05T15:31:50Z","role":"builder-b","outcome":"changes","issue":573,"pr":591,"notes":"PR #591 CHANGES 2건(무효 평균0 테스트·raw_var 0 분기) 해결 푸시 8445c2b","friction":"gates quick 로컬 540초 안에 안 끝남(a)"}
 {"ts":"2026-11-05T15:32:18Z","role":"reviewer-b","outcome":"skipped","issue":573,"pr":591,"notes":"not my parity","friction":""}
+{"ts":"2026-11-05T15:33:10Z","role":"builder","outcome":"changes","issue":588,"pr":590,"notes":"PR #590 CHANGES 해결: 실험 033 기록 추가, gh api stderr 진단 보존, main merge 후 push c28f433","friction":"docs·yaml만 바꾼 후속 push에도 gates quick 로컬 1197초(9분 대기 3회)"}
