@@ -110,3 +110,52 @@ def test_missing_or_expired_artifact_fails_with_the_fix(tmp_path):
     with pytest.raises(SystemExit, match=msg):
         W.main(["export", "--pod-result", str(tmp_path / "none.json"), "--run", "9",
                 "--out-dir", str(tmp_path / "o"), "--summary-out", str(tmp_path / "s.json")])
+
+
+def test_min_visits_by_players_parses_and_rejects_with_the_fix():
+    assert W.parse_min_visits_by_players("2:10, 3:5,6:2", (2, 3, 4, 5, 6)) == {2: 10, 3: 5, 6: 2}
+    assert W.parse_min_visits_by_players("", FIVE) == {}
+    for bad, msg in (("2-10", "is not <players>:<count>"), ("2:x", "is not <players>:<count>"),
+                     ("7:1", "not in this run's player_mix"), ("2:1,2:3", "appears twice")):
+        with pytest.raises(SystemExit, match=msg):
+            W.parse_min_visits_by_players(bad, FIVE)
+
+
+def test_per_player_min_visits_is_applied_and_recorded_per_file(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 4, 6))
+    m.iterate(40)
+    st = m.state()
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), min_visits=1,
+                             min_visits_by_players={4: 3})
+    assert {f["players"]: f["min_visits"] for f in s["files"]} == {2: 1, 4: 3, 6: 1}
+    assert s["min_visits_by_players"] == {"4": 3}
+    visits = dict(m.visits)
+    kept = json.loads((tmp_path / "beginner-4.json").read_text(encoding="utf-8"))["policy"]
+    assert kept and all(visits[k] >= 3 for k in kept)
+    # CLI: a bad spec fails before anything is written
+    res = _pod_result(tmp_path, m)
+    with pytest.raises(SystemExit, match="appears twice"):
+        W.main(["export", "--pod-result", str(res), "--run", "7", "--min-visits-by-players", "2:1,2:2",
+                "--out-dir", str(tmp_path / "o"), "--summary-out", str(tmp_path / "s.json")])
+    assert not (tmp_path / "s.json").exists()
+
+
+def test_policies_for_ops_keeps_only_files_within_the_page_budget(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 4, 6))
+    m.iterate(4)
+    st = m.state()
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6))
+    sizes = sorted(f["bytes"] for f in s["files"])
+    cap = sizes[0]   # only the smallest file fits
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), max_bytes=cap)
+    fits = {f["file"] for f in s["files"] if f["within_page_budget"]}
+    assert fits and len(fits) < 3
+    out = W.policies_for_ops(s, tmp_path)
+    assert set(out) == fits | {"index.json"}
+    idx = json.loads(out["index.json"])
+    listed = {e["file"] for t in idx["tiers"].values() for e in [t, *t.get("by_players", {}).values()] if "file" in e}
+    assert listed == fits   # the index never names a file that was not uploaded
+    # nothing fits: nothing to commit, and the summary still tells why
+    s0 = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), max_bytes=1)
+    assert W.policies_for_ops(s0, tmp_path) == {}
+    assert all(f["within_page_budget"] is False for f in s0["files"])

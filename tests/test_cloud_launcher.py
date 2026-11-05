@@ -1185,6 +1185,8 @@ def test_cloud_workflow_export_mode(tmp_path):
     assert "name: cloud-result-${{ env.EXPORT_RUN }}" in fetch and "run-id: ${{ env.EXPORT_RUN }}" in fetch
     run = wf[idx[2]:idx[3]]
     assert '--summary-out "ops/cloud/exports/$EXPORT_RUN.json"' in run and "--index-base web/app/policy/index.json" in run
+    assert "--policies-out \"ops/cloud/policies/$EXPORT_RUN\"" in run and '--min-visits-by-players "$EXPORT_MIN_VISITS_BY_PLAYERS"' in run
+    assert "export_min_visits_by_players must look like" in wf   # regex-checked like the other inputs (#596)
     assert "git " not in run   # never commits to main or web/app/policy/
     assert "name: web-policy-${{ env.EXPORT_RUN }}" in wf[idx[3]:idx[4]]
     # the pod, terminate, upload-result and ledger-writing launcher calls are all run-only
@@ -1205,3 +1207,10 @@ def test_cloud_workflow_export_mode(tmp_path):
     files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
                            capture_output=True, text=True, encoding="utf-8").stdout.split()
     assert files == ["cloud/exports/5.json"]
+    (wt / "cloud" / "policies" / "5").mkdir(parents=True)
+    (wt / "cloud" / "policies" / "5" / "index.json").write_text("{}", encoding="utf-8")
+    subprocess.run(["bash", str(ROOT / "harness" / "cloud" / "push_ledger.sh"), str(wt), "cloud: ledger (export, run 7)"],
+                   check=True, capture_output=True)
+    files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
+                           capture_output=True, text=True, encoding="utf-8").stdout.split()
+    assert "cloud/policies/5/index.json" in files
