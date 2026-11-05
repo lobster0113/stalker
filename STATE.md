@@ -1,18 +1,18 @@
-# STATE (2026-11-05 16:10Z, planner)
+# STATE (2026-11-05 16:50Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
+planner 11-05 16:50Z: **PR #591(6fe2e72, #573 referee/stats.py `adjust_with_corrections` AIVAT 보정 평균·SE·분산비) 머지** → #573 잔존 ready·in-progress 정리(반복, gh issue edit GraphQL 403 → MCP). 신규 **#593 P2 referee-change**(field play_deal 행동 보정항 + evaluate `aivat` record-only). 열린 PR 없음. main CI 6fe2e72 진행 중, 1194ac7 success.
 planner 11-05 16:10Z: **PR #590(1194ac7, #588 cloud.yml `mode=export`: mixn c1 결과 → 2–6인 웹 정책 아티팩트 + `ops:cloud/exports/<run>.json`, 실험 033) 머지** → #588 잔존 ready·in-progress 정리(반복). 신규 **#592 P2**(M2–M4 export 디스패치·요약 비교·시드 선택, 아티팩트 ~12-03 만료 전). 열린 PR #591(#573, CHANGES 해결 8445c2b, reviewer 재판정 대기). main CI 1194ac7 진행 중, 5bbfe0e success.
 planner 11-05 13:15Z: **PR #587(5bbfe0e, #579 avg_cap 3×10⁵ resume 재측정: 10⁵의 cap 평균 이득 재현 안 됨(짝 차이 +0.010/−0.013), 시드 간 sd own 0.299>cap8 0.132>cap2 0.065) 머지** → #579 잔존 ready·in-progress 정리(반복). #580 not planned로 닫음(own 평균 0.72 < 현재 0.785, 3×10⁵에서 해소). 신규 **#589 P3**(평가 전용 경로: 체크포인트 iters=0 + LBR 4000핸드, #579 후속 b). 열린 PR 없음. main CI 5bbfe0e 진행 중, 5d2733f success.
 planner 11-05 11:40Z: **PR #586(5d2733f, #585 export_web_policy `--players`로 mixn c1 → 인원별 파일·by_players LBR 메타) 머지** → #585 잔존 ready·in-progress 정리(반복). 신규 **#588 P2 harness-change**(cloud.yml `mode=export`: M2–M4 아티팩트 → 2–6인 웹 정책 아티팩트 + `ops:cloud/exports/`, 아티팩트 만료 ~12-03 전). 열린 PR #587(#579, reviewer CHANGES: stale base 충돌). main CI 5d2733f 진행 중, b312fc1 success.
-planner 11-05 10:20Z: **PR #584(b312fc1, #583 웹 c1 key 미러 `publicKeyC1` + 2·4·6인 패리티 벡터) 머지** → #583 잔존 ready·in-progress 정리(반복). 신규 **#585 P2**(export_web_policy `--players`로 mixn c1 → 인원별 파일, ADR 0021 후속 2 코드 절반; CI 내보내기 워크플로는 그 뒤 harness-change). 열린 PR 없음. main CI b312fc1 진행 중, 0496fb7 success.
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **D 2–5인(#384)**: 평가기(#534)·인원별 값(#542)·시드 분산(#548·#559) → 합격선 ADR 0020 머지(#564) → #572 판정기 머지(c1 2–6인 pass) → #576 기록 연결 머지 → #581 ADR 0021 머지(mixn c1 한 정책) → #583 웹 c1 key 미러 머지 → #585 인원별 내보내기 머지 → #588 CI 내보내기 머지 → **#592 M2–M4 export·시드 선택**, 다음: 정책 파일을 main으로 옮기는 경로(웹 정책 아티팩트 403 → harness-change 후보)·서비스가 c1 정책·publicKeyC1 사용. 소유자가 크리티컬하다고 한 short-handed.
 2. **C 고수 체인 비용(NH-11 (a))**: #560 gzip 머지로 큰 체인 아티팩트 한도가 풀렸다 → #479(b2 대 b1 10⁵회) 재개, b1 체크포인트 12-01 만료 전. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
 3. **페르소나 턴 폴드(#533 머지 → #569)**: giveup_turn으로 턴 오차 절반(.140)이나 nit .29 잔존, 수동 스윕 한계 → 자동 탐색. 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
 ## 큐
-ready 미착수: #592 P2·#569 P3·#589 P3 (3) + #479 P2(구간 2/4 run 41991776948 08:14Z 디스패치). in-progress: #573 P3(PR #591). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #592 P2·#593 P2·#569 P3·#589 P3 (4) + #479 P2(구간 2/4 run 41991776948 08:14Z 디스패치). in-progress: 없음. 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #592), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
-후보: #592 뒤 export 정책 파일 → main 경로(harness-change)·web/app/policy 커밋 PR·서비스 c1 전환, ADR 0021 후속 4 c1 9인 첫 측정·5 6인 단독 c1 같은 파드 D 배수, AIVAT field·LBR 통합+NLHE 가치 함수(#573 뒤, referee-change), #589 뒤 재평가 디스패치·기록, 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change).
+후보: #592 뒤 export 정책 파일 → main 경로(harness-change)·web/app/policy 커밋 PR·서비스 c1 전환, ADR 0021 후속 4 c1 9인 첫 측정·5 6인 단독 c1 같은 파드 D 배수, AIVAT 찬스 노드 보정·LBR 통합(#593 뒤, referee-change), #589 뒤 재평가 디스패치·기록, 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
 - CI bea9bc8(18:12Z): tests 1590, failed 0, gate_r·cash·e3 1.0(e3 116,238), gate_l 1.0(32), stalker_loc 15527. 테스트 수 증가 추세(1524→1590, 1일).
 - E1(CI): 착취도 초보 0.0191·중수 0.0033·고수 0.0009, Gate S 초보 분위 passed=false 지속 — 정체 축, ADR 0016 record-only.
