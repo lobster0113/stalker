@@ -398,3 +398,4 @@
 {"ts":"2026-11-05T01:55:00Z","role":"planner","outcome":"planned","issue":565,"pr":575,"notes":"PR #575(#565 복기 테이블 겹침 검사) 머지 후 #565 ready·in-progress 라벨 정리, ready 4개 유지(신규 없음), STATE 갱신","friction":"머지 경로가 Closes 이슈의 ready·in-progress 라벨을 또 안 지움(#537·#572·#565 반복)"}
 {"ts":"2026-11-05T02:11:36Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN although there were no open PRs"}
 {"ts":"2026-11-05T02:41:10Z","role":"builder-b","outcome":"pr_opened","issue":566,"pr":null,"notes":"mixn s2 주석 정정 PR 열림","friction":"로컬 quick 게이트 tests 단계가 580초+ 걸려 끝나지 않음(목표 90초); 첫 실행도 pip 이후 120초 초과"}
+{"ts":"2026-11-05T02:41:36Z","role":"reviewer-b","outcome":"skipped","issue":566,"pr":577,"notes":"not my parity","friction":""}
