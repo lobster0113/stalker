@@ -151,8 +151,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python -m pip install -q -e .
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPORT_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/artifacts.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/artifacts.json"
-          python -m stalker.tools.export_web_players check-artifact "$RUNNER_TEMP/artifacts.json" --run "$EXPORT_RUN"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPORT_RUN/artifacts?per_page=100" > "$RUNNER_TEMP/artifacts.json" 2> "$RUNNER_TEMP/artifacts.err" || echo '{}' > "$RUNNER_TEMP/artifacts.json"
+          # the not-found line stays first; gh api's own stderr (e.g. a permission error) follows it for diagnosis
+          python -m stalker.tools.export_web_players check-artifact "$RUNNER_TEMP/artifacts.json" --run "$EXPORT_RUN" \
+            || { [[ -s "$RUNNER_TEMP/artifacts.err" ]] && { echo "gh api stderr:"; cat "$RUNNER_TEMP/artifacts.err"; }; exit 1; }
       - name: fetch export source
         if: env.MODE == 'export'
         uses: actions/download-artifact@v4
