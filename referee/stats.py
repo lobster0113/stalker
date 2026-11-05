@@ -63,6 +63,43 @@ def bootstrap_ci(diffs: Sequence[float], cluster_ids: Sequence[object] | None = 
 
 
 @dataclass(frozen=True)
+class Adjusted:
+    mean: float  # mean of raw - corrections
+    se: float  # standard error of that mean (i.i.d. hands)
+    raw_mean: float
+    raw_se: float
+    var_ratio: float  # var(adjusted) / var(raw); < 1 means the correction helped
+    n: int
+
+
+def adjust_with_corrections(raw: Sequence[float], corrections: Sequence[float]) -> Adjusted:
+    """Control-variate (AIVAT-style) estimate: mean and SE of `raw - corrections`.
+
+    `corrections[i]` is hand i's summed correction, i.e. over its decisions the sum of
+    `v(h.a) - E_a[v(h.a)]`. Each term has mean 0 under the evaluated strategies, so the mean stays
+    unbiased whatever the value function `v`; a good `v` only shrinks the variance. Hands are
+    treated as independent (cluster-level SE is out of scope).
+    """
+    x = np.asarray(raw, dtype=float)
+    c = np.asarray(corrections, dtype=float)
+    if x.ndim != 1 or c.ndim != 1:
+        raise ValueError(f"raw/corrections must be 1-D, got shapes {x.shape} and {c.shape}.")
+    if len(x) != len(c):
+        raise ValueError(f"raw has {len(x)} hands but corrections has {len(c)}; pass one correction sum per hand.")
+    if len(x) < 2:
+        raise ValueError(f"need at least 2 hands, got {len(x)}; collect more hands first.")
+    if not (np.all(np.isfinite(x)) and np.all(np.isfinite(c))):
+        raise ValueError("raw/corrections contain NaN/inf; fix those hands before adjusting.")
+    adj = x - c
+    n = len(x)
+    raw_var = float(np.var(x, ddof=1))
+    adj_var = float(np.var(adj, ddof=1))
+    ratio = adj_var / raw_var if raw_var > 0 else (1.0 if adj_var == 0 else math.inf)
+    return Adjusted(float(adj.mean()), math.sqrt(adj_var / n), float(x.mean()),
+                    math.sqrt(raw_var / n), ratio, n)
+
+
+@dataclass(frozen=True)
 class SPRTResult:
     decision: str  # "accept_h1" | "accept_h0" | "continue"
     n: int  # observations consumed when the decision was reached (all of them for "continue")
