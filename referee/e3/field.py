@@ -31,13 +31,14 @@ import gzip
 import hashlib
 import json
 from collections import Counter
+from collections.abc import Callable
 from functools import cache
 from pathlib import Path
 
 import numpy as np
 
 from referee.e3.lbr import seat_probs
-from referee.stats import bootstrap_ci
+from referee.stats import adjust_with_corrections, bootstrap_ci
 from stalker.e2.eq_view import combo_index
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
@@ -155,16 +156,36 @@ def _mismatch(c: Champion, s: G.State) -> str | None:
     return None
 
 
-def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = "basic") -> np.ndarray:
+def committed_value(s: G.State, seat: int) -> float:
+    """A cheap value estimate (bb) of state `s` for `seat`: its share of the pot among the players
+    still in the hand (the pot split evenly) minus the chips it has put in. A folded seat is worth
+    minus its investment. It need not be right: the AIVAT corrections stay unbiased for any value
+    function, a better one only shrinks the variance (#593)."""
+    pot = sum(s.total)
+    if s.folded[seat]:
+        return -s.total[seat] / G.BB
+    live = sum(1 for f in s.folded if not f)
+    return (pot / live - s.total[seat]) / G.BB
+
+
+def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = "basic",
+              value: Callable[[G.State, int], float] | None = None):
     """The target's net (bb) in each seat rotation of one deal. `target`: a TP-key policy dict or a
     callable state -> probabilities over the legal actions; `opponents`: one actor per other seat
-    (a `Champion` is a TP-key policy with its own beliefs)."""
+    (a `Champion` is a TP-key policy with its own beliefs).
+
+    With `value(state, target_seat)` (bb, the target's view) it returns `(net, corrections)`: per
+    rotation, the sum over decisions by actors whose strategy is known (a TP-key policy, a champion,
+    or `uniform`) of `v(h.a) - sum_a' p(a') v(h.a')`. Each term has mean zero, so `net - corrections`
+    is unbiased with less variance. Personas and other callables are not corrected. The action
+    random stream is the same with or without `value`."""
     n = len(opponents) + 1
     # every TP-key policy at the table, once each, with how it reads a seat: (policy, read)
     readers = [(target, lambda s, p, r: seat_probs(target, s, p, r, k, depth))] if isinstance(target, dict) else []
     for o in dict.fromkeys(o for o in opponents if isinstance(o, Champion)):
         readers.append((o, o.probs))
     out = np.empty(n)
+    corr = np.zeros(n)
     for seat in range(n):
         s = G.deal(np.random.default_rng([deal_seed, 0]), n)
         rng = np.random.default_rng([deal_seed, 1])      # the same action stream in every rotation
@@ -180,17 +201,24 @@ def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = 
             row = mine[combo_index(s.hole[p])] if mine is not None else who(s)
             a = int(rng.choice(len(acts), p=row / row.sum()))
             ranges = [K.update_range(r, p, t[:, a]) for r, t in zip(ranges, tables)]
-            s = G.apply(s, acts[a])
+            nxt = G.apply(s, acts[a])
+            if value is not None and (mine is not None or who is uniform):
+                vals = np.array([value(nxt if i == a else G.apply(s, x), seat) for i, x in enumerate(acts)])
+                corr[seat] += vals[a] - float(vals @ (row / row.sum()))
+            s = nxt
         out[seat] = float(G.payoff(s)[seat]) / G.BB
-    return out
+    return out if value is None else (out, corr)
 
 
 def evaluate(target, hands: int, seed: int = 0, spec: dict | None = None, k: int = 5, depth: str = "basic",
-             configs: list[str] | None = None, players: int | None = None) -> dict:
+             configs: list[str] | None = None, players: int | None = None,
+             aivat: bool | Callable[[G.State, int], float] = False) -> dict:
     """The target's bb/100 per configuration (95% CI over deals) and the worst configuration
     (all-self configurations are reported in `configs` but excluded from `worst`, #374; champion
     configurations the deal's rules do not fit are listed in `skipped`). `players` picks the
-    registered set for that table size (`load_players`, default 6)."""
+    registered set for that table size (`load_players`, default 6). `aivat` (True: `committed_value`, or a
+    value callable) adds per configuration `aivat: {bb100, se, variance_ratio}` from `referee.stats.
+    adjust_with_corrections` over per-deal means; it is record-only and never enters `worst` (#593)."""
     sha = None
     if spec is None:
         spec, sha = load_players(6 if players is None else players)
@@ -211,12 +239,22 @@ def evaluate(target, hands: int, seed: int = 0, spec: dict | None = None, k: int
             continue
         used.update((ch.name, ch.sha256) for ch in champs)
         matched.append(c)
-        res = np.array([play_deal(target, opps, seed * 1_000_003 + h, k, depth) for h in range(hands)])
+        corr = None
+        if aivat:
+            val = committed_value if aivat is True else aivat
+            pairs = [play_deal(target, opps, seed * 1_000_003 + h, k, depth, val) for h in range(hands)]
+            res, corr = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
+        else:
+            res = np.array([play_deal(target, opps, seed * 1_000_003 + h, k, depth) for h in range(hands)])
         ci = bootstrap_ci(res.ravel() * 100, np.repeat(np.arange(hands), res.shape[1]), rng=np.random.default_rng(seed))
         rows.append({"name": c["name"], "bb100": round(ci.mean, 2), "ci95": [round(ci.lo, 2), round(ci.hi, 2)],
                      "ci95_low": round(ci.lo, 2), "deals": hands, "hands": hands * res.shape[1],
                      "opponents": list(c["opponents"]), "seat_mix": dict(Counter(c["opponents"])),
                      "by_seat_bb100": [round(float(x), 1) for x in res.mean(axis=0) * 100]})
+        if corr is not None:
+            adj = adjust_with_corrections(res.mean(axis=1) * 100, corr.mean(axis=1) * 100)
+            rows[-1]["aivat"] = {"bb100": round(adj.mean, 2), "se": round(adj.se, 2),
+                                 "variance_ratio": round(adj.var_ratio, 3)}
     if not rows:
         raise FieldError(f"no config matched {configs}" + (f" (skipped: {skipped})" if skipped else ""))
     # self-play is exactly 0 by symmetry (a sanity row); counting it would hide the real worst opponent set
