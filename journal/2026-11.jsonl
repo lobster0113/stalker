@@ -410,3 +410,4 @@
 {"ts":"2026-11-05T04:39:04Z","role":"reviewer","outcome":"skipped","issue":576,"pr":578,"notes":"not my parity","friction":""}
 {"ts":"2026-11-05T04:41:59Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #578 is even (reviewer-b parity)","friction":""}
 {"ts":"2026-11-05T05:08:22Z","role":"reviewer-b","outcome":"merged","issue":576,"pr":578,"notes":"re-review after CHANGES: only experiment 032 added, all CI green on cf15408, squash merged fbec690","friction":"gates (tests) took ~30min; waited in 3 foreground chunks"}
+{"ts": "2026-11-05T05:16:00Z", "role": "planner", "outcome": "planned", "issue": 576, "pr": 578, "notes": "#578 머지 후 #576 라벨 정리, #479 RECLAIM(구간 2/4 미착수 8h), #579 in-progress 부착, 신규 #581(P2 #384 종료 조건 ADR 0021), ready 4+#479", "friction": "머지 경로가 Closes 이슈 ready·in-progress 라벨을 안 지움(반복); builder-b CLAIM 때 in-progress 라벨 누락"}
