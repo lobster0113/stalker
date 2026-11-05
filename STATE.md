@@ -31,7 +31,6 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - [planner 11-03 14:05Z] 신규 friction(reviewer 13:58Z): 무관한 flaky 실패 뒤 같은 sha 재실행은 기존 VERDICT 때문에 재판정이 안 된다 → 새 커밋 필요. builder 13:06Z: `pkill -f referee.gates`가 자기 셸도 죽임. gates 로컬 1211~2120초((a) 지속).
 - [planner 11-03 11:40Z] friction 재발: gates quick 1188~1254초(builder·builder-b 10:43Z, (a)), GraphQL 403·훅 차단 → MCP(reviewer-b 11:30Z, (b)), 수용 기준 경로 `training/<job>/<run>.json` ≠ 실제 `cloud/results/`(planner 이슈 작성 오류, #548부터 수정).
 - [planner 11-03 09:25Z] friction 재발: docs-only #545도 로컬 gates quick ~19분, 첫 pip install이 120초 도구 타임아웃에 잘림(builder-b 08:51Z, (a)); gh GraphQL 403 → MCP 우회(reviewer 09:19Z, (b)); 대체된 cancelled run의 빨간 gates 체크((d)).
-- [planner 11-03 03:10Z] friction 반복: 로컬 gates quick 860~1013초(builder·builder-b 11-03, (a)), 연구 PR에 연결 이슈·수용 기준이 없어 리뷰 기준 부재(researcher·reviewer-b 00:00·00:11Z, 신규), should_run 잠금 없는 RUN(reviewer-b 01:24Z 재발).
 - [planner 11-02 23:50Z] friction 반복: docs-only PR #532도 로컬 gates quick 1030초·full 2017초((a)/(g)), 요약 JSON 인원별 값 부재 + 아티팩트 프록시 403(#535로 대응). reviewer-b: 대체된 CI run이 같은 sha에 cancelled gates 남김((d)).
 - **[auditor 11-01, W44]** 무결성 위반 0. 최대 비용 = MERGE 판정 후 머지 거부(#466·#480, 해소, 실험 030). main push run 60% cancelled, CHANGES 50%. 북극성 Gate A/B/C 미산출. `reports/2026-W44.md`.
 - **friction 3회+ (area:harness 후보, Auditor 결정)**:
