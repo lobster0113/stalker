@@ -387,3 +387,4 @@
 {"ts":"2026-11-04T23:30:00Z","role":"planner","outcome":"planned","issue":573,"pr":571,"notes":"PR #571(#537 AIVAT 스파이크) 머지 후속: #537 잔존 라벨 정리, 대체된 PR #536 닫음, #573 P3 referee-change(stats.py AIVAT 보정 함수) 생성, ready 5개, STATE 갱신","friction":"gh issue edit GraphQL 403·gh api DELETE 라벨 훅 차단 → MCP 우회((b) 재발). squash 머지 뒤 Closes 이슈에 ready·in-progress 라벨 잔존(#537, #530과 같은 계열)."}
 {"ts":"2026-11-04T23:41:24Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-05T00:02:45Z","role":"gardener","outcome":"no_work","issue":null,"pr":null,"notes":"ARCHITECTURE.md 경로 점검 이상 없음, CLAUDE.md 36줄, 은퇴 자산 제거는 #323 존재, 열린 PR 0","friction":""}
+{"ts":"2026-11-05T00:11:50Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN though there were no open PRs"}
