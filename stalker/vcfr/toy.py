@@ -27,6 +27,7 @@ other opponents' reach mixed in, #414); `avg_rule="own"` divides that reach out 
 from __future__ import annotations
 
 import json
+import math
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -112,7 +113,7 @@ def exact_update(root: Node, key: KeyFn, sigma: Table, p: int, n_players: int = 
             nxt = pi.copy()
             nxt[q] *= s[a]
             vals[a] = walk(c, nxt)
-        v = float(s @ vals)
+        v = math.fsum((s * vals).tolist())   # not BLAS `@` (#481)
         others = pi[-1] * np.prod(np.delete(pi[:-1], p))
         if q == p:
             _acc(reg, k, others * (vals - v))
@@ -306,12 +307,13 @@ class E3Sampler:
     is pi_c pi_i sigma, the intended weight; with two players the divisor is empty and the rules agree."""
 
     def __init__(self, root: Node, key: KeyFn = identity, explore: float = 0.0, uniform_chance: bool = False,
-                 correct: bool = True, avg_rule: str = "legacy"):
+                 correct: bool = True, avg_rule: str = "legacy", avg_cap: float | None = None):
         if avg_rule not in AVG_RULES:
             raise ValueError(f"avg_rule={avg_rule!r}; use one of {AVG_RULES}")
         self.root, self.key = root, key
         self.explore, self.uniform_chance, self.correct = explore, uniform_chance, correct
         self.avg_rule = avg_rule
+        self.avg_cap = avg_cap   # #448: with avg_rule "own", the weight 1/prod(reach) is clipped to this (None = no clip)
 
     def sample(self, sigma: Table, p: int, rng: np.random.Generator) -> tuple[Table, Table]:
         reg: Table = {}
@@ -330,13 +332,14 @@ class E3Sampler:
                 q = np.full(len(probs), 1 / len(probs)) if self.uniform_chance else probs
             elif n.player == p:
                 vals = np.array([walk(c, w, reach) for c in n.children])
-                v = float(probs @ vals)
+                v = math.fsum((probs * vals).tolist())   # not BLAS `@` (#481)
                 _acc(reg, self.key(n.infoset), w * (vals - v))
                 return v
             else:
                 me = n.player
                 if self.avg_rule == "own":     # divide out the other sampled opponents' reach (module docstring)
-                    _acc(avg, self.key(n.infoset), w / prod(r for m, r in reach.items() if m != me) * probs)
+                    inv = 1 / prod(r for m, r in reach.items() if m != me)
+                    _acc(avg, self.key(n.infoset), w * (inv if self.avg_cap is None else min(inv, self.avg_cap)) * probs)
                 else:
                     _acc(avg, self.key(n.infoset), w * probs)
                 q = (1 - self.explore) * probs + self.explore / len(probs)

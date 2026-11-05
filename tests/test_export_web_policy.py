@@ -91,3 +91,193 @@ def test_policy_names_its_size_menu():
     assert (old["menu"], old["raise_cap"]) == ("v1", 3)
     real = X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1, "menu": "real", "raise_cap": None}, None, "1", "")
     assert (real["menu"], real["raise_cap"]) == ("real", None)
+
+
+def test_placeholder_flag_is_written_and_read_and_defaults_false(tmp_path):
+    # #397: the web shows 임시 AI only for entries that say so; a file without the field is not a placeholder.
+    m = E3MCCFR(1, 5, 3, "basic")
+    m.iterate(3)
+    ck = tmp_path / "c.ckpt.json"
+    ck.write_text(json.dumps(m.state()), encoding="utf-8")
+    on, off = tmp_path / "on.json", tmp_path / "off.json"
+    assert X.main(["--ckpt", str(ck), "--run", "1", "--placeholder", "--out", str(on)]) == 0
+    assert X.main(["--ckpt", str(ck), "--run", "1", "--out", str(off)]) == 0
+    d_on, d_off = (json.loads(p.read_text(encoding="utf-8")) for p in (on, off))
+    assert X.placeholder_of(d_on) is True and d_on["trained_on"] == {"game": "cash", "players": 3, "stack_bb": 100, "menu": "v1"}
+    assert X.placeholder_of(d_off) is False and "trained_on" not in d_off
+    assert X.placeholder_of({}) is False and X.placeholder_of({"placeholder": "yes"}) is False
+
+
+def test_shipped_index_marks_every_tier_placeholder_with_its_rules():
+    from pathlib import Path
+
+    idx = json.loads((Path(__file__).resolve().parents[1] / "web/app/policy/index.json").read_text(encoding="utf-8"))
+    for tier, e in idx["tiers"].items():
+        assert X.placeholder_of(e), f"{tier}: v1 6-max 100BB policy must stay marked 임시 until a real-rules one replaces it"
+        assert {"game", "players", "stack_bb", "menu"} <= set(e["trained_on"])
+
+
+def _ckpt(tmp_path, n, name="c"):
+    m = E3MCCFR(1, 5, n, "basic")
+    m.iterate(3)
+    ck = tmp_path / f"{name}.ckpt.json"
+    ck.write_text(json.dumps(m.state()), encoding="utf-8")
+    return ck
+
+
+def test_index_upsert_leaves_the_policy_file_and_6max_entry_unchanged(tmp_path):
+    # #541: --index only adds the model-list entry; the 6-max policy bytes are the same with or without it,
+    # a 6-max upsert keeps the shipped entry shape, and a 4-handed upsert goes to by_players only.
+    from pathlib import Path
+
+    shipped = Path(__file__).resolve().parents[1] / "web/app/policy/index.json"
+    idx = tmp_path / "index.json"
+    idx.write_bytes(shipped.read_bytes())
+    ck6 = _ckpt(tmp_path, 6, "six")
+    plain, indexed = tmp_path / "plain.json", tmp_path / "beginner-6.json"
+    assert X.main(["--ckpt", str(ck6), "--run", "7", "--out", str(plain)]) == 0
+    assert X.main(["--ckpt", str(ck6), "--run", "7", "--out", str(indexed), "--index", str(idx)]) == 0
+    assert plain.read_bytes() == indexed.read_bytes()
+    six = json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]
+    old = json.loads(shipped.read_text(encoding="utf-8"))["tiers"]["beginner"]
+    assert six["file"] == "beginner-6.json" and six["bytes"] == len(plain.read_bytes()) and six["run_id"] == "7"
+    assert [k for k in six if k in old] == [k for k in old if k in six] and "by_players" not in six
+
+    before = idx.read_text(encoding="utf-8")
+    out4 = tmp_path / "beginner-4.json"
+    assert X.main(["--ckpt", str(_ckpt(tmp_path, 4, "four")), "--run", "fixture", "--out", str(out4), "--index", str(idx)]) == 0
+    after = json.loads(idx.read_text(encoding="utf-8"))
+    b = after["tiers"]["beginner"]
+    assert {k: v for k, v in b.items() if k != "by_players"} == json.loads(before)["tiers"]["beginner"]
+    assert after["tiers"]["mid"] == json.loads(before)["tiers"]["mid"] and after["tiers"]["pro"] == json.loads(before)["tiers"]["pro"]
+    e4 = b["by_players"]["4"]
+    assert e4["file"] == "beginner-4.json" and e4["players"] == 4 and e4["run_id"] == "fixture" and "policy" not in e4
+    # a later 6-max re-export keeps the by_players map, and a 2-handed one sorts in front of 4
+    X.main(["--ckpt", str(_ckpt(tmp_path, 2, "two")), "--run", "fixture", "--out", str(tmp_path / "beginner-2.json"), "--index", str(idx)])
+    X.main(["--ckpt", str(ck6), "--run", "8", "--out", str(indexed), "--index", str(idx)])
+    b = json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]
+    assert list(b["by_players"]) == ["2", "4"] and b["run_id"] == "8"
+
+
+def test_index_upsert_refuses_another_schema_and_starts_a_new_list(tmp_path):
+    with pytest.raises(SystemExit, match="index.json"):
+        X.upsert_index({"schema": "stalker.web.policy"}, {"tier": "mid", "players": 6})
+    idx = X.upsert_index(None, {"tier": "mid", "players": 3, "file": "mid-3.json"})
+    assert idx["schema"] == X.INDEX_SCHEMA and idx["tiers"] == {"mid": {"by_players": {"3": {"tier": "mid", "players": 3, "file": "mid-3.json"}}}}
+
+
+def test_export_reads_gz_and_plain_checkpoints_alike(tmp_path):
+    from stalker.jsonio import write_json_gz
+
+    m = E3MCCFR(1, 5, 3, "basic")
+    m.iterate(5)
+    plain, gz = tmp_path / "c.ckpt.json", tmp_path / "c.ckpt.json.gz"
+    plain.write_text(json.dumps(m.state()), encoding="utf-8")
+    write_json_gz(gz, m.state())
+    for ck, out in ((plain, tmp_path / "a.json"), (gz, tmp_path / "b.json")):
+        assert X.main(["--ckpt", str(ck), "--run", "1", "--out", str(out)]) == 0
+    assert (tmp_path / "a.json").read_bytes() == (tmp_path / "b.json").read_bytes()
+
+
+MIX = (2, 4, 6)
+
+
+@pytest.fixture(scope="module")
+def mixn(tmp_path_factory):
+    """#585: a small seeded 2/4/6 c1 player-mix checkpoint and the full table it holds."""
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=MIX)
+    m.iterate(3)   # seed 1: each of 2, 4 and 6 owns keys, and call| keys are shared
+    d = tmp_path_factory.mktemp("mixn")
+    ck = d / "mixn.ckpt.json"
+    ck.write_text(json.dumps(m.state()), encoding="utf-8")
+    return ck, m
+
+
+def test_players_split_a_c1_mix_into_disjoint_complete_files(tmp_path, mixn):
+    from stalker.e3.mccfr import key_players
+
+    ck, m = mixn
+    cur = m.current_policy()
+    idx = tmp_path / "index.json"
+    docs = {}
+    for n in MIX:
+        out = tmp_path / f"beginner-{n}.json"
+        assert X.main(["--ckpt", str(ck), "--run", "5", "--players", str(n), "--min-visits", "0",
+                       "--out", str(out), "--index", str(idx)]) == 0
+        docs[n] = json.loads(out.read_text(encoding="utf-8"))
+    shared = {k for k in cur if key_players(k) is None}
+    assert shared and all(k.startswith("call|") for k in shared)
+    for n, doc in docs.items():
+        own = {k for k in cur if key_players(k) == n}
+        assert own and set(doc["policy"]) == own and doc["keys"] == len(own) and doc["players"] == n
+    assert sum(d["keys"] for d in docs.values()) == len(cur) - len(shared) == len(cur) - m.shared_keys()
+    tiers = json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]
+    assert tiers["file"] == "beginner-6.json" and tiers["players"] == 6
+    assert {k: v["file"] for k, v in tiers["by_players"].items()} == {"2": "beginner-2.json", "4": "beginner-4.json"}
+
+
+def test_players_meta_reads_that_counts_lbr_and_leaves_it_empty_when_missing(tmp_path, mixn):
+    ck, _ = mixn
+    sm = tmp_path / "s.json"
+    sm.write_text(json.dumps({"job": "e3-tp-beginner-c1-mixn", "tier": "beginner", "lbr": {"lbr_bb": 9.0, "stderr_bb": 1.0},
+                              "by_players": {"4": {"lbr": {"lbr_bb": 0.4, "stderr_bb": 0.1}, "lbr_average": {"lbr_bb": 0.3, "stderr_bb": 0.05},
+                                                   "field": {"worst": {"name": "nit5", "bb100": -3.0}}}}}), encoding="utf-8")
+    out = tmp_path / "p.json"
+
+    def run(*extra):
+        assert X.main(["--ckpt", str(ck), "--summary", str(sm), "--run", "77", "--out", str(out), *extra]) == 0
+        return json.loads(out.read_text(encoding="utf-8"))
+
+    d = run("--players", "4")
+    assert (d["run_id"], d["iterations"], d["players"]) == ("77", 3, 4)
+    assert (d["lbr_bb"], d["lbr_stderr_bb"], d["field_worst"]["name"]) == (0.4, 0.1, "nit5")
+    d = run("--players", "4", "--strategy", "average")
+    assert (d["lbr_bb"], d["lbr_stderr_bb"], d["field_worst"]) == (0.3, 0.05, None)
+    d = run("--players", "2", "--placeholder")   # no "2" row: empty numbers, still the run
+    assert (d["lbr_bb"], d["lbr_stderr_bb"], d["field_worst"], d["run_id"]) == (None, None, None, "77")
+    assert d["trained_on"]["players"] == 2
+    assert X.main(["--ckpt", str(ck), "--run", "1", "--players", "2", "--out", str(out)]) == 0   # no summary at all
+    assert json.loads(out.read_text(encoding="utf-8"))["lbr_bb"] is None
+
+
+def test_players_refuses_what_it_cannot_split(tmp_path, mixn):
+    ck, _ = mixn
+    out = tmp_path / "p.json"
+    with pytest.raises(SystemExit, match=r"not in this table's player_mix \[2, 4, 6\]"):
+        X.main(["--ckpt", str(ck), "--players", "3", "--out", str(out)])
+    six = _ckpt(tmp_path, 6, "six")
+    with pytest.raises(SystemExit, match="drop --players or pass --players 6"):
+        X.main(["--ckpt", str(six), "--players", "4", "--out", str(out)])
+    plain, same = tmp_path / "plain.json", tmp_path / "same.json"
+    assert X.main(["--ckpt", str(six), "--run", "1", "--out", str(plain)]) == 0
+    assert X.main(["--ckpt", str(six), "--run", "1", "--players", "6", "--out", str(same)]) == 0
+    assert plain.read_bytes() == same.read_bytes()
+    st = json.loads(ck.read_text(encoding="utf-8"))
+    st["key_variant"] = "b1"
+    with pytest.raises(SystemExit, match="only a c1 player-mix table splits"):
+        X.split_players(st, 4)
+    assert X.main(["--ckpt", str(ck), "--run", "1", "--out", str(out)]) == 0   # no --players: the whole table, as before
+    assert json.loads(out.read_text(encoding="utf-8"))["players"] == 6
+
+
+@pytest.mark.parametrize("depth", ["basic", "full", "pro"])
+def test_key_players_reads_the_c1_public_key_player_field(depth):
+    # #585: the split relies on key_players matching tp_key's c1 key at every depth and seat count
+    from stalker.e3 import game as G
+    from stalker.e3 import tp_key as K
+    from stalker.e3.mccfr import key_players
+
+    rng = np.random.default_rng(585)
+    seen = set()
+    for n in (2, 3, 4, 5, 6):
+        for _ in range(3):
+            s = G.deal(rng, n)
+            while not s.done:
+                seat = s.to_act
+                pub = K.public_key(s, seat, depth, "c1")
+                want = None if pub.startswith("call|") else n
+                assert key_players(K.key(pub, 3)) == want, pub
+                seen.add(want)
+                legal = G.legal(s)
+                s = G.apply(s, legal[int(rng.integers(len(legal)))])
+    assert set(range(2, 7)) <= seen

@@ -86,7 +86,7 @@ jobs:
               # a spec with result_path gets its JSON pulled here (#184); the launcher checks size and secrets
               args=(run "$JOB" --ledger "$LEDGER" --run-id "$GITHUB_RUN_ID"
                     --sync-cmd "bash harness/cloud/push_ledger.sh ops 'cloud: reserve run $GITHUB_RUN_ID'"
-                    --result-out "$RUNNER_TEMP/cloud-result/result.json")
+                    --result-out "$RUNNER_TEMP/cloud-result/result.json" --journal "$GITHUB_WORKSPACE/ops/journal")
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
               [[ -n "$RESUME_RUN" ]] && args+=(--resume-file "$RUNNER_TEMP/resume/result.json" --resume-run "$RESUME_RUN")
               python harness/cloud/launcher.py "${args[@]}" ;;

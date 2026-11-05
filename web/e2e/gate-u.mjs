@@ -18,8 +18,8 @@ const server = createServer((req, res) => {
   res.end(body);
 });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
-// abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass.
-const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1`;
+// abseed=1 pins the #262 question-form draws to B, A, B so both forms run on every CI pass; seed pins the deals.
+const url = `http://127.0.0.1:${server.address().port}/demo/index.html?speed=30&abseed=1&seed=20261027`;
 const shots = resolve(process.env.SCREENSHOT_DIR || resolve(here, "screenshots"));
 const axeSource = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const VIEWPORTS = [["phone", 390, 844], ["tablet", 820, 1180], ["laptop", 1440, 900]];
@@ -40,6 +40,20 @@ await page.addInitScript(() => {
   }, ms);
 });
 
+// #464: the game now pauses after each Guided decision and after every hand the hero played. The flows below
+// are about other things, so they press 계속 플레이 / 다음 핸드 automatically; §10 turns this off (__noAuto).
+const autoContinue = p => p.addInitScript(() => setInterval(() => {
+  if (window.__noAuto || window.__hold) return;
+  document.querySelector("#tp-resume, #tp-next-hand, #sd-muck, #fold-close")?.click();
+}, 150));
+await autoContinue(page);
+
+// Answer one TP question at its low end: the first chip, or a judgment slider (#464) pulled to 0.
+async function answerQ(q) {
+  if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+  else if (await q.locator("[data-dial]").count()) await q.locator("[data-dial]").fill("0");
+}
+
 // #445: on every visible table, card faces/backs must not cover a seat's name or stack, a bet must not sit
 // on the dealer button, and the pot's chip pile must not cover the pot amount. Returns the colliding pairs.
 function tableOverlaps() {
@@ -52,42 +66,72 @@ function tableOverlaps() {
   }
   for (const d of document.querySelectorAll(".view.active .dealer")) for (const b of d.parentElement.querySelectorAll(".bet")) if (b.childElementCount && hit(vis(d), vis(b))) out.push(`딜러/벳 ${b.textContent.trim()}`);
   for (const p of document.querySelectorAll(".view.active .pot")) { const c = p.querySelector(".chips"), a = p.querySelector(".amt"); if (c && a && hit(vis(c), vis(a))) out.push("팟 칩/팟 금액"); }
+  // #541: the button must not cover any seat's pod or tag (it hid "BTN · …" on 3-handed tablets), and nothing a
+  // seat draws (cards, read tag, action bubble) may reach into the controls above the table (2-handed phones).
+  for (const d of document.querySelectorAll(".view.active .dealer"))
+    for (const e of d.parentElement.querySelectorAll(".seat .pod, .seat .persona")) if (hit(vis(d), vis(e))) out.push(`딜러/좌석 ${e.closest(".seat").querySelector(".nm")?.textContent || e.closest(".seat").dataset.pos || ""} ${e.className}`);
+  for (const bar of document.querySelectorAll(".view.active .infobar"))
+    for (const c of bar.querySelectorAll("button, .pill, summary"))
+      for (const e of document.querySelectorAll(".view.active #layer .seat :is(.card, .pod, .persona, .target-tag, .bubble)"))
+        if (hit(vis(c), vis(e))) out.push(`좌석/상단 컨트롤 ${c.textContent.trim()}`);
+  // #541 review 2: a bet must not sit on the pot (top-centre seat of 2/4-handed rings), on any seat's pod or
+  // cards (3-handed tablets), or on another bet, and an action bubble must not cover a bet or the pot.
+  const name = e => e.closest(".seat")?.querySelector(".nm")?.textContent || e.closest(".seat")?.dataset.pos || "";
+  for (const t of document.querySelectorAll(".view.active :is(#layer, .mt)")) {
+    // A bet's chips are stacked upward past its own box, so the bet is its box plus its chips.
+    const withChips = b => [...b.querySelectorAll(".chip")].map(vis).filter(Boolean).reduce((u, r) => u && new DOMRect(Math.min(u.left, r.left), Math.min(u.top, r.top),
+      Math.max(u.right, r.right) - Math.min(u.left, r.left), Math.max(u.bottom, r.bottom) - Math.min(u.top, r.top)), vis(b));
+    const bets = [...t.querySelectorAll(".bet")].filter(b => b.childElementCount).map(b => [b, withChips(b)]).filter(([, r]) => r);
+    const pot = [...t.querySelectorAll(".pot .chips, .pot .amt")].map(vis).filter(Boolean);
+    const seatParts = [...t.querySelectorAll(".seat .pod, .seat .hole .card")].map(e => [e, vis(e)]).filter(([, r]) => r);
+    const bubbles = [...t.querySelectorAll(".seat .bubble")].map(e => [e, vis(e)]).filter(([, r]) => r);
+    bets.forEach(([b, r], i) => {
+      const amt = b.textContent.trim();
+      if (pot.some(p => hit(r, p))) out.push(`벳/팟 ${amt}`);
+      for (const [e, q] of seatParts) if (hit(r, q)) out.push(`벳/좌석 ${amt} ${name(e)} ${e.className}`);
+      for (const [o, q] of bets.slice(i + 1)) if (hit(r, q)) out.push(`벳/벳 ${amt} ${o.textContent.trim()}`);
+    });
+    for (const [e, q] of bubbles) {
+      for (const [b, r] of bets) if (hit(q, r)) out.push(`말풍선/벳 ${name(e)} ${b.textContent.trim()}`);
+      if (pot.some(p => hit(q, p))) out.push(`말풍선/팟 ${name(e)}`);
+    }
+  }
   return out;
 }
 
 // focus: 화면에 들여 놓고 보이는지 검사할 요소. 찍는 동안 데모 진행을 멈춘다.
-async function inspect(tag, focus) {
-  await page.evaluate(() => { window.__hold = true; });
+async function inspect(tag, focus, pg = page) {
+  await pg.evaluate(() => { window.__hold = true; });
   for (const [name, width, height] of VIEWPORTS) {
-    await page.setViewportSize({ width, height });
+    await pg.setViewportSize({ width, height });
     if (focus) {
       // A re-render (e.g. 복기 비교 결과) can detach the element between lookup and scroll: look it up
       // again and retry instead of failing on a timing race.
       let visible = false;
       for (let attempt = 0; attempt < 3 && !visible; attempt++) {
         try {
-          const el = page.locator(focus).first();
+          const el = pg.locator(focus).first();
           await el.waitFor({ state: "visible", timeout: 5000 });
           await el.scrollIntoViewIfNeeded({ timeout: 5000 });
           visible = await el.isVisible();
         } catch (e) {
           if (attempt === 2) console.error(`${tag} ${width}x${height}: ${focus} 재시도 실패 — ${e.message.split("\n")[0]}`);
-          await page.waitForTimeout(200);
+          await pg.waitForTimeout(200);
         }
       }
       must(visible, `${tag} ${width}x${height}: ${focus}가 화면에 없음`);
     }
-    await page.screenshot({ path: `${shots}/${tag}-${name}.png` });
-    const ov = await page.evaluate(tableOverlaps);
+    await pg.screenshot({ path: `${shots}/${tag}-${name}.png` });
+    const ov = await pg.evaluate(tableOverlaps);
     must(!ov.length, `${tag} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 카드·칩·딜러 버튼 위치를 고치세요 (#445)`);
-    const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
+    const { sw, iw } = await pg.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
     must(sw <= iw, `${tag} ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw}). 넘치는 요소를 줄이세요`);
   }
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await pg.setViewportSize({ width: 1440, height: 900 });
   // axe-core도 setTimeout을 쓰므로 hold를 먼저 풀어야 교착하지 않는다.
-  await page.evaluate(() => { window.__hold = false; });
-  await page.evaluate(src => { if (!window.axe) (0, eval)(src); }, axeSource);
-  const res = await page.evaluate(() => axe.run(document, { resultTypes: ["violations"] }));
+  await pg.evaluate(() => { window.__hold = false; });
+  await pg.evaluate(src => { if (!window.axe) (0, eval)(src); }, axeSource);
+  const res = await pg.evaluate(() => axe.run(document, { resultTypes: ["violations"] }));
   const critical = res.violations.filter(v => v.impact === "critical");
   must(critical.length === 0, `${tag}: axe critical ${critical.map(v => v.id + "×" + v.nodes.length).join(", ")}`);
 }
@@ -320,7 +364,7 @@ must(eqTruth && eqTruth.step === eqTruth.step2 && eqTruth.key === eqTruth.key2, 
   const qs = await page.locator("#tp-body [data-card='quick-ask'] .q").all();
   must(qs.length >= 1 && qs.length <= 3, `Quick 분석: 핵심 판단 ${qs.length}개 (1~3개여야 함)`);
   must((await page.locator("#tp-body [data-act]").count()) === 0, "Quick 분석: 액션을 다시 묻고 있음(액션이 먼저여야 함)");
-  for (const q of qs) await q.locator("[data-chip]").first().click();
+  for (const q of qs) await answerQ(q);
 }
 {
   // #445: preflop with nobody in the pot yet, there is no single opponent range to read.
@@ -357,17 +401,16 @@ await inspect("train-guided", "#tp-body .tpc[data-card='0']");
 {
   const first = page.locator("#tp-body .tpc:not([hidden])");
   const stage = await first.getAttribute("data-card");
-  const chip = first.locator(".q:not(.na) [data-chip]").first();
+  const chip = first.locator(".q:not(.na) [data-chip], .q:not(.na) [data-dial]").first();
   if (await chip.count()) {
-    await chip.click();
-    for (const q of await first.locator(".q:not(.na)").all()) if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+    for (const q of await first.locator(".q:not(.na)").all()) await answerQ(q);
     if (await page.locator("#tp-next").isEnabled()) {
       await page.click("#tp-next");
       must((await page.locator("#tp-body .tpc:not([hidden])").getAttribute("data-card")) !== stage, "다음: 카드가 바뀌지 않음");
       await page.click("#tp-prev");
       const back = page.locator("#tp-body .tpc:not([hidden])");
       must((await back.getAttribute("data-card")) === stage, "이전: 처음 카드로 돌아오지 않음");
-      must((await back.locator(".q:not(.na) [data-chip][aria-pressed='true']").count()) > 0, "이전: 입력했던 답이 사라짐");
+      must((await back.locator(".q:not(.na) [data-chip][aria-pressed='true'], .q:not(.na) [data-dial]:not([data-unset])").count()) > 0, "이전: 입력했던 답이 사라짐");
       must((await page.locator("#tp-dots .dot.cur").count()) === 1, "이전: 진행 점 표시 없음");
     }
   }
@@ -381,9 +424,7 @@ async function answerDeck() {
       if (await q.locator("[data-act]").count()) {
         await q.locator("[data-act]:not([disabled]):not([data-act='fold'])").first().click();
         if (await page.locator("[data-sizes]:not([hidden]) [data-size]").count()) await page.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
-      } else if (await q.locator("[data-chip]").count()) {
-        await q.locator("[data-chip]").first().click();
-      }
+      } else await answerQ(q);
     }
     const next = page.locator("#tp-next");
     if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
@@ -487,7 +528,7 @@ await page.evaluate(() => { window.__hold = false; });
   // Walk the deck up to the card that asks hand.equity so the screenshot shows the rank question.
   for (let guard = 0; guard < 6 && !(await eq.isVisible()); guard++) {
     for (const q of await page.locator("#tp-body .tpc:not([hidden]) .q:not(.na)").all())
-      if (await q.locator("[data-chip]").count()) await q.locator("[data-chip]").first().click();
+      await answerQ(q);
     if (!(await page.locator("#tp-next").isEnabled())) break;
     await page.click("#tp-next");
   }
@@ -577,10 +618,42 @@ await page.click("#dr-back");
 await page.waitForSelector("#learn.gallery");
 await page.locator("#mods .mod:not(.locked)").nth(1).click();
 await page.waitForSelector("#dr-go");
-if (await page.locator("#drill [data-chip]").count()) await page.locator("#drill [data-chip]").first().click();
+await answerQ(page.locator("#drill .dr-q"));
 await page.click("#dr-go");
 must((await page.locator("#dr-res").innerHTML()).trim() !== "", "학습 섹션: 정답 확인 후 결과가 비어 있음");
 await inspect("learn", "#dr-res");
+// #551: the learn drill picks its scenario at random, so a bet sitting on the pot only failed on some runs. Pin every
+// scenario (each one has a bet on a different seat) into LM.prob so the resize listener re-renders the SAME scenario,
+// then check at all three sizes that the bets on screen are exactly the pinned scenario's before the overlap check.
+{
+  await page.evaluate(() => { window.__hold = true; });
+  const n = await page.evaluate(() => SCENARIOS.length);
+  for (let i = 0; i < n; i++) {
+    const want = await page.evaluate(i => {
+      const sc = SCENARIOS[i], full = [1, 14, 27, 40, 5].slice(0, sc.depth), h = rhScript(sc.acts, sc.hero, 40, full);
+      while (h.board.length < full.length) rhNextStreet(h, h.street === 0 ? full.slice(0, 3) : [full[h.board.length]]);
+      LM.prob = { ...LM.prob, h, sc };
+      const amts = el => [...el.querySelectorAll(".bet .amt")].map(e => e.textContent.trim()).join("|");
+      const probe = document.createElement("div"); probe.innerHTML = tableHTML(h, { focus: sc.opp });
+      const t = $("#drill .dr-table");
+      t.innerHTML = tableHTML(h, { cards: { [sc.hero]: LM.prob.hero }, focus: sc.opp }); layoutMinis(t);
+      // bets are cleared on a new street, so only the last street's actions can leave one on the table
+      const last = sc.acts.join(",").split("|").pop();
+      return { amts: amts(probe), expectBet: /\s(r|b|c)/.test(last) };
+    }, i);
+    must(!want.expectBet || want.amts !== "", `learn 고정 시나리오 ${i}: 기대한 벳이 없음 — 시나리오 정의 확인 (#551)`);
+    for (const [name, width, height] of VIEWPORTS) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(100);
+      const shown = await page.evaluate(() => [...document.querySelectorAll("#drill .dr-table .bet .amt")].map(e => e.textContent.trim()).join("|"));
+      must(shown === want.amts, `learn 고정 시나리오 ${i} ${width}x${height}: 화면 벳 "${shown}"이 고정한 시나리오 "${want.amts}"와 다름 (#551)`);
+      const ov = await page.evaluate(tableOverlaps);
+      must(!ov.length, `learn 고정 시나리오 ${i} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} (#551)`);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => { window.__hold = false; });
+}
 {
   // #445: the equity answer and its win/tie/loss explanation come from one sample; answering 0 scores low.
   await page.click("#dr-back");
@@ -618,6 +691,59 @@ await inspect("review", "#rv-body h2");
   must(r.hero === 2, `복기: 테이블에 내 카드 2장이 없음 (${r.hero}장)`);
 }
 
+// #565: the review flow above only folds/checks/calls, so #rv-table rarely has a bet on it and the #551 overlap
+// never got checked there. Pin RV to fixed hands (every other seat raising in turn preflop, all six seats in, and
+// bets after the flop), and check at each size that the bets drawn are exactly the pinned hand's before the overlap check.
+{
+  const RV_SIZES = [["laptop", 1440, 900], ["tablet", 820, 1180], ["tablet-768", 768, 1024], ["phone", 390, 844]];
+  const PRE = ["UTG f", "HJ f", "CO f", "BTN f", "SB f"];
+  const RV_HANDS = [
+    ...["UTG", "HJ", "CO"].map((pos, k) => ({ nm: `${pos} 오픈`, acts: [...PRE.slice(0, k), `${pos} r2.5`] })),
+    { nm: "SB 레이즈", acts: ["UTG f", "HJ f", "CO f", "BTN f", "SB r3"] },
+    { nm: "BB 3벳", acts: ["UTG f", "HJ f", "CO f", "BTN r2.5", "SB c", "BB r11"] },
+    { nm: "6좌석 모두 벳", acts: ["UTG r2.5", "HJ r7.5", "CO c", "BTN c", "SB r22", "BB c"], shot: true },
+    { nm: "플랍 벳·레이즈", acts: ["UTG f", "HJ f", "CO r2.5", "BTN c", "SB f", "BB c", "|", "BB k", "CO b50", "BTN r3x"], shot: true },
+    { nm: "턴 벳", acts: ["UTG f", "HJ f", "CO r2.5", "BTN c", "SB c", "BB c", "|", "SB k", "BB k", "CO b33", "BTN c", "SB c", "BB c", "|", "SB b75", "BB r3x"] },
+  ];
+  const saved = await page.evaluate(() => JSON.stringify({ step: RV.step, mode: RV.mode, heroPos: RV.heroPos, stack: RV.stack, hero: RV.hero, acts: RV.acts, buf: RV.buf, sd: RV.sd, sizing: RV.sizing }));
+  await page.evaluate(() => { window.__hold = true; });
+  for (const hand of RV_HANDS) {
+    // Same token grammar as rhScript, turned into the RV.acts entries the review input would have pushed.
+    const want = await page.evaluate(acts => {
+      const board = [1, 14, 27, 40, 5], h = rhNew("BTN", 100), out = [];
+      let bi = 0;
+      for (const t of acts) {
+        if (t === "|") { const n = h.street === 0 ? 3 : 1, deal = board.slice(bi, bi + n); bi += n; rhNextStreet(h, deal); out.push({ deal }); continue; }
+        const [pos, a] = t.split(" "); if (rhActor(h)?.pos !== pos) return { err: `순서가 맞지 않는 액션 ${t}` };
+        const m = a[0], v = parseFloat(a.slice(1));
+        const act = m === "f" ? { type: "fold" } : m === "k" ? { type: "check" } : m === "c" ? { type: "call" } : m === "b" ? { type: "raise", to: Math.round(rhPot(h) * v / 10) / 10 } : { type: "raise", to: a.endsWith("x") ? h.currentBet * v : v };
+        if (!rhAct(h, act)) return { err: `할 수 없는 액션 ${t}` };
+        out.push(act);
+      }
+      Object.assign(RV, { mode: "cash", heroPos: "BTN", stack: 100, hero: [8, 21], acts: out, buf: [], sd: {}, sizing: false, step: 2 + h.street });
+      renderReview();
+      const probe = document.createElement("div"); probe.innerHTML = tableHTML(RV.h, { cards: { BTN: RV.hero } });
+      return { amts: [...probe.querySelectorAll(".bet .amt")].map(e => e.textContent.trim()).join("|"), seats: RV.h.seats.filter(s => s.bet > 0).map(s => s.pos).join(",") };
+    }, hand.acts);
+    must(!want.err, `복기 고정 핸드 '${hand.nm}': ${want.err} — RV_HANDS 정의를 고치세요 (#565)`);
+    if (want.err) continue;
+    must(want.amts !== "", `복기 고정 핸드 '${hand.nm}': 벳이 놓인 좌석이 없음 — 마지막 스트리트에 벳·레이즈를 넣으세요 (#565)`);
+    for (const [name, width, height] of RV_SIZES) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(100);
+      const shown = await page.evaluate(() => [...document.querySelectorAll("#rv-table .bet .amt")].map(e => e.textContent.trim()).join("|"));
+      must(shown === want.amts, `복기 고정 핸드 '${hand.nm}' ${width}x${height}: 화면 벳 "${shown}"이 고정한 핸드 "${want.amts}"와 다름 — 리사이즈 재렌더가 RV를 바꾸는지 확인 (#565)`);
+      const ov = await page.evaluate(tableOverlaps);
+      must(!ov.length, `복기 고정 핸드 '${hand.nm}' (벳 좌석 ${want.seats}) ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — web/demo/index.html layoutMini 배치를 고치세요 (#565)`);
+      const { sw, iw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
+      must(sw <= iw, `복기 고정 핸드 '${hand.nm}' ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw}) (#565)`);
+      if (hand.shot) { await page.locator("#rv-table").scrollIntoViewIfNeeded(); await page.screenshot({ path: `${shots}/review-fixed-${RV_HANDS.indexOf(hand)}-${name}.png` }); }
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(s => { Object.assign(RV, JSON.parse(s)); renderReview(); window.__hold = false; }, saved);
+}
+
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
 await page.click(".tab[data-view='home']");
 await page.click("#move summary");
@@ -646,6 +772,7 @@ await inspect("home-move", "#move");
 // 5. #337 정책을 못 불러올 때: 오류 화면(이유·다시 시도·모의로 계속) → 다시 시도 성공 / 모의로 계속
 {
   const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p2);
   p2.setDefaultTimeout(60_000);
   p2.on("pageerror", e => must(false, `page error (정책 오류 경로): ${e.message}`));
   const block = r => r.abort();
@@ -679,11 +806,12 @@ await inspect("home-move", "#move");
 // 6. #360 고수 등급: 상대 5명이 pro-6.json 정책(board.nut 키 포함)을 두고, 한 핸드를 끝까지 치며 모델 비교가 보인다.
 {
   const p3 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p3);
   p3.setDefaultTimeout(90_000);
   p3.on("pageerror", e => must(false, `page error (고수 정책): ${e.message}`));
   await p3.goto(url);
   await p3.click("#set-tier [data-v='pro']");
-  await p3.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.pro, null, { timeout: 120_000 });
+  await p3.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol["pro-6"], null, { timeout: 120_000 });
   await p3.click("#start-btn");
   await p3.waitForSelector(QUICK);
   must((await p3.textContent("#infobar")).includes("상대 TP-GTO 고수"), "고수: 상대가 TP-GTO 고수 정책이 아님");
@@ -722,10 +850,11 @@ await inspect("home-move", "#move");
 // 7. #364 핸드 도중 등급 변경: 그 핸드는 중수 키로 끝나고, 다음 핸드부터 상대·질문·비교가 모두 고수 정책이다.
 {
   const p4 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p4);
   p4.setDefaultTimeout(90_000);
   p4.on("pageerror", e => must(false, `page error (등급 변경): ${e.message}`));
   await p4.goto(url);
-  await p4.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol.mid);
+  await p4.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || "") && TPG.pol["mid-6"]);
   await p4.click("#start-btn");
   await p4.waitForSelector(QUICK);
   const sw = await p4.evaluate(() => G.handNo);
@@ -787,6 +916,7 @@ await inspect("home-move", "#move");
   const cell = leaks.leaks.filter(c => c.spot === "first_in" && c.group === "AA").sort((a, b) => a.seat - b.seat)[0];
   must(!!cell, "known leaks: mid-6.leaks.json has no first_in AA leak cell to force (re-run python -m stalker.tools.policy_leaks)");
   const p5 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p5);
   p5.setDefaultTimeout(90_000);
   p5.on("pageerror", e => must(false, `page error (known leaks): ${e.message}`));
   await p5.addInitScript(() => {
@@ -794,7 +924,7 @@ await inspect("home-move", "#move");
     window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
   });
   await p5.goto(url);
-  await p5.waitForFunction(() => TPG.pol.mid && "mid" in TPG.leaks);
+  await p5.waitForFunction(() => TPG.pol["mid-6"] && "mid-6" in TPG.leaks);
   const card = p5.locator("#model-status [data-known-leak]");
   must(await card.count() === 1 && /학습 중간본/.test(await card.textContent()) && /프리플랍/.test(await card.textContent())
     && /issues\/391$/.test(await card.locator("a").getAttribute("href")), "known leaks: 시작 화면 모델 카드에 알려진 프리플랍 결함·#391 링크가 없음");
@@ -828,6 +958,346 @@ await inspect("home-move", "#move");
     console.log(`known leaks: ${cell.pos} AA 퍼스트 인 경고 (+${cell.gain_bb} bb)`);
   }
   await p5.close();
+}
+
+// 9. #444 딜 시드: 고정하지 않은 두 로드는 시드가 다르고, ?seed=N은 두 로드 모두 N으로 고정한다.
+{
+  const base = url.replace(/&seed=\d+/, "");
+  const seedOf = async q => {
+    const p = await browser.newPage();
+    await p.goto(base + q, { waitUntil: "domcontentloaded" });
+    const v = await p.evaluate(() => DEAL_SEED);
+    await p.close();
+    return v;
+  };
+  const [a, b] = [await seedOf(""), await seedOf("")];
+  must(a !== b, `딜 시드: seed 없이 두 번 열었는데 시드가 같음 (${a}) — 페이지 로드마다 crypto 시드를 쓰는지 확인`);
+  const [c, d] = [await seedOf("&seed=20261027"), await seedOf("&seed=20261027")];
+  must(c === 20261027 && d === 20261027, `딜 시드: ?seed=20261027이 시드를 고정하지 않음 (${c}, ${d})`);
+  const e = await seedOf("&seed=abc");
+  must(Number.isInteger(e) && e !== 0, `딜 시드: 숫자가 아닌 seed에서 무작위 시드로 돌아가지 않음 (${e})`);
+}
+
+// 10. #464 Guided: the game waits on the grading after every decision; every hand the hero played ends with
+// that hand's analysis and waits; plan.pot is a slider; 종료·분석 stops the game and the report counts match.
+{
+  const p6 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  p6.setDefaultTimeout(90_000);
+  p6.on("pageerror", e => must(false, `page error (session report): ${e.message}`));
+  await p6.addInitScript(() => { window.__noAuto = true; window.__sfxLog = []; });
+  await autoContinue(p6);
+  await p6.addInitScript(() => {
+    const st = window.setTimeout.bind(window);
+    window.setTimeout = (fn, ms, ...args) => st(function tick() { if (window.__hold) st(tick, 25); else fn(...args); }, ms);
+  });
+  await p6.goto(url);
+  await p6.click("#set-play [data-v='guided']");
+  await p6.click("#start-btn");
+  const still = () => p6.evaluate(async () => { const a = [G.handNo, G.log.length]; await new Promise(r => setTimeout(r, 2500)); return G.paused && G.handNo === a[0] && G.log.length === a[1]; });
+  let decided = 0, hands = 0, slider = false, foldViews = 0, closedHand = -1, targetSeen = false;
+  const dials = new Set();
+  for (let guard = 0; guard < 80 && (decided < 4 || hands < 2 || foldViews < 2); guard++) {
+    await p6.waitForSelector("#tp-body .tpc:not([hidden]), #tp-resume, #tp-next-hand, #sd-muck, #fold-close");
+    if (await p6.locator("#sd-muck").count()) { await p6.click("#sd-muck"); continue; }
+    if (await p6.locator("#fold-close").count()) {
+      // Folded: the analysis is up and the hand runs on fast. Kept open, the table holds at the hand's end;
+      // closed (second time), the next hand starts without the hand-end hold. Read and act under __hold:
+      // a fast hand can end between the selector wait and a click.
+      const f = await p6.evaluate(close => {
+        window.__hold = true;
+        const b = $("#fold-close");
+        const r = { open: !!b, paused: !!G.paused, fast: !!G.fast, hr: !!$("#tp-body [data-hand-review][data-live]"), no: G.handNo };
+        if (b && close) b.click();
+        window.__hold = false;
+        return r;
+      }, foldViews >= 1);
+      if (!f.open) continue;
+      must(!f.paused && f.fast && f.hr, `폴드 뒤: 분석 화면이 뜨고 게임은 빠르게 계속돼야 함 (${JSON.stringify(f)})`);
+      if (!foldViews++) { await p6.waitForSelector("#tp-next-hand"); continue; }
+      closedHand = f.no;
+      await p6.waitForFunction(no => G.handNo > no || !!$("#tp-next-hand"), f.no);
+      continue;
+    }
+    if (await p6.locator("#tp-next-hand").count()) {
+      const v = await p6.evaluate(() => ({ no: G.handNo, rows: $$("#tp-body [data-hr-dec]").length, want: G.decs.filter(d => d.hand === G.handNo).length }));
+      must(v.rows === v.want && v.rows > 0, `핸드 분석: 핸드 #${v.no}의 내 결정 ${v.want}개인데 표 줄 ${v.rows}개`);
+      must(v.no !== closedHand, `폴드 뒤 분석을 닫았는데 핸드 #${v.no} 끝에서 멈춤`);
+      if (!hands) { must(await still(), "핸드 분석: 화면이 떠 있는 동안 다음 핸드가 시작됨"); await inspect("train-hand-review", "#tp-body [data-hand-review]", p6); }
+      hands++; await p6.click("#tp-next-hand"); continue;
+    }
+    if (await p6.locator("#tp-resume").count()) {
+      if (decided === 1) { must(await still(), "Guided: 채점 화면에서 게임이 멈추지 않음"); must(await p6.locator("#tp-body .result-top").count() === 1, "Guided 멈춤: 채점 결과가 없음"); }
+      await p6.click("#tp-resume"); continue;
+    }
+    // The opponent the C-stage questions read is outlined on the table (one seat, the graded opponent).
+    const tg = await p6.evaluate(() => ({ on: $$(".seat.target").map(e => e.id), want: fieldOnly(CUR.hero) ? null : "seat-" + CUR.g.opp.i, tag: $$(".seat.target .target-tag").length }));
+    must(tg.want ? tg.on.length === 1 && tg.on[0] === tg.want && tg.tag === 1 : tg.on.length === 0, `읽기 대상 표시가 다름 (${JSON.stringify(tg)})`);
+    if (tg.want && !targetSeen) { targetSeen = true; await inspect("train-target", "#table .seat.target", p6); }
+    // Answer the deck: the first decision raises or calls (so plan.pot is asked), later ones fold to end hands.
+    for (let c = 0; c < 12; c++) {
+      const card = p6.locator("#tp-body .tpc:not([hidden])");
+      for (const q of await card.locator(".q:not(.na)").all()) {
+        if (await q.locator("[data-act]").count()) {
+          const pick = decided ? "[data-act='fold']:not([disabled]), [data-act='check']:not([disabled])" : "[data-act]:not([disabled]):not([data-act='fold'])";
+          await q.locator(pick).first().click();
+          if (await p6.locator("[data-sizes]:not([hidden]) [data-size]").count()) await p6.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
+        } else if (await q.locator("[data-dial]").count()) {
+          // Judgment items are sliders (#464); plan.pot is checked by name, the others by the ends.
+          const k = await q.getAttribute("data-k"), step = +(await q.locator("[data-dial]").getAttribute("step"));
+          const v = Math.round(70 / step) * step;
+          await q.locator("[data-dial]").fill(String(v));
+          must((await q.locator("[data-val]").textContent()).trim() === String(v) && !(await q.locator("[data-chip]").count()), `${k} 슬라이더: 값 ${v}이 표시되지 않거나 칩이 남아 있음`);
+          if (k === "plan.pot") slider = true;
+          dials.add(k);
+        } else await answerQ(q);
+      }
+      const next = p6.locator("#tp-next");
+      if (await next.isVisible() && await next.isEnabled()) { await next.click(); continue; }
+      break;
+    }
+    await p6.click("#tp-submit");
+    decided++;
+  }
+  must(decided >= 4 && hands >= 2 && foldViews >= 2, `Guided 흐름: 결정 ${decided}회·핸드 분석 ${hands}회·폴드 화면 ${foldViews}회 (4·2·2 이상 필요)`);
+  must(targetSeen, "읽기 대상 하이라이트가 한 번도 나오지 않음");
+  const snd = await p6.evaluate(() => [...new Set(window.__sfxLog)]);
+  const files = await p6.evaluate(() => ({ ok: Object.values(SND.buf || {}).filter(Boolean).length, want: new Set(Object.values(SFX_FILES).flat()).size + 2 * VOICE_KINDS.length }));
+  must(files.ok === files.want, `효과음 파일: ${files.want}개 중 ${files.ok}개만 디코드됨 (app/assets/sfx/*.ogg·voice-*.mp3 경로·형식 확인)`);
+  must(["deal", "flip", "fold"].every(k => snd.includes(k)) && snd.some(k => ["check", "call", "bet", "raise", "allin"].includes(k)), `효과음: 딜·오픈·액션 소리가 다 나오지 않음 (${snd.join(",")})`);
+  must(slider, "plan.pot 슬라이더가 한 번도 나오지 않음 (첫 결정은 폴드가 아닌 액션이어야 함)");
+  const chipJudg = await p6.evaluate(() => Object.keys(TP).filter(k => isDial(k)).length);
+  must(dials.size >= 2 && chipJudg >= 8, `판단 슬라이더: 슬라이더로 답한 항목 ${[...dials].join(",")} (2개 이상), 슬라이더 항목 정의 ${chipJudg}개`);
+  // Showdown order (#464): a bet river starts with the last river aggressor, a checked river with the first
+  // live seat after the button; a beaten hand that wins nothing may muck.
+  const so = await p6.evaluate(() => {
+    const keep = { street: G.street, agg: G.streetAgg }, cs = G.seats.slice(0, 3);
+    G.street = 3; G.streetAgg = cs[2].i; const bet = showOrder(cs).map(s => s.i);
+    G.streetAgg = null; const chk = showOrder(cs).map(s => s.i), fa = firstAfterButton();
+    G.street = keep.street; G.streetAgg = keep.agg;
+    return { bet, chk, first: cs[2].i, fa, inCs: cs.some(s => s.i === fa) };
+  });
+  must(so.bet[0] === so.first && so.bet.length === 3, `쇼다운 순서: 리버 벳이면 마지막 공격자가 먼저 (${JSON.stringify(so)})`);
+  must(so.chk.length === 3 && (!so.inCs || so.chk[0] === so.fa), `쇼다운 순서: 체크로 돌면 버튼 다음 좌석부터 (${JSON.stringify(so)})`);
+  await p6.waitForSelector("#end-game");
+  await p6.click("#end-game");
+  await p6.waitForSelector(".modal[data-report]");
+  const r = await p6.evaluate(() => ({ dec: +$("[data-rp-decisions] b").textContent, hands: +$("[data-rp-hands] b").textContent, want: G.decs.length, wantH: G.hands.length, ended: G.ended, items: $$("[data-rp-items] tr").length, act: !!$("[data-rp-act]") }));
+  must(r.ended && r.dec === r.want && r.dec >= decided && r.hands === r.wantH && r.hands >= 2, `세션 분석: 결정·핸드 수가 기록과 다름 (${JSON.stringify(r)})`);
+  must(r.items > 0 && r.act, `세션 분석: 항목별 점수 표나 TP-GTO 액션 비교가 없음 (${JSON.stringify(r)})`);
+  const h0 = await p6.evaluate(() => G.handNo);
+  await p6.waitForTimeout(2500);
+  must(await p6.evaluate(() => G.handNo) === h0, "종료·분석: 게임이 끝나지 않고 다음 핸드가 진행됨");
+  await inspect("train-session-report", ".modal[data-report] .box", p6);
+  console.log(`세션 분석: 결정 ${r.dec}회 · 핸드 ${r.hands}개 · 항목 ${r.items}개`);
+  await p6.click("#rp-close");
+  must((await p6.textContent("#end-game")).includes("분석 다시 보기"), "종료 뒤 헤더 버튼이 '분석 다시 보기'가 아님");
+  // 11. #465 내 게임: every played hand is saved, survives a reload, and the replay steps through the saved
+  // action list; a hero decision shows its label and the reasons; a broken record never breaks the page.
+  const saved = await p6.evaluate(() => { const d = JSON.parse(localStorage.getItem("stalker.games") || "null"); return { n: d?.games?.reduce((a, g) => a + g.hands.length, 0) ?? 0, played: G.hands.length, an: d?.games?.flatMap(g => g.hands).flatMap(h => h.acts).filter(a => a.an && a.an.p != null).length ?? 0 }; });
+  must(saved.n === saved.played && saved.n >= 2, `내 게임: 저장된 핸드 ${saved.n}개, 끝난 핸드 ${saved.played}개`);
+  must(saved.an > 0, "내 게임: 정책 비교가 담긴 결정이 하나도 저장되지 않음");
+  await p6.reload();
+  await p6.click("[data-view='review']");
+  await p6.waitForSelector("[data-mg-game]");
+  await p6.click("[data-mg-game]");
+  const listed = await p6.evaluate(() => ({ rows: $$("[data-mg-hand]").length, text: $$("[data-mg-hand]").map(b => b.textContent).join("|") }));
+  must(listed.rows === saved.n && /결정 \d+/.test(listed.text), `내 게임: 목록에 핸드 ${listed.rows}개 (저장 ${saved.n}), 결정 수 표시: ${listed.text}`);
+  const withAn = await p6.evaluate(() => { const g = JSON.parse(localStorage.getItem("stalker.games")).games[0]; return g.hands.filter(h => h.acts.some(a => a.an && a.an.p != null)).map(h => h.no); });
+  must(withAn.length > 0, "내 게임: 첫 게임에 정책 비교가 있는 핸드가 없음");
+  await p6.click(`[data-mg-hand='${withAn[0]}']`);
+  const want = await p6.evaluate(no => JSON.parse(localStorage.getItem("stalker.games")).games[0].hands.find(h => h.no === no).acts.map(a => a.txt), withAn[0]);
+  const got = await p6.evaluate(() => $$("[data-mg-act]").map(b => b.firstChild.textContent.trim()));
+  must(JSON.stringify(got) === JSON.stringify(want), `내 게임 리플레이: 액션 목록이 저장과 다름 (${JSON.stringify(got)} vs ${JSON.stringify(want)})`);
+  let stepped = 0;
+  while (!(await p6.locator("[data-mg-next]").isDisabled())) { await p6.click("[data-mg-next]"); stepped++; }
+  must(stepped === want.length && (await p6.textContent("[data-mg-pos]")) === `${want.length}/${want.length}`, `내 게임 리플레이: 다음 액션 ${stepped}번, 액션 ${want.length}개`);
+  await p6.click("[data-mg-first]");
+  const heroStep = await p6.evaluate(no => JSON.parse(localStorage.getItem("stalker.games")).games[0].hands.find(h => h.no === no).acts.findIndex(a => a.hero && a.an && a.an.p != null) + 1, withAn[0]);
+  await p6.click(`[data-mg-step='${heroStep}']`);
+  const an = await p6.evaluate(() => ({ v: $("[data-mg-verdict]")?.textContent, li: $$("[data-mg-analysis] li").length, text: $("[data-mg-analysis]")?.textContent }));
+  must(["잘함", "아쉬움", "실수", "채점 안 함"].includes(an.v) && an.li >= 1 && /정책이/.test(an.text), `내 게임 리플레이: 결정 분석이 없음 (${JSON.stringify(an)})`);
+  await inspect("games-replay", "[data-mg-table]", p6);
+  await p6.evaluate(() => { localStorage.setItem("stalker.games", "{broken"); });
+  await p6.reload();
+  await p6.click("[data-view='review']");
+  await p6.waitForSelector("[data-mg-empty]");
+  console.log(`내 게임: 핸드 ${saved.n}개 저장·재로드·리플레이 ${want.length}액션 · 분석 "${an.v}"`);
+  await p6.close();
+}
+
+// 7. #397 임시 정책·미학습 표시: (a) 6인 100BB → 임시 배지, (b) 4인 → 미학습(규칙 봇), (c) placeholder:false 픽스처 → 배지 없음
+{
+  const open = async (pg, seats) => {
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    if (seats) await pg.selectOption("#c-seats", seats);
+    await pg.click("#start-btn");
+    await pg.waitForSelector("#tp-body [data-card='quick-act']");
+  };
+  const info = pg => pg.evaluate(() => ({
+    badge: [...document.querySelectorAll("#infobar [data-placeholder]")].map(e => ({ t: e.textContent, role: e.getAttribute("role") })),
+    untrained: document.querySelectorAll("#infobar [data-untrained]").length,
+    seats: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent) }));
+  const p7 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p7);
+  p7.setDefaultTimeout(60_000);
+  p7.on("pageerror", e => must(false, `page error (임시 표시): ${e.message}`));
+  await open(p7);
+  const a = await info(p7);
+  must(a.badge.length === 1 && /임시 AI/.test(a.badge[0].t) && /실전 규칙 정책 학습 중/.test(a.badge[0].t) && a.badge[0].role === "note" && a.untrained === 0
+    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 중수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
+  for (const [name, width, height] of VIEWPORTS) { await p7.setViewportSize({ width, height }); await p7.screenshot({ path: `${shots}/placeholder-${name}.png` }); }
+  await p7.setViewportSize({ width: 1440, height: 900 });
+  await inspect("placeholder-badge", "#infobar [data-placeholder]", p7);
+  await p7.close();
+
+  const p8 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p8);
+  p8.setDefaultTimeout(60_000);
+  p8.on("pageerror", e => must(false, `page error (미학습): ${e.message}`));
+  await open(p8, "4");
+  const b = await info(p8);
+  must(b.untrained === 1 && b.badge.length === 0 && b.seats.length === 3 && b.seats.every(t => t.includes("규칙 봇")), `미학습 표시: 4인 테이블에 미학습(규칙 봇) 표시가 없음 (${JSON.stringify(b)})`);
+  for (const [name, width, height] of VIEWPORTS) {
+    await p8.setViewportSize({ width, height });
+    if (name === "phone") await p8.evaluate(() => document.querySelector("#tp")?.classList.remove("open", "full"));
+    const out = await p8.evaluate(() => {
+      const box = document.querySelector("#layer").getBoundingClientRect(), vw = innerWidth;
+      return [...document.querySelectorAll("#layer .seat:not(.hero)")].map(e => e.getBoundingClientRect())
+        .filter(r => r.width > 0 && (r.left < box.left - 1 || r.right > box.right + 1 || r.left < 0 || r.right > vw + 1)).length;
+    });
+    must(out === 0, `미학습 표시: 4인 테이블 ${name}에서 좌석 ${out}개가 테이블 영역/뷰포트 밖으로 잘림`);
+    await p8.screenshot({ path: `${shots}/untrained-table-${name}.png` });
+  }
+  await p8.setViewportSize({ width: 1440, height: 900 });
+  await inspect("untrained-table", "#infobar [data-untrained]", p8);
+  await p8.close();
+
+  const p9 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(p9);
+  p9.setDefaultTimeout(60_000);
+  await p9.route("**/policy/index.json", async r => {
+    const res = await r.fetch(), j = await res.json();
+    for (const t of Object.values(j.tiers)) t.placeholder = false;
+    await r.fulfill({ response: res, json: j });
+  });
+  await open(p9);
+  const c = await info(p9);
+  must(c.badge.length === 0 && c.untrained === 0 && c.seats.every(t => !t.includes("임시")), `임시 배지: placeholder:false 픽스처인데 배지가 보임 (${JSON.stringify(c)})`);
+  await p9.close();
+  console.log("임시 정책·미학습 표시 ok");
+}
+
+// 11. #541 (등급, 인원)별 정책: index.json의 tiers.beginner.by_players에 2·4인 픽스처(web/e2e/fixtures, run
+// fixture)를 붙여 내준다. 헤즈업·4인은 AI 결정이 픽스처 행이고 엔진 거울을 켠 채 핸드가 끝까지 가며, 3인(픽스처
+// 없음)은 지금처럼 미학습(규칙 봇)이다. 화면 3종 검사와 콘솔 오류 없음.
+{
+  const fix = Object.fromEntries([2, 4].map(n => [n, readFileSync(resolve(here, `fixtures/beginner-${n}.json`))]));
+  const fixDoc = n => JSON.parse(fix[n].toString("utf8"));
+  const serve = async pg => {
+    await pg.route("**/policy/index.json", async r => {
+      const res = await r.fetch(), j = await res.json();
+      j.tiers.beginner.by_players = Object.fromEntries([2, 4].map(n => {
+        const { schema, schema_version, policy, ...meta } = fixDoc(n);
+        return [n, { file: `beginner-${n}.json`, bytes: fix[n].length, ...meta }];
+      }));
+      await r.fulfill({ response: res, json: j });
+    });
+    for (const n of [2, 4]) await pg.route(`**/policy/beginner-${n}.json`, r => r.fulfill({ status: 200, contentType: "application/json", body: fix[n] }));
+  };
+  const open = async (seats) => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    // The page probes for the separately shipped strategy browser (#189) and the browser asks for a favicon;
+    // both 404 on this server by design.
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    await serve(pg);
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    await pg.click("#set-tier [data-v='beginner']");
+    await pg.selectOption("#c-seats", String(seats));
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    return { pg, errs };
+  };
+  // Where the hand happens to be when a screen is taken depends on timing (CI and local runs differed, #541
+  // review), so the table is pinned to its most crowded state first: every live opponent all-in with an action
+  // bubble, the first one tagged 읽기 대상, the button on that opponent. Nothing plays on after this.
+  const pinWorst = pg => pg.evaluate(() => {
+    window.__hold = true;
+    const opp = G.seats.filter(s => !s.isHero && !s.out);
+    for (const s of opp) { s.folded = false; s.bet += s.stack; s.stack = 0; s.allin = true; }
+    G.button = opp[0].i;
+    renderSeats();
+    for (const s of opp) bubble(s, `올인 ${bbf(s.bet)}`, "raise");
+    markTarget(opp[0]);
+  });
+  // The same crowded table with the button on each seat in turn, on all three screens.
+  const sweepButtons = async (pg, tag) => {
+    await pinWorst(pg);
+    await pg.addStyleTag({ content: ".dealer { transition: none !important; }" });
+    for (const [, width, height] of VIEWPORTS) {
+      await pg.setViewportSize({ width, height });
+      const n = await pg.evaluate(() => G.n);
+      for (let b = 0; b < n; b++) {
+        await pg.evaluate(b => { G.button = b; renderSeats(); }, b);
+        const ov = await pg.evaluate(tableOverlaps);
+        must(!ov.length, `${tag} ${width}x${height} 버튼 ${b}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 딜러 버튼·좌석 위치를 고치세요 (#541)`);
+      }
+    }
+    await pg.setViewportSize({ width: 1440, height: 900 });
+  };
+  const info = pg => pg.evaluate(() => ({
+    n: G.n, polTable: G.polTable, eng: !!G.eng, run: G.eng?.meta?.run_id ?? null,
+    untrained: document.querySelectorAll("#infobar [data-untrained]").length,
+    seats: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent) }));
+  for (const n of [2, 4]) {
+    const { pg, errs } = await open(n);
+    const a = await info(pg);
+    must(a.n === n && a.polTable && a.eng && a.run === "fixture" && a.untrained === 0 && a.seats.length === n - 1 && a.seats.every(t => t.includes("TP-GTO 초보")),
+      `인원별 정책 ${n}인: 픽스처 정책 테이블이 아님 (${JSON.stringify(a)})`);
+    let ended = null;
+    for (let guard = 0; guard < 30; guard++) {
+      ended = await pg.evaluate(() => G.eng?.lastHand?.ok && G.eng.lastHand.done ? G.eng.lastHand : null);
+      if (ended && (await pg.evaluate(() => TPG.botLog.length)) >= 6) break;
+      await pg.waitForSelector(QUICK);
+      await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+      await pg.click("#tp-go");
+    }
+    must(!!ended, `인원별 정책 ${n}인: 엔진 거울을 켠 채 쇼다운·폴드로 끝난 핸드가 없음 (헤즈업 좌석 매핑 engSeatOf 확인)`);
+    const file = fixDoc(n), log = await pg.evaluate(() => TPG.botLog.filter(x => x.tier === "beginner"));
+    let inTable = 0;
+    for (const d of log) {
+      const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
+      must(i >= 0, `인원별 정책 ${n}인: AI가 합법 메뉴 밖 액션 ${d.chosen}을 고름 (${d.key})`);
+      if (!row) { must(!d.fromTable, `인원별 정책 ${n}인: 픽스처에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+      inTable++;
+      must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9) && row[i] > 0,
+        `인원별 정책 ${n}인: 페이지가 쓴 확률이 픽스처 행과 다르거나 확률 0 액션을 고름 (${d.key})`);
+    }
+    must(log.length >= 6 && inTable >= 3, `인원별 정책 ${n}인: 검사할 AI 결정이 모자람 (전체 ${log.length}, 픽스처 키 ${inTable})`);
+    await pg.waitForSelector(QUICK);
+    await pinWorst(pg);
+    await inspect(`by-players-${n}`, "#infobar", pg);
+    await sweepButtons(pg, `인원별 정책 ${n}인`);
+    must(!errs.length, `인원별 정책 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    console.log(`인원별 정책 ${n}인: AI 결정 ${log.length}개(픽스처 ${inTable}) 모두 픽스처 행, 핸드 #${ended?.hand} 거울 유지로 종료`);
+    await pg.close();
+  }
+  const { pg, errs } = await open(3);
+  const c = await info(pg);
+  must(c.n === 3 && !c.polTable && !c.eng && c.untrained === 1 && c.seats.length === 2 && c.seats.every(t => t.includes("규칙 봇")),
+    `인원별 정책 3인: 픽스처가 없는데 미학습(규칙 봇) 대체가 아님 (${JSON.stringify(c)})`);
+  await pinWorst(pg);
+  await inspect("by-players-3", "#infobar [data-untrained]", pg);
+  await sweepButtons(pg, "인원별 정책 3인");
+  must(!errs.length, `인원별 정책 3인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+  await pg.close();
+  for (const n of [5, 6]) { const o = await open(n); await sweepButtons(o.pg, `인원별 정책 ${n}인`); await o.pg.close(); }
+  console.log("인원별 정책 ok");
 }
 
 await browser.close();

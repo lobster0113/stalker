@@ -13,6 +13,15 @@ label every answer with the model it came from (iterations, LBR, run).
 
     python -m stalker.tools.export_web_policy --ckpt e3-tp-mid-w4-seed1.ckpt.json --summary e3-tp-mid-w4-seed1.json \
         --run 40793583489 --out web/app/policy/mid-6.json
+
+`--index web/app/policy/index.json` also records the file in the page's model list (#541): a 6-max policy is
+`tiers[tier]`, any other seat count `tiers[tier].by_players["<n>"]`, so the page looks a table up by
+(tier, seats). Other entries are left as they are.
+
+`--players <n>` splits a player-mix c1 table (#486, ADR 0021 decision 1: one policy for 2-6 handed) into the
+file of one seat count (#585): only keys whose c1 player field is `n<n>` (`stalker.e3.mccfr.key_players`), with
+that count's LBR and field from the summary's `by_players`. The shared `call|` keys name no count and go to no
+file. On a single-count table `--players` must equal its `n` (the output is then the plain export).
 """
 from __future__ import annotations
 
@@ -23,8 +32,12 @@ from pathlib import Path
 
 import numpy as np
 
+from stalker.jsonio import read_json
+
 SCHEMA = "stalker.web.policy"
 SCHEMA_VERSION = 1
+INDEX_SCHEMA = "stalker.web.policy-index"
+INDEX_SCHEMA_VERSION = 1
 Q = 255
 MAX_BYTES = 3 * 1024 * 1024  # one tier's file (#336): the page loads it before the first hand
 
@@ -51,7 +64,45 @@ def export(policy: dict[str, list[float]], meta: dict, visits: dict[str, int] | 
             "policy": {k: quantize(v) for k, v in sorted(kept.items())}}
 
 
-def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: str = "current") -> dict:
+def index_entry(doc: dict, file: str, nbytes: int) -> dict:
+    """What the page's model list says about one policy file: everything but the table itself."""
+    return {"file": file, "bytes": nbytes, **{k: v for k, v in doc.items() if k not in ("schema", "schema_version", "policy")}}
+
+
+def upsert_index(index: dict | None, entry: dict) -> dict:
+    """Put a policy into the model list under (tier, players); 6-max keeps the old place (`tiers[tier]`) so
+    pages and tests that read it are unchanged, other seat counts go to `by_players` and leave 6-max alone."""
+    idx = index if index is not None else {"schema": INDEX_SCHEMA, "schema_version": INDEX_SCHEMA_VERSION, "tiers": {}}
+    if idx.get("schema") != INDEX_SCHEMA:
+        raise SystemExit(f"--index: schema {idx.get('schema')!r} is not {INDEX_SCHEMA}; point it at web/app/policy/index.json")
+    tier, n = entry["tier"], int(entry["players"])
+    old = idx["tiers"].get(tier, {})
+    if n == 6:
+        idx["tiers"][tier] = {**entry, **({"by_players": old["by_players"]} if "by_players" in old else {})}
+    else:
+        by = dict(old.get("by_players", {}))
+        by[str(n)] = entry
+        idx["tiers"][tier] = {**old, "by_players": dict(sorted(by.items(), key=lambda kv: int(kv[0])))}
+    return idx
+
+
+def write_index(path: Path, idx: dict) -> None:
+    path.write_text(json.dumps(idx, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def placeholder_of(doc: dict) -> bool:
+    """A policy/index entry marks itself a stand-in until a real-rules policy replaces it (#397, ADR 0019 §7);
+    a file written before the field existed is not one."""
+    return doc.get("placeholder") is True
+
+
+def trained_on(model: dict) -> dict:
+    """What the table was trained on, in words the web shows next to the 임시 AI badge."""
+    return {"game": "cash", "players": model["n"], "stack_bb": 100, "menu": model.get("menu", "v1")}
+
+
+def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: str = "current",
+              placeholder: bool = False) -> dict:
     s = summary or {}
     field = s.get("field") or {}
     worst = field.get("worst") if isinstance(field, dict) else None
@@ -61,7 +112,46 @@ def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: s
     return {"tier": s.get("tier", tier), "players": model["n"], "k": model["k"], "depth": model["depth"],
             "iterations": model["iterations"], "run_id": str(run), "sha": sha or s.get("sha", ""),
             "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst if strategy == "current" else None, "job": s.get("job", ""),
-            "strategy": strategy, **nut_k(model), **rules(model)}
+            "strategy": strategy, **nut_k(model), **rules(model),
+            **({"placeholder": True, "trained_on": trained_on(model)} if placeholder else {})}
+
+
+def by_players_meta(meta: dict, summary: dict | None, players: int, strategy: str) -> dict:
+    """The one-seat-count file's meta (#585): its player count and that count's LBR / field from the summary's
+    `by_players` row; a summary without the row leaves them empty (the run is still named)."""
+    row = ((summary or {}).get("by_players") or {}).get(str(players)) or {}
+    lbr = row.get("lbr_average" if strategy == "average" else "lbr")
+    lbr, se = (lbr.get("lbr_bb"), lbr.get("stderr_bb")) if isinstance(lbr, dict) else (lbr, None)
+    field = row.get("field") if strategy == "current" else None
+    worst = field.get("worst") if isinstance(field, dict) else None
+    out = {**meta, "players": players, "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst}
+    if "trained_on" in meta:
+        out["trained_on"] = {**meta["trained_on"], "players": players}
+    return out
+
+
+def split_players(st: dict, players: int | None) -> int | None:
+    """Which seat count to keep (#585): None exports the whole table. Refuses what cannot be split."""
+    if players is None:
+        return None
+    mix = [int(x) for x in st.get("player_mix") or []]
+    if not mix:
+        if players != st["n"]:
+            raise SystemExit(f"--players {players}: this table is {st['n']}-handed only (no player_mix); "
+                             f"drop --players or pass --players {st['n']}")
+        return None
+    if st.get("key_variant") != "c1":
+        raise SystemExit(f"--players: key variant {st.get('key_variant')!r} has no player field to split on; "
+                         "only a c1 player-mix table splits (drop --players to export it whole)")
+    if players not in mix:
+        raise SystemExit(f"--players {players}: not in this table's player_mix {sorted(set(mix))}; pick one of those")
+    return players
+
+
+def keep_players(policy: dict[str, list[float]], players: int) -> dict[str, list[float]]:
+    from stalker.e3.mccfr import key_players
+
+    return {k: v for k, v in policy.items() if key_players(k) == players}
 
 
 def rules(model: dict) -> dict:
@@ -82,16 +172,22 @@ def nut_k(model: dict) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     src = ap.add_mutually_exclusive_group(required=True)
-    src.add_argument("--ckpt", type=Path, help="a CI-layout .ckpt.json (or `pod_train --unpack` output)")
+    src.add_argument("--ckpt", type=Path, help="a CI-layout .ckpt.json[.gz] (or `pod_train --unpack` output)")
     src.add_argument("--pod-result", type=Path, help="a RunPod training result (stalker.tools.pod_train), summary included")
     ap.add_argument("--strategy", choices=("current", "average"), default="current",
                     help="regret matching (what CI's field evaluates) or the average strategy (#355)")
     ap.add_argument("--summary", type=Path, help="the seed's summary JSON (<job>-seed<s>.json): LBR, field, job")
     ap.add_argument("--run", default="", help="the training run id the checkpoint came from")
     ap.add_argument("--sha", default="")
+    ap.add_argument("--placeholder", action="store_true",
+                    help="mark the policy 임시(rules it was not trained on: 6-max 100BB cash only) so the web says so (#397)")
+    ap.add_argument("--players", type=int,
+                    help="a c1 player-mix table: export only this seat count's keys, with its by_players LBR (#585)")
     ap.add_argument("--min-visits", type=int, default=0, help="drop keys updated fewer times than this")
     ap.add_argument("--max-bytes", type=int, default=MAX_BYTES)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--index", type=Path,
+                    help="also upsert the file into this model list (web/app/policy/index.json) under (tier, players)")
     a = ap.parse_args(argv)
     from stalker.e3.mccfr import E3MCCFR
 
@@ -108,10 +204,13 @@ def main(argv=None) -> int:
             raise SystemExit(f"{a.pod_result}: no checkpoint in this result ({summary.get('checkpoint_note', 'missing')})")
         st = unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"])
     else:
-        st = json.loads(a.ckpt.read_text(encoding="utf-8"))
+        st = read_json(a.ckpt)
+    players = split_players(st, a.players)
     m = E3MCCFR.from_state(st)
     policy = m.policy() if a.strategy == "average" else m.current_policy()
-    meta = meta_from(st, summary, a.run, a.sha, a.strategy)
+    meta = meta_from(st, summary, a.run, a.sha, a.strategy, a.placeholder)
+    if players is not None:
+        policy, meta = keep_players(policy, players), by_players_meta(meta, summary, players, a.strategy)
     doc = export(policy, meta, dict(m.visits), a.min_visits)
     body = json.dumps(doc, separators=(",", ":")).encode()
     if len(body) > a.max_bytes:
@@ -120,6 +219,10 @@ def main(argv=None) -> int:
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_bytes(body)
     print(f"{a.out}: {doc['keys']} keys, {len(body)} bytes")
+    if a.index:
+        old = json.loads(a.index.read_text(encoding="utf-8")) if a.index.exists() else None
+        write_index(a.index, upsert_index(old, index_entry(doc, a.out.name, len(body))))
+        print(f"{a.index}: {doc['tier']} {doc['players']}-handed -> {a.out.name}")
     return 0
 
 

@@ -20,6 +20,8 @@ import time
 from functools import partial
 from pathlib import Path
 
+from stalker.jsonio import find_table, read_json, write_json_gz
+
 # LBR hands per seat: 400 gave SE ~0.4-0.5 bb/hand, too wide to separate TP tiers (#234); 4000 gives ~0.15.
 LBR_HANDS = 4000
 # E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
@@ -27,11 +29,25 @@ E3_LBR_HANDS = 1000
 # E3 field deals per configuration (each played in all 6 seat rotations): 500 locally gave a 95% CI of
 # about +-150 bb/100 (#295); about 0.08 s per deal per configuration, so 9 configs x 1000 is ~12 min.
 E3_FIELD_HANDS = 1000
+# #534: a player-mix model is also measured at each other table size it was dealt (2-5). Locally (reference
+# only) LBR over seats 2-5 costs ~1.2x one 6-seat LBR per hand and the 2-5 fields ~1.1x the 6-max field per
+# deal, so 600 / 500 add ~60% to the E3 evaluation (bound: 2x, #534).
+E3_BY_PLAYERS_LBR_HANDS = 600
+# #556: at 600 hands the 2-3 seat LBR se (1.1-1.7 bb/hand) was about the cross-seed sd (#548), so seeds could not
+# be compared; heads-up evaluation (105-253 s a run) is cheap next to training (3,367-5,897 s), so more hands
+# beat more seeds. 2000 cuts se by ~1.8x. Other sizes keep E3_BY_PLAYERS_LBR_HANDS.
+E3_BY_PLAYERS_LBR_HANDS_BY_N = {2: 2000, 3: 2000}
+E3_BY_PLAYERS_FIELD_HANDS = 500
 # Iterations per worker between syncs (#318): ~1 min of E3 work at CI speed, so pickling the regrets
 # (tens of thousands of keys) stays small next to the work.
 E3_SYNC_BATCH = 500
 # Noisy-learner hands per (form, level): 4000 gave CI ~±0.1-0.15 bb/hand per seed (#261 note).
 NOISE_SIM_HANDS = 4000
+# #446: the #413 preflop-deviation probe run in the job on the average policy (artifacts are not reachable
+# from every agent session, so the result rides in the summary). A small registered cell set: first in,
+# every seat, the groups where the served policies limped (#391); ~3 min per seed on one core at 300 deals.
+E3_PROBE_DEALS = 300
+E3_PROBE_GROUPS = ("AA", "KK", "AKs")
 SUMMARY_MAX_BYTES = 64 * 1024        # what may be pushed to ops per run
 ARTIFACT_MAX_BYTES = 256 * 1024 ** 2  # one seed's output folder (uploaded as an artifact)
 # Token shapes that must never reach ops or an artifact: GitHub, RunPod, AWS, PEM keys.
@@ -50,7 +66,7 @@ def _e2_mccfr(iters: int, seed: int, out: Path, tier: str = "baseline", name: st
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", policy)
     t1 = time.monotonic()
     # Same LBR deals for every tier and seed, so tiers differ only in what the policy sees (#187).
     lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, abstraction=abstraction)
@@ -89,7 +105,7 @@ def _e2_exploit(iters: int, seed: int, out: Path, tier: str, name: str, field: b
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", policy)
     total = max(EXPLOIT_CHECKPOINTS, int(EXPLOIT_RATIO * iters))
     exs = {seat: Exploiter(policy, TIERS[tier], seat, seed + 17 * seat, BASELINE) for seat in (0, 1)}
     curve, done, ex_s = [], 0, 0.0
@@ -134,7 +150,7 @@ def _e2_league(tier: str, exploiter_tier: str | None = None, name: str | None = 
         lg = League(tier, seed=seed, exploiter_tier=exploiter_tier)
         hist = lg.run(LEAGUE_GENERATIONS, per_gen, exploiter_iters=min(20_000, per_gen), hands=1000)
         if lg.champion is not None:
-            (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(lg.champion), encoding="utf-8")
+            write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", lg.champion)
         champ = [g for g in hist if g.promoted]
         return {"iters": per_gen * LEAGUE_GENERATIONS, "tier": tier, "generations": [asdict(g) for g in hist],
                 "exploiter": {"tier": lg.exploiter_tier or tier, "ratio": lg.exploiter_ratio,
@@ -154,7 +170,7 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
     m.iterate(iters)
     train_s = time.monotonic() - t0
     policy = m.policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", policy)
     t1 = time.monotonic()
     lbr = exploitability_lb(policy, hands=LBR_HANDS, seed=10_000 + seed, view=m.view)
     return {"iters": iters, "tier": tier, "view": m.view.to_json(), "train_seconds": round(train_s, 1),
@@ -165,30 +181,35 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
            workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
-           avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform") -> dict:
+           avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform", probe: bool = False,
+           avg_cap: float | None = None) -> dict:
     """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
     `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
     `avg_rule` (#426): how the average strategy is accumulated (stalker/e3/mccfr.py); a checkpoint of the
     other rule is refused.
-    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`); likewise kept on resume.
+    `key_variant` (#398): "b1" adds suit-aware outs/vuln/block to the key (`stalker.e3.tp_key`), "b2" (#460) also board.adv/opp.value/plan.foldeq; likewise kept on resume.
     `stacks` (#399): "sampled" deals 20-250BB tables in training (`stalker.e3.mccfr`); LBR and the field stay at
-    100BB, where the stack variants' new key field is constant."""
+    100BB, where the stack variants' new key field is constant.
+    `avg_cap` (#448): clips the own-reach average weight 1/prod(other reach) at this; a resumed run keeps its own.
+    `probe` (#446): also run the preflop-deviation probe (`e3_probe`) on the average policy."""
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
+    from stalker.e3 import tp_key as K
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
     from stalker.tools.pod_bench import machine
 
-    ckpt = f"{name}-seed{seed}.ckpt.json"
+    ckpt = f"{name}-seed{seed}.ckpt.json"   # saved as .gz (#560); a plain one from an older run still resumes
+    ck_path = find_table(resume, f"{name}-seed{seed}.ckpt") if resume is not None else None
     if resume is None:
         m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, avg_rule=avg_rule,
-                    key_variant=key_variant, stacks=stacks)
-    elif (resume / ckpt).is_file():
+                    key_variant=key_variant, stacks=stacks, avg_cap=avg_cap)
+    elif ck_path is not None:
         try:
-            m = E3MCCFR.from_state(json.loads((resume / ckpt).read_text(encoding="utf-8")), avg_rule)
+            m = E3MCCFR.from_state(read_json(ck_path), avg_rule, avg_cap=avg_cap)
         except ValueError as e:
-            raise SystemExit(f"{resume / ckpt}: {e}") from None
+            raise SystemExit(f"{ck_path}: {e}") from None
     else:
         raise SystemExit(f"{resume / ckpt} not found: resume_run must be an earlier {name} run with this seed "
                          "(its train-<seed> artifact holds the checkpoint); leave resume_run empty to start fresh")
@@ -196,30 +217,57 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
         raise SystemExit(f"{resume / ckpt} trained with {m.ranges} ranges, but {name} uses {ranges} (#405)")
     if m.key_variant != key_variant:
         raise SystemExit(f"{resume / ckpt} trained with key variant {m.key_variant!r}, but {name} uses {key_variant!r} (#398)")
+    if probe and key_variant:
+        raise SystemExit(f"{name}: the preflop probe reads default keys only; key variant {key_variant!r} (#446)")
     if m.stacks != stacks:
         raise SystemExit(f"{resume / ckpt} trained with {m.stacks} stacks, but {name} uses {stacks} (#399)")
     prev = m.iterations
     t0 = time.monotonic()
     parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
     train_s = time.monotonic() - t0
-    (out / ckpt).write_text(json.dumps(m.state()), encoding="utf-8")
+    write_json_gz(out / f"{ckpt}.gz", m.state())
     avg, cur = m.policy(), m.current_policy()
-    (out / f"{name}-seed{seed}.policy.json").write_text(json.dumps({"average": avg, "current": cur}), encoding="utf-8")
+    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", {"average": avg, "current": cur})
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
-            "avg_rule": m.avg_rule, "key_variant": m.key_variant, "stacks": m.stacks,
+            "avg_rule": m.avg_rule, **({"avg_cap": m.avg_cap} if m.avg_cap is not None else {}),
+            "key_variant": m.key_variant, "stacks": m.stacks,
+            **({"key_version": K.KEY_VERSIONS[m.key_variant]} if m.key_variant in K.KEY_VERSIONS else {}),
             # #426: the same job and seed gave different tables on different runners, so record which one ran it
             "machine": machine(),
             # #447: the table's bits, so two runs that should match (same sha, seed, workers) can be checked
             "regret_sha256": m.regret_hash(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
-            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur)}
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur),
+            **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
+
+
+def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
+    """#446: the #413 preflop-deviation probe on a trained average policy, first in at every seat; per cell
+    only what a comparison needs (best deviation, its gain and uncorrected 95% CI; the leak flag keeps the run's Bonferroni bound), so it fits the summary."""
+    from referee.e3.preflop_probe import probe
+
+    t = {"policy": avg, "k": m.k, "depth": m.depth, "players": m.n, "menu": m.menu, "raise_cap": m.raise_cap}
+    deals, groups = E3_PROBE_DEALS, E3_PROBE_GROUPS
+    t0 = time.monotonic()
+    r = probe(t, deals, seed, ("first_in",), None, groups, workers)
+    cells = [{"seat": c["seat"], "group": c["group"], "deals": c["deals"], "best": c["best"],
+              "gain_bb": c["actions"][c["best"]]["vs_row_bb"] if c["best"] else None,
+              "gain_ci": c["actions"][c["best"]]["vs_row_ci"] if c["best"] else None,
+              "call_row": c["actions"].get("c", {}).get("row"), "leak": c["leak"]} for c in r["cells"]]
+    return {"probe": r["probe"], "deals_per_cell": deals, "seed": seed, "spot": "first_in", "groups": list(groups),
+            "z_corrected": r["z_corrected"], "leaks": r["leaks"], "leak_cells": r["leak_cells"], "cells": cells,
+            "seconds": round(time.monotonic() - t0, 1)}
 
 
 def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) -> dict:
     """The CI E3 evaluation of a trained model: LBR of both policies, coverage, field (6-max only).
     Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare.
-    `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation)."""
+    `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation).
+    A player-mix model (#486) also gets `by_players` (#534): per dealt table size, LBR of both policies
+    and the field of that size (`referee.e3.field.load_players`); `m.n` reuses the top-level numbers. Each size's
+    row also has its training counts (#535, `E3MCCFR.mix_counts`: hands, traverser updates, c1 keys), and the
+    output `by_players_counted_from` (iteration the counts start at) and `by_players_shared_keys` (c1 `call|` keys)."""
     from referee.e3.field import evaluate as field_eval
     from referee.e3.lbr import exploitability_lb
     from stalker.e3 import game as G
@@ -240,10 +288,42 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
         cov = coverage(m)
         t2 = time.monotonic()
         field = field_eval(cur, E3_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth) if m.n == 6 else None
-    return {"field": field, "field_seconds": round(time.monotonic() - t2, 1), "infosets": len(m.regret),
-            "coverage": cov, "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_offmenu": offmenu,
-            "lbr_seconds": round(t2 - t1, 1),
-            "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
+        t3 = time.monotonic()
+        out = {"field": field, "field_seconds": round(t3 - t2, 1), "infosets": len(m.regret),
+               "coverage": cov, "lbr": lbr["current"], "lbr_average": lbr["average"], "lbr_offmenu": offmenu,
+               "lbr_seconds": round(t2 - t1, 1),
+               "policy_sha256": hashlib.sha256(json.dumps(cur, sort_keys=True).encode()).hexdigest()}
+        if getattr(m, "player_mix", ()):
+            out["by_players"] = _by_players(m, seed, avg, cur, out, t3 - t1)
+            for n, c in m.mix_counts().items():
+                out["by_players"][n].update(c)
+            out.update(by_players_counted_from=m.counted_from, by_players_shared_keys=m.shared_keys())
+    return out
+
+
+def _by_players_lbr_hands(n: int) -> int:
+    return E3_BY_PLAYERS_LBR_HANDS_BY_N.get(n, E3_BY_PLAYERS_LBR_HANDS)
+
+
+def _by_players(m, seed: int, avg: dict, cur: dict, top: dict, top_seconds: float) -> dict:
+    """#534: LBR (both policies) and field per table size of a player-mix model, under the caller's rules."""
+    from referee.e3.field import evaluate as field_eval
+    from referee.e3.lbr import exploitability_lb
+
+    rows = {}
+    for n in sorted(set(m.player_mix)):
+        if n == m.n and top["field"] is not None:
+            rows[str(n)] = {"lbr": top["lbr"], "lbr_average": top["lbr_average"], "field": top["field"],
+                            "seconds": round(top_seconds, 1), "lbr_hands": E3_LBR_HANDS}
+            continue
+        t = time.monotonic()
+        hands = _by_players_lbr_hands(n)
+        lbr = {k: exploitability_lb(pol, hands, seed=10_000 + seed, k=m.k, n=n, depth=m.depth)
+               for k, pol in (("average", avg), ("current", cur))}
+        field = field_eval(cur, E3_BY_PLAYERS_FIELD_HANDS, seed=20_000 + seed, k=m.k, depth=m.depth, players=n)
+        rows[str(n)] = {"lbr": lbr["current"], "lbr_average": lbr["average"], "field": field,
+                        "seconds": round(time.monotonic() - t, 1), "lbr_hands": hands}
+    return rows
 
 
 def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
@@ -286,20 +366,36 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         # #382: the real-play size menu (TP.md section 6); preflop the menu keeps its own cap of 3,
         # postflop raise wars run uncapped up to ALLIN_MERGE
         "e3-tp-mid-real-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-real-w4", workers=4, menu="real",
-                                     raise_cap=None),
+                                     raise_cap=None, probe=True),
+        # #446: e3-tp-mid-real-w4 with TP-feature ranges from the average strategy (#405 on the real menu)
+        "e3-tp-mid-real-avgrange-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-real-avgrange-w4", workers=4,
+                                              menu="real", raise_cap=None, ranges="average", probe=True),
         # #405: TP-feature ranges from the average strategy vs e3-tp-mid-w4 (current strategy)
         "e3-tp-mid-avgrange-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-avgrange-w4", workers=4,
                                          ranges="average"),
         # #426: e3-tp-mid-w4 with the average strategy weighted by own reach only (existing jobs stay legacy)
         "e3-tp-mid-ownavg-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4", workers=4, avg_rule="own"),
+        # #448: e3-tp-mid-ownavg-w4 with the 1/prod(other reach) weight clipped at 2 / 8 (compare lbr_average_bb_by_seed sd)
+        "e3-tp-mid-ownavg-cap2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap2-w4", workers=4,
+                                            avg_rule="own", avg_cap=2.0),
+        "e3-tp-mid-ownavg-cap8-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap8-w4", workers=4,
+                                            avg_rule="own", avg_cap=8.0),
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
+        # #460: b1 plus board.adv/opp.value/plan.foldeq (B2) vs e3-tp-mid-b1-w4, same iterations and seeds
+        "e3-tp-mid-b2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b2-w4", workers=4, key_variant="b2"),
+        # #461: b1 plus the public facts (opponent seats, last bettor, preflop aggressor) vs e3-tp-mid-b1-w4
+        "e3-tp-mid-b3-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b3-w4", workers=4, key_variant="b3"),
         # #399: effective-stack depth of me and every live opponent in the key (S) vs mine only, both on
         # 20-250BB tables, same iterations and seeds
         "e3-tp-mid-s2-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2-w4", workers=4, key_variant="s2",
                                    stacks="sampled"),
         "e3-tp-mid-s2me-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-s2me-w4", workers=4, key_variant="s2me",
                                      stacks="sampled"),
+        # #400: the real-play cash combined key (ADR 0019 C) with every adopted training choice: real menu, average
+        # ranges (#446), own-reach average (#426), 20-250BB tables (#399); the only key the full chain runs on
+        "e3-tp-mid-c1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-c1-w4", workers=4, menu="real", raise_cap=None,
+                                   ranges="average", avg_rule="own", key_variant="c1", stacks="sampled"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
         "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
@@ -309,8 +405,9 @@ JOBS = {"e2-mccfr": _e2_mccfr,
 
 RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4", "e3-tp-pro-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
-             "e3-tp-mid-real-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
-             "e3-tp-mid-b1-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4"}   # #301
+             "e3-tp-mid-real-w4", "e3-tp-mid-real-avgrange-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
+             "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4",
+             "e3-tp-mid-c1-w4", "e3-tp-mid-ownavg-cap2-w4", "e3-tp-mid-ownavg-cap8-w4"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
@@ -324,14 +421,32 @@ def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) 
         raise SystemExit(f"{job} cannot resume; resumable jobs: {sorted(RESUMABLE)} (leave resume_run empty)")
     res = JOBS[job](iters, seed, out, **({"resume": resume} if resume is not None else {}))
     path = out / f"{job}-seed{seed}.json"
-    path.write_text(json.dumps({"job": job, "seed": seed, "wall_seconds": round(time.monotonic() - t0, 1),
-                                **res}, indent=1), encoding="utf-8")
+    summary = {"job": job, "seed": seed, "wall_seconds": round(time.monotonic() - t0, 1), **res}
+    path.write_text(json.dumps(summary, indent=1), encoding="utf-8")
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
     if size > ARTIFACT_MAX_BYTES:
-        raise SystemExit(f"{out}: {size} bytes > {ARTIFACT_MAX_BYTES}; write a smaller policy (prune or quantize) "
-                         "or raise ARTIFACT_MAX_BYTES with a reason in the PR")
+        # #487: a failed step skips the upload, so hours of training lost the measurement with the policy.
+        # Keep the summary (what ops records) and drop the tables; the job then cannot be resumed or served.
+        dropped = _drop_tables(out, job, seed)
+        size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
+        if size > ARTIFACT_MAX_BYTES:
+            raise SystemExit(f"{out}: {size} bytes > {ARTIFACT_MAX_BYTES}; write a smaller policy (prune or quantize) "
+                             "or raise ARTIFACT_MAX_BYTES with a reason in the PR")
+        summary["artifact_dropped"] = dropped
+        path.write_text(json.dumps(summary, indent=1), encoding="utf-8")
+        print(f"{out}: tables over {ARTIFACT_MAX_BYTES} bytes, dropped {[d['file'] for d in dropped]} "
+              "(summary kept; this run cannot be resumed or exported)", file=sys.stderr)
     check_clean(path.read_text(encoding="utf-8"), str(path))
     return path
+
+
+def _drop_tables(out: Path, job: str, seed: int) -> list[dict]:
+    dropped = []
+    for f in (out / f"{job}-seed{seed}.{kind}.json{ext}" for kind in ("policy", "ckpt") for ext in (".gz", "")):
+        if f.is_file():
+            dropped.append({"file": f.name, "bytes": f.stat().st_size})
+            f.unlink()
+    return dropped
 
 
 def check_clean(text: str, where: str) -> None:
@@ -366,10 +481,10 @@ def _first_in_rows(folder: Path, job: str, r: dict) -> dict | None:
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K, using_variant
     from stalker.tools.preflop_rows import first_in
 
-    found = sorted(folder.rglob(f"{job}-seed{r['seed']}.policy.json"))
-    if not found or r.get("tier") not in TIER_K:
+    found = find_table(folder, f"{job}-seed{r['seed']}.policy", recursive=True)
+    if found is None or r.get("tier") not in TIER_K:
         return None
-    pol = json.loads(found[0].read_text(encoding="utf-8"))["average"]
+    pol = read_json(found)["average"]
     t = {"policy": pol, "k": TIER_K[r["tier"]], "depth": TIER_DEPTH[r["tier"]], "players": r.get("players", 6),
          "menu": r.get("menu", "v1"), "raise_cap": r.get("raise_cap", 3)}
     with using_variant(r.get("key_variant", "")):   # #399: stack variants change preflop keys too
@@ -393,6 +508,8 @@ def summarize(job: str, folder: Path) -> dict:
                     "lbr_stderr_by_seed": [r["lbr"].get("stderr_bb") for r in runs]})
         if all("infosets" in r for r in runs):          # #332: key counts across tables/grids live only in artifacts otherwise
             out["infosets_by_seed"] = [r["infosets"] for r in runs]
+        if all("iters_per_s" in r for r in runs):       # #527: per-seed speed so runs can be compared per CPU model
+            out["iters_per_s_by_seed"] = [r["iters_per_s"] for r in runs]
         if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
             out["cpu_model_by_seed"] = [r["machine"]["cpu_model"] for r in runs]
         if all(r.get("regret_sha256") for r in runs):    # #447: drift between reruns shows as a changed hash
@@ -406,6 +523,16 @@ def summarize(job: str, folder: Path) -> dict:
         rows = [_first_in_rows(folder, job, r) for r in runs]
         if all(rows):
             out["preflop_first_in_average_by_seed"] = rows
+    if job.startswith("e3-") and runs and all(r.get("probe_average") for r in runs):   # #446
+        out["probe_average_leaks_by_seed"] = [r["probe_average"]["leaks"] for r in runs]
+        out["probe_average_by_seed"] = [r["probe_average"] for r in runs]
+    if any(r.get("artifact_dropped") for r in runs):   # #487: these seeds left no table to resume or export
+        out["artifact_dropped_by_seed"] = [r.get("artifact_dropped", []) for r in runs]
+    if job.startswith("e3-") and runs and all("by_players_counted_from" in r for r in runs):   # #535
+        out["by_players_counts_by_seed"] = [{n: {c: row.get(c) for c in ("hands", "visits", "keys")}
+                                             for n, row in r["by_players"].items()} for r in runs]
+        out["by_players_counted_from_by_seed"] = [r["by_players_counted_from"] for r in runs]
+        out["by_players_shared_keys_by_seed"] = [r["by_players_shared_keys"] for r in runs]
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set

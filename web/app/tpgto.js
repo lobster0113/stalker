@@ -501,7 +501,7 @@ export function menuOf(meta) {
 }
 
 /** A new hand. holes: n pairs; deck: remaining cards (board dealt from the front), or board. */
-export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP }) {
+export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP, stacks = null }) {
   if (!(n >= 2 && n <= 9)) throw new Error(`n=${n}: E3 supports 2..9 players`);
   if (!MENUS.includes(menu)) throw new Error(`menu ${JSON.stringify(menu)}: use one of ${MENUS.join(", ")}`);
   if (!holes || holes.length !== n) throw new Error(`holes: need ${n} pairs`);
@@ -514,7 +514,7 @@ export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", 
   const bet = new Array(n).fill(0);
   bet[n - 2] = SB; bet[n - 1] = BB;
   return Object.freeze({
-    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: bet.map((b) => STACK - b), bet,
+    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: bet.map((b, i) => (stacks ? stacks[i] : STACK) - b), bet,
     total: bet.slice(), folded: new Array(n).fill(false), acted: new Array(n).fill(false),
     street: 0, board: [], toAct: 0, raises: 1, lastRaise: BB, history: [], log: [], done: false,
     menu, raiseCap: raiseCap === undefined ? RAISE_CAP : raiseCap,
@@ -871,6 +871,64 @@ export function publicKey(s, seat, depth = "full") {
   return depth === "pro" ? `p|${full}|f${foldyStep()}` : full;
 }
 
+// ---- c1 key (#583, ADR 0021 / tp_key.py "c1", KEY_VERSIONS.c1 = 1): the public part of the combined key ----
+export const C1_VERSION = 1;
+const EFF_EDGES_BB = [5, 10, 15, 25, 40, 60, 100];
+const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6] };
+export function c1PositionNames(n) { return C1_POSITIONS[n] ? C1_POSITIONS[n].slice() : positionNames(n); }
+function effectiveStack(s, seat) {   // hand-start chips (behind + put in), capped by the deepest other player who can act
+  const chips = s.stack.map((x, i) => x + s.total[i]);
+  const cap = active(s).filter((i) => i !== seat).map((i) => chips[i]);
+  return cap.length ? Math.min(chips[seat], max(cap)) : 0;
+}
+function stackBucket(chips) { let i = 0; while (i < EFF_EDGES_BB.length && EFF_EDGES_BB[i] < chips / BB) i++; return i; }
+export function stackField(s, seat) {
+  const opps = [...new Set(live(s).filter((q) => q !== seat).map((q) => stackBucket(effectiveStack(s, q))))].sort((a, b) => b - a);
+  return `s${stackBucket(effectiveStack(s, seat))}:${opps.join("")}`;
+}
+function streetsOf(history) {
+  const out = [[]];
+  for (const h of history) { if (h === "/") out.push([]); else out[out.length - 1].push(h); }
+  return out;
+}
+function aggressorOf(entries) {
+  let last = null;
+  for (const h of entries) { const [p, a] = h.split(":"); if (AGGRESSIVE.has(a)) last = Number(p); }
+  return last;
+}
+export function publicFactsC1(s, seat, depth) {
+  const order = s.street === 0 ? Array.from({ length: s.n }, (_, i) => i) : postflopOrder(s.n);
+  const me = order.indexOf(seat);
+  const opps = live(s).filter((q) => q !== seat);
+  const before = opps.filter((q) => order.indexOf(q) < me);
+  let out = `u${Math.min(before.length, 2)}${Math.min(opps.length - before.length, 2)}`;
+  const streets = streetsOf(s.history);
+  const last = aggressorOf(streets[s.street]);
+  out += "|h" + (last === null ? "n" : last === seat ? "m" : order.indexOf(last) < me ? "b" : "a");
+  if (s.street > 0 && depth !== "basic") {
+    const pre = aggressorOf(streets[0]);
+    out += "|g" + (pre === null ? "n" : pre === seat ? "m" : s.folded[pre] ? "x" : "o");
+  }
+  return out;
+}
+/** tp_key.public_key(s, seat, depth, variant="c1") with the default environment (cash, no ante) or env = {stage, ante}. */
+export function publicKeyC1(s, seat, depth = "full", env = { stage: "c", ante: false }) {
+  const nOpp = Math.min(live(s).length - 1, 3);
+  const lg = legal(s).join("");
+  if (lg === "fc" || lg === "c") return `call|${s.street}|${nOpp}|${potOddsStep(s, seat)}|${lg}`;
+  const st = `t${env.stage}${env.ante ? 1 : 0}|${stackField(s, seat)}|${publicFactsC1(s, seat, depth)}|`;
+  if (depth === "basic") {
+    return `b|n${s.n}|${positionGroup(s.n, seat)}|${s.street}|${Math.min(nOpp, 2)}|${Math.min(raiseLevel(s), 2)}|${potOddsStep(s, seat)}|${st}${lg}`;
+  }
+  const sp = s.street === 0 ? 0 : searchRight(SPR_EDGES, effectiveStack0(s, seat) / Math.max(pot(s), 1));
+  const full = `${c1PositionNames(s.n)[seat]}|n${s.n}|${s.street}|${nOpp}|${raiseLevel(s)}|${initiative(s, seat)}|${potOddsStep(s, seat)}|${sp}|${st}${lg}`;
+  return depth === "pro" ? `p|${full}|f${foldyStep()}` : full;
+}
+function effectiveStack0(s, seat) {   // TP.md §1.1 SPR numerator: chips behind, capped by the deepest other player who can act
+  const cap = active(s).filter((i) => i !== seat).map((i) => s.stack[i]);
+  return cap.length ? Math.min(s.stack[seat], max(cap)) : 0;
+}
+
 export function key(pub, step) {
   if (step >= NUT_BASE) return `${pub}|e${step % NUT_BASE}|n${Math.floor(step / NUT_BASE) - 1}`;
   return `${pub}|e${step}`;
@@ -1065,4 +1123,75 @@ export function rangeClasses(s, seat, ranges, thr = 0.5) {
   const out = new Set();
   for (let c = 0; c < NC; c++) if (top > 0 && cnt[c] > 0 && acc[c] / cnt[c] >= thr * top) out.add(HAND_CLASSES[c]);
   return out;
+}
+
+// ---------------------------------------------------------------- replay analysis (#465)
+
+const TIE_EPS = 1e-9;
+
+/**
+ * How the opponents' public ranges stand against `seat`'s real hand, and (when `action` is given) how the
+ * next opponent to act reacts to it: the share of their range that folds, split by whether the combo is
+ * weaker or stronger than my hand (hero equity per combo, a one-hot range of my hand against every combo).
+ * `s` is the state where `seat` is to act. `beats` (per live opponent) is the weight of their range my hand
+ * is ahead of; ties count half. `reply` is null when the action ends the street/hand or the next to act is
+ * the seat itself. Pure function of its arguments.
+ */
+export function rangeResponse(policy, s, ranges, tier, seat, action = null) {
+  const hi = comboIndex(s.hole[seat]), dead = boardDead(s.board);
+  const mine = new Float64Array(N); mine[hi] = 1;
+  const vsMe = equityVs(s.board, mine);      // each combo's equity against my exact hand
+  const hc = [s.hole[seat][0], s.hole[seat][1]];
+  const wOf = (q) => {
+    const w = new Float64Array(N);
+    for (let i = 0; i < N; i++) w[i] = dead[i] || hc.includes(COMBO_HI[i]) || hc.includes(COMBO_LO[i]) ? 0 : ranges[q][i];
+    return w;
+  };
+  const split = (w) => {
+    let weak = 0, strong = 0, tot = 0;
+    for (let i = 0; i < N; i++) {
+      if (!(w[i] > 0) || Number.isNaN(vsMe[i])) continue;
+      const e = vsMe[i];
+      tot += w[i];
+      if (e < 0.5 - TIE_EPS) weak += w[i]; else if (e > 0.5 + TIE_EPS) strong += w[i]; else { weak += w[i] / 2; strong += w[i] / 2; }
+    }
+    return { weak, strong, tot };
+  };
+  const beats = [];
+  for (const q of live(s)) {
+    if (q === seat) continue;
+    const { weak, tot } = split(wOf(q));
+    beats.push({ seat: q, beats: tot > 0 ? weak / tot : null });
+  }
+  let reply = null;
+  if (action != null) {
+    const ns = apply(s, action);
+    if (!ns.done && ns.street === s.street && ns.toAct !== seat && !ns.folded[ns.toAct]) {
+      const opp = ns.toAct, d = decisionKey(ns, ranges, tier), m = d.acts.length;
+      const P = seatProbs(policy, d.public, d.steps, m);
+      const kinds = d.acts.map((a) => (a === "f" ? "fold" : a === "k" || a === "c" ? "pass" : "raise"));
+      const w = wOf(opp);
+      const acc = { weak: { fold: 0, pass: 0, raise: 0, w: 0 }, strong: { fold: 0, pass: 0, raise: 0, w: 0 } };
+      for (let i = 0; i < N; i++) {
+        if (!(w[i] > 0) || Number.isNaN(vsMe[i])) continue;
+        const e = vsMe[i], parts = e < 0.5 - TIE_EPS ? [["weak", 1]] : e > 0.5 + TIE_EPS ? [["strong", 1]] : [["weak", 0.5], ["strong", 0.5]];
+        for (const [side, f] of parts) {
+          const a = acc[side], ww = w[i] * f;
+          a.w += ww;
+          for (let j = 0; j < m; j++) a[kinds[j]] += ww * P[i * m + j];
+        }
+      }
+      const tot = acc.weak.w + acc.strong.w, sh = (a, k) => (a.w > 0 ? a[k] / a.w : null);
+      const cont = (acc.weak.pass + acc.weak.raise) + (acc.strong.pass + acc.strong.raise);
+      reply = {
+        opp, acts: d.acts, canFold: kinds.includes("fold"),
+        weakShare: tot > 0 ? acc.weak.w / tot : null,           // weaker combos' weight in their range
+        weakFold: sh(acc.weak, "fold"), strongFold: sh(acc.strong, "fold"),
+        weakRaise: sh(acc.weak, "raise"), strongRaise: sh(acc.strong, "raise"),
+        fold: tot > 0 ? (acc.weak.fold + acc.strong.fold) / tot : null,
+        strongOfContinuing: cont > 0 ? (acc.strong.pass + acc.strong.raise) / cont : null,
+      };
+    }
+  }
+  return { beats, reply };
 }

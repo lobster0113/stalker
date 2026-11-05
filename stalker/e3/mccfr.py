@@ -27,6 +27,20 @@ gives every seat 100BB. `stacks="sampled"` draws each hand's table with `game.sa
 the tables equal) from the same generator, so the stack key variants (tp_key "s2", "s2me") see short, deep
 and mixed tables; a checkpoint of it is version 5.
 
+How many players a hand is dealt is an option (#486, ADR 0019 D). `player_mix=()` (the default, every run
+before #486) deals every hand to `n` players. `player_mix=(2, 3, 4, 5, 6)` draws each hand's player count
+uniformly from the tuple, from the same generator and before the stacks (repeat a count to weight it), so the
+c1 key's `n<players>` and position fields see every table size; `n` is then the evaluation table (LBR, field).
+With the default nothing extra is drawn, so seeded runs do not move. A checkpoint of it is version 6.
+
+A player-mix run also counts, per player count, the hands dealt and the traverser updates (#535), so a result
+can say how much of the training each table size got; `mix_counts` reads them with the c1 keys per size.
+They draw no random numbers and n-handed runs keep no counts, so neither table moves. A mixed checkpoint with
+the counts is version 7; resuming a version 6 one counts from there on and says so in `counted_from`.
+
+A combined key (tp_key "c1", #400) also writes its `key_version`; `from_state` refuses a checkpoint of another
+version of the same variant, since its keys mean other things.
+
     python -m stalker.e3.mccfr --tier beginner --iters 50 --seed 1
 """
 from __future__ import annotations
@@ -57,7 +71,13 @@ RANGE_EVERY = 2000
 class E3MCCFR:
     def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
                  raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY,
-                 avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform"):
+                 avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
+                 player_mix: tuple[int, ...] = (), avg_cap: float | None = None):
+        if avg_cap is not None and (avg_rule != "own" or not avg_cap >= 1):
+            raise ValueError(f"avg_cap={avg_cap!r}: needs avg_rule 'own' and a cap >= 1 (#448)")
+        player_mix = tuple(int(x) for x in player_mix)
+        if player_mix and not all(2 <= x <= 9 for x in player_mix):
+            raise ValueError(f"player_mix counts must be 2..9, got {player_mix}")
         if stacks not in STACKS:
             raise ValueError(f"stacks must be one of {STACKS}, got {stacks!r}")
         if key_variant not in K.VARIANTS:
@@ -69,6 +89,7 @@ class E3MCCFR:
         if avg_rule not in AVG_RULES:
             raise ValueError(f"avg_rule must be one of {AVG_RULES}, got {avg_rule!r}")
         self.avg_rule = avg_rule
+        self.avg_cap = avg_cap   # #529: clips the 'own' weight 1/prod(other reach); None = unclipped (every earlier run)
         self.rng = np.random.default_rng(seed)
         self.k, self.n, self.depth = k, n, depth
         self.menu, self.raise_cap = menu, raise_cap   # game rules (#339); v1 + cap 3 is every earlier run
@@ -80,6 +101,11 @@ class E3MCCFR:
         self.ranges, self.range_every = ranges, range_every
         self.key_variant = key_variant   # "b1" (#398): suit-aware outs/vuln/block in the key; "" is every earlier table
         self.stacks = stacks             # "sampled" (#399): per-hand 20-250BB tables; "uniform" 100BB is every earlier run
+        self.player_mix = player_mix     # (#486): per-hand player counts; () deals every hand to n
+        self.mix_hands = dict.fromkeys(sorted(set(player_mix)), 0)   # #535: hands dealt per player count
+        self.mix_visits = dict.fromkeys(self.mix_hands, 0)           # #535: traverser updates per player count
+        self.counted_from = 0   # iteration the counts start at (a version 6 checkpoint resumed later has none before)
+        self.trav_updates = 0   # traverser updates in this process; not saved, only read per hand by iterate
         # average mode: normalized average rows as of iteration `snap_at`; keys not in it use the current strategy
         self.snap: dict[str, np.ndarray] = {}
         self.snap_at = 0
@@ -108,10 +134,13 @@ class E3MCCFR:
     def _seat_probs(self, public: str, steps: np.ndarray, m: int) -> np.ndarray:
         # One strategy row per equity step, gathered per combo; board collisions (-1) get zeros.
         if steps.max() >= self.k:  # pro heads-up postflop: steps carry board.nut (tp_key.NUT_BASE)
-            out = np.zeros((len(steps), m))
-            for v in np.unique(steps[steps >= 0]):
-                out[steps == v] = self._range_row(K.key(public, int(v)), m)
-            return out
+            # one row per distinct value, then a single gather (no per-value mask pass)
+            vals, inv = np.unique(steps, return_inverse=True)
+            first = int(np.searchsorted(vals, 0))   # vals[:first] are the -1 collisions
+            table = np.zeros((len(vals), m))
+            for j in range(first, len(vals)):
+                table[j] = self._range_row(K.key(public, int(vals[j])), m)
+            return table[inv.reshape(-1)]
         table = np.array([self._range_row(K.key(public, v), m) for v in range(self.k)])
         out = table[np.maximum(steps, 0)]
         out[steps < 0] = 0.0
@@ -121,10 +150,15 @@ class E3MCCFR:
         for _ in range(iters):
             self.refresh_snapshot()
             self.iterations += 1
-            stacks = G.sample_stacks(self.rng, self.n) if self.stacks == "sampled" else None
-            s = G.deal(self.rng, self.n, self.menu, self.raise_cap, stacks)
-            for trav in range(self.n):
-                self._walk(s, K.initial_ranges(self.n), trav, [1.0] * self.n)
+            n = self.player_mix[int(self.rng.integers(len(self.player_mix)))] if self.player_mix else self.n
+            stacks = G.sample_stacks(self.rng, n) if self.stacks == "sampled" else None
+            s = G.deal(self.rng, n, self.menu, self.raise_cap, stacks)
+            t0 = self.trav_updates
+            for trav in range(n):
+                self._walk(s, K.initial_ranges(n), trav, [1.0] * n)
+            if self.player_mix:
+                self.mix_hands[n] += 1
+                self.mix_visits[n] += self.trav_updates - t0
 
     def _walk(self, s: G.State, ranges: list[np.ndarray], trav: int, reach: list[float]) -> float:
         # reach[m]: the sigma product of seat m's sampled actions above this node (read by avg_rule "own")
@@ -148,13 +182,16 @@ class E3MCCFR:
             reg = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(reg + (vals - v), 0, out=reg)
             self.visits[key] += 1
+            self.trav_updates += 1
             return v
         i = int(self.rng.choice(len(acts), p=sigma))
         avg = self.avg[key]
         if self.avg_rule == "legacy":
             self.avg[key] = (avg if avg is not None else 0) + self.iterations * sigma
             return self._walk(*child(i), trav, reach)
-        w = self.iterations / math.prod(r for m, r in enumerate(reach) if m != p and m != trav)
+        others = math.prod(r for m, r in enumerate(reach) if m != p and m != trav)
+        # no cap keeps the original `t / prod` so earlier runs stay bit for bit (t * (1 / prod) differs by an ulp)
+        w = self.iterations / others if self.avg_cap is None else self.iterations * min(1 / others, self.avg_cap)
         self.avg[key] = (avg if avg is not None else 0) + w * sigma
         nxt = reach.copy()
         nxt[p] *= float(sigma[i])
@@ -182,17 +219,70 @@ class E3MCCFR:
             st.update(version=5, stacks=self.stacks, key_variant=self.key_variant, ranges=self.ranges,
                       range_every=self.range_every, snap_at=self.snap_at,
                       snap={k: v.tolist() for k, v in self.snap.items()})
+        if self.player_mix:   # version 6 (#486): code that predates it would resume this with n-handed deals only
+            # version 7 (#535): with the per-size counts; code that predates it would resume this and drop them
+            st.update(version=7, player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
+                      ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
+                      snap={k: v.tolist() for k, v in self.snap.items()}, **self._count_state())
+        if self.avg_cap is not None:   # version 8 (#529): code that predates it would resume this with unclipped weights
+            st.update(version=8, avg_cap=self.avg_cap, player_mix=list(self.player_mix), stacks=self.stacks,
+                      key_variant=self.key_variant, ranges=self.ranges, range_every=self.range_every,
+                      snap_at=self.snap_at, snap={k: v.tolist() for k, v in self.snap.items()},
+                      **(self._count_state() if self.player_mix else {}))
+        if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
+            st["key_version"] = K.KEY_VERSIONS[self.key_variant]
         return st
+
+    def _count_state(self) -> dict:
+        """The #535 counters as checkpoint data (version 7; also the pod summary's `model` block)."""
+        return {"mix_counts": {str(n): {"hands": self.mix_hands[n], "visits": self.mix_visits[n]} for n in self.mix_hands},
+                "counted_from": self.counted_from}
+
+    def mix_counts(self) -> dict[str, dict[str, int | None]]:
+        """Per dealt player count: hands, traverser updates and, for the c1 key (whose non-call keys name the
+        player count, `n<players>`), the regret-table keys of that size; other keys hold no player count, so
+        `keys` is None there. `call|...` keys of every size are shared and counted by `shared_keys`."""
+        per = self._keys_by_players()
+        return {str(n): {"hands": self.mix_hands[n], "visits": self.mix_visits[n],
+                         "keys": None if per is None else per.get(n, 0)} for n in self.mix_hands}
+
+    def shared_keys(self) -> int | None:
+        """c1 keys that no player count owns (the short `call|` keys); None for keys without a player count."""
+        per = self._keys_by_players()
+        return None if per is None else len(self.regret) - sum(per.values())
+
+    def _keys_by_players(self) -> dict[int, int] | None:
+        if self.key_variant != "c1":
+            return None
+        out: dict[int, int] = defaultdict(int)
+        for k in self.regret:
+            n = key_players(k)
+            if n is not None:
+                out[n] += 1
+        return dict(out)
 
     def _grid(self) -> dict:
         # The pro table's board.nut grid is part of its key meaning (#332): 17 -> 5 steps changed `n<nut>`.
         return {"nut_k": K.NUT_K} if self.depth == "pro" else {}
 
     @classmethod
-    def from_state(cls, st: dict, avg_rule: str | None = None) -> "E3MCCFR":
-        """`avg_rule`, if given, is the rule the caller means to continue with; a checkpoint of the other is refused."""
-        if st.get("version") not in (1, 2, 3, 4, 5):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 5")
+    def from_state(cls, st: dict, avg_rule: str | None = None,
+                   player_mix: tuple[int, ...] | None = None, avg_cap: float | None = None) -> "E3MCCFR":
+        """`avg_rule` / `player_mix`, if given, are what the caller means to continue with; a checkpoint of
+        another is refused."""
+        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7, 8):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 8")
+        cap = st.get("avg_cap")
+        if (cap is not None) != (st["version"] == 8) or (avg_cap is not None and avg_cap != cap):
+            raise ValueError(f"checkpoint version {st['version']} holds avg_cap {cap!r}, asked {avg_cap!r} (#529); "
+                             "the weights must not mix in one average - resume it with its own cap or start a fresh run")
+        mix = tuple(st.get("player_mix", ()))
+        if st["version"] != 8 and bool(mix) != (st["version"] in (6, 7)):
+            raise ValueError(f"checkpoint version {st['version']} with player_mix {list(mix)}: a mixed-player "
+                             "checkpoint is version 6 or 7 and only those have a player_mix")
+        if player_mix is not None and tuple(player_mix) != mix:
+            raise ValueError(f"checkpoint was dealt with player_mix {list(mix)}, not {list(player_mix)} (#486); "
+                             "resume it with its own mix or start a fresh run")
         rule = st.get("avg_rule", "legacy")    # checkpoints before #426 are all legacy
         if st["version"] < 4 and (rule == "own") != (st["version"] == 3):
             raise ValueError(f"checkpoint version {st['version']} with avg_rule {rule!r}: an avg_rule 'own' "
@@ -204,9 +294,13 @@ class E3MCCFR:
         if st["depth"] == "pro" and st.get("nut_k", K.K_PRO) != K.NUT_K:
             raise ValueError(f"checkpoint board.nut has {st.get('nut_k', K.K_PRO)} steps; this code uses {K.NUT_K} "
                              "(#332) - start a fresh run instead of resuming it")
+        kv = st.get("key_variant", "")
+        if kv in K.KEY_VERSIONS and st.get("key_version") != K.KEY_VERSIONS[kv]:
+            raise ValueError(f"checkpoint key {kv!r} version {st.get('key_version')!r}; this code builds version "
+                             f"{K.KEY_VERSIONS[kv]} (#400) - its keys mean other things, start a fresh run")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
                 st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""),
-                st.get("stacks", "uniform"))
+                st.get("stacks", "uniform"), mix, cap)
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
@@ -214,6 +308,12 @@ class E3MCCFR:
         m.visits.update(st["visits"])
         m.snap_at = st.get("snap_at", 0)
         m.snap = {k: np.array(v, dtype=float) for k, v in st.get("snap", {}).items()}
+        if "mix_counts" in st:
+            for n, c in st["mix_counts"].items():
+                m.mix_hands[int(n)], m.mix_visits[int(n)] = c["hands"], c["visits"]
+            m.counted_from = st["counted_from"]
+        elif mix and st["version"] == 6:   # version 6 (before #535): nothing was counted up to here
+            m.counted_from = m.iterations
         return m
 
     def regret_hash(self) -> str:
@@ -233,19 +333,41 @@ class E3MCCFR:
         return {k: self._sigma(k, len(r)).tolist() for k, r in self.regret.items()}
 
 
+def key_players(key: str) -> int | None:
+    """The player count a c1 key names (`<pos>|n<players>|`, `b|n<players>|`, `p|<pos>|n<players>|`); None for
+    a `call|` key, which has no such field. Only c1 keys carry it: other keys must not be read with this."""
+    if key.startswith("call|"):
+        return None
+    for f in key.split("|", 3)[1:3]:
+        if f[:1] == "n" and f[1:].isdigit():
+            return int(f[1:])
+    return None
+
+
 def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     """Per value of one key field (default: the legal-action set), how many keys and how many had
     fewer than 10 traverser updates — where the table is still close to its uniform start."""
     out: dict[str, dict[str, float]] = {}
     for k, v in m.visits.items():
         fs = k.split("|")
-        if fs[-1].startswith("o"):   # b1 label (#398): a legal-action set never starts with "o"
+        while fs[-1].startswith(("o", "a")):   # b1 / b2 labels (#398, #460): the equity or nut step ("e", "n") is never last otherwise
             fs.pop()
         f = fs[by]
         d = out.setdefault(f, {"keys": 0, "under10": 0})
         d["keys"] += 1
         d["under10"] += v < 10
     return out
+
+
+def parse_mix(text: str) -> tuple[int, ...]:
+    """"2,3,4,5,6" -> (2, 3, 4, 5, 6); "" -> () (every hand n-handed)."""
+    try:
+        mix = tuple(int(x) for x in text.split(",") if x.strip())
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"player mix {text!r}: comma-separated player counts, e.g. 2,3,4,5,6")
+    if not all(2 <= x <= 9 for x in mix):
+        raise argparse.ArgumentTypeError(f"player mix {text!r}: counts must be 2..9")
+    return mix
 
 
 def main(argv=None) -> int:
@@ -258,21 +380,22 @@ def main(argv=None) -> int:
     ap.add_argument("--no-raise-cap", action="store_true")
     ap.add_argument("--ranges", choices=RANGES, default="current", help="strategy that moves the TP-feature ranges (#405)")
     ap.add_argument("--key-variant", choices=K.VARIANTS, default="",
-                    help="b1: suit-aware outs/vuln/block key (#398); s2 / s2me: effective-stack depth (#399)")
+                    help="b1: suit-aware outs/vuln/block key (#398); b2: b1 + board.adv/opp.value/plan.foldeq (#460); b3: b1 + public facts (#461); s2 / s2me: effective-stack depth (#399); c1: combined cash key (#400)")
     ap.add_argument("--stacks", choices=STACKS, default="uniform", help="sampled: 20-250BB tables (#399)")
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
     ap.add_argument("--avg-rule", choices=AVG_RULES, default="legacy")
+    ap.add_argument("--player-mix", type=parse_mix, default=(), help="per-hand player counts, e.g. 2,3,4,5,6 (#486)")
     a = ap.parse_args(argv)
     m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier], a.menu,
                 None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every, a.avg_rule, a.key_variant,
-                a.stacks)
+                a.stacks, a.player_mix)
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0
     print(json.dumps({"tier": a.tier, "players": a.players, "iters": a.iters, "seconds": round(dt, 1),
                       "iters_per_s": round(a.iters / dt, 3), "nodes_per_iter": round(m.nodes / a.iters, 1),
                       "keys": len(m.regret), "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges,
-                      "key_variant": m.key_variant, "stacks": m.stacks,
+                      "key_variant": m.key_variant, "stacks": m.stacks, "player_mix": list(m.player_mix),
                       # the bound counts the v1 legal-action sets only
                       "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth, m.key_variant) if m.menu == "v1" else None}))
     return 0

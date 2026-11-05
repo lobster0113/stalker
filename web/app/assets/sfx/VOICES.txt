@@ -1,0 +1,5 @@
+voice-m-*.mp3 / voice-f-*.mp3: the Korean words 콜 폴드 체크 벳 레이즈 올인, generated 2026-10-31 on
+https://ttsmp3.com/ai (OpenAI voices "onyx" = male, "nova" = female, speed 1.2). The site states the MP3
+files may be used in commercial and non-commercial projects.
+
+All *.ogg files: Kenney "Casino Audio" 1.1, CC0 (see LICENSE.txt).

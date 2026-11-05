@@ -3,13 +3,15 @@
 에이전트가 돈을 쓰는 유일한 경로(ADR 0004 §5, #20). **CPU 학습은 여기가 아니라 무료인 `train.yml`(GitHub Actions, #184)에서 돌린다. RunPod은 GPU가 필요한 작업에만 쓴다.** 예외는 CI 러너 기반 예산 추정을 검증하는 1회 측정 `e2-throughput-cpu.yaml`(#264, 최악 $0.12)뿐이다. 작업은 `jobs/<name>.yaml`을 PR로 올리고, 머지 후
 `cloud.yml`을 dispatch해서만 실행된다. 키(`RUNPOD_API_KEY`)는 Secret에만 있다.
 
-## 형식 (평면 `key: value`만 — 중첩·목록·여러 줄 없음, ` #` 뒤는 주석)
+## 형식 (평면 `key: value`만 — 중첩·여러 줄 없음, 목록은 아래 세 키의 한 줄 `[a, b]`뿐, ` #` 뒤는 주석)
 | 키 | 필수 | 뜻 |
 |---|---|---|
 | `name` | ✔ | 소문자 `[a-z0-9-]`, pod 이름 `stalker-<name>-<run_id>` |
 | `image` | ✔ | 컨테이너 이미지 |
 | `command` | ✔ | `bash -lc`로 실행. 끝나면 컨테이너가 종료돼야 한다 |
-| `gpu_type` 또는 `cpu_flavor` | 둘 중 하나 | RunPod GPU 타입 ID(`gpu_count`, 기본 1) / CPU flavor ID(`vcpu`, 기본 2) |
+| `gpu_type`·`cpu_flavor`·`cpu_flavors` | 셋 중 하나 | RunPod GPU 타입 ID(`gpu_count`, 기본 1) / CPU flavor ID(`vcpu`, 기본 2) / 순서 있는 CPU flavor 목록 `[cpu5c, cpu3c]`(`vcpu: 32` 필수, 아래 "용량과 느린 호스트") |
+| `flavor_hourly_usd` | | flavor별 단가 상한 목록(flavor 수만큼, 각각 ≤ `hourly_usd`). 없으면 모두 `hourly_usd` |
+| `median_iters_per_s` | | flavor별 이 잡의 실측 중앙 it/s 목록(0 = 검사 안 함). `result_path` 필요 |
 | `max_minutes` | ✔ | 최대 시간(≤330: GitHub 러너 잡 한도 360분 안에서 종료·원장 push까지 끝나야 함). 넘으면 종료. 더 긴 학습은 재개 가능한 조각으로 나눈다 |
 | `hourly_usd` | ✔ | 허용 단가 상한. 실제 단가가 더 높으면 즉시 종료 |
 | `est_cost_usd` | | 예상 비용. 예산 검사는 `max(est_cost_usd, hourly_usd × max_minutes / 60)`(최악)로 한다 |
@@ -29,9 +31,10 @@
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
 - 런처는 RunPod 프록시(`https://<pod>-8000.proxy.runpod.net/<토큰>/…`)로 상태를 폴링하고, 종료 코드 0이면 결과를 받는다. 받을 때 RunPod 키를 보내지 않는다. 받은 뒤 파드를 종료한다.
-- 검사: 20 MB 이하, UTF-8 JSON, 비밀 패턴(GitHub·RunPod·AWS·Slack 토큰, 개인 키, 런처의 키·토큰 값) 없음. 통과하면 워크플로 아티팩트 `cloud-result-<run id>`(30일)로 올라가고, 원장 end 줄에 `result_bytes`·`result_sha256`이 남는다. 1 MB 이하면 같은 JSON이 `ops:cloud/results/<run id>.json`에도 올라간다(런처 `publish`가 다시 검사). 에이전트 샌드박스는 아티팩트 저장소(blob) 호스트에 닿지 못하므로 결과는 `ops`에서 읽는다(#264). 공개 리포의 아티팩트는 로그인한 누구나 받을 수 있으니 결과에 비밀을 넣지 않는다.
+- 검사: 20 MB 이하, UTF-8 JSON, 비밀 패턴(GitHub·RunPod·AWS·Slack 토큰, 개인 키, 런처의 키·토큰 값) 없음. 통과하면 워크플로 아티팩트 `cloud-result-<run id>`(30일)로 올라가고, 원장 end 줄에 `result_bytes`·`result_sha256`이 남는다. 1 MB 이하면 같은 JSON이 `ops:cloud/results/<run id>.json`에도 올라간다(런처 `publish`가 다시 검사). 에이전트 샌드박스는 아티팩트 저장소(blob) 호스트에 닿지 못하므로 결과는 `ops`에서 읽는다(#264). 결과에 `by_players`가 있으면 그 job의 인원별 LBR 판정표가 `ops:cloud/verdicts/<job>.json`에 덮어써진다(기록 전용, #576). 공개 리포의 아티팩트는 로그인한 누구나 받을 수 있으니 결과에 비밀을 넣지 않는다.
 - 상태: `completed`(회수 성공), `failed`(명령 종료 코드 ≠ 0, 회수 안 함), `no_result`(결과 파일 없음 또는 회수 전에 파드가 스스로 종료), `result_rejected`(검사 실패, 저장 안 함), `timeout`. `completed` 외에는 실행이 실패로 끝난다.
 - 큰 체크포인트는 상한 안의 요약·정책 JSON으로 줄이거나, 재개 가능한 조각으로 나눈다.
+- CI 학습 잡(`stalker/train_jobs.py`)의 표 파일은 gzip이다(#560): `<잡>-seed<시드>.policy.json.gz`·`.ckpt.json.gz`. 시드당 256MiB 한도(`ARTIFACT_MAX_BYTES`)와 `_drop_tables`는 압축 뒤 바이트로 판단한다. resume과 `export_web_policy`·`preflop_rows`·`pod_train --resume`은 `.json.gz`와 이전의 평문 `.json`을 모두 읽는다(`stalker/jsonio.py`).
 
 ## 이어 달리기 (`resume_run`, #354)
 - 러너가 `cloud-result-<resume_run>`을 받아 런처에 `--resume-file`로 준다. 런처는 결과를 `RESUME_FIELDS`(잡·tier·인원·모델·체크포인트 등)와 `run_id`만 남겨 gzip으로 줄이고, 파드 서버가 뜨면 RunPod 프록시로 `PUT /<토큰>/resume` 한다. 파드가 받은 바이트 수와 sha256을 돌려주고 런처가 대조한다. `resume_run`이 없으면 `PUT /<토큰>/resume-none`을 보낸다. 파드에는 GitHub 자격 증명이 가지 않는다.
@@ -39,4 +42,10 @@
 - 업로드 상한 95 MB(`RESUME_MAX_BYTES`): RunPod 프록시 앞의 Cloudflare가 요청 본문을 100 MB에서 끊는다. 서버도 그보다 큰 `Content-Length`는 413으로 거부하고, 런처는 상한을 넘는 결과로는 파드를 만들지 않는다. `pod_train`은 체크포인트를 이 상한 안에 두려고 float64가 넘치면 float32로 저장한다. float32로도 넘치면 결과에는 남지만(`--unpack`용) 이어 달릴 수 없다는 `checkpoint_note`가 붙는다.
 - 상태: 파드가 업로드를 거부하거나 받은 내용이 다르면 `resume_failed`.
 
-원장: `ops:budget/ledger.jsonl` (start/end 이벤트). 상한(`harness/budget.json`)을 올리는 PR은 사용자 결정 없이는 금지(reviewer.md).
+## 용량과 느린 호스트 (#401, ADR 0019 §6)
+- **flavor 대체.** 런처는 목록 순서대로 하나씩 pod를 만든다. RunPod가 HTTP 500 "no longer any instances available"(용량 부족, 비용 0)로 거절하면 다음 flavor로 바로 다시 만든다. 단가 검사는 실제로 잡힌 flavor의 `flavor_hourly_usd`로 한다.
+- **지연 재시도.** 목록이 모두 용량 부족이면 15·30·60분 기다렸다가 목록을 다시 돈다(최대 3회). 거절마다 원장에 `create_failed` 줄(`run_id`·`flavor`·`attempt`, `actual_usd` 0)이 남는다. 다 실패하면 run id가 든 메시지로 종료 코드 3. 다음 디스패치 판단은 그 줄을 보고 한다.
+- **느린 호스트 재발급.** `result_path` 잡의 stderr는 파드 안 `job.log`로도 복사되고, 결과 서버가 첫 진행 줄의 `iters_per_s` 숫자 하나만 `/<토큰>/progress.json`으로 내준다(로그 본문은 나가지 않는다). `median_iters_per_s`가 있고 그 값이 중앙값의 0.6배 미만이면 그 pod를 종료(원장 end `status: slow_host`, 실제 비용)하고 예산을 다시 검사한 뒤 **한 번만** 다시 만든다. 새 pod도 느리면 그대로 돌린다. 결과에 `replaced_pods`가 남는다.
+- **벽시계 한도.** 기다림과 재발급은 그 뒤 pod가 `max_minutes`를 다 써도 런처 시작부터 330분(`MAX_JOB_MINUTES`) 안에 끝날 때만 한다. GitHub 러너가 360분에 잡을 죽이면 종료·원장 기록이 안 되기 때문이다. 그래서 `max_minutes: 320` 잡은 flavor 대체만 하고 지연 재시도는 못 한다(15분 대기도 넘친다). 재발급은 pod 시작 후 약 10분 안에 결정될 때만 들어간다.
+
+원장: `ops:budget/ledger.jsonl` (start/end 이벤트, 용량 거절은 `create_failed`). 상한(`harness/budget.json`)을 올리는 PR은 사용자 결정 없이는 금지(reviewer.md).

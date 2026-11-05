@@ -54,7 +54,7 @@ def test_oversized_model_falls_back_to_float32_then_summary_only():
 @pytest.mark.parametrize("spec", sorted((ROOT / "jobs").glob("e3-tp-*-pod32.yaml")), ids=lambda p: p.stem)
 def test_job_spec_is_bounded_and_leaves_time_to_evaluate(spec):
     job = L.load_spec(spec)
-    assert job.cpu_flavor and not job.gpu_type and job.vcpu == 32
+    assert job.flavors[0][0] and not job.gpu_type and job.vcpu == 32
     assert job.worst_case_usd <= 7.0, "one pod training run must stay cheap against the monthly cap"
     args = shlex.split(job.command.split("python3 -m stalker.tools.pod_train", 1)[1])
     assert args[args.index("--out") + 1] == job.result_path
@@ -230,3 +230,77 @@ def test_own_avg_rule_survives_pack_and_the_resume_chain(tmp_path, no_eval):
     assert (st["version"], st["avg_rule"]) == (3, "own")
     second = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=2, resume=st, avg_rule="own")
     assert second["model"]["avg_rule"] == "own" and second["iters"] > first["iters"] == second["resumed_from"]
+
+
+def test_max_iters_stops_the_chain_at_the_count_and_says_so():
+    # #547: the count, not the pod's speed, ends training; the last batch is cut to land on it
+    m, s = P.train("beginner", 3, 1, minutes=10, seed=1, batch=2, max_iters=5)
+    assert m.iterations == 5 and (s["stopped_by"], s["max_iters"], s["chunk_iters"]) == ("max_iters", 5, 5)
+    ref = E3MCCFR(1, 5, 3, "basic")
+    for n in (2, 2, 1):
+        ref.iterate(n)
+    assert m.regret_hash() == ref.regret_hash()
+    # resume counts toward the cap: 5 done, 2 more to 7; a chain already past it trains nothing
+    again, s2 = P.train("beginner", 3, 1, minutes=10, seed=1, batch=2, resume=m.state(), max_iters=7)
+    assert again.iterations == 7 and (s2["resumed_from"], s2["chunk_iters"], s2["stopped_by"]) == (5, 2, "max_iters")
+    _, s3 = P.train("beginner", 3, 1, minutes=10, seed=1, batch=2, resume=again.state(), max_iters=7)
+    assert (s3["chunk_iters"], s3["stopped_by"]) == (0, "max_iters")
+
+
+def test_without_max_iters_training_is_the_time_limited_loop_as_before():
+    m, s = P.train("beginner", 3, 1, minutes=0.001, seed=1, batch=2)
+    assert (s["stopped_by"], s["max_iters"]) == ("minutes", None) and m.iterations % 2 == 0
+    ref = E3MCCFR(1, 5, 3, "basic")
+    for _ in range(m.iterations // 2):
+        ref.iterate(2)
+    assert m.regret_hash() == ref.regret_hash()
+    _, s = P.train("beginner", 3, 1, minutes=0.001, seed=1, batch=2, max_iters=10**9)
+    assert s["stopped_by"] == "minutes"   # the cap is not reached, so the clock ended it
+
+
+def test_max_iters_cli_reaches_the_result_and_refuses_zero(tmp_path, no_eval):
+    out = tmp_path / "r.json"
+    assert P.main(["--tier", "beginner", "--players", "3", "--workers", "1", "--batch", "2", "--minutes", "10",
+                   "--max-iters", "3", "--out", str(out)]) == 0
+    r = json.loads(out.read_text(encoding="utf-8"))
+    assert (r["iters"], r["stopped_by"], r["max_iters"]) == (3, "max_iters", 3)
+    with pytest.raises(SystemExit, match="max-iters"):
+        P.main(["--max-iters", "0", "--out", str(out)])
+
+
+def test_mixn_seed_jobs_match_the_seed1_job_but_seed_and_iteration_count():
+    # #547: seeds 2-4 of e3-tp-mid-c1-mixn-pod32 at a fixed 40k iterations; only seed, cap and paths differ
+    base = L.load_spec(ROOT / "jobs" / "e3-tp-mid-c1-mixn-pod32.yaml")
+    cap = L.load_cap()
+    for s in (2, 3, 4):
+        job = L.load_spec(ROOT / "jobs" / f"e3-tp-mid-c1-mixn-s{s}-pod32.yaml")
+        assert job.name == f"e3-tp-mid-c1-mixn-s{s}-pod32" and job.result_path == f"/result/{job.name}.json"
+        want = base.command.replace("--seed 1 ", f"--seed {s} --max-iters 40000 ").replace(base.result_path,
+                                                                                          job.result_path)
+        assert job.command == want
+        assert (job.cpu_flavor, job.vcpu, job.hourly_usd) == (base.cpu_flavor, base.vcpu, base.hourly_usd)
+        # #553: seed 2 timed out at 170 min on a slow pod (run 41670483215); #558: seeds 3-4 follow, since #556's
+        # 2,000-hand 2-3 player LBR lengthens evaluation and seed 4 (run 41670499712) already took 159.82 min
+        assert job.max_minutes == 240 and job.worst_case_usd <= 4.80
+        assert L.check_budget(job, [], cap, "2026-11") == 0
+        text = (ROOT / "jobs" / f"{job.name}.yaml").read_text(encoding="utf-8")
+        assert "1.2 * 240 / 60 = $4.80" in text and "$3.40" not in text
+        assert ("41670483215" if s == 2 else "41670499712") in text
+
+
+@pytest.mark.parametrize("suffix", [".ckpt.json", ".ckpt.json.gz"])
+def test_resume_reads_plain_and_gz_checkpoints(tmp_path, monkeypatch, suffix):
+    # #560: CI checkpoints are gzipped now; older ones are plain
+    from stalker.jsonio import write_json_gz
+
+    m = E3MCCFR(1, 5, 3, "basic")
+    m.iterate(2)
+    ck = tmp_path / ("c" + suffix)
+    if suffix.endswith(".gz"):
+        write_json_gz(ck, m.state())
+    else:
+        ck.write_text(json.dumps(m.state()), encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(P, "run", lambda *a, **k: seen.update(resume=a[6]) or {})
+    assert P.main(["--resume", str(ck), "--out", str(tmp_path / "o.json")]) == 0
+    assert seen["resume"] == json.loads(json.dumps(m.state()))

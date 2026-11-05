@@ -37,9 +37,9 @@ def _fidelity(hands, tol):
 
 def test_nine_presets_and_table_values():
     assert len(PRESETS) == 9
-    assert dataclasses.astuple(persona_params("calling_station")) == (0.55, 0.05, 0.12, 0.12)
-    assert dataclasses.astuple(persona_params("maniac")) == (0.62, 0.42, 0.85, 0.25)
-    assert dataclasses.astuple(persona_params("weak_tight")) == (0.17, 0.08, 0.22, 0.78)
+    assert dataclasses.astuple(persona_params("calling_station"))[:4] == (0.55, 0.05, 0.12, 0.12)
+    assert dataclasses.astuple(persona_params("maniac"))[:4] == (0.62, 0.42, 0.85, 0.25)
+    assert dataclasses.astuple(persona_params("weak_tight"))[:4] == (0.17, 0.08, 0.22, 0.78)
     assert dataclasses.astuple(persona_params("nit"))[:2] == (0.12, 0.10)
     with pytest.raises(KeyError):
         persona_params("nobody")

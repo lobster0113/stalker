@@ -17,6 +17,7 @@ term per player.
 """
 from __future__ import annotations
 
+import math
 from itertools import permutations
 
 import numpy as np
@@ -64,13 +65,13 @@ def best_response(root: Node, strategy: dict, br_player: int) -> dict[str, int]:
             r = v(n.children[choice[n.infoset]])
         else:
             ps = n.probs if n.kind == CHANCE else _probs(strategy, n)
-            r = sum(p * v(c) for p, c in zip(ps, n.children) if p > 0)
+            r = math.fsum(p * v(c) for p, c in zip(ps, n.children) if p > 0)
         memo[k] = r
         return r
 
     for info in sorted(members, key=lambda i: -members[i][0].depth):
         nodes = members[info]
-        scores = [sum(weight[id(h)] * v(h.children[a]) for h in nodes) for a in range(len(nodes[0].actions))]
+        scores = [math.fsum(weight[id(h)] * v(h.children[a]) for h in nodes) for a in range(len(nodes[0].actions))]
         choice[info] = int(np.argmax(scores))
     return choice
 
@@ -90,7 +91,7 @@ class CFRBR:
     def _current(self) -> dict[str, np.ndarray]:
         out = {}
         for k, r in self.regret.items():
-            s = r.sum()
+            s = math.fsum(r.tolist())   # not ndarray.sum / built-in sum: version- and CPU-dependent bits (#488, #498)
             out[k] = r / s if s > 0 else np.full(len(r), 1.0 / len(r))
         return out
 
@@ -104,7 +105,7 @@ class CFRBR:
         if nd.kind == TERMINAL:
             return nd.utility if p == 0 else -nd.utility
         if nd.kind == CHANCE:
-            return sum(q * self._walk(c, sigma, br, delta, t, reach_self, reach_other * q)
+            return math.fsum(q * self._walk(c, sigma, br, delta, t, reach_self, reach_other * q)
                        for q, c in zip(nd.probs, nd.children))
         if nd.player != p:
             return self._walk(nd.children[br[nd.infoset]], sigma, br, delta, t, reach_self, reach_other)
@@ -112,7 +113,7 @@ class CFRBR:
         s = sigma[k]
         vals = np.array([self._walk(c, sigma, br, delta, t, reach_self * s[i], reach_other)
                          for i, c in enumerate(nd.children)])
-        v = float(s @ vals)
+        v = math.fsum((s * vals).tolist())   # not BLAS `@` (#481)
         delta[k] += reach_other * (vals - v)
         self.avg[k] += t * reach_self * s
         return v
@@ -131,7 +132,7 @@ class CFRBR:
         """Average strategy of `player`, lifted to the full game's infosets."""
         avg = {}
         for k, s in self.avg.items():
-            tot = s.sum()
+            tot = math.fsum(s.tolist())
             avg[k] = (s / tot if tot > 0 else np.full(len(s), 1.0 / len(s))).tolist()
         return self._lift(avg)
 

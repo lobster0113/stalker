@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from functools import lru_cache
@@ -23,8 +24,8 @@ from functools import lru_cache
 import numpy as np
 
 from stalker.core import fast_eval
-from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.core.cards import COMBO_INDEX, COMBOS
+from stalker.core.fast_eval import evaluate_batch  # compiled when numba is installed (#201), same scores
 from stalker.e2 import game as G
 from stalker.e2.abstraction import _class_weights, _combo_classes, quantile_buckets
 from stalker.e2.mccfr import MCCFR
@@ -70,9 +71,22 @@ def _runouts(board: tuple[int, ...]) -> list[tuple[np.ndarray, np.ndarray, np.nd
     return out
 
 
+def _runout_fulls(board: tuple[int, ...]) -> np.ndarray:
+    """The sampled runouts as rows of 5 cards (board + drawn cards); the rng draws are the contract for the keys."""
+    rng = np.random.default_rng([20261028, *board])
+    live = np.array([c for c in range(52) if c not in board])
+    need = 5 - len(board)
+    b = np.array(board, dtype=np.int64)
+    rows = [np.concatenate([b, rng.choice(live, size=need, replace=False) if need else np.array([], dtype=np.int64)])
+            for _ in range(EQ_RUNOUTS if need else 1)]
+    return np.stack(rows)
+
+
 @lru_cache(maxsize=256)
 def _flat_runouts(board: tuple[int, ...]):
     """`_runouts` concatenated for the compiled kernel: idx, order, lo, hi, segment offsets."""
+    if fast_eval.HAVE_NUMBA:
+        return fast_eval.runout_tables(COMBO_ARR, ~_board_dead(board), _runout_fulls(board), len(board))
     rs = _runouts(board)
     off = np.cumsum([0] + [len(r[0]) for r in rs])
     return (np.concatenate([r[0] for r in rs]), np.concatenate([r[1] for r in rs]),
@@ -194,7 +208,7 @@ class EqMCCFR(MCCFR):
 
         if p == trav:
             vals = np.array([self._walk_r(*child(i), trav=trav) for i in range(len(acts))])
-            v = float(sigma @ vals)
+            v = math.fsum((sigma * vals).tolist())   # not BLAS `@` (#481)
             r = self.regret.setdefault(key, np.zeros(len(acts)))
             np.maximum(r + (vals - v), 0, out=r)
             return v

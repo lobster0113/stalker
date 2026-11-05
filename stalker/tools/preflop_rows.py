@@ -8,7 +8,7 @@ the steps match what the served policy sees, and a leak like "BTN never opens, m
 row.
 
 `--policy` takes the web service's file (`web/app/policy/<tier>-6.json`, `stalker.web.policy`) or a CI
-`<job>-seed<s>.policy.json` (`{"average", "current"}`; pick with `--strategy`, give `--tier`).
+`<job>-seed<s>.policy.json[.gz]` (`{"average", "current"}`; pick with `--strategy`, give `--tier`).
 """
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
+from stalker.jsonio import read_json
 from stalker.core.cards import cards
 from stalker.e2.eq_view import combo_index
 from stalker.e3 import game as G
@@ -27,7 +28,7 @@ from stalker.e3 import tp_key as K
 
 def load(path: Path, strategy: str = "current", tier: str | None = None, players: int = 6) -> dict:
     """{"policy": key -> probabilities, "k", "depth", "players", "menu", "raise_cap", "label"}."""
-    d = json.loads(path.read_text(encoding="utf-8"))
+    d = read_json(path)
     if d.get("schema") == "stalker.web.policy":
         q = d["q"]
         pol = {k: [x / q for x in v] for k, v in d["policy"].items()}
