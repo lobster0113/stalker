@@ -436,3 +436,4 @@
 {"ts":"2026-11-05T10:41:07Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts": "2026-11-05T11:04:50Z", "role": "builder", "outcome": "pr_opened", "issue": 585, "pr": 586, "notes": "export_web_policy --players: c1 mixn 정책을 인원별 파일로 분할(key_players 재사용), by_players LBR 메타, 오류 3종, 테스트 6개. 로컬 gates full 통과", "friction": "이 컨테이너에서 gates quick이 300s 타임아웃을 넘김(pytest -n4로 7분20초, full tests 1638s). 첫 quick을 timeout 300으로 돌려 실패로 오인할 뻔함; builder.md의 quick '90초 안팎' 목표와 환경 실제가 크게 다름"}
 {"ts":"2026-11-05T11:05:02Z","role":"reviewer","outcome":"skipped","issue":585,"pr":586,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
+{"ts":"2026-11-05T11:22:14Z","role":"builder-b","outcome":"pr_opened","issue":579,"pr":null,"notes":"avg_cap 3e5 resume 3 run 결과를 문서 §4.2에 기록(cap 평균 효과 재현 안 됨, sd 감소 경향), docs-only PR","friction":"gates 로컬 20분+라 docs-only라 생략"}
