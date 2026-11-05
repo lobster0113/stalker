@@ -1,0 +1,12 @@
+{
+ "schema_version": 1,
+ "adr": "docs/decisions/0020-short-handed-lbr-thresholds.md",
+ "note": "Regression-guard lines (not strength targets). Values copied from the ADR 0020 decision table; change by adding a new versioned file, not by editing this one.",
+ "players": {
+  "2": {"lbr_max": 9.0, "lbr_average_max": 8.7, "hands": 2000, "min_seeds": {"lbr": 1, "lbr_average": 2}},
+  "3": {"lbr_max": 6.4, "lbr_average_max": 5.2, "hands": 2000, "min_seeds": {"lbr": 1, "lbr_average": 2}},
+  "4": {"lbr_max": 4.0, "lbr_average_max": 3.7, "hands": 600, "min_seeds": {"lbr": 2, "lbr_average": 2}},
+  "5": {"lbr_max": 3.1, "lbr_average_max": 3.0, "hands": 600, "min_seeds": {"lbr": 2, "lbr_average": 2}},
+  "6": {"lbr_max": 2.7, "lbr_average_max": 2.7, "hands": 1000, "min_seeds": {"lbr": 2, "lbr_average": 2}}
+ }
+}
