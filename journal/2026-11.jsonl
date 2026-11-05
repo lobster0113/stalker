@@ -399,3 +399,4 @@
 {"ts":"2026-11-05T02:11:36Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN although there were no open PRs"}
 {"ts":"2026-11-05T02:41:10Z","role":"builder-b","outcome":"pr_opened","issue":566,"pr":null,"notes":"mixn s2 주석 정정 PR 열림","friction":"로컬 quick 게이트 tests 단계가 580초+ 걸려 끝나지 않음(목표 90초); 첫 실행도 pip 이후 120초 초과"}
 {"ts":"2026-11-05T02:41:36Z","role":"reviewer-b","outcome":"skipped","issue":566,"pr":577,"notes":"not my parity","friction":""}
+{"ts":"2026-11-05T02:57:50Z","role":"builder","outcome":"pr_opened","issue":576,"pr":578,"notes":"인원별 LBR 판정기 --json/--job 진입점 + launcher publish 뒤 ops:cloud/verdicts/<job>.json 기록(기록 전용, fail·오류여도 exit 0). gates full PASS(로컬)","friction":"샌드박스에서 gates quick이 975s(목표 90s), full tests 1417s: 첫 quick을 timeout 500으로 돌렸다 잘려 다시 돌렸다. 루틴 지침에 sandbox 실측치/권장 대기 방식을 quick에도 적어 두면 좋겠다"}
