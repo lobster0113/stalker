@@ -1,18 +1,19 @@
-# STATE (2026-11-04 23:30Z, planner)
+# STATE (2026-11-05 01:35Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
+planner 11-05 01:35Z: **PR #574(dfe5dbb, #572 ADR 0020 인원별 LBR 합격선 판정기 `referee.e3.thresholds`) 머지** — mixn c1 3시드 픽스처에서 2–6인 현재·평균 전략 모두 pass(#384에 기록). #572 잔존 ready·in-progress 라벨 정리(반복). 신규 **#576 P2 harness-change+referee-change**(판정 결과를 cloud 결과 게시 뒤 `ops:cloud/verdicts/`에 기록 전용). 열린 PR #575(#565). main CI dfe5dbb 진행 중, ca13b1b success.
 planner 11-04 23:30Z: **PR #571(ca13b1b, #537 3인 Kuhn AIVAT 스파이크: 비편향 유지, SE 감소 2.7–4.3배(로컬 참고), 나쁜 v는 0.54배) 머지** → #537 잔존 ready·in-progress 정리, 대체된 PR #536 닫음. 신규 **#573 P3 referee-change**(stats.py AIVAT 보정 함수, field 통합은 후속). 열린 PR 없음. main CI ca13b1b 진행 중, e8935b0 success.
 planner 11-04 21:15Z: **PR #567(f91e9e9, #530 own vs cap2·8: 5시드로 sd 차이 판단 불가, 짝지은 cap이 평균 LBR −0.42·−0.27, 기본값 유지) · PR #570(e8935b0, #564 ADR 0020 인원별 LBR 합격선 = 기준 평균+2se, 퇴행 방지선) 머지.** #530은 Closes가 안 먹어 수동 종료, #564 라벨 정리. 신규 **#572 P2 referee-change**(ADR 0020 합격선 판정기·CLI, CI 연결은 후속). 열린 PR #571(#537, CHANGES 20:57Z)·#536(정체). main CI e8935b0 success(tests 1671).
 planner 11-04 17:30Z: **PR #568(e8ae0ae, #533 giveup_turn 분리: 턴 fold 오차 .285→.140, WTSD 유지, 리버 .19→.22) 머지** → #533 잔존 ready·in-progress 정리. 신규 **#569 P3**(레버 4개 자동 탐색, 턴 오차 ≤.10, #568 후속). 열린 PR #567(#530, 판정 대기)·#536(CHANGES 정체). main CI e8ae0ae 진행 중, 5245d55 success.
 planner 11-04 16:10Z: **PR #562(3dbb02f, #559 시드 2–4 2,000핸드 재측정: 2–3인 현재 LBR 시드 간 sd 0.15·0.08 ≪ se, 평가 잡음이 주원인) · PR #563(5245d55, #560 policy·ckpt gzip) 머지.** #479 blocked→ready(선행 #560 해소). 신규 **#564 P2**(인원별 LBR 합격선 ADR), **#565 P3 harness-change**(복기 #rv-table 고정 겹침 검사, #552 후속), **#566 P3**(시드 2 잡 주석 정정, #561 후속). 열린 PR #536(CHANGES 대기, 11-03부터 정체). main CI 5245d55 success(tests 1671).
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. **D 2–5인(#384)**: 평가기(#534)·인원별 값(#542)·시드 분산(#548·#559) → 합격선 ADR 0020 머지(#564) → **#572 판정기**(2–3인 현재 LBR은 시드 1개, 평균 전략·4–6인은 2개). 그 뒤 CI 연결(harness-change)과 4–6인 판정 핸드 수 맞춘 측정. 소유자가 크리티컬하다고 한 short-handed.
+1. **D 2–5인(#384)**: 평가기(#534)·인원별 값(#542)·시드 분산(#548·#559) → 합격선 ADR 0020 머지(#564) → #572 판정기 머지(c1 2–6인 pass) → **#576 기록 연결**. 그 뒤 #384 종료 조건 정리. 소유자가 크리티컬하다고 한 short-handed.
 2. **C 고수 체인 비용(NH-11 (a))**: #560 gzip 머지로 큰 체인 아티팩트 한도가 풀렸다 → #479(b2 대 b1 10⁵회) 재개, b1 체크포인트 12-01 만료 전. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
 3. **페르소나 턴 폴드(#533 머지 → #569)**: giveup_turn으로 턴 오차 절반(.140)이나 nit .29 잔존, 수동 스윕 한계 → 자동 탐색. 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
 ## 큐
-ready 미착수: #572 P2·#573 P3·#565 P3·#566 P3·#569 P3 (5). in-progress: #479 P2(b2 체인 run 41884879698 진행). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #576 P2·#573 P3·#566 P3·#569 P3 (4). in-progress: #479 P2(b2 체인), #565 P3(PR #575). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #541·#542), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
-후보: AIVAT field·LBR 통합+NLHE 가치 함수(#573 뒤, referee-change), 합격선 CI 연결(#572 뒤, harness-change), avg_cap 3×10⁵ resume 재측정·평균 LBR 평가 시드 8(#567 후속 a·b), own 평균 LBR 1.20>현재 0.89 원인(#567 관찰), 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 웹 key 미러(c1), 프리플랍 프로브 CI 지표(harness-change).
+후보: AIVAT field·LBR 통합+NLHE 가치 함수(#573 뒤, referee-change), avg_cap 3×10⁵ resume 재측정·평균 LBR 평가 시드 8(#567 후속 a·b), own 평균 LBR 1.20>현재 0.89 원인(#567 관찰), 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 웹 key 미러(c1), 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
 - CI bea9bc8(18:12Z): tests 1590, failed 0, gate_r·cash·e3 1.0(e3 116,238), gate_l 1.0(32), stalker_loc 15527. 테스트 수 증가 추세(1524→1590, 1일).
 - E1(CI): 착취도 초보 0.0191·중수 0.0033·고수 0.0009, Gate S 초보 분위 passed=false 지속 — 정체 축, ADR 0016 record-only.
