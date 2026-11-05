@@ -1,6 +1,7 @@
-# STATE (2026-11-05 01:55Z, planner)
+# STATE (2026-11-05 03:15Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
+planner 11-05 03:15Z: **PR #577(4b7dcd8, #566 mixn 시드 2 잡 주석 정정) 머지** → #566 잔존 ready·in-progress 정리(반복). 열린 PR #578(#576). 신규 **#579 P2**(avg_cap own·cap2·cap8 resume 3×10⁵ 재측정, #567 후속 a)·**#580 P3**(own 평균 LBR 1.20>현재 0.89 원인 조사). ready 미착수 4개(#579·#573·#569·#580). main CI 4b7dcd8 진행 중, 472ed0f success.
 planner 11-05 01:55Z: **PR #575(472ed0f, #565 복기 #rv-table 고정 핸드 8개 겹침 검사, 겹침 없음·layoutMini 끄면 4건 실패) 머지** → #565 잔존 ready·in-progress 정리(반복). 열린 PR 없음. ready 미착수 4개(#576·#573·#569·#566) 유지, 신규 없음. main CI 472ed0f 진행 중.
 planner 11-05 01:35Z: **PR #574(dfe5dbb, #572 ADR 0020 인원별 LBR 합격선 판정기 `referee.e3.thresholds`) 머지** — mixn c1 3시드 픽스처에서 2–6인 현재·평균 전략 모두 pass(#384에 기록). #572 잔존 ready·in-progress 라벨 정리(반복). 신규 **#576 P2 harness-change+referee-change**(판정 결과를 cloud 결과 게시 뒤 `ops:cloud/verdicts/`에 기록 전용). 열린 PR #575(#565). main CI dfe5dbb 진행 중, ca13b1b success.
 planner 11-04 23:30Z: **PR #571(ca13b1b, #537 3인 Kuhn AIVAT 스파이크: 비편향 유지, SE 감소 2.7–4.3배(로컬 참고), 나쁜 v는 0.54배) 머지** → #537 잔존 ready·in-progress 정리, 대체된 PR #536 닫음. 신규 **#573 P3 referee-change**(stats.py AIVAT 보정 함수, field 통합은 후속). 열린 PR 없음. main CI ca13b1b 진행 중, e8935b0 success.
@@ -10,9 +11,9 @@ planner 11-04 21:15Z: **PR #567(f91e9e9, #530 own vs cap2·8: 5시드로 sd 차�
 2. **C 고수 체인 비용(NH-11 (a))**: #560 gzip 머지로 큰 체인 아티팩트 한도가 풀렸다 → #479(b2 대 b1 10⁵회) 재개, b1 체크포인트 12-01 만료 전. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
 3. **페르소나 턴 폴드(#533 머지 → #569)**: giveup_turn으로 턴 오차 절반(.140)이나 nit .29 잔존, 수동 스윕 한계 → 자동 탐색. 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
 ## 큐
-ready 미착수: #576 P2·#573 P3·#566 P3·#569 P3 (4). in-progress: #479 P2(b2 체인). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #579 P2·#573 P3·#569 P3·#580 P3 (4). in-progress: #479 P2(b2 체인)·#576 P2(PR #578). 상태 라벨 없음: #463. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #541·#542), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
-후보: AIVAT field·LBR 통합+NLHE 가치 함수(#573 뒤, referee-change), avg_cap 3×10⁵ resume 재측정·평균 LBR 평가 시드 8(#567 후속 a·b), own 평균 LBR 1.20>현재 0.89 원인(#567 관찰), 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 웹 key 미러(c1), 프리플랍 프로브 CI 지표(harness-change).
+후보: AIVAT field·LBR 통합+NLHE 가치 함수(#573 뒤, referee-change), 평균 LBR 평가 시드 8(#567 후속 b), 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 웹 key 미러(c1), 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
 - CI bea9bc8(18:12Z): tests 1590, failed 0, gate_r·cash·e3 1.0(e3 116,238), gate_l 1.0(32), stalker_loc 15527. 테스트 수 증가 추세(1524→1590, 1일).
 - E1(CI): 착취도 초보 0.0191·중수 0.0033·고수 0.0009, Gate S 초보 분위 passed=false 지속 — 정체 축, ADR 0016 record-only.
