@@ -169,6 +169,37 @@ def nut_k(model: dict) -> dict:
     return {"nut_k": model.get("nut_k", K.K_PRO)} if model.get("depth") == "pro" else {}
 
 
+def load_pod_result(path: Path) -> tuple[dict, dict]:
+    """A RunPod training result (stalker.tools.pod_train) -> (E3MCCFR state, the result as its summary)."""
+    import base64
+
+    from stalker.tools.pod_train import unpack_state
+
+    summary = json.loads(path.read_text(encoding="utf-8"))
+    if not summary.get("checkpoint"):
+        raise SystemExit(f"{path}: no checkpoint in this result ({summary.get('checkpoint_note', 'missing')})")
+    return unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"]), summary
+
+
+def load_model(st: dict):
+    from stalker.e3.mccfr import E3MCCFR
+
+    return E3MCCFR.from_state(st)
+
+
+def policy_doc(m, st: dict, summary: dict | None, run: str, sha: str = "", strategy: str = "current",
+               placeholder: bool = False, players: int | None = None, min_visits: int = 0,
+               policy: dict | None = None) -> dict:
+    """One policy file's document; `players` (from `split_players`) keeps that seat count only. `policy` is
+    the table's strategy when the caller already has it (one table, many files)."""
+    if policy is None:
+        policy = m.policy() if strategy == "average" else m.current_policy()
+    meta = meta_from(st, summary, run, sha, strategy, placeholder)
+    if players is not None:
+        policy, meta = keep_players(policy, players), by_players_meta(meta, summary, players, strategy)
+    return export(policy, meta, dict(m.visits), min_visits)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     src = ap.add_mutually_exclusive_group(required=True)
@@ -189,29 +220,16 @@ def main(argv=None) -> int:
     ap.add_argument("--index", type=Path,
                     help="also upsert the file into this model list (web/app/policy/index.json) under (tier, players)")
     a = ap.parse_args(argv)
-    from stalker.e3.mccfr import E3MCCFR
-
     if a.pod_result and a.summary:
         raise SystemExit("--summary is for --ckpt; a --pod-result already carries its LBR and field: drop --summary")
     summary = json.loads(a.summary.read_text(encoding="utf-8")) if a.summary else None
     if a.pod_result:
-        import base64
-
-        from stalker.tools.pod_train import unpack_state
-
-        summary = json.loads(a.pod_result.read_text(encoding="utf-8"))
-        if not summary.get("checkpoint"):
-            raise SystemExit(f"{a.pod_result}: no checkpoint in this result ({summary.get('checkpoint_note', 'missing')})")
-        st = unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"])
+        st, summary = load_pod_result(a.pod_result)
     else:
         st = read_json(a.ckpt)
     players = split_players(st, a.players)
-    m = E3MCCFR.from_state(st)
-    policy = m.policy() if a.strategy == "average" else m.current_policy()
-    meta = meta_from(st, summary, a.run, a.sha, a.strategy, a.placeholder)
-    if players is not None:
-        policy, meta = keep_players(policy, players), by_players_meta(meta, summary, players, a.strategy)
-    doc = export(policy, meta, dict(m.visits), a.min_visits)
+    m = load_model(st)
+    doc = policy_doc(m, st, summary, a.run, a.sha, a.strategy, a.placeholder, players, a.min_visits)
     body = json.dumps(doc, separators=(",", ":")).encode()
     if len(body) > a.max_bytes:
         raise SystemExit(f"{a.out}: {len(body)} bytes > {a.max_bytes}; drop rarely updated keys with --min-visits "
