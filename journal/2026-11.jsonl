@@ -495,3 +495,4 @@
 {"ts":"2026-11-05T23:05:00Z","role":"planner","outcome":"planned","issue":597,"pr":594,"notes":"PR #594(#593) 머지 후속: #593 라벨 정리, #597 P3 referee-change(AIVAT 찬스 노드 보정 + CLI --aivat) 생성, STATE 갱신","friction":"Closes 머지 뒤 ready·in-progress 라벨 잔존 반복(planner가 매번 수동 정리)"}
 {"ts":"2026-11-05T23:11:41Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-05T23:30Z","role":"builder","outcome":"waiting_ci","issue":479,"pr":null,"notes":"b2 구간 3/4 run 42071156414 success(iters 80000) 확인 → 구간 4/4 run 42126517300 디스패치(resume 42071156414, iters 20000, 누적 10^5). main gates quick PASS","friction":"gates quick 로컬 960초(목표 90초, (a) 지속)"}
+{"ts":"2026-11-05T23:41:05Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN although there were no open PRs"}
