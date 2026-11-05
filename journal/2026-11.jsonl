@@ -455,3 +455,4 @@
 {"ts":"2026-11-05T14:13:07Z","role":"reviewer-b","outcome":"skipped","issue":573,"pr":591,"notes":"not my parity","friction":""}
 {"ts":"2026-11-05T14:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #590 already has CHANGES at head 7c6d06c; no new commits","friction":""}
 {"ts":"2026-11-05T14:55:58Z","role":"reviewer","outcome":"changes","issue":573,"pr":591,"notes":"CI all green on relabel run; mean-zero test is tautological (sample-centered correction makes diff exactly 0); raw_var==0 branch untested","friction":"PR opened before referee-change label applied, so first CI run failed guard and the full ~40min CI had to rerun; waiting consumed most of the run"}
+{"ts":"2026-11-05T15:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #590 still at 7c6d06c with existing CHANGES verdict; no new commits","friction":""}
