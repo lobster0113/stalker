@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Commit and push ops:budget/ledger.jsonl, ops:cloud/results/ (launcher publish, #264) and ops:journal/
+# Commit and push ops:budget/ledger.jsonl, ops:cloud/results/ (launcher publish, #264), ops:cloud/verdicts/ (#576) and ops:journal/
 # (launcher capacity give-up, #401) from the ops
 # worktree (cloud.yml). Exit nonzero if the push fails.
 # Usage: push_ledger.sh <ops worktree> <commit message>
 set -euo pipefail
 cd "$1"
 paths=()
-for p in budget/ledger.jsonl cloud/results journal; do [[ -e "$p" ]] && paths+=("$p"); done
+for p in budget/ledger.jsonl cloud/results cloud/verdicts journal; do [[ -e "$p" ]] && paths+=("$p"); done
 [[ ${#paths[@]} -gt 0 ]] || exit 0
 # Parallel cloud runs (#350) append to the same file: union-merge it so a rebase keeps both lines.
 attr="$(git rev-parse --git-common-dir)/info/attributes"

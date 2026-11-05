@@ -28,6 +28,9 @@ earlier run's result there, trimmed to what a resume needs and gzipped; without 
 `publish` copies a checked result to `ops:cloud/results/<run id>.json`: agent sandboxes cannot
 download artifacts (their blob storage host is outside the egress allow-list, #264), but read ops.
 Over 1 MB it writes `<run id>.summary.json` with long strings (model blobs) left out (#358).
+A published result with `by_players` also refreshes `ops:cloud/verdicts/<job>.json`, the ADR 0020 per-player-count
+LBR verdict over all of that job's results (`referee/e3/thresholds.py`, #576). Record-only: a `fail` or a judge
+error never changes publish's exit code.
 Capacity and hosts (#401, ADR 0019 §6): `cpu_flavors` are tried in order, a RunPod "no instances" refusal moves
 to the next one and, when all are full, waits CAPACITY_RETRY_MINUTES and tries again (each refusal a $0
 `create_failed` ledger line, exit 3 when they run out, plus an `outcome: failed` line in `--journal`). With `median_iters_per_s` the result server also answers
@@ -40,6 +43,7 @@ import argparse
 import gzip
 import json
 import hashlib
+import importlib.util
 import os
 import re
 import secrets
@@ -76,6 +80,8 @@ SECRET_PATTERNS = [re.compile(p) for p in (
 # ops is a git branch every routine fetches; bigger results stay artifact-only
 OPS_RESULT_MAX_BYTES = 1024 * 1024
 OPS_RESULT_DIR = PurePath("cloud", "results")
+OPS_VERDICT_DIR = PurePath("cloud", "verdicts")
+THRESHOLDS_PY = ROOT / "referee" / "e3" / "thresholds.py"
 SUMMARY_BLOB_CHARS = 4096  # strings longer than this (model blobs) are left out of an oversized result's ops summary
 RESUME_DIR = "/stalker-resume"
 RESUME_ENV = "STALKER_RESUME"
@@ -851,6 +857,26 @@ def publish(src: Path, run_id: str, ops: Path, log=print) -> Path | None:
     return dst
 
 
+def record_lbr_verdict(published: Path | None, ops: Path, log=print, judge_py: Path = THRESHOLDS_PY) -> dict | None:
+    """After publish: re-judge the published result's job into <ops>/cloud/verdicts/<job>.json.
+
+    None when the result has no `by_players`. Never raises: the verdict is a record, not a gate (#576)."""
+    if published is None:
+        return None
+    try:
+        res = json.loads(published.read_text(encoding="utf-8"))
+        if not isinstance(res, dict) or not res.get("by_players"):
+            return None
+        # loaded by path: cloud.yml runs this file without installing the package
+        spec = importlib.util.spec_from_file_location("stalker_lbr_thresholds", judge_py)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    except Exception as e:  # noqa: BLE001 — record-only
+        log(f"lbr verdict not recorded: {type(e).__name__}: {e}")
+        return {"error": f"{type(e).__name__}: {e}"}
+    return mod.record(res.get("job"), ops / OPS_RESULT_DIR, ops / OPS_VERDICT_DIR, log=log)
+
+
 def reap(api: RunPod, ledger: Path, *, name_prefix: str = POD_PREFIX, pod_name: str | None = None,
          force: bool = False, now: Callable[[], datetime] = _now, log=print) -> list[str]:
     """Terminate our pods past their deadline (or unknown to the ledger) and close stale ledger entries.
@@ -948,7 +974,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"job {job.name}: {res['status']}", file=sys.stderr)
                 return 1
         elif a.cmd == "publish":
-            publish(a.result, a.run_id, a.ops)
+            record_lbr_verdict(publish(a.result, a.run_id, a.ops), a.ops)
         else:
             if bool(a.job) != bool(a.run_id):
                 raise LauncherError("reap: pass --job and --run-id together (or neither for the daily reap)")

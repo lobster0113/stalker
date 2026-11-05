@@ -771,6 +771,27 @@ def test_publish_summary_is_secret_checked(tmp_path):
     assert not (ops / "cloud" / "results").exists()
 
 
+def test_publish_records_lbr_verdict_but_never_fails(tmp_path, capsys):
+    src, ops = tmp_path / "result.json", tmp_path / "ops"
+    # 6-player current-strategy LBR far above its line: fail, recorded, yet publish exits 0
+    cell = {"lbr": {"lbr_bb": 9.9, "stderr_bb": 1.0, "hands": 1000}}
+    for run, seed in (("21", 1), ("22", 2)):
+        src.write_text(json.dumps({"job": "j-pod", "seed": seed, "by_players": {"6": cell}}), encoding="utf-8")
+        assert L.main(["publish", str(src), "--run-id", run, "--ops", str(ops)]) == 0
+    rec = json.loads((ops / "cloud" / "verdicts" / "j-pod.json").read_text(encoding="utf-8"))
+    assert rec["runs"] == ["21", "22"] and rec["players"]["6"]["lbr"]["verdict"] == "fail"
+    assert "lbr verdict j-pod: fail 6p lbr" in capsys.readouterr().out
+    # no by_players: no verdict file
+    src.write_text(json.dumps({"job": "k-pod", "seed": 1}), encoding="utf-8")
+    assert L.main(["publish", str(src), "--run-id", "23", "--ops", str(ops)]) == 0
+    assert not (ops / "cloud" / "verdicts" / "k-pod.json").exists()
+    # a broken judge is logged, never raised
+    bad = tmp_path / "bad_judge.py"
+    bad.write_text("raise RuntimeError('boom')", encoding="utf-8")
+    out = L.record_lbr_verdict(ops / "cloud" / "results" / "22.json", ops, log=lambda _m: None, judge_py=bad)
+    assert "boom" in out["error"]
+
+
 def test_push_ledger_commits_published_results(tmp_path):
     import subprocess
 
@@ -783,11 +804,13 @@ def test_push_ledger_commits_published_results(tmp_path):
     git("checkout", "-q", "-b", "ops", cwd=wt)
     (wt / "cloud" / "results").mkdir(parents=True)
     (wt / "cloud" / "results" / "9.json").write_text("{}", encoding="utf-8")
+    (wt / "cloud" / "verdicts").mkdir(parents=True)
+    (wt / "cloud" / "verdicts" / "j.json").write_text("{}", encoding="utf-8")
     subprocess.run(["bash", str(ROOT / "harness" / "cloud" / "push_ledger.sh"), str(wt), "cloud: collect 9"],
                    check=True, capture_output=True)
     files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
                            capture_output=True, text=True, encoding="utf-8").stdout.split()
-    assert files == ["cloud/results/9.json"]
+    assert files == ["cloud/results/9.json", "cloud/verdicts/j.json"]
 
 
 def test_cloud_workflow_collect_mode_and_result_to_ops():
