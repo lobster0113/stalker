@@ -26,6 +26,7 @@ from stalker.jsonio import find_table, read_json, write_json_gz
 LBR_HANDS = 4000
 # E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
 E3_LBR_HANDS = 1000
+E3_LBR_HANDS_EVAL = 4000    # #589: evaluation-only variants (SE about half of E3_LBR_HANDS)
 # E3 field deals per configuration (each played in all 6 seat rotations): 500 locally gave a 95% CI of
 # about +-150 bb/100 (#295); about 0.08 s per deal per configuration, so 9 configs x 1000 is ~12 min.
 E3_FIELD_HANDS = 1000
@@ -182,8 +183,10 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
            workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
            avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform", probe: bool = False,
-           avg_cap: float | None = None) -> dict:
-    """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
+           avg_cap: float | None = None, eval_of: str = "", lbr_hands: int | None = None) -> dict:
+    """`eval_of` (#589): evaluation-only variant of the job of that name: read its checkpoint (needs `resume`), train 0 iters,
+    write no table, and run the LBR with `lbr_hands` hands, so a finished chain is re-measured with less noise.
+    `resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
     `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
@@ -200,8 +203,11 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
     from stalker.tools.pod_bench import machine
 
-    ckpt = f"{name}-seed{seed}.ckpt.json"   # saved as .gz (#560); a plain one from an older run still resumes
-    ck_path = find_table(resume, f"{name}-seed{seed}.ckpt") if resume is not None else None
+    src = eval_of or name
+    if eval_of and resume is None:
+        raise SystemExit(f"{name} only re-evaluates a finished {eval_of} run: set resume_run to it (#589)")
+    ckpt = f"{src}-seed{seed}.ckpt.json"   # saved as .gz (#560); a plain one from an older run still resumes
+    ck_path = find_table(resume, f"{src}-seed{seed}.ckpt") if resume is not None else None
     if resume is None:
         m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, avg_rule=avg_rule,
                     key_variant=key_variant, stacks=stacks, avg_cap=avg_cap)
@@ -222,12 +228,16 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     if m.stacks != stacks:
         raise SystemExit(f"{resume / ckpt} trained with {m.stacks} stacks, but {name} uses {stacks} (#399)")
     prev = m.iterations
+    if eval_of:
+        iters = 0
     t0 = time.monotonic()
-    parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
+    if iters:
+        parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
     train_s = time.monotonic() - t0
-    write_json_gz(out / f"{ckpt}.gz", m.state())
     avg, cur = m.policy(), m.current_policy()
-    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", {"average": avg, "current": cur})
+    if not eval_of:     # the evaluation variant leaves the original run's tables as they are
+        write_json_gz(out / f"{ckpt}.gz", m.state())
+        write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", {"average": avg, "current": cur})
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
             "avg_rule": m.avg_rule, **({"avg_cap": m.avg_cap} if m.avg_cap is not None else {}),
@@ -238,7 +248,8 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             # #447: the table's bits, so two runs that should match (same sha, seed, workers) can be checked
             "regret_sha256": m.regret_hash(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
-            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur),
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur, lbr_hands),
+            **({"lbr_hands": lbr_hands} if eval_of else {}),
             **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
 
 
@@ -260,7 +271,8 @@ def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
             "seconds": round(time.monotonic() - t0, 1)}
 
 
-def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) -> dict:
+def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None,
+                lbr_hands: int | None = None) -> dict:
     """The CI E3 evaluation of a trained model: LBR of both policies, coverage, field (6-max only).
     Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare.
     `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation).
@@ -274,16 +286,17 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
     from stalker.e3 import tp_key as K
     from stalker.e3.mccfr import coverage
 
+    lbr_hands = E3_LBR_HANDS if lbr_hands is None else lbr_hands   # read late: tests shrink the module value
     avg = m.policy() if avg is None else avg
     cur = m.current_policy() if cur is None else cur
     t1 = time.monotonic()
     # Same LBR deals for both policies.
     with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant):
-        lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
+        lbr = {k: exploitability_lb(pol, lbr_hands, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
                for k, pol in (("average", avg), ("current", cur))}
         # #343: an independent estimate (same seed, but deals drift once the exploiter picks another line) whose
         # exploiter may also use sizes off the menu (the plain LBR undercounts what it can take)
-        offmenu = exploitability_lb(cur, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth,
+        offmenu = exploitability_lb(cur, lbr_hands, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth,
                                     extra_sizes=True)
         cov = coverage(m)
         t2 = time.monotonic()
@@ -380,6 +393,15 @@ JOBS = {"e2-mccfr": _e2_mccfr,
                                             avg_rule="own", avg_cap=2.0),
         "e3-tp-mid-ownavg-cap8-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap8-w4", workers=4,
                                             avg_rule="own", avg_cap=8.0),
+        # #589: the three above re-measured from their checkpoints (resume_run), 0 more iters, 4000 LBR hands
+        "e3-tp-mid-ownavg-w4-eval": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4-eval", workers=4,
+                                            avg_rule="own", eval_of="e3-tp-mid-ownavg-w4", lbr_hands=E3_LBR_HANDS_EVAL),
+        "e3-tp-mid-ownavg-cap2-w4-eval": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap2-w4-eval", workers=4,
+                                                 avg_rule="own", avg_cap=2.0, eval_of="e3-tp-mid-ownavg-cap2-w4",
+                                                 lbr_hands=E3_LBR_HANDS_EVAL),
+        "e3-tp-mid-ownavg-cap8-w4-eval": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap8-w4-eval", workers=4,
+                                                 avg_rule="own", avg_cap=8.0, eval_of="e3-tp-mid-ownavg-cap8-w4",
+                                                 lbr_hands=E3_LBR_HANDS_EVAL),
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
         # #460: b1 plus board.adv/opp.value/plan.foldeq (B2) vs e3-tp-mid-b1-w4, same iterations and seeds
@@ -407,7 +429,8 @@ RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
              "e3-tp-mid-real-w4", "e3-tp-mid-real-avgrange-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
              "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4",
-             "e3-tp-mid-c1-w4", "e3-tp-mid-ownavg-cap2-w4", "e3-tp-mid-ownavg-cap8-w4"}   # #301
+             "e3-tp-mid-c1-w4", "e3-tp-mid-ownavg-cap2-w4", "e3-tp-mid-ownavg-cap8-w4",
+             "e3-tp-mid-ownavg-w4-eval", "e3-tp-mid-ownavg-cap2-w4-eval", "e3-tp-mid-ownavg-cap8-w4-eval"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
