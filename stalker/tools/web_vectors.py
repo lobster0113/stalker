@@ -42,8 +42,8 @@ ROOT = Path(__file__).resolve().parents[2]
 VECTORS = ROOT / "web" / "app" / "test" / "vectors.json"
 ASSET = ROOT / "web" / "app" / "assets" / "hu_equity.json"
 SCHEMA = "stalker.web.tpgto.vectors"
-SCHEMA_VERSION = 5   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417); 4: "c1_keys" (#583);
-# 5: "b1" (#606)
+SCHEMA_VERSION = 6   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417); 4: "c1_keys" (#583);
+# 5: "b1" (#606); 6: c1 postflop keys per tier in the b1 hands (#608)
 TIERS = ("beginner", "mid", "pro")
 PLAYERS = (2, 4, 6, 9)   # 2 and 4: the web looks up per-seat policies (#541)
 FOLD_WEIGHTS = (0.15, 1.0, 4.0)   # per hand: deep multiway hands, plain random, fold-heavy (heads-up postflop)
@@ -252,6 +252,10 @@ def _play_b1(n: int, h: int, rng: np.random.Generator) -> dict:
             basic = K.b1_code(s, p, ranges, "basic")
             d.update(street=s.street, live=len(s.live()), full=_encode_codes(full), basic=_encode_codes(basic),
                      labels={str(int(c)): K.b1_label(int(c)) for c in sorted(set(full.tolist()) | set(basic.tolist()))})
+            # #608: the actor's real-hole c1 key per tier, from tp_key.equity_steps(variant="c1") + tp_key.key.
+            d["c1"] = {tier: K.key(K.public_key(s, p, K.TIER_DEPTH[tier], variant="c1"),
+                                   K.my_step(K.equity_steps(s, p, ranges, K.TIER_K[tier], variant="c1"), s, p))
+                       for tier in TIERS}
         # Few folds so 6-max flops stay multiway; all ins rare so later streets are reached.
         wts = np.array([0.15 if a == "f" else 0.03 if a == "a" else 1.0 for a in acts])
         d["a"] = acts[int(rng.choice(len(acts), p=wts / wts.sum()))]
