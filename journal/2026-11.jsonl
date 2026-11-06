@@ -572,3 +572,4 @@
 {"ts":"2026-11-06T15:04:38Z","role":"builder-b","outcome":"pr_opened","issue":611,"pr":616,"notes":"web_hit_rate tool + tests + docs; PR opened","friction":"gates full takes ~25min (tests 1360s); first quick run in background was killed by my 500s timeout; new test missed encoding=utf-8 (caught only by full)"}
 {"ts":"2026-11-06T15:05:00Z","role":"reviewer","outcome":"skipped","issue":611,"pr":616,"notes":"not my parity","friction":""}
 {"ts":"2026-11-06T15:05:54Z","role":"reviewer-b","outcome":"changes","issue":611,"pr":616,"notes":"CHANGES: main과 docs/ARCHITECTURE.md 충돌로 CI 미실행, 죽은 _bump, 적중 테스트 >=1 대신 정확한 값","friction":"충돌(dirty) PR은 pull_request 워크플로가 안 돌아 체크 0개 — builder가 PR 열기 전 main 최신화 여부를 확인하지 않음"}
+{"ts":"2026-11-06T15:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: even PRs #616 (CHANGES 15:05, dirty) and #599 (CHANGES) already judged at current head sha","friction":""}
