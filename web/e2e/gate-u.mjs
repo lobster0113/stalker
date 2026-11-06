@@ -1125,11 +1125,13 @@ await inspect("home-move", "#move");
   await p6.close();
 }
 
-// 7. #397 임시 정책·미학습 표시: (a) 6인 100BB → 임시 배지, (b) 4인 → 미학습(규칙 봇), (c) placeholder:false 픽스처 → 배지 없음
+// 7. #397 임시 정책·미학습 표시: (a) 6인 100BB → 임시 배지, (b) 초보 4인(정책 없음, 중수 4인은 #604부터 있음) → 미학습(규칙 봇),
+// (c) placeholder:false 픽스처 → 배지 없음
 {
-  const open = async (pg, seats) => {
+  const open = async (pg, seats, tier) => {
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    if (tier) await pg.click(`#set-tier [data-v='${tier}']`);
     if (seats) await pg.selectOption("#c-seats", seats);
     await pg.click("#start-btn");
     await pg.waitForSelector("#tp-body [data-card='quick-act']");
@@ -1155,7 +1157,7 @@ await inspect("home-move", "#move");
   await autoContinue(p8);
   p8.setDefaultTimeout(60_000);
   p8.on("pageerror", e => must(false, `page error (미학습): ${e.message}`));
-  await open(p8, "4");
+  await open(p8, "4", "beginner");
   const b = await info(p8);
   must(b.untrained === 1 && b.badge.length === 0 && b.seats.length === 3 && b.seats.every(t => t.includes("규칙 봇")), `미학습 표시: 4인 테이블에 미학습(규칙 봇) 표시가 없음 (${JSON.stringify(b)})`);
   for (const [name, width, height] of VIEWPORTS) {
@@ -1298,6 +1300,82 @@ await inspect("home-move", "#move");
   await pg.close();
   for (const n of [5, 6]) { const o = await open(n); await sweepButtons(o.pg, `인원별 정책 ${n}인`); await o.pg.close(); }
   console.log("인원별 정책 ok");
+}
+
+// 12. #604 2–5인 중수 = c1 정책(run 41813684540): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
+// 결정이 c1 키로 mid-<n>.json 행을 읽는다(레거시 키로 읽으면 한 번도 맞지 않아 균등 분포가 된다). 포스트플랍은
+// c1 b1 칸이 tpgto.js에 없어 그 핸드만 거울을 끈다(콘솔 경고, 규칙 봇 배지 없음).
+{
+  const C1_RUN = "41813684540";
+  // 2·4·5인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
+  // c1policy.test.mjs checks that their first preflop c1 keys hit mid-<n>.json.
+  {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    pg.setDefaultTimeout(60_000);
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    for (const n of [2, 4, 5]) {
+      await pg.selectOption("#c-seats", String(n));
+      const row = () => [...document.querySelectorAll("#model-status .ms")].map(e => e.textContent).find(t => t.startsWith("중수")) || "";
+      await pg.waitForFunction(r => new Function(`return (${r})()`)().includes("run "), row.toString()).catch(() => {});
+      const mid = await pg.evaluate(r => new Function(`return (${r})()`)(), row.toString());
+      must(mid.includes(`상대 ${n - 1}명 = TP-GTO 중수 정책`) && mid.includes(`run ${C1_RUN}`),
+        `c1 ${n}인: 중수 모델 목록이 c1 정책(run ${C1_RUN})이 아님 (${JSON.stringify(mid)}) — index.json tiers.mid.by_players 확인 (#604)`);
+    }
+    await pg.close();
+  }
+  for (const n of [3]) {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(120_000);
+    const errs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    await pg.selectOption("#c-seats", String(n));
+    await pg.click("#set-tier [data-v='mid']");
+    await pg.waitForFunction(k => TPG.pol[k], `mid-${n}`, { timeout: 120_000 });
+    const ms = await pg.evaluate(() => [...document.querySelectorAll("#model-status .ms")].map(e => e.textContent));
+    const mid = ms.find(t => t.startsWith("중수")) || "";
+    must(mid.includes(`상대 ${n - 1}명 = TP-GTO 중수 정책`) && mid.includes(`run ${C1_RUN}`) && !mid.includes("학습 중 ·"),
+      `c1 ${n}인: 중수 모델 목록이 c1 정책(run ${C1_RUN})이 아님 (${JSON.stringify(mid)}) — index.json tiers.mid.by_players 확인 (#604)`);
+    if (n === 3) await pg.screenshot({ path: `${shots}/c1-models-3-laptop.png` });
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const a = await pg.evaluate(() => ({ n: G.n, eng: !!G.eng, run: G.eng?.meta?.run_id ?? null, kv: G.eng?.meta?.key_variant ?? null,
+      untrained: document.querySelectorAll("#infobar [data-untrained]").length,
+      seats: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent) }));
+    must(a.n === n && a.eng && a.run === C1_RUN && a.kv === "c1" && a.untrained === 0 && a.seats.length === n - 1 && a.seats.every(t => t.includes("TP-GTO 중수") && !t.includes("규칙 봇")),
+      `c1 ${n}인: 중수 c1 정책 테이블이 아님 (${JSON.stringify(a)})`);
+    const file = JSON.parse(readFileSync(resolve(here, `../app/policy/mid-${n}.json`), "utf8"));
+    const h0 = await pg.evaluate(() => G.handNo);
+    const mine = () => pg.evaluate(h => TPG.botLog.filter(x => x.tier === "mid" && x.hand === h), h0);
+    if (!(await mine()).length) {   // the hero opened the action: call or check once so the opponents act
+      await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+      await pg.click("#tp-go");
+      await pg.waitForFunction(h => TPG.botLog.some(x => x.hand === h) || G.handNo !== h, h0);
+    }
+    const log = await mine();
+    let hit = 0;
+    for (const d of log) {
+      must(/\|n\d\|/.test(d.key) || d.key.startsWith("call|"), `c1 ${n}인: AI 결정 키가 c1 형식이 아님 (${d.key})`);
+      const row = file.policy[d.key];
+      if (!row) continue;
+      hit++;
+      must(d.fromTable && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 ${n}인: 페이지 확률이 mid-${n}.json 행과 다름 (${d.key})`);
+    }
+    must(log.length >= 1 && hit >= 1,
+      `c1 ${n}인: 첫 핸드 상대 프리플랍 결정이 정책 표에서 나오지 않음 (결정 ${log.length}, 적중 ${hit}) — decisionKey variant 확인 (#604)`);
+    if (n === 3) {
+      await pg.screenshot({ path: `${shots}/c1-table-3-laptop.png` });
+      await inspect("c1-table-3", "#infobar", pg);
+    }
+    must(!errs.length, `c1 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    console.log(`c1 ${n}인: 모델 목록 run ${C1_RUN}, 첫 핸드 AI 결정 ${log.length}개 중 표 적중 ${hit}`);
+    await pg.close();
+  }
+  console.log("c1 인원별 중수 정책 ok");
 }
 
 await browser.close();
