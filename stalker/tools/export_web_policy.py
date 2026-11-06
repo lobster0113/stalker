@@ -20,8 +20,8 @@ label every answer with the model it came from (iterations, LBR, run).
 
 `--players <n>` splits a player-mix c1 table (#486, ADR 0021 decision 1: one policy for 2-6 handed) into the
 file of one seat count (#585): only keys whose c1 player field is `n<n>` (`stalker.e3.mccfr.key_players`), with
-that count's LBR and field from the summary's `by_players`. The shared `call|` keys name no count and go to no
-file. On a single-count table `--players` must equal its `n` (the output is then the plain export).
+that count's LBR and field from the summary's `by_players`. The shared `call|` keys name no count: the mix trains
+them across every count, so each file carries them (#610; without them the page played call-or-fold spots uniform). On a single-count table `--players` must equal its `n` (the output is then the plain export).
 """
 from __future__ import annotations
 
@@ -151,7 +151,7 @@ def split_players(st: dict, players: int | None) -> int | None:
 def keep_players(policy: dict[str, list[float]], players: int) -> dict[str, list[float]]:
     from stalker.e3.mccfr import key_players
 
-    return {k: v for k, v in policy.items() if key_players(k) == players}
+    return {k: v for k, v in policy.items() if key_players(k) == players or k.startswith("call|")}
 
 
 def rules(model: dict) -> dict:
