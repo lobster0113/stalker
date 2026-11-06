@@ -52,5 +52,5 @@ def test_one_key_hits_on_its_street_only_and_min_visits_filters():
 
 def test_load_policy_divides_by_q(tmp_path):
     p = tmp_path / "t.json"
-    p.write_text(json.dumps({"q": 255, "policy": {"k": [255, 0]}}))
+    p.write_text(json.dumps({"q": 255, "policy": {"k": [255, 0]}}), encoding="utf-8")
     assert H.load_policy(p)[0] == {"k": [1.0, 0.0]}
