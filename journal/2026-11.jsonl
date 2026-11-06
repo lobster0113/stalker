@@ -499,3 +499,4 @@
 {"ts":"2026-11-06T00:02:37Z","role":"builder-b","outcome":"pr_opened","issue":596,"pr":598,"notes":"export 인원별 min_visits + ops:cloud/policies 경로, full 게이트 로컬 통과","friction":"gates full 로컬 약 40분(tests 1489s); 첫 quick이 120초 도구 한도에 백그라운드로 밀림"}
 {"ts":"2026-11-06T00:02:53Z","role":"reviewer","outcome":"skipped","issue":596,"pr":598,"notes":"not my parity","friction":""}
 {"ts":"2026-11-06T00:04:37Z","role":"reviewer-b","outcome":"changes","issue":596,"pr":598,"notes":"index.json in ops:cloud/policies lists over-budget files (upsert_index mutates base passed twice); no experiment record for harness-change","friction":"CI still running at verdict time; tests only exercised policies_for_ops with index_base=None so the real CLI path bug was hidden"}
+{"ts":"2026-11-06T00:10:10Z","role":"researcher","outcome":"pr_opened","issue":600,"pr":599,"notes":"복습 간격 연구 노트 PR #599, 후속 #600 (P3)","friction":"외부 웹 403으로 출처 대조 불가; 노트에 미확인 명시"}
