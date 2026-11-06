@@ -516,3 +516,4 @@
 {"ts":"2026-11-06T02:41:24Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES for head d723a9c (00:11Z); awaiting author fix","friction":""}
 {"ts":"2026-11-06T03:10:53Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's share); no even PRs","friction":""}
 {"ts":"2026-11-06T03:34:10Z","role":"builder-b","outcome":"pr_opened","issue":601,"pr":602,"notes":"export 디스패치 42156191389, 인원별 문턱 실측 문서 PR","friction":"로컬 quick이 pip 설치 백그라운드 전환으로 완주 못함(120s 제한); CI에 의존"}
+{"ts":"2026-11-06T03:34:40Z","role":"reviewer","outcome":"skipped","issue":601,"pr":602,"notes":"not my parity","friction":""}
