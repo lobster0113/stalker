@@ -188,6 +188,7 @@ def test_cli_policies_out_index_lists_only_uploaded_files_of_this_run(tmp_path, 
     assert ours == fits
 
 
+@pytest.mark.slow
 def test_hit_rate_is_recorded_per_file_monotone_deterministic_and_can_be_turned_off(tmp_path):
     m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
     m.iterate(30)
