@@ -497,3 +497,4 @@
 {"ts":"2026-11-05T23:30Z","role":"builder","outcome":"waiting_ci","issue":479,"pr":null,"notes":"b2 구간 3/4 run 42071156414 success(iters 80000) 확인 → 구간 4/4 run 42126517300 디스패치(resume 42071156414, iters 20000, 누적 10^5). main gates quick PASS","friction":"gates quick 로컬 960초(목표 90초, (a) 지속)"}
 {"ts":"2026-11-05T23:41:05Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":"should_run printed RUN although there were no open PRs"}
 {"ts":"2026-11-06T00:02:37Z","role":"builder-b","outcome":"pr_opened","issue":596,"pr":598,"notes":"export 인원별 min_visits + ops:cloud/policies 경로, full 게이트 로컬 통과","friction":"gates full 로컬 약 40분(tests 1489s); 첫 quick이 120초 도구 한도에 백그라운드로 밀림"}
+{"ts":"2026-11-06T00:02:53Z","role":"reviewer","outcome":"skipped","issue":596,"pr":598,"notes":"not my parity","friction":""}
