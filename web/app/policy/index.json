@@ -61,7 +61,7 @@
    "by_players": {
     "2": {
      "file": "mid-2.json",
-     "bytes": 1307776,
+     "bytes": 1321335,
      "tier": "mid",
      "players": 2,
      "k": 11,
@@ -82,13 +82,13 @@
      "raise_cap": null,
      "q": 255,
      "min_visits": 10,
-     "keys": 18413,
-     "keys_dropped": 275771,
+     "keys": 18898,
+     "keys_dropped": 275797,
      "key_variant": "c1"
     },
     "3": {
      "file": "mid-3.json",
-     "bytes": 2542428,
+     "bytes": 2556152,
      "tier": "mid",
      "players": 3,
      "k": 11,
@@ -109,13 +109,13 @@
      "raise_cap": null,
      "q": 255,
      "min_visits": 5,
-     "keys": 36032,
-     "keys_dropped": 283647,
+     "keys": 36523,
+     "keys_dropped": 283667,
      "key_variant": "c1"
     },
     "4": {
      "file": "mid-4.json",
-     "bytes": 1377824,
+     "bytes": 1391548,
      "tier": "mid",
      "players": 4,
      "k": 11,
@@ -136,13 +136,13 @@
      "raise_cap": null,
      "q": 255,
      "min_visits": 5,
-     "keys": 20443,
-     "keys_dropped": 252650,
+     "keys": 20934,
+     "keys_dropped": 252670,
      "key_variant": "c1"
     },
     "5": {
      "file": "mid-5.json",
-     "bytes": 738013,
+     "bytes": 751737,
      "tier": "mid",
      "players": 5,
      "k": 11,
@@ -163,8 +163,8 @@
      "raise_cap": null,
      "q": 255,
      "min_visits": 5,
-     "keys": 11361,
-     "keys_dropped": 202423,
+     "keys": 11852,
+     "keys_dropped": 202443,
      "key_variant": "c1"
     }
    }
