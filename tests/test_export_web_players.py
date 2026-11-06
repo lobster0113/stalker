@@ -186,3 +186,46 @@ def test_cli_policies_out_index_lists_only_uploaded_files_of_this_run(tmp_path, 
     ours = {e["file"] for t in idx["tiers"].values() for e in [t, *t.get("by_players", {}).values()]
             if e.get("run_id") == "7"}
     assert ours == fits
+
+
+@pytest.mark.slow
+def test_hit_rate_is_recorded_per_file_monotone_deterministic_and_can_be_turned_off(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    st = m.state()
+    off = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "off", players=(2, 3))
+    assert all("hit_rate" not in f for f in off["files"])
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", players=(2, 3), hit_rate_hands=3)
+    b = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "b", players=(2, 3), hit_rate_hands=3)
+    for x in (a, b):   # wall-clock seconds are the one field that may differ between runs
+        assert all(f.pop("hit_rate_seconds") >= 0 for f in x["files"])
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    assert a["schema_version"] == 2
+    for f in a["files"]:
+        hr = f["hit_rate"]
+        assert list(hr["by_min_visits"]) == ["0", "1", "2", "5", "10"] and hr["players"] == f["players"]
+        hits = [sum(c["hits"] for c in hr["by_min_visits"][v]["by_street"].values()) for v in hr["by_min_visits"]]
+        assert hits == sorted(hits, reverse=True)   # a higher floor never finds more keys
+
+
+def test_hit_rate_is_measured_with_the_files_own_menu_and_cap(tmp_path, monkeypatch):
+    # a real-menu table measured with the engine default (v1, cap 3) reads ~0% off-`call|` (#618, #617 review)
+    m = E3MCCFR(1, 5, 6, "basic", menu="real", raise_cap=None, key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    seen = []
+    real = W.H.measure
+    monkeypatch.setattr(W.H, "measure", lambda *a, **k: seen.append(k.get("rules")) or real(*a, **k))
+    W.export_all_players(m.state(), {"job": "j"}, "7", tmp_path, players=(2, 3), hit_rate_hands=1)
+    assert seen == [{"menu": "real", "raise_cap": None}] * 2
+
+
+def test_v1_summary_without_hit_rate_still_feeds_policies_for_ops(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    s = W.export_all_players(m.state(), {"job": "j"}, "7", tmp_path, players=(2, 3))
+    s["schema_version"] = 1
+    assert "index.json" in W.policies_for_ops(s, tmp_path, None)
+
+
+def test_cli_default_hit_rate_hands_is_on(tmp_path):
+    assert W.HIT_RATE_HANDS > 0

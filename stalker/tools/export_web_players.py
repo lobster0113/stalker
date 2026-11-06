@@ -17,6 +17,10 @@ so the PR that ships the files can pick a threshold without another download.
 `--min-visits-by-players "2:10,3:5"` overrides `--min-visits` per seat count (each file's summary entry says the
 value it used). `--policies-out DIR` additionally copies the files within the page budget and an `index.json`
 listing only them (entries already in `--index-base` stay as they are); `cloud.yml` points it at `ops/cloud/policies/<run>/`, the one place agents can read them from (#596).
+
+`--hit-rate-hands N` (default 300, 0 = off) plays N seeded hands per seat count with the table before any `min_visits`
+filter and puts `hit_rate` (`stalker.tools.web_hit_rate.measure`: by street, `call|` or not, and `by_min_visits`
+0/1/2/5/10) into each file's summary entry, so CI tells a low hit rate from the filter apart from missing training coverage (#617).
 """
 from __future__ import annotations
 
@@ -25,12 +29,15 @@ import copy
 import hashlib
 import json
 import sys
+import time
 from pathlib import Path
 
 from stalker.tools import export_web_policy as X
+from stalker.tools import web_hit_rate as H
 
 SCHEMA = "stalker.web.policy-export"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: files[].hit_rate (#617); a v1 summary is the same without it
+HIT_RATE_HANDS = 300   # CLI default: seeded hands per seat count; 0 turns the measurement off
 PLAYERS = (2, 3, 4, 5, 6)
 VISIT_STEPS = (1, 2, 5, 10, 20, 50, 100)
 
@@ -74,8 +81,10 @@ def parse_min_visits_by_players(spec: str, mix) -> dict:
 def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: str = "",
                        index_base: dict | None = None, players=PLAYERS, strategy: str = "current",
                        min_visits: int = 0, sha: str = "", max_bytes: int = X.MAX_BYTES,
-                       min_visits_by_players: dict | None = None) -> dict:
-    """Write `<tier>-<n>.json` per seat count and `index.json` into out_dir; return the export summary."""
+                       min_visits_by_players: dict | None = None, hit_rate_hands: int = 0) -> dict:
+    """Write `<tier>-<n>.json` per seat count and `index.json` into out_dir; return the export summary.
+    `hit_rate_hands` > 0 adds `hit_rate` to each file's entry: how often the page would find the actor's key in
+    the table before the `min_visits` filter, per `min_visits` candidate (#617; seed 611+n, so same input, same JSON)."""
     if not st.get("player_mix"):
         raise SystemExit(f"run {run}: this table has no player_mix ({st.get('n')}-handed only); "
                          "export it whole with `python -m stalker.tools.export_web_policy --pod-result` instead")
@@ -102,6 +111,12 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
                       "within_page_budget": len(body) <= max_bytes,
                       "keys_by_min_visits": _keys_by_min_visits(X.keep_players(full, n), visits),
                       "lbr_bb": doc["lbr_bb"], "lbr_stderr_bb": doc["lbr_stderr_bb"], "field_worst": doc["field_worst"]})
+        if hit_rate_hands > 0:
+            t0 = time.monotonic()
+            # the page's own menu/cap: the engine default (v1, cap 3) misreads a real-menu table as ~0% hit (#618)
+            files[-1]["hit_rate"] = H.measure(X.keep_players(full, n), n, doc["k"], doc["depth"],
+                                              hit_rate_hands, 611 + n, visits, rules=H.rules_of(doc))
+            files[-1]["hit_rate_seconds"] = round(time.monotonic() - t0, 1)   # timing only: breaks byte-equality, see test
         print(f"{name}: {doc['keys']} keys, {len(body)} bytes")
     X.write_index(out_dir / "index.json", idx)
     ib = (out_dir / "index.json").read_bytes()
@@ -144,6 +159,8 @@ def main(argv=None) -> int:
     e.add_argument("--min-visits", type=int, default=0)
     e.add_argument("--min-visits-by-players", default="", metavar="2:10,3:5",
                    help="per-seat-count --min-visits; other counts use --min-visits")
+    e.add_argument("--hit-rate-hands", type=int, default=HIT_RATE_HANDS,
+                   help="seeded hands per seat count for the table hit-rate in the summary (0 = off)")
     e.add_argument("--policies-out", type=Path,
                    help="also copy the files within the page budget (+ an index of them) here (ops:cloud/policies/<run>/)")
     e.add_argument("--index-base", type=Path, help="the model list to upsert into (web/app/policy/index.json)")
@@ -165,7 +182,7 @@ def main(argv=None) -> int:
     players = tuple(int(p) for p in a.players.split(",") if p.strip())
     by_n = parse_min_visits_by_players(a.min_visits_by_players, st.get("player_mix"))
     out = export_all_players(st, summary, a.run, a.out_dir, a.tier, base, players, a.strategy, a.min_visits,
-                             min_visits_by_players=by_n)
+                             min_visits_by_players=by_n, hit_rate_hands=a.hit_rate_hands)
     if a.policies_out:
         kept = policies_for_ops(out, a.out_dir, base)
         for name, body in kept.items():
