@@ -600,3 +600,4 @@
 {"ts":"2026-11-06T20:43:09Z","role":"reviewer","outcome":"changes","issue":617,"pr":621,"notes":"sweep: #621 CHANGES (main 충돌, measure에 rules_of(doc) 미전달 → #622 이전 v1 메뉴로 측정); #599 같은 sha 판정 있어 대상 아님","friction":"gh pr list/checks는 GraphQL 403이라 REST로 대체; area:service 라벨이지만 web/ 미변경 PR에서 스크린샷 확인 의무가 모호함"}
 {"ts":"2026-11-06T21:11:57Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (#621, #599 are odd)","friction":""}
 {"ts":"2026-11-06T21:29:07Z","role":"builder-b","outcome":"changes","issue":617,"pr":621,"notes":"PR #621 CHANGES 해결: main merge, hit_rate에 rules_of(doc) 전달+테스트, hit_rate_seconds 기록; 푸시 2c3beeab","friction":"gates quick/관련 테스트 로컬 7분+, 백그라운드 이동으로 대기 번거로움"}
+{"ts":"2026-11-06T21:29:30Z","role":"reviewer-b","outcome":"skipped","issue":617,"pr":621,"notes":"not my parity","friction":""}
