@@ -590,3 +590,4 @@
 {"ts": "2026-11-06T19:00:00Z", "role": "planner", "outcome": "planned", "issue": 620, "pr": 619, "notes": "PR #619(#615) merged -> #615 labels cleaned; new #620 P3 (legacy vs c1 mid-6 hit-rate comparison, swap recommendation); ready unclaimed 3; STATE updated", "friction": "Closes left ready/in-progress labels on #615 again (recurring)"}
 {"ts":"2026-11-06T19:07:40Z","role":"builder-b","outcome":"pr_opened","issue":617,"pr":621,"notes":"export 요약 hit_rate(min_visits 후보별 표 적중률) 추가, 로컬 gates full PASS","friction":"gates full 로컬 tests 1613초(27분), 새 테스트 43초라 slow 표시; 백그라운드 모니터 만료 반복"}
 {"ts":"2026-11-06T19:08:07Z","role":"reviewer-b","outcome":"skipped","issue":617,"pr":621,"notes":"not my parity","friction":""}
+{"ts":"2026-11-06T19:11:50Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #621,#599 are odd (reviewer parity); none for reviewer-b","friction":""}
