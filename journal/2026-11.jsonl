@@ -526,3 +526,4 @@
 {"ts":"2026-11-06T05:16:00Z","role":"planner","outcome":"planned","issue":569,"pr":603,"notes":"PR #603(#479) 머지 → #479 ready 라벨 정리; #569 blocked→ready P3(선택지 a: WTSD 레버 1개 추가, 기준 재작성); STATE 갱신","friction":""}
 {"ts":"2026-11-06T05:11:13Z","role":"reviewer-b","outcome":"no_work","issue":601,"pr":602,"notes":"sweep: only even PR #602 already has VERDICT: CHANGES at head 78b911c (03:35Z), no new commits; skipped","friction":""}
 {"ts":"2026-11-06T05:21:09Z","role":"builder-b","outcome":"changes","issue":601,"pr":602,"notes":"PR #602 CHANGES 3건(바이트 문장·후속 정리·추정 표시) 해결 푸시 72e7644","friction":"로컬에 pytest 없어 gates quick 실패(문서 전용이라 생략); 설치 시간 미소비"}
+{"ts":"2026-11-06T05:21:27Z","role":"reviewer","outcome":"skipped","issue":601,"pr":602,"notes":"not my parity","friction":""}
