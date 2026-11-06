@@ -1307,7 +1307,24 @@ await inspect("home-move", "#move");
 // c1 b1 칸이 tpgto.js에 없어 그 핸드만 거울을 끈다(콘솔 경고, 규칙 봇 배지 없음).
 {
   const C1_RUN = "41813684540";
-  for (const n of [3, 2, 4, 5]) {
+  // 2·4·5인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
+  // c1policy.test.mjs checks that their first preflop c1 keys hit mid-<n>.json.
+  {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    pg.setDefaultTimeout(60_000);
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    for (const n of [2, 4, 5]) {
+      await pg.selectOption("#c-seats", String(n));
+      const row = () => [...document.querySelectorAll("#model-status .ms")].map(e => e.textContent).find(t => t.startsWith("중수")) || "";
+      await pg.waitForFunction(r => new Function(`return (${r})()`)().includes("run "), row.toString()).catch(() => {});
+      const mid = await pg.evaluate(r => new Function(`return (${r})()`)(), row.toString());
+      must(mid.includes(`상대 ${n - 1}명 = TP-GTO 중수 정책`) && mid.includes(`run ${C1_RUN}`),
+        `c1 ${n}인: 중수 모델 목록이 c1 정책(run ${C1_RUN})이 아님 (${JSON.stringify(mid)}) — index.json tiers.mid.by_players 확인 (#604)`);
+    }
+    await pg.close();
+  }
+  for (const n of [3]) {
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await autoContinue(pg);
     pg.setDefaultTimeout(120_000);
