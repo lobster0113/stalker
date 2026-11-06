@@ -1,6 +1,6 @@
 """Seeded coordinate search for the PRESETS_V2 WTSD levers (#569).
 
-The four levers (`donk_flop`, `probe_turn`, `giveup_weak`, `giveup_turn`) interact across types sitting at the same
+The five levers (`donk_flop`, `probe_turn`, `giveup_weak`, `giveup_turn`, `giveup_nonc`) interact across types sitting at the same
 table, so hand-tuning stalls (#533). This fits them by coordinate descent on one loss over the whole mixed field:
 mean absolute turn fold-to-c-bet error, plus penalties for every guard that `tests/test_persona_v2.py` asserts
 (per-seat WTSD +-6pp, flop c-bet/fold +-6pp, river fold error, loose-below-tight fold order).
@@ -23,13 +23,13 @@ from stalker.agents.persona_stats import measure_session
 
 TYPES = list(PRESETS_V2)
 TABLES = [TYPES[:6], TYPES[2:8], TYPES[:2] + TYPES[4:8]]  # tests/test_persona_v2.py
-LEVERS = ("donk_flop", "probe_turn", "giveup_weak", "giveup_turn")
+LEVERS = ("donk_flop", "probe_turn", "giveup_weak", "giveup_turn", "giveup_nonc")
 WTSD_TARGET = dict(zip(TYPES, (0.21, 0.23, 0.27, 0.28, 0.33, 0.40, 0.35, 0.28)))  # note §9
 LOOSE, TIGHT = ("calling_station", "maniac", "loose_passive"), ("nit", "weak_tight", "tag", "lag", "pro")
 # Penalties start inside the test's limits so a fit at search hands still passes at the test's hands.
 WTSD_TOL, FLOP_TOL, RIVER_MAX = 0.05, 0.05, 0.20
 
-Levers = dict[str, tuple[float, float, float, float]]
+Levers = dict[str, tuple[float, float, float, float, float]]
 
 
 def current_levers() -> Levers:
