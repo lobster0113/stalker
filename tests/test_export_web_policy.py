@@ -281,3 +281,37 @@ def test_key_players_reads_the_c1_public_key_player_field(depth):
                 legal = G.legal(s)
                 s = G.apply(s, legal[int(rng.integers(len(legal)))])
     assert set(range(2, 7)) <= seen
+
+
+def test_key_variant_is_written_for_c1_tables_and_left_out_for_legacy_ones(tmp_path, mixn):
+    # #604: the page picks c1 keys from this field; a legacy table must not grow it.
+    ck, _ = mixn
+    out, idx = tmp_path / "c1.json", tmp_path / "index.json"
+    assert X.main(["--ckpt", str(ck), "--run", "9", "--players", "4", "--out", str(out), "--index", str(idx)]) == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["key_variant"] == "c1"
+    assert json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]["by_players"]["4"]["key_variant"] == "c1"
+    six = _ckpt(tmp_path, 6, "legacy")
+    assert X.main(["--ckpt", str(six), "--run", "9", "--out", str(out)]) == 0
+    assert "key_variant" not in json.loads(out.read_text(encoding="utf-8"))
+    assert "key_variant" not in X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1}, None, "1", "")
+
+
+def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
+    # #604: mid-2..5 are copied byte for byte from ops fd521c42 (docs/research/2026-11-c1-web-export.md
+    # 「실측: 인원별 문턱」); the index routes them to c1 keys and leaves the 6-max (legacy key) entry alone.
+    import hashlib
+    from pathlib import Path
+
+    pol = Path(__file__).resolve().parents[1] / "web/app/policy"
+    want = {2: "45e5debd6261229a8096417fcc512687bf271ca2c9d71b2c032f1327e8e8ed7d",
+            3: "72df3819591853e0d97ffeba1ddd479ab7a45ad7f5deb159436c20bb26f88d02",
+            4: "1a4dd8df6801278ad14855fce18c0b8bb1f1717401ff2bc02fd58910e46b3c41",
+            5: "c629333de29783159ae93aa438c3f30b25019856162a2366d2e68537e95494ba"}
+    mid = json.loads((pol / "index.json").read_text(encoding="utf-8"))["tiers"]["mid"]
+    for n, sha in want.items():
+        body = (pol / f"mid-{n}.json").read_bytes()
+        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from ops fd521c42; re-copy it"
+        e = mid["by_players"][str(n)]
+        assert (e["file"], e["players"], e["run_id"], e["key_variant"], e["bytes"]) == (
+            f"mid-{n}.json", n, "41813684540", "c1", len(body))
+    assert (mid["run_id"], mid["file"]) == ("40919207457", "mid-6.json") and "key_variant" not in mid

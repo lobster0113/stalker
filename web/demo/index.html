@@ -1852,7 +1852,7 @@ function heroAnalysis(a, L) {
     const E = G.eng, tg = TPG.mod, seat = E.s.toAct, r3 = x => x == null ? null : Math.round(x * 1000) / 1000;
     const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
     const label = engLabelAt(E.s, a.type, to, engReadRng(E.ent, E.s)).label;
-    const rr = tg.rangeResponse(E.pol, E.s, E.ranges, E.tier, seat, label);
+    const rr = tg.rangeResponse(E.pol, E.s, E.ranges, E.tier, seat, label, keyVariant(E.meta));
     const bs = rr.beats.filter(x => x.beats != null);
     if (bs.length) an.beats = r3(bs.reduce((x, y) => x + y.beats, 0) / bs.length);
     an.opps = rr.beats.length;
@@ -2124,6 +2124,8 @@ const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, leaks: {}, 
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 // #541: a tier's 6-max entry is tiers[tier]; other seat counts live in tiers[tier].by_players[n]. Loaded
 // policies, rules and leaks are cached per (tier, seats).
+// Which key layout the policy file was trained with (#604): c1 tables (2–5인 mid) are looked up with c1 keys.
+const keyVariant = meta => meta?.key_variant || "";
 const modelMeta = (tier, n = 6) => { const e = TPG.index?.tiers?.[tier]; return !e ? null : n === 6 ? (e.file ? e : null) : e.by_players?.[n] || null; };
 const polKey = (tier, n = 6) => `${tier}-${n}`;
 const seatsNow = () => S.mode === "cash" ? +$("#c-seats").value : 6;
@@ -2280,7 +2282,7 @@ function engBotAct(s) {
   if (!engTurn(s)) return null;
   const E = G.eng, tg = TPG.mod;
   try {
-    const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier);
+    const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier, keyVariant(E.meta));
     const tot = ap.probs.reduce((a, b) => a + b, 0);
     let u = rand() * tot, i = 0;
     while (i < ap.probs.length - 1 && (u -= ap.probs[i]) > 0) i++;
@@ -2305,7 +2307,7 @@ function engApply(s, a, L) {
   if (!engTurn(s)) return;
   const E = G.eng, tg = TPG.mod;
   try {
-    const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier);
+    const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier, keyVariant(E.meta));
     const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
     const { label, tr } = engLabel(d, a, to);
     if (tr) E.reads.push({ hand: G.handNo, at: E.s.history.length, to, split: tr.split, label, s: E.s });
@@ -2336,7 +2338,7 @@ function engMenuName(a, to, toCallNow, opening, cur = 0) {
 }
 // The policy's view of the actor at engine state s: mixed strategy over the menu, equity vs the public ranges.
 function engModelAt(s, ranges, pol, tier, meta) {
-  const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier), toCallNow = tg.toCall(s);
+  const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier, keyVariant(meta)), toCallNow = tg.toCall(s);
   const opening = s.street === 0 && s.raises === 1, cur = Math.max(...s.bet);
   const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
   const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening, cur) }; });
@@ -3825,7 +3827,7 @@ function rvModel(h, di) {
         md.ranges = ranges;
         return md;
       }
-      const d = tg.decisionKey(st, ranges, tier), to = l.type === "raise" ? Math.round(l.to * 100) : null;
+      const d = tg.decisionKey(st, ranges, tier, keyVariant(meta)), to = l.type === "raise" ? Math.round(l.to * 100) : null;
       const { label } = engLabelAt(st, l.type, to, engReadRng(ent, st));
       ranges = tg.updateRanges(pol, d, ranges, label);
       st = l.type === "raise" ? tg.applyBet(st, to, label) : tg.apply(st, label);
