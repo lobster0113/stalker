@@ -1,16 +1,16 @@
-# STATE (2026-11-06 02:15Z, planner)
+# STATE (2026-11-06 05:15Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
+planner 11-06 05:15Z: **PR #603(3f111e8, #479 b2 대 b1 10⁵회: LBR b1 0.871·b2 1.078, 시드 sd 안 → 구별 안 됨, 키 ×2.63, c1에 b2 넣지 않음) 머지** → #479 잔존 ready 정리(반복). **#569 blocked → ready P3**: 선택지 (a) 채택(WTSD만 내리는 돈크·프로브 기브업 레버 1개 추가, 92fe7bd fitter 재사용, 미달 시 최선 값으로 PR). 열린 PR #599(CHANGES)·#602(#601, CHANGES 03:35Z). main CI 3f111e8 진행 중, 27c8d43 success.
 planner 11-06 02:15Z: **PR #598(27c8d43, #596 export 인원별 `min_visits_by_players` + 상한 안 정책 파일 → `ops:cloud/policies/<run>/`) 머지** → #596 잔존 ready·in-progress 정리(반복, GraphQL 403 → MCP). 신규 **#601 P2**(M4 인원별 문턱 2:10,3:5,4:5,5:5,6:2 재-export 디스패치·실측 바이트 기록). 열린 PR #599(research, CHANGES). #600(Gate E 복습 간격 스파이크) 상태 라벨 없음. main CI 27c8d43 진행 중, d629d84 success(web cancelled).
 planner 11-05 23:05Z: **PR #594(d629d84, #593 field play_deal AIVAT 행동 보정항 + evaluate `aivat` record-only) 머지** → #593 잔존 ready·in-progress 정리(반복). 신규 **#597 P3 referee-change**(찬스 노드 보드 공개 보정 + CLI `--aivat`). 열린 PR 없음. main CI d629d84 진행 중.
 planner 11-05 22:00Z: **PR #595(59d5932, #592 M2–M4 export 비교: 세 시드 모두 ADR 0020 선 통과, 서비스 시드 M4(최악 2인 LBR 7.018), 15개 파일 모두 3MB 초과 → 인원별 최소 문턱 2인 10·3–5인 5·6인 2(추정)) 머지** → #592 잔존 ready·in-progress 정리(반복). 신규 **#596 P2 harness-change**(export 인원별 `min_visits` + 상한 안 정책 파일을 `ops:cloud/policies/<run>/`로 → main 반영 경로). 열린 PR #594(#593, web 잡 timeout 재실행 대기). main CI 59d5932 진행 중.
-planner 11-05 16:50Z: **PR #591(6fe2e72, #573 referee/stats.py `adjust_with_corrections` AIVAT 보정 평균·SE·분산비) 머지** → #573 잔존 ready·in-progress 정리(반복, gh issue edit GraphQL 403 → MCP). 신규 **#593 P2 referee-change**(field play_deal 행동 보정항 + evaluate `aivat` record-only). 열린 PR 없음. main CI 6fe2e72 진행 중, 1194ac7 success.
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **D 2–5인(#384)**: 평가기(#534)·인원별 값(#542)·시드 분산(#548·#559) → 합격선 ADR 0020 머지(#564) → #572 판정기 머지(c1 2–6인 pass) → #576 기록 연결 머지 → #581 ADR 0021 머지(mixn c1 한 정책) → #583 웹 c1 key 미러 머지 → #585 인원별 내보내기 머지 → #588 CI 내보내기 머지 → #592 시드 M4·문턱 선택 머지 → #596 인원별 문턱·ops 정책 경로 머지 → **#601 M4 재-export 실측**, 다음: 걸러 낸 정책 LBR 재측정, web/app/policy 커밋 PR·서비스 c1 전환(아티팩트 ~12-03 만료 전). 소유자가 크리티컬하다고 한 short-handed.
-2. **C 고수 체인 비용(NH-11 (a))**: #560 gzip 머지로 큰 체인 아티팩트 한도가 풀렸다 → #479(b2 대 b1 10⁵회) 재개, b1 체크포인트 12-01 만료 전. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
-3. **페르소나 턴 폴드(#533 머지 → #569)**: giveup_turn으로 턴 오차 절반(.140)이나 nit .29 잔존, 수동 스윕 한계 → 자동 탐색. 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
+2. **C 고수 체인 비용(NH-11 (a))**: #479 완료(PR #603) — 10⁵회에서도 b2가 b1과 구별 안 됨 → c1 키 집합 유지, b2 추가 안 함. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
+3. **페르소나 턴 폴드(#533 머지 → #569)**: 4레버 자동 탐색은 턴 .133에서 WTSD와 충돌(builder 11-06) → 새 WTSD 레버 1개로 재시도(ready). 서비스 상대 모델 신뢰도에 직결. #519(PHH)에서 인간 프로 flop c-bet 52.1%가 목표보다 13%p 낮게 나와 c-bet 목표 재검토 근거가 생겼다.
 ## 큐
-ready 미착수: #601 P2·#589 P3·#597 P3 (3) + #479 P2(구간 2/4 run 41991776948). in-progress: #569(builder 11-06 01:10Z). 상태 라벨 없음: #463·#600. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #589 P3·#597 P3·#569 P3 (3). in-progress: #601(builder-b, PR #602 CHANGES). 상태 라벨 없음: #463·#600. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #592), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
 후보: #601 뒤 필터 정책 LBR 재측정·web/app/policy 커밋 PR·서비스 c1 전환(M3 대안은 화면별 인원 분포로 재판단), ADR 0021 후속 4 c1 9인 첫 측정·5 6인 단독 c1 같은 파드 D 배수, AIVAT 에퀴티 기반 가치 함수·분산비 측정·LBR 통합(#597 뒤, referee-change), #589 뒤 재평가 디스패치·기록, 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
