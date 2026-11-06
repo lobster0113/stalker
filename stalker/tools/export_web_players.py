@@ -29,6 +29,7 @@ import copy
 import hashlib
 import json
 import sys
+import time
 from pathlib import Path
 
 from stalker.tools import export_web_policy as X
@@ -111,8 +112,11 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
                       "keys_by_min_visits": _keys_by_min_visits(X.keep_players(full, n), visits),
                       "lbr_bb": doc["lbr_bb"], "lbr_stderr_bb": doc["lbr_stderr_bb"], "field_worst": doc["field_worst"]})
         if hit_rate_hands > 0:
+            t0 = time.monotonic()
+            # the page's own menu/cap: the engine default (v1, cap 3) misreads a real-menu table as ~0% hit (#618)
             files[-1]["hit_rate"] = H.measure(X.keep_players(full, n), n, doc["k"], doc["depth"],
-                                              hit_rate_hands, 611 + n, visits)
+                                              hit_rate_hands, 611 + n, visits, rules=H.rules_of(doc))
+            files[-1]["hit_rate_seconds"] = round(time.monotonic() - t0, 1)   # timing only: breaks byte-equality, see test
         print(f"{name}: {doc['keys']} keys, {len(body)} bytes")
     X.write_index(out_dir / "index.json", idx)
     ib = (out_dir / "index.json").read_bytes()
