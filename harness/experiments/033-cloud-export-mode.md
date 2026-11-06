@@ -31,4 +31,12 @@ cloud.yml에 파드도 원장 줄도 없는 `mode=export`를 두어 러너가 �
 ## 롤백 방법
 PR #590을 revert한다(`export` 케이스·입력 4개·export 스텝 4개·`push_ledger.sh`의 `cloud/exports` 경로가 함께 되돌아간다).
 `ops:cloud/exports/` 파일은 남지만 다른 코드가 읽지 않으므로 지울 필요 없다. `export_web_policy --players`(#585)는 revert 뒤에도 로컬에서 그대로 쓸 수 있다.
+## 확장 (#596, PR #598, 2026-11-06)
+- 변경: 입력 `export_min_visits_by_players`(정규식 검증, 기본 빈 문자열), export 스텝이 `--min-visits-by-players`·`--policies-out ops/cloud/policies/<run>`를 넘김,
+  `push_ledger.sh`가 `cloud/policies`도 커밋. 3MB 상한 안 파일과 그 파일만 나열한 `index.json`만 올라간다(`--index-base`의 기존 항목은 유지). 요약 `files[].min_visits` 추가.
+- 가설: 에이전트가 ops에서 정책 파일을 직접 읽어 `web/app/policy/` PR을 만들 수 있다(아티팩트 403 우회).
+- 추가 지표: 상한 안 파일 수 = `ops:cloud/policies/<run>/`의 `<등급>-<n>.json` 수 = 요약 `within_page_budget=true` 수(100% 일치), `index.json`이 올라간 파일만 나열(위반 0).
+  측정창·성공 기준은 위와 같다(다음 export 디스패치 3건 또는 14일).
+- 롤백: PR #598 revert. 입력 1개·플래그 2개·`cloud/policies` 경로가 되돌아가고 `ops:cloud/policies/` 파일은 남지만 읽는 코드가 없어 지울 필요 없다.
+
 ## 결과 (측정창 종료 후 기록)

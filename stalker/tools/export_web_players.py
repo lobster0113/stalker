@@ -16,7 +16,7 @@ so the PR that ships the files can pick a threshold without another download.
 
 `--min-visits-by-players "2:10,3:5"` overrides `--min-visits` per seat count (each file's summary entry says the
 value it used). `--policies-out DIR` additionally copies the files within the page budget and an `index.json`
-listing only them; `cloud.yml` points it at `ops/cloud/policies/<run>/`, the one place agents can read them from (#596).
+listing only them (entries already in `--index-base` stay as they are); `cloud.yml` points it at `ops/cloud/policies/<run>/`, the one place agents can read them from (#596).
 """
 from __future__ import annotations
 
@@ -83,7 +83,7 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
     visits = dict(m.visits)
     full = m.policy() if strategy == "average" else m.current_policy()
     out_dir.mkdir(parents=True, exist_ok=True)
-    idx = index_base
+    idx = copy.deepcopy(index_base)   # upsert_index edits in place; policies_for_ops needs the untouched base
     files, tiers = [], set()
     by_n = min_visits_by_players or {}
     for n in players:
