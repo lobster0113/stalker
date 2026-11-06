@@ -1303,10 +1303,12 @@ await inspect("home-move", "#move");
 }
 
 // 12. #604 2–5인 중수 = c1 정책(run 41813684540): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
-// 결정이 c1 키로 mid-<n>.json 행을 읽는다(레거시 키로 읽으면 한 번도 맞지 않아 균등 분포가 된다). 포스트플랍은
-// c1 b1 칸이 tpgto.js에 없어 그 핸드만 거울을 끈다(콘솔 경고, 규칙 봇 배지 없음).
+// 결정이 c1 키로 mid-<n>.json 행을 읽는다(레거시 키로 읽으면 한 번도 맞지 않아 균등 분포가 된다). #608: 포스트플랍도
+// c1+b1 키(`|o…v…k…` 칸)로 읽어 엔진 거울을 켠 채 핸드가 끝난다 — 3인에서 플랍 이상 간 핸드 1개(체크·콜로 진행)의
+// AI 포스트플랍 키 형식, 표에 있는 키의 확률, 거울 유지 종료, 거울 꺼짐 경고 없음, 긴 작업(b1 계산) 한도.
 {
   const C1_RUN = "41813684540";
+  const C1_LONG_TASK_MS = 2000;   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
   // 2·4·5인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
   // c1policy.test.mjs checks that their first preflop c1 keys hit mid-<n>.json.
   {
@@ -1331,6 +1333,8 @@ await inspect("home-move", "#move");
     const errs = [];
     pg.on("pageerror", e => errs.push(e.message));
     pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    const warns = [];
+    pg.on("console", m => { if (m.type() === "warning") warns.push(m.text()); });
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
     await pg.selectOption("#c-seats", String(n));
@@ -1370,6 +1374,45 @@ await inspect("home-move", "#move");
     if (n === 3) {
       await pg.screenshot({ path: `${shots}/c1-table-3-laptop.png` });
       await inspect("c1-table-3", "#infobar", pg);
+      // #608 postflop: play on with check/call until a hand where an AI acted after the flop ends (normally the
+      // first). b1Code is the slow step (~250 ms on a 6-max flop locally), so the longest main-thread task while
+      // playing is bounded: the page must still answer the hero's input.
+      await pg.evaluate(() => {
+        window.__c1Long = 0;
+        new PerformanceObserver(l => { for (const e of l.getEntries()) window.__c1Long = Math.max(window.__c1Long, e.duration); })
+          .observe({ type: "longtask", buffered: false });
+      });
+      const streetOf = k => +k.split("|")[k.startsWith("call|") ? 1 : 2];
+      let done = null;
+      for (let guard = 0; guard < 40 && !done; guard++) {
+        done = await pg.evaluate(() => {
+          const L = G.eng?.lastHand;
+          return L && L.done && TPG.botLog.some(x => x.hand === L.hand && x.tier === "mid" && x.key.split("|")[x.key.startsWith("call|") ? 1 : 2] > 0) ? L : null;
+        });
+        if (done) break;
+        const hand = await pg.evaluate(() => G.handNo);
+        await pg.waitForSelector(QUICK).catch(() => {});
+        const btn = pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first();
+        if (await btn.count()) { await btn.click(); await pg.click("#tp-go"); }
+        await pg.waitForFunction(h => G.handNo !== h || G.eng?.lastHand?.hand === h || document.querySelector("#tp-body [data-card='quick-act']"), hand).catch(() => {});
+      }
+      must(!!done && done.ok, `c1 3인: 플랍 이상 간 핸드가 엔진 거울을 켠 채 끝나지 않음 (${JSON.stringify(done)}) — decisionKey c1 포스트플랍 확인 (#608)`);
+      const post = done ? (await pg.evaluate(h => TPG.botLog.filter(x => x.hand === h && x.tier === "mid"), done.hand)).filter(d => streetOf(d.key) > 0) : [];
+      let postHit = 0;
+      for (const d of post) {
+        must(d.key.startsWith("call|") || (/\|n3\|/.test(d.key) && /\|o[-0-3]v[-0-2]k[-0-2]$/.test(d.key)), `c1 3인: 포스트플랍 AI 키가 c1+b1 형식이 아님 (${d.key})`);
+        const row = file.policy[d.key];
+        if (!row) { must(!d.fromTable, `c1 3인: 표에 없는 포스트플랍 키를 표에서 읽었다고 함 (${d.key})`); continue; }
+        postHit++;
+        must(d.fromTable && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 3인: 포스트플랍 확률이 mid-3.json 행과 다름 (${d.key})`);
+      }
+      const longMs = await pg.evaluate(() => window.__c1Long);
+      must(longMs < C1_LONG_TASK_MS, `c1 3인: 포스트플랍 중 메인 스레드 작업 ${longMs.toFixed(0)}ms ≥ ${C1_LONG_TASK_MS}ms — b1Code 캐시 확인, 넘으면 워커 이슈로 (#608)`);
+      must(!warns.some(w => w.includes("mirror off")), `c1 3인: 거울 꺼짐 경고 ${warns.filter(w => w.includes("mirror off")).slice(0, 2).join(" | ")}`);
+      const bots = await pg.evaluate(() => document.querySelectorAll("#infobar [data-untrained]").length + [...document.querySelectorAll(".seat:not(.hero) .persona")].filter(e => e.textContent.includes("규칙 봇")).length);
+      must(bots === 0, "c1 3인: 포스트플랍 핸드 뒤 규칙 봇 배지가 보임");
+      await pg.screenshot({ path: `${shots}/c1-postflop-3-laptop.png` });
+      console.log(`c1 3인 포스트플랍: 핸드 #${done?.hand} 거울 유지 종료, AI 포스트플랍 결정 ${post.length}개(표 적중 ${postHit}), 최장 작업 ${longMs.toFixed(0)}ms`);
     }
     must(!errs.length, `c1 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
     console.log(`c1 ${n}인: 모델 목록 run ${C1_RUN}, 첫 핸드 AI 결정 ${log.length}개 중 표 적중 ${hit}`);

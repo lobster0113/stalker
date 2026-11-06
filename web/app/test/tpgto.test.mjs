@@ -24,7 +24,7 @@ function seqSum(a) { let s = 0.0; for (const v of a) s += v; return s; }
 
 test("schema and constants match the Python side", () => {
   assert.equal(V.schema, "stalker.web.tpgto.vectors");
-  assert.equal(V.schema_version, 5);
+  assert.equal(V.schema_version, 6);
   const c = V.constants;
   assert.deepEqual(c.TIER_K, T.TIER_K, "TIER_K differs: update tpgto.js to stalker/e3/tp_key.py");
   assert.deepEqual(c.TIER_DEPTH, T.TIER_DEPTH);
@@ -423,6 +423,8 @@ test("b1 hand fields (#606): b1Code at full and basic depth and b1Label equal Py
   const decode = (str) => Int32Array.from({ length: str.length / 2 }, (_, i) => parseInt(str.slice(2 * i, 2 * i + 2), 36));
   let states = 0, bad = 0, labels = 0, sixFlopMs = null;
   const seen = { river: 0, basic: 0, multiway: 0, headsUp: 0 }, first = [];
+  const c1Seen = { river: 0, multiway: 0, headsUp: 0 };
+  let c1Keys = 0;
   for (const h of B.hands) {
     let s = T.dealFromPermutation(h.perm, h.n), ranges = T.initialRanges(h.n);
     for (const d of h.decisions) {
@@ -441,6 +443,14 @@ test("b1 hand fields (#606): b1Code at full and basic depth and b1Label equal Py
         if (s.street === 3) { seen.river++; assert.ok(T.b1Label(mine).startsWith("o-v-"), T.b1Label(mine)); }
         if (/^o[-0-3]$/.test(T.b1Label(basic[T.comboIndex(s.hole[s.toAct])]))) seen.basic++;
         if (T.live(s).length >= 3) seen.multiway++; else seen.headsUp++;
+        // #608: decisionKey(variant "c1") postflop = tp_key.key of equity_steps(variant="c1") for the real hole.
+        for (const [tier, want] of Object.entries(d.c1)) {
+          c1Keys++;
+          const got = T.decisionKey(s, ranges, tier, "c1").key;
+          if (got !== want) { bad++; if (first.length < 5) first.push({ n: h.n, street: s.street, tier, want, got }); }
+          if (/\|o[-0-3](v[-0-2]k[-0-2])?$/.test(want)) c1Seen[T.live(s).length >= 3 ? "multiway" : "headsUp"]++;
+          if (s.street === 3) c1Seen.river++;
+        }
       }
       const f = Float64Array.from({ length: T.N }, (_, i) => factor(i, d.u));
       ranges = T.updateRange(ranges, s.toAct, f);
@@ -448,9 +458,11 @@ test("b1 hand fields (#606): b1Code at full and basic depth and b1Label equal Py
     }
   }
   console.log(`tpgto b1: ${states} postflop states x 1326 combos x 2 depths; mismatches ${bad}; labels ${labels}; ${JSON.stringify(seen)}; ` +
-    `6-max multiway flop b1Code ${sixFlopMs === null ? "n/a" : sixFlopMs.toFixed(0) + " ms"} (local, reference only)`);
+    `6-max multiway flop b1Code ${sixFlopMs === null ? "n/a" : sixFlopMs.toFixed(0) + " ms"} (local, reference only); ` +
+    `c1 postflop keys ${c1Keys} ${JSON.stringify(c1Seen)}`);
   assert.deepEqual(first, []);
   assert.equal(bad, 0);
   assert.ok(seen.river > 0 && seen.basic > 0 && seen.multiway > 0 && seen.headsUp > 0, JSON.stringify(seen));
   assert.ok(sixFlopMs !== null, "no 6-handed multiway flop state in the b1 vectors");
+  assert.ok(c1Keys > 0 && c1Seen.river > 0 && c1Seen.multiway > 0 && c1Seen.headsUp > 0, `c1 postflop key cases ${JSON.stringify(c1Seen)}`);
 });
