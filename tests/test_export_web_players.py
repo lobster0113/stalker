@@ -50,9 +50,9 @@ def test_export_writes_five_unmixed_files_index_and_summary(tmp_path):
         body = (out / f["file"]).read_bytes()
         doc = json.loads(body)
         n = f["players"]
-        # no seat count leaks into another's file, and each file holds all of its own keys
-        assert {key_players(k) for k in doc["policy"]} == {n}
-        assert set(doc["policy"]) == {k for k in cur if key_players(k) == n}
+        # no seat count leaks into another's file, each file holds all of its own keys and the shared call| keys (#610)
+        assert {key_players(k) for k in doc["policy"]} == {n, None}
+        assert set(doc["policy"]) == {k for k in cur if key_players(k) in (n, None)}
         assert (f["keys"], f["bytes"], f["sha256"]) == (doc["keys"], len(body), hashlib.sha256(body).hexdigest())
         assert (f["lbr_bb"], doc["lbr_bb"], f["field_worst"]["name"]) == (n / 10, n / 10, "nit1")
         assert f["within_page_budget"] is True and f["keys_by_min_visits"]["1"] <= f["keys"]
@@ -74,13 +74,14 @@ def test_export_summary_marks_oversize_files_and_counts_keys_per_visit_floor(tmp
     s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), max_bytes=1)
     visits = dict(m.visits)
     for f in s["files"]:
-        own = [k for k in m.current_policy() if key_players(k) == f["players"]]
+        own = [k for k in m.current_policy() if key_players(k) in (f["players"], None)]
+        assert any(k.startswith("call|") for k in own)   # #610: the shared call| keys count toward every file
         assert f["within_page_budget"] is False and (tmp_path / f["file"]).exists()
         assert f["keys_by_min_visits"] == {str(v): sum(visits.get(k, 0) >= v for k in own) for v in W.VISIT_STEPS}
         assert f["lbr_bb"] is None   # no by_players row: empty, still exported
     s3 = W.export_all_players(st, {}, "7", tmp_path / "mv", players=(4,), min_visits=3)
     f4 = s3["files"][0]
-    assert f4["keys"] + f4["keys_dropped"] == sum(key_players(k) == 4 for k in m.current_policy()) and f4["keys_dropped"] > 0
+    assert f4["keys"] + f4["keys_dropped"] == sum(key_players(k) in (4, None) for k in m.current_policy()) and f4["keys_dropped"] > 0
     assert s3["min_visits"] == 3 and all(visits[k] >= 3 for k in json.loads((tmp_path / "mv" / "beginner-4.json").read_text(encoding="utf-8"))["policy"])
 
 

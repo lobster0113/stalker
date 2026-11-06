@@ -41,12 +41,6 @@ def _cell() -> dict:
     return {"decisions": 0, "hits": 0}
 
 
-def _bump(cells: dict, name: str, hit: bool) -> None:
-    c = cells.setdefault(name, _cell())
-    c["decisions"] += 1
-    c["hits"] += int(hit)
-
-
 def _rate(c: dict) -> dict:
     return {**c, "rate": c["hits"] / c["decisions"] if c["decisions"] else None}
 
