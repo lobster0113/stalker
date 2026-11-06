@@ -1,6 +1,6 @@
 {
  "schema": "stalker.web.policy-export",
- "schema_version": 1,
+ "schema_version": 2,
  "export_run": "41813684540",
  "artifact": "web-policy-41813684540",
  "job": "e3-tp-mid-c1-mixn-pod",
@@ -48,7 +48,231 @@
     "name": "station1",
     "bb100": -522.61,
     "ci95_low": -733.61
-   }
+   },
+   "hit_rate": {
+    "schema": "stalker.web.hit-rate",
+    "schema_version": 2,
+    "players": 2,
+    "hands": 300,
+    "seed": 613,
+    "by_street": {
+     "0": {
+      "decisions": 862,
+      "hits": 862,
+      "rate": 1.0
+     },
+     "1": {
+      "decisions": 145,
+      "hits": 105,
+      "rate": 0.7241379310344828
+     },
+     "2": {
+      "decisions": 22,
+      "hits": 17,
+      "rate": 0.7727272727272727
+     },
+     "3": {
+      "decisions": 6,
+      "hits": 5,
+      "rate": 0.8333333333333334
+     }
+    },
+    "by_kind": {
+     "call": {
+      "decisions": 145,
+      "hits": 145,
+      "rate": 1.0
+     },
+     "other": {
+      "decisions": 890,
+      "hits": 844,
+      "rate": 0.9483146067415731
+     }
+    },
+    "by_min_visits": {
+     "0": {
+      "by_street": {
+       "0": {
+        "decisions": 862,
+        "hits": 862,
+        "rate": 1.0
+       },
+       "1": {
+        "decisions": 145,
+        "hits": 105,
+        "rate": 0.7241379310344828
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 17,
+        "rate": 0.7727272727272727
+       },
+       "3": {
+        "decisions": 6,
+        "hits": 5,
+        "rate": 0.8333333333333334
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 145,
+        "hits": 145,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 890,
+        "hits": 844,
+        "rate": 0.9483146067415731
+       }
+      }
+     },
+     "1": {
+      "by_street": {
+       "0": {
+        "decisions": 862,
+        "hits": 862,
+        "rate": 1.0
+       },
+       "1": {
+        "decisions": 145,
+        "hits": 105,
+        "rate": 0.7241379310344828
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 17,
+        "rate": 0.7727272727272727
+       },
+       "3": {
+        "decisions": 6,
+        "hits": 5,
+        "rate": 0.8333333333333334
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 145,
+        "hits": 145,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 890,
+        "hits": 844,
+        "rate": 0.9483146067415731
+       }
+      }
+     },
+     "2": {
+      "by_street": {
+       "0": {
+        "decisions": 862,
+        "hits": 862,
+        "rate": 1.0
+       },
+       "1": {
+        "decisions": 145,
+        "hits": 77,
+        "rate": 0.5310344827586206
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 15,
+        "rate": 0.6818181818181818
+       },
+       "3": {
+        "decisions": 6,
+        "hits": 4,
+        "rate": 0.6666666666666666
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 145,
+        "hits": 145,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 890,
+        "hits": 813,
+        "rate": 0.9134831460674158
+       }
+      }
+     },
+     "5": {
+      "by_street": {
+       "0": {
+        "decisions": 862,
+        "hits": 857,
+        "rate": 0.994199535962877
+       },
+       "1": {
+        "decisions": 145,
+        "hits": 52,
+        "rate": 0.3586206896551724
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 10,
+        "rate": 0.45454545454545453
+       },
+       "3": {
+        "decisions": 6,
+        "hits": 4,
+        "rate": 0.6666666666666666
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 145,
+        "hits": 145,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 890,
+        "hits": 778,
+        "rate": 0.8741573033707866
+       }
+      }
+     },
+     "10": {
+      "by_street": {
+       "0": {
+        "decisions": 862,
+        "hits": 846,
+        "rate": 0.9814385150812065
+       },
+       "1": {
+        "decisions": 145,
+        "hits": 40,
+        "rate": 0.27586206896551724
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 9,
+        "rate": 0.4090909090909091
+       },
+       "3": {
+        "decisions": 6,
+        "hits": 4,
+        "rate": 0.6666666666666666
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 145,
+        "hits": 145,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 890,
+        "hits": 754,
+        "rate": 0.8471910112359551
+       }
+      }
+     }
+    }
+   },
+   "hit_rate_seconds": 39.9
   },
   {
    "file": "mid-3.json",
@@ -74,7 +298,231 @@
     "name": "station2",
     "bb100": -952.39,
     "ci95_low": -1216.79
-   }
+   },
+   "hit_rate": {
+    "schema": "stalker.web.hit-rate",
+    "schema_version": 2,
+    "players": 3,
+    "hands": 300,
+    "seed": 614,
+    "by_street": {
+     "0": {
+      "decisions": 1405,
+      "hits": 1389,
+      "rate": 0.9886120996441281
+     },
+     "1": {
+      "decisions": 204,
+      "hits": 123,
+      "rate": 0.6029411764705882
+     },
+     "2": {
+      "decisions": 43,
+      "hits": 30,
+      "rate": 0.6976744186046512
+     },
+     "3": {
+      "decisions": 9,
+      "hits": 9,
+      "rate": 1.0
+     }
+    },
+    "by_kind": {
+     "call": {
+      "decisions": 358,
+      "hits": 358,
+      "rate": 1.0
+     },
+     "other": {
+      "decisions": 1303,
+      "hits": 1193,
+      "rate": 0.9155794320798158
+     }
+    },
+    "by_min_visits": {
+     "0": {
+      "by_street": {
+       "0": {
+        "decisions": 1405,
+        "hits": 1389,
+        "rate": 0.9886120996441281
+       },
+       "1": {
+        "decisions": 204,
+        "hits": 123,
+        "rate": 0.6029411764705882
+       },
+       "2": {
+        "decisions": 43,
+        "hits": 30,
+        "rate": 0.6976744186046512
+       },
+       "3": {
+        "decisions": 9,
+        "hits": 9,
+        "rate": 1.0
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 358,
+        "hits": 358,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1303,
+        "hits": 1193,
+        "rate": 0.9155794320798158
+       }
+      }
+     },
+     "1": {
+      "by_street": {
+       "0": {
+        "decisions": 1405,
+        "hits": 1389,
+        "rate": 0.9886120996441281
+       },
+       "1": {
+        "decisions": 204,
+        "hits": 123,
+        "rate": 0.6029411764705882
+       },
+       "2": {
+        "decisions": 43,
+        "hits": 30,
+        "rate": 0.6976744186046512
+       },
+       "3": {
+        "decisions": 9,
+        "hits": 9,
+        "rate": 1.0
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 358,
+        "hits": 358,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1303,
+        "hits": 1193,
+        "rate": 0.9155794320798158
+       }
+      }
+     },
+     "2": {
+      "by_street": {
+       "0": {
+        "decisions": 1405,
+        "hits": 1372,
+        "rate": 0.9765124555160143
+       },
+       "1": {
+        "decisions": 204,
+        "hits": 97,
+        "rate": 0.47549019607843135
+       },
+       "2": {
+        "decisions": 43,
+        "hits": 25,
+        "rate": 0.5813953488372093
+       },
+       "3": {
+        "decisions": 9,
+        "hits": 8,
+        "rate": 0.8888888888888888
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 358,
+        "hits": 358,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1303,
+        "hits": 1144,
+        "rate": 0.8779739063699156
+       }
+      }
+     },
+     "5": {
+      "by_street": {
+       "0": {
+        "decisions": 1405,
+        "hits": 1321,
+        "rate": 0.9402135231316726
+       },
+       "1": {
+        "decisions": 204,
+        "hits": 71,
+        "rate": 0.3480392156862745
+       },
+       "2": {
+        "decisions": 43,
+        "hits": 21,
+        "rate": 0.4883720930232558
+       },
+       "3": {
+        "decisions": 9,
+        "hits": 6,
+        "rate": 0.6666666666666666
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 358,
+        "hits": 358,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1303,
+        "hits": 1061,
+        "rate": 0.8142747505755947
+       }
+      }
+     },
+     "10": {
+      "by_street": {
+       "0": {
+        "decisions": 1405,
+        "hits": 1243,
+        "rate": 0.8846975088967971
+       },
+       "1": {
+        "decisions": 204,
+        "hits": 57,
+        "rate": 0.27941176470588236
+       },
+       "2": {
+        "decisions": 43,
+        "hits": 18,
+        "rate": 0.4186046511627907
+       },
+       "3": {
+        "decisions": 9,
+        "hits": 6,
+        "rate": 0.6666666666666666
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 358,
+        "hits": 358,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1303,
+        "hits": 966,
+        "rate": 0.7413660782808903
+       }
+      }
+     }
+    }
+   },
+   "hit_rate_seconds": 53.6
   },
   {
    "file": "mid-4.json",
@@ -100,7 +548,231 @@
     "name": "maniac3",
     "bb100": -881.72,
     "ci95_low": -1169.63
-   }
+   },
+   "hit_rate": {
+    "schema": "stalker.web.hit-rate",
+    "schema_version": 2,
+    "players": 4,
+    "hands": 300,
+    "seed": 615,
+    "by_street": {
+     "0": {
+      "decisions": 1838,
+      "hits": 1811,
+      "rate": 0.985310119695321
+     },
+     "1": {
+      "decisions": 150,
+      "hits": 67,
+      "rate": 0.44666666666666666
+     },
+     "2": {
+      "decisions": 30,
+      "hits": 15,
+      "rate": 0.5
+     },
+     "3": {
+      "decisions": 4,
+      "hits": 4,
+      "rate": 1.0
+     }
+    },
+    "by_kind": {
+     "call": {
+      "decisions": 570,
+      "hits": 570,
+      "rate": 1.0
+     },
+     "other": {
+      "decisions": 1452,
+      "hits": 1327,
+      "rate": 0.9139118457300276
+     }
+    },
+    "by_min_visits": {
+     "0": {
+      "by_street": {
+       "0": {
+        "decisions": 1838,
+        "hits": 1811,
+        "rate": 0.985310119695321
+       },
+       "1": {
+        "decisions": 150,
+        "hits": 67,
+        "rate": 0.44666666666666666
+       },
+       "2": {
+        "decisions": 30,
+        "hits": 15,
+        "rate": 0.5
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 4,
+        "rate": 1.0
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 570,
+        "hits": 570,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1452,
+        "hits": 1327,
+        "rate": 0.9139118457300276
+       }
+      }
+     },
+     "1": {
+      "by_street": {
+       "0": {
+        "decisions": 1838,
+        "hits": 1811,
+        "rate": 0.985310119695321
+       },
+       "1": {
+        "decisions": 150,
+        "hits": 67,
+        "rate": 0.44666666666666666
+       },
+       "2": {
+        "decisions": 30,
+        "hits": 15,
+        "rate": 0.5
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 4,
+        "rate": 1.0
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 570,
+        "hits": 570,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1452,
+        "hits": 1327,
+        "rate": 0.9139118457300276
+       }
+      }
+     },
+     "2": {
+      "by_street": {
+       "0": {
+        "decisions": 1838,
+        "hits": 1781,
+        "rate": 0.9689880304678999
+       },
+       "1": {
+        "decisions": 150,
+        "hits": 51,
+        "rate": 0.34
+       },
+       "2": {
+        "decisions": 30,
+        "hits": 13,
+        "rate": 0.43333333333333335
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 4,
+        "rate": 1.0
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 570,
+        "hits": 570,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1452,
+        "hits": 1279,
+        "rate": 0.8808539944903582
+       }
+      }
+     },
+     "5": {
+      "by_street": {
+       "0": {
+        "decisions": 1838,
+        "hits": 1662,
+        "rate": 0.9042437431991295
+       },
+       "1": {
+        "decisions": 150,
+        "hits": 38,
+        "rate": 0.25333333333333335
+       },
+       "2": {
+        "decisions": 30,
+        "hits": 10,
+        "rate": 0.3333333333333333
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 4,
+        "rate": 1.0
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 570,
+        "hits": 570,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1452,
+        "hits": 1144,
+        "rate": 0.7878787878787878
+       }
+      }
+     },
+     "10": {
+      "by_street": {
+       "0": {
+        "decisions": 1838,
+        "hits": 1442,
+        "rate": 0.7845484221980413
+       },
+       "1": {
+        "decisions": 150,
+        "hits": 37,
+        "rate": 0.24666666666666667
+       },
+       "2": {
+        "decisions": 30,
+        "hits": 10,
+        "rate": 0.3333333333333333
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 4,
+        "rate": 1.0
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 570,
+        "hits": 570,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1452,
+        "hits": 923,
+        "rate": 0.6356749311294766
+       }
+      }
+     }
+    }
+   },
+   "hit_rate_seconds": 39.4
   },
   {
    "file": "mid-5.json",
@@ -126,7 +798,231 @@
     "name": "station4",
     "bb100": -1529.91,
     "ci95_low": -1848.73
-   }
+   },
+   "hit_rate": {
+    "schema": "stalker.web.hit-rate",
+    "schema_version": 2,
+    "players": 5,
+    "hands": 300,
+    "seed": 616,
+    "by_street": {
+     "0": {
+      "decisions": 2249,
+      "hits": 2202,
+      "rate": 0.9791018230324589
+     },
+     "1": {
+      "decisions": 93,
+      "hits": 41,
+      "rate": 0.44086021505376344
+     },
+     "2": {
+      "decisions": 16,
+      "hits": 7,
+      "rate": 0.4375
+     },
+     "3": {
+      "decisions": 7,
+      "hits": 6,
+      "rate": 0.8571428571428571
+     }
+    },
+    "by_kind": {
+     "call": {
+      "decisions": 845,
+      "hits": 845,
+      "rate": 1.0
+     },
+     "other": {
+      "decisions": 1520,
+      "hits": 1411,
+      "rate": 0.9282894736842106
+     }
+    },
+    "by_min_visits": {
+     "0": {
+      "by_street": {
+       "0": {
+        "decisions": 2249,
+        "hits": 2202,
+        "rate": 0.9791018230324589
+       },
+       "1": {
+        "decisions": 93,
+        "hits": 41,
+        "rate": 0.44086021505376344
+       },
+       "2": {
+        "decisions": 16,
+        "hits": 7,
+        "rate": 0.4375
+       },
+       "3": {
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 845,
+        "hits": 845,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1520,
+        "hits": 1411,
+        "rate": 0.9282894736842106
+       }
+      }
+     },
+     "1": {
+      "by_street": {
+       "0": {
+        "decisions": 2249,
+        "hits": 2202,
+        "rate": 0.9791018230324589
+       },
+       "1": {
+        "decisions": 93,
+        "hits": 41,
+        "rate": 0.44086021505376344
+       },
+       "2": {
+        "decisions": 16,
+        "hits": 7,
+        "rate": 0.4375
+       },
+       "3": {
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 845,
+        "hits": 845,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1520,
+        "hits": 1411,
+        "rate": 0.9282894736842106
+       }
+      }
+     },
+     "2": {
+      "by_street": {
+       "0": {
+        "decisions": 2249,
+        "hits": 2156,
+        "rate": 0.9586482881280569
+       },
+       "1": {
+        "decisions": 93,
+        "hits": 34,
+        "rate": 0.3655913978494624
+       },
+       "2": {
+        "decisions": 16,
+        "hits": 5,
+        "rate": 0.3125
+       },
+       "3": {
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 845,
+        "hits": 845,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1520,
+        "hits": 1356,
+        "rate": 0.8921052631578947
+       }
+      }
+     },
+     "5": {
+      "by_street": {
+       "0": {
+        "decisions": 2249,
+        "hits": 1947,
+        "rate": 0.8657180969319698
+       },
+       "1": {
+        "decisions": 93,
+        "hits": 31,
+        "rate": 0.3333333333333333
+       },
+       "2": {
+        "decisions": 16,
+        "hits": 5,
+        "rate": 0.3125
+       },
+       "3": {
+        "decisions": 7,
+        "hits": 5,
+        "rate": 0.7142857142857143
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 845,
+        "hits": 845,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1520,
+        "hits": 1143,
+        "rate": 0.7519736842105263
+       }
+      }
+     },
+     "10": {
+      "by_street": {
+       "0": {
+        "decisions": 2249,
+        "hits": 1754,
+        "rate": 0.7799021787461093
+       },
+       "1": {
+        "decisions": 93,
+        "hits": 31,
+        "rate": 0.3333333333333333
+       },
+       "2": {
+        "decisions": 16,
+        "hits": 4,
+        "rate": 0.25
+       },
+       "3": {
+        "decisions": 7,
+        "hits": 4,
+        "rate": 0.5714285714285714
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 845,
+        "hits": 845,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1520,
+        "hits": 948,
+        "rate": 0.6236842105263158
+       }
+      }
+     }
+    }
+   },
+   "hit_rate_seconds": 24.5
   },
   {
    "file": "mid-6.json",
@@ -152,7 +1048,231 @@
     "name": "station5",
     "bb100": -1509.98,
     "ci95_low": -1746.28
-   }
+   },
+   "hit_rate": {
+    "schema": "stalker.web.hit-rate",
+    "schema_version": 2,
+    "players": 6,
+    "hands": 300,
+    "seed": 617,
+    "by_street": {
+     "0": {
+      "decisions": 2535,
+      "hits": 2478,
+      "rate": 0.9775147928994082
+     },
+     "1": {
+      "decisions": 114,
+      "hits": 38,
+      "rate": 0.3333333333333333
+     },
+     "2": {
+      "decisions": 22,
+      "hits": 13,
+      "rate": 0.5909090909090909
+     },
+     "3": {
+      "decisions": 4,
+      "hits": 3,
+      "rate": 0.75
+     }
+    },
+    "by_kind": {
+     "call": {
+      "decisions": 1097,
+      "hits": 1097,
+      "rate": 1.0
+     },
+     "other": {
+      "decisions": 1578,
+      "hits": 1435,
+      "rate": 0.9093789607097592
+     }
+    },
+    "by_min_visits": {
+     "0": {
+      "by_street": {
+       "0": {
+        "decisions": 2535,
+        "hits": 2478,
+        "rate": 0.9775147928994082
+       },
+       "1": {
+        "decisions": 114,
+        "hits": 38,
+        "rate": 0.3333333333333333
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 13,
+        "rate": 0.5909090909090909
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 3,
+        "rate": 0.75
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 1097,
+        "hits": 1097,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1578,
+        "hits": 1435,
+        "rate": 0.9093789607097592
+       }
+      }
+     },
+     "1": {
+      "by_street": {
+       "0": {
+        "decisions": 2535,
+        "hits": 2478,
+        "rate": 0.9775147928994082
+       },
+       "1": {
+        "decisions": 114,
+        "hits": 38,
+        "rate": 0.3333333333333333
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 13,
+        "rate": 0.5909090909090909
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 3,
+        "rate": 0.75
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 1097,
+        "hits": 1097,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1578,
+        "hits": 1435,
+        "rate": 0.9093789607097592
+       }
+      }
+     },
+     "2": {
+      "by_street": {
+       "0": {
+        "decisions": 2535,
+        "hits": 2398,
+        "rate": 0.945956607495069
+       },
+       "1": {
+        "decisions": 114,
+        "hits": 30,
+        "rate": 0.2631578947368421
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 10,
+        "rate": 0.45454545454545453
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 3,
+        "rate": 0.75
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 1097,
+        "hits": 1097,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1578,
+        "hits": 1344,
+        "rate": 0.8517110266159695
+       }
+      }
+     },
+     "5": {
+      "by_street": {
+       "0": {
+        "decisions": 2535,
+        "hits": 2193,
+        "rate": 0.8650887573964497
+       },
+       "1": {
+        "decisions": 114,
+        "hits": 28,
+        "rate": 0.24561403508771928
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 9,
+        "rate": 0.4090909090909091
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 3,
+        "rate": 0.75
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 1097,
+        "hits": 1097,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1578,
+        "hits": 1136,
+        "rate": 0.7198986058301647
+       }
+      }
+     },
+     "10": {
+      "by_street": {
+       "0": {
+        "decisions": 2535,
+        "hits": 1974,
+        "rate": 0.778698224852071
+       },
+       "1": {
+        "decisions": 114,
+        "hits": 28,
+        "rate": 0.24561403508771928
+       },
+       "2": {
+        "decisions": 22,
+        "hits": 9,
+        "rate": 0.4090909090909091
+       },
+       "3": {
+        "decisions": 4,
+        "hits": 2,
+        "rate": 0.5
+       }
+      },
+      "by_kind": {
+       "call": {
+        "decisions": 1097,
+        "hits": 1097,
+        "rate": 1.0
+       },
+       "other": {
+        "decisions": 1578,
+        "hits": 916,
+        "rate": 0.5804816223067174
+       }
+      }
+     }
+    }
+   },
+   "hit_rate_seconds": 25.6
   }
  ],
  "index": {
