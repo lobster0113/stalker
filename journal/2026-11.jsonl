@@ -503,3 +503,4 @@
 {"ts":"2026-11-06T00:10:35Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":599,"notes":"not my parity","friction":""}
 {"ts":"2026-11-06T00:11:17Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":598,"notes":"sweep: #598 already has VERDICT CHANGES on head 9b1819f (no new commit); #599 odd parity","friction":""}
 {"ts":"2026-11-06T00:11:56Z","role":"reviewer","outcome":"changes","issue":null,"pr":599,"notes":"research note spaced review: Gate E has no forgetting model (factual), TP.md §5 scoring mismatch, 등급 term clash, Cepeda 2008 misattribution; CI pending at verdict","friction":"research PR has no linked issue so no acceptance criteria; judged against researcher.md §2 format"}
+{"ts":"2026-11-06T00:41:17Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #599 already has VERDICT CHANGES at head d723a9c; #598 is even (reviewer-b)","friction":""}
