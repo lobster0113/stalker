@@ -109,3 +109,29 @@ def test_committed_c1_vectors_are_current(committed):
     p = committed["params"]
     assert W.c1_vectors(W.C1_HANDS, p["seed"]) == committed["c1_keys"], \
         "c1_keys in web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"
+
+
+def test_b1_vectors_cover_heads_up_multiway_and_every_street(committed):
+    b1 = committed["b1"]
+    assert (b1["radix"], b1["na"], b1["none"], b1["out_gain"]) == (K.B1_RADIX, K.B1_NA, K.B1_NONE, K.OUT_GAIN)
+    assert b1["edges"] == {"outs": list(K.OUTS_EDGES), "vuln": list(K.VULN_EDGES), "block": list(K.BLOCK_EDGES)}, \
+        "b1 bucket edges changed: run `python -m stalker.tools.web_vectors` and update web/app/tpgto.js"
+    p = W.b1_parts(b1)
+    assert p["heads_up"] > 0 and p["multiway"] > 0 and p["six_max_multiway"] > 0, p
+    assert all(v > 0 for v in p["by_street"].values()), p
+
+
+def test_b1_vectors_equal_the_python_functions(committed):
+    # The generator is seeded per player count, so one 6-max hand rebuilt from tp_key.b1_code / b1_label must equal
+    # the committed one; the whole block is rebuilt by the slow test below.
+    want = [h for h in committed["b1"]["hands"] if h["n"] == 6][0]
+    got = W.b1_vectors(1, committed["params"]["seed"], players=(6,))["hands"][0]
+    assert got == want, "b1 in web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"
+    labels = {c: lab for h in committed["b1"]["hands"] for d in h["decisions"] for c, lab in d.get("labels", {}).items()}
+    assert all(K.b1_label(int(c)) == lab for c, lab in labels.items())
+
+
+@pytest.mark.slow
+def test_committed_b1_vectors_are_current(committed):
+    assert W.b1_vectors(W.B1_HANDS, committed["params"]["seed"]) == committed["b1"], \
+        "b1 in web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"

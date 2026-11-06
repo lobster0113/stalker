@@ -57,6 +57,8 @@
 //   equityStepOf(s, seat, ranges, tier) -> the actor's step (with board.nut encoded for pro).
 //   equitySteps(s, seat, ranges, k), publicKey(s, seat, depth), key(public, step), myStep(...)
 //   equityVs(board, w) -> Float64Array(1326) equity vs range w (NaN on board collisions)
+//   b1Code(s, seat, ranges, depth) -> Int32Array(1326) b1 hand fields per combo (tp_key.b1_code, #606);
+//       b1Label(code) -> "o1v0k2"; handOutsVuln(s, seat, ranges) -> [outs, vuln] | null; handBlock(...) -> | null.
 //   boardNut(s, seat, ranges) -> 0..100 or null; evaluate(cards) -> score (higher wins)
 //   policy: a plain object {key: [p_action...]} or a Map.
 //   checkNutK(checkpoint.nut_k) -> throws if a pro table was built on another board.nut grid.
@@ -1000,6 +1002,131 @@ export function equitySteps(s, seat, ranges, k) {
 }
 
 export function myStep(steps, s, seat) { return steps[comboIndex(s.hole[seat])]; }
+
+// ---- b1 hand fields (#606, tp_key.py "b1": hand.outs / hand.vuln / hand.block), bit for bit with numpy ----
+export const B1_RADIX = 6, B1_NA = 4, B1_NONE = 5, B1_BASE = 10_000;
+export const OUTS_EDGES = [1e-9, 15.0, 30.0], VULN_EDGES = [1e-9, 20.0], BLOCK_EDGES = [45.0, 60.0];
+export const OUT_GAIN = 0.10;
+
+/** np.searchsorted(edges, x, side="left"). */
+function searchLeft(edges, x) { let i = 0; while (i < edges.length && edges[i] < x) i++; return i; }
+
+/** tp_key._card_mass: one bincount over [first cards, second cards], added in that index order. */
+function cardMass(m) {
+  const out = new Float64Array(52);
+  for (let i = 0; i < N; i++) out[COMBO_HI[i]] += m[i];
+  for (let i = 0; i < N; i++) out[COMBO_LO[i]] += m[i];
+  return out;
+}
+
+/** tp_key._near_nut: (no board collision, top NUT_TOP by equity vs a random hand) per combo. */
+function nearNut(board) {
+  const strength = equityCached(board, UNIFORM);
+  const ok = new Uint8Array(N), top = new Uint8Array(N), okv = [];
+  for (let i = 0; i < N; i++) if (!Number.isNaN(strength[i])) { ok[i] = 1; okv.push(strength[i]); }
+  const qv = npQuantile(okv, 1 - NUT_TOP);
+  for (let i = 0; i < N; i++) top[i] = ok[i] && strength[i] >= qv ? 1 : 0;
+  return { ok, top };
+}
+
+/** TP hand.block (0-100) per combo of seat, NaN on board collisions; null preflop (tp_key.hand_block). */
+export function handBlock(s, seat, ranges) {
+  if (s.street === 0) return null;
+  const { ok, top } = nearNut(s.board);
+  const outs = [];
+  const m = new Float64Array(N), r = new Float64Array(N), rz = new Float64Array(N);
+  for (const q of live(s)) {
+    if (q === seat) continue;
+    for (let i = 0; i < N; i++) m[i] = ranges[q][i] * top[i];
+    const total = npSum(m);
+    let cnt = 0;
+    if (total > 0) {
+      const cm = cardMass(m);
+      for (let i = 0; i < N; i++) r[i] = ok[i] ? (cm[COMBO_HI[i]] + cm[COMBO_LO[i]] - m[i]) / total : NaN;
+    } else r.fill(0);
+    for (let i = 0; i < N; i++) { rz[i] = ok[i] ? r[i] : 0; cnt += ok[i]; }
+    const avg = npSum(rz) / cnt;   // np.nanmean: the pairwise sum with NaN as 0, over the count
+    const v = new Float64Array(N);
+    for (let i = 0; i < N; i++) { const den = r[i] + avg; v[i] = den > 0 ? 100.0 * r[i] / den : 50.0; }
+    outs.push(v);
+  }
+  if (!outs.length) return null;
+  const v = new Float64Array(N);   // np.mean(axis=0): rows added in order, then / count
+  for (let i = 0; i < N; i++) {
+    let acc = outs[0][i];
+    for (let j = 1; j < outs.length; j++) acc += outs[j][i];
+    v[i] = ok[i] ? acc / outs.length : NaN;
+  }
+  return v;
+}
+
+/** TP hand.outs and hand.vuln (0-100) per combo of seat on the flop and turn, else null (tp_key.hand_outs_vuln). */
+export function handOutsVuln(s, seat, ranges) {
+  const board = s.board;
+  if (board.length !== 3 && board.length !== 4) return null;
+  const opps = live(s).filter((q) => q !== seat);
+  const now = multiEquity(s, seat, ranges);
+  const dead = boardDead(board);
+  const free = new Float64Array(52).fill(1);
+  const mass = new Float64Array(N);
+  for (const q of opps) {
+    for (let i = 0; i < N; i++) mass[i] = dead[i] ? 0 : ranges[q][i];
+    const byCard = cardMass(mass), tot = npSum(mass);
+    if (tot > 0) for (let c = 0; c < 52; c++) free[c] = free[c] * (1.0 - byCard[c] / tot);
+  }
+  const total = new Float64Array(N), up = new Float64Array(N), down = new Float64Array(N);
+  const nxt = new Float64Array(N);
+  for (let c = 0; c < 52; c++) {
+    if (board.includes(c)) continue;
+    const nb = board.concat([c]);
+    nxt.fill(1);
+    for (const q of opps) { const e = equityCached(nb, ranges[q]); for (let i = 0; i < N; i++) nxt[i] = nxt[i] * e[i]; }
+    for (let i = 0; i < N; i++) {
+      const g = nxt[i] - now[i];
+      if (Number.isNaN(g)) continue;   // weight 0 (adding 0.0 changes no sum)
+      const w = free[c];
+      total[i] += w;
+      if (g >= OUT_GAIN) up[i] += w;
+      if (g <= -OUT_GAIN) down[i] += w;
+    }
+  }
+  const outs = new Float64Array(N), vuln = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const ok = total[i] > 0 && !Number.isNaN(now[i]);
+    outs[i] = ok ? 100.0 * up[i] / total[i] : NaN;
+    vuln[i] = ok ? 100.0 * down[i] / total[i] : NaN;
+  }
+  return [outs, vuln];
+}
+
+/** Per combo, the b1 fields as one int: outs + R * vuln + R^2 * block (tp_key.b1_code); depth "basic" asks outs only. */
+export function b1Code(s, seat, ranges, depth) {
+  const ov = handOutsVuln(s, seat, ranges);
+  const bucket = (v, edges, find) => (Number.isNaN(v) ? B1_NA : find(edges, v));
+  const out = new Int32Array(N);
+  if (depth === "basic") {
+    for (let i = 0; i < N; i++) out[i] = (ov ? bucket(ov[0][i], OUTS_EDGES, searchLeft) : B1_NA) + B1_RADIX * B1_NONE + B1_RADIX * B1_RADIX * B1_NONE;
+    return out;
+  }
+  const blk = handBlock(s, seat, ranges);
+  for (let i = 0; i < N; i++) {
+    const o = ov ? bucket(ov[0][i], OUTS_EDGES, searchLeft) : B1_NA;
+    const v = ov ? bucket(ov[1][i], VULN_EDGES, searchLeft) : B1_NA;
+    const k = blk ? bucket(blk[i], BLOCK_EDGES, searchRight) : B1_NA;
+    out[i] = o + B1_RADIX * v + B1_RADIX * B1_RADIX * k;
+  }
+  return out;
+}
+
+/** "o<outs>v<vuln>k<block>" ("-" = N/A on this street; fields the tier is not asked are left out), tp_key.b1_label. */
+export function b1Label(code) {
+  let out = "";
+  for (const [name, shift] of [["o", 1], ["v", B1_RADIX], ["k", B1_RADIX * B1_RADIX]]) {
+    const f = Math.floor(code / shift) % B1_RADIX;
+    if (f !== B1_NONE) out += name + (f === B1_NA ? "-" : String(f));
+  }
+  return out;
+}
 
 export function updateRange(ranges, seat, probs) {
   const out = ranges.slice();
