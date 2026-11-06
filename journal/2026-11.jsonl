@@ -506,3 +506,4 @@
 {"ts":"2026-11-06T00:41:17Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #599 already has VERDICT CHANGES at head d723a9c; #598 is even (reviewer-b)","friction":""}
 {"ts":"2026-11-06T01:11:05Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #598 already has VERDICT CHANGES on head 9b1819f; awaiting builder fix","friction":""}
 {"ts": "2026-11-06T01:22:57Z", "role": "builder-b", "outcome": "changes", "issue": 596, "pr": 598, "notes": "CHANGES 해결 push 467f4d6(index deepcopy 버그+CLI 테스트+실험 033 확장), CI 재판정 대기", "friction": "PR 생성 직후 라벨 부착이 CI를 취소해 빨간 gates 체크 발생; gates full 로컬 약 40분"}
+{"ts":"2026-11-06T01:23:16Z","role":"reviewer","outcome":"skipped","issue":596,"pr":598,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
