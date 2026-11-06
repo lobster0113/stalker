@@ -1,6 +1,7 @@
 """Browser TP-GTO port (#335): the vector generator runs, the committed vectors and asset are current,
 and the node test (web/app/test/tpgto.test.mjs) matches them exactly when node is installed."""
 import json
+import re
 import subprocess
 
 import numpy as np
@@ -135,3 +136,14 @@ def test_b1_vectors_equal_the_python_functions(committed):
 def test_committed_b1_vectors_are_current(committed):
     assert W.b1_vectors(W.B1_HANDS, committed["params"]["seed"]) == committed["b1"], \
         "b1 in web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"
+
+
+def test_b1_vectors_carry_c1_postflop_keys_per_tier(committed):
+    # #608: decisionKey(variant "c1") is checked against these; each case the node test asserts must occur.
+    ds = [(h, d) for h in committed["b1"]["hands"] for d in h["decisions"] if "full" in d]
+    assert ds and all(set(d["c1"]) == set(W.TIERS) for _, d in ds)
+    label = r"\|o[-0-3](v[-0-2]k[-0-2])?$"
+    mid = [(h, d) for h, d in ds if not d["c1"]["mid"].startswith("call|")]
+    assert all(re.search(label, d["c1"]["mid"]) and "|n%d|" % h["n"] in d["c1"]["mid"] for h, d in mid)
+    assert any(d["live"] == 2 for _, d in mid) and any(d["live"] >= 3 for _, d in mid)
+    assert any(d["street"] == 3 and "|o-v-k" in d["c1"]["mid"] for _, d in mid), "no river c1 key with o-v- labels"

@@ -47,7 +47,7 @@
 //   initialRanges(n) -> Float64Array(1326)[]  (reach weight per combo, COMBOS order)
 //   decisionKey(s, ranges, tier, variant = "") -> {seat, variant, acts, public, steps, step, key}
 //       tier: "beginner" | "mid" | "pro"; steps: Int32Array(1326) of the actor's combos (-1 dead).
-//       variant: the policy's index `key_variant` ("" legacy, "c1" #604: preflop only, postflop throws).
+//       variant: the policy's index `key_variant` ("" legacy, "c1" #604/#608: c1 public key, postflop step + b1 fields).
 //   actionProbs(policy, s, ranges, tier, variant = "") -> {...decisionKey, probs}  probs = policy row for the
 //       actor's real hole (uniform when the table has no entry), aligned with `acts`.
 //   updateRanges(policy, d, ranges, action) -> new ranges after the actor of decision `d` took
@@ -932,9 +932,11 @@ function effectiveStack0(s, seat) {   // TP.md §1.1 SPR numerator: chips behind
   return cap.length ? Math.min(s.stack[seat], max(cap)) : 0;
 }
 
+/** tp_key.key: the equity step (and board.nut) after the public part, then the b1 label when the step carries one. */
 export function key(pub, step) {
-  if (step >= NUT_BASE) return `${pub}|e${step % NUT_BASE}|n${Math.floor(step / NUT_BASE) - 1}`;
-  return `${pub}|e${step}`;
+  const b1 = Math.floor(step / B1_BASE), e = step % B1_BASE;
+  const out = e >= NUT_BASE ? `${pub}|e${e % NUT_BASE}|n${Math.floor(e / NUT_BASE) - 1}` : `${pub}|e${e}`;
+  return b1 && !pub.startsWith("call|") ? `${out}|${b1Label(b1 - 1)}` : out;
 }
 
 export function multiEquity(s, seat, ranges) {
@@ -1157,19 +1159,37 @@ function variantOf(variant) {
 }
 
 /**
- * The actor's TP key at state s: {seat, acts, public, steps, step, key}. variant "c1" (#604) uses the c1
- * public key; its postflop step also carries the b1 hand fields (tp_key.b1_code: outs/vuln/block), which are
- * not ported here, so a c1 postflop key throws instead of silently missing every row (callers end the mirror).
+ * The actor's TP key at state s: {seat, acts, public, steps, step, key}. variant "c1" (#604, #608) uses the c1
+ * public key, and postflop its steps also carry the b1 hand fields (tp_key.equity_steps: steps + B1_BASE *
+ * (1 + b1_code) on live combos), so key() appends the "o..v..k.." label as tp_key.key does.
  */
 export function decisionKey(s, ranges, tier, variant = "") {
   const { k, depth } = tierOf(tier);
   const v = variantOf(variant);
-  if (v === "c1" && s.street > 0) throw new Error("c1 postflop key needs the b1 step fields (hand.outs/vuln/block), not in tpgto.js yet");
   const seat = s.toAct;
   const steps = equitySteps(s, seat, ranges, k);
   const pub = v === "c1" ? publicKeyC1(s, seat, depth) : publicKey(s, seat, depth);
+  if (v === "c1" && s.street > 0) {
+    const code = b1CodeCached(s, seat, ranges, depth);
+    for (let i = 0; i < N; i++) if (steps[i] >= 0) steps[i] += B1_BASE * (1 + code[i]);
+  }
   const step = myStep(steps, s, seat);
   return { seat, tier, variant: v, acts: legal(s), public: pub, steps, step, key: key(pub, step) };
+}
+
+// b1Code costs ~250 ms on a 6-max flop; the page asks the same state again (decision, then the range update, and
+// re-renders), so the last few (state, ranges, depth) results are kept. Keyed by the ranges arrays' identity:
+// updateRange always returns new arrays, so a hit is the same input.
+const B1_CACHE = [];
+const B1_CACHE_SIZE = 8;
+function b1CodeCached(s, seat, ranges, depth) {
+  const d = depth === "basic" ? "basic" : "full";
+  const id = `${seat}|${d}|${s.board.join(",")}|${s.history.join(" ")}`;
+  for (const c of B1_CACHE) if (c.id === id && c.ranges.length === ranges.length && c.ranges.every((r, i) => r === ranges[i])) return c.code;
+  const code = b1Code(s, seat, ranges, d);
+  B1_CACHE.unshift({ id, ranges: ranges.slice(), code });
+  if (B1_CACHE.length > B1_CACHE_SIZE) B1_CACHE.pop();
+  return code;
 }
 
 export function equityStepOf(s, seat, ranges, tier) {
