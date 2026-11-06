@@ -42,7 +42,8 @@ ROOT = Path(__file__).resolve().parents[2]
 VECTORS = ROOT / "web" / "app" / "test" / "vectors.json"
 ASSET = ROOT / "web" / "app" / "assets" / "hu_equity.json"
 SCHEMA = "stalker.web.tpgto.vectors"
-SCHEMA_VERSION = 4   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417); 4: "c1_keys" (#583)
+SCHEMA_VERSION = 5   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417); 4: "c1_keys" (#583);
+# 5: "b1" (#606)
 TIERS = ("beginner", "mid", "pro")
 PLAYERS = (2, 4, 6, 9)   # 2 and 4: the web looks up per-seat policies (#541)
 FOLD_WEIGHTS = (0.15, 1.0, 4.0)   # per hand: deep multiway hands, plain random, fold-heavy (heads-up postflop)
@@ -216,6 +217,71 @@ def c1_vectors(hands: int, seed: int) -> dict:
             "hands": out}
 
 
+# b1 vectors (#606): the ranges must not stay uniform (every opponent alike would hide an order or weight bug), but
+# shipping 1326 floats per update is heavy, so each update multiplies the actor's range by a factor both sides compute
+# from (combo, update id) with exact integer arithmetic (< 2^53 in JS).
+B1_FACTORS = (1.0, 0.8, 0.5, 0.25, 0.05, 0.0)
+B1_PLAYERS = (2, 3, 6)   # heads-up, the smallest multiway table, and 6-max flops with 3+ live players
+B1_HANDS = 4
+B1_DIGITS = 2            # base-36 digits per code: codes are < B1_RADIX**3 = 216 < 36**2
+
+
+def b1_factor_index(i: int, u: int) -> int:
+    return (i * 2654435761 + u * 40503 + 12345) % 4294967296 // 128 % len(B1_FACTORS)
+
+
+def b1_update(ranges: list[np.ndarray], seat: int, u: int) -> list[np.ndarray]:
+    f = np.array([B1_FACTORS[b1_factor_index(i, u)] for i in range(N)])
+    return K.update_range(ranges, seat, f)
+
+
+def _encode_codes(codes: np.ndarray) -> str:
+    return "".join(DIGITS[int(c) // 36] + DIGITS[int(c) % 36] for c in codes)
+
+
+def _play_b1(n: int, h: int, rng: np.random.Generator) -> dict:
+    s = G.deal(rng, n)
+    perm = [c for hl in s.hole for c in hl] + list(s.deck)
+    ranges = K.initial_ranges(n)
+    decisions = []
+    while not s.done:
+        acts, p = G.legal(s), s.to_act
+        d = {"u": h * 100 + len(decisions)}
+        if s.street > 0:
+            full = K.b1_code(s, p, ranges, "full")
+            basic = K.b1_code(s, p, ranges, "basic")
+            d.update(street=s.street, live=len(s.live()), full=_encode_codes(full), basic=_encode_codes(basic),
+                     labels={str(int(c)): K.b1_label(int(c)) for c in sorted(set(full.tolist()) | set(basic.tolist()))})
+        # Few folds so 6-max flops stay multiway; all ins rare so later streets are reached.
+        wts = np.array([0.15 if a == "f" else 0.03 if a == "a" else 1.0 for a in acts])
+        d["a"] = acts[int(rng.choice(len(acts), p=wts / wts.sum()))]
+        ranges = b1_update(ranges, p, d["u"])
+        decisions.append(d)
+        s = G.apply(s, d["a"])
+    return {"n": n, "perm": perm, "decisions": decisions}
+
+
+def b1_vectors(hands: int, seed: int, players=B1_PLAYERS) -> dict:
+    """tp_key.b1_code at full and basic depth for every combo of the actor, at every postflop decision, and
+    b1_label of every code that occurs (#606): the web port must match them exactly."""
+    out = []
+    for n in players:   # seeded per player count, so a subset rebuilds the same hands
+        rng = np.random.default_rng([seed, 606, n])
+        out.extend(_play_b1(n, 100 * n + j, rng) for j in range(hands))
+    return {"factors": list(B1_FACTORS), "radix": K.B1_RADIX, "na": K.B1_NA, "none": K.B1_NONE,
+            "edges": {"outs": list(K.OUTS_EDGES), "vuln": list(K.VULN_EDGES), "block": list(K.BLOCK_EDGES)},
+            "out_gain": K.OUT_GAIN, "hands": out}
+
+
+def b1_parts(b1: dict) -> dict:
+    """How many postflop decisions each case the test needs has: heads-up, multiway, per street."""
+    ds = [(h, d) for h in b1["hands"] for d in h["decisions"] if "full" in d]
+    return {"decisions": len(ds), "heads_up": sum(1 for _, d in ds if d["live"] == 2),
+            "multiway": sum(1 for _, d in ds if d["live"] >= 3),
+            "by_street": {st: sum(1 for _, d in ds if d["street"] == st) for st in (1, 2, 3)},
+            "six_max_multiway": sum(1 for h, d in ds if h["n"] == 6 and d["live"] >= 3)}
+
+
 def rng_vectors(count: int, seed: int) -> list[dict]:
     rng = np.random.default_rng(seed)
     out = []
@@ -245,7 +311,7 @@ def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, ti
             "params": {"hands": hands, "iters": iters, "seed": seed},
             "policies": policy_used, "hands": out_hands, "rng": rng_vectors(rng_count, seed),
             "menus": menu_vectors(menu_hands, seed), "hte": hte_vectors(seed),
-            "c1_keys": c1_vectors(C1_HANDS, seed)}
+            "c1_keys": c1_vectors(C1_HANDS, seed), "b1": b1_vectors(B1_HANDS, seed)}
 
 
 def c1_parts(v: dict) -> dict:
