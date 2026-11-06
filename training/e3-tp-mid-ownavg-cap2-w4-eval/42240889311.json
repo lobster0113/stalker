@@ -1,0 +1,184 @@
+{
+ "job": "e3-tp-mid-ownavg-cap2-w4-eval",
+ "runs": 5,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "ref": "main",
+ "sha": "3021f8fe410bc45b9eb27f3c4aec6a2d789376c6",
+ "run_id": "42240889311",
+ "resumed_from_run": "41967634813",
+ "iters": 300000,
+ "iters_per_s_mean": 0.0,
+ "lbr_bb_mean": 0.7872,
+ "lbr_bb_by_seed": [
+  0.8185,
+  0.7459,
+  0.8374,
+  0.6371,
+  0.897
+ ],
+ "lbr_stderr_by_seed": [
+  0.0984,
+  0.1068,
+  0.1034,
+  0.1076,
+  0.11
+ ],
+ "infosets_by_seed": [
+  49988,
+  49362,
+  50224,
+  49395,
+  49632
+ ],
+ "iters_per_s_by_seed": [
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0
+ ],
+ "cpu_model_by_seed": [
+  "AMD EPYC 9V74 80-Core Processor",
+  "AMD EPYC 7763 64-Core Processor",
+  "AMD EPYC 9V74 80-Core Processor",
+  "AMD EPYC 7763 64-Core Processor",
+  "AMD EPYC 9V45 96-Core Processor"
+ ],
+ "regret_sha256_by_seed": [
+  "1171399679055cd47d5a989596fca58f8013432a9666a8381d648500788a4c50",
+  "ff4b55cc7ad633bcd507724d475df6581cde1d13945ddfbe769a177697aa1a07",
+  "e2c5fd6e921bde47f26ac11805ceb17ac286fda9280ac3321191a6889b615f86",
+  "78424e83680ec6fdcd861b38c5983eb2687238aa25d3eb1695e3a849112b9ad2",
+  "382004ef13ace0ead8b605155978e8c2601b5a398892a39383e55bdc0d0faa68"
+ ],
+ "lbr_offmenu_bb_by_seed": [
+  1.8643,
+  1.8145,
+  2.1667,
+  1.6765,
+  1.8891
+ ],
+ "lbr_average_bb_by_seed": [
+  0.7303,
+  0.5544,
+  0.6966,
+  0.807,
+  0.7478
+ ],
+ "lbr_average_stderr_by_seed": [
+  0.1097,
+  0.1047,
+  0.1119,
+  0.11,
+  0.1095
+ ],
+ "resumed_from_iters_by_seed": [
+  300000,
+  300000,
+  300000,
+  300000,
+  300000
+ ],
+ "field_sha256": "4640929985e564f9a625cabea921fd3189a2c605e556061ffd6ddc173e10d439",
+ "field_deals": 1000,
+ "field_worst_by_seed": [
+  {
+   "name": "tag5",
+   "bb100": 2.64,
+   "ci95_low": -54.1
+  },
+  {
+   "name": "nit5",
+   "bb100": -21.22,
+   "ci95_low": -67.11
+  },
+  {
+   "name": "nit5",
+   "bb100": 13.7,
+   "ci95_low": -30.57
+  },
+  {
+   "name": "mixed_regs",
+   "bb100": -0.59,
+   "ci95_low": -63.0
+  },
+  {
+   "name": "nit5",
+   "bb100": -31.59,
+   "ci95_low": -72.36
+  }
+ ],
+ "field_bb100_by_seed": [
+  {
+   "tag5": 2.64,
+   "lag5": 39.27,
+   "nit5": 4.48,
+   "station5": 142.64,
+   "maniac5": 147.93,
+   "mixed_styles": 80.56,
+   "mixed_regs": 39.05,
+   "uniform5": 496.48,
+   "champion_mid5": 6.91,
+   "champions_mixed": 29.23,
+   "self5": 0.0
+  },
+  {
+   "tag5": -3.29,
+   "lag5": 34.67,
+   "nit5": -21.22,
+   "station5": 71.69,
+   "maniac5": 100.91,
+   "mixed_styles": 46.36,
+   "mixed_regs": 17.96,
+   "uniform5": 563.84,
+   "champion_mid5": 39.41,
+   "champions_mixed": 45.62,
+   "self5": 0.0
+  },
+  {
+   "tag5": 24.33,
+   "lag5": 45.26,
+   "nit5": 13.7,
+   "station5": 177.96,
+   "maniac5": 163.37,
+   "mixed_styles": 58.13,
+   "mixed_regs": 46.28,
+   "uniform5": 543.28,
+   "champion_mid5": 84.19,
+   "champions_mixed": 26.21,
+   "self5": 0.0
+  },
+  {
+   "tag5": 19.47,
+   "lag5": -0.46,
+   "nit5": 21.93,
+   "station5": 89.39,
+   "maniac5": 120.89,
+   "mixed_styles": 44.97,
+   "mixed_regs": -0.59,
+   "uniform5": 518.83,
+   "champion_mid5": 50.9,
+   "champions_mixed": 9.07,
+   "self5": -0.0
+  },
+  {
+   "tag5": 10.13,
+   "lag5": -15.84,
+   "nit5": -31.59,
+   "station5": 24.48,
+   "maniac5": 85.61,
+   "mixed_styles": 53.96,
+   "mixed_regs": -12.23,
+   "uniform5": 481.58,
+   "champion_mid5": 25.56,
+   "champions_mixed": 30.32,
+   "self5": -0.0
+  }
+ ]
+}
