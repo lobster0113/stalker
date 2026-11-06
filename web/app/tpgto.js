@@ -45,9 +45,10 @@
 //   key space). AI seats only choose menu actions (apply).
 // TP keys and ranges:
 //   initialRanges(n) -> Float64Array(1326)[]  (reach weight per combo, COMBOS order)
-//   decisionKey(s, ranges, tier) -> {seat, acts, public, steps, step, key}
+//   decisionKey(s, ranges, tier, variant = "") -> {seat, variant, acts, public, steps, step, key}
 //       tier: "beginner" | "mid" | "pro"; steps: Int32Array(1326) of the actor's combos (-1 dead).
-//   actionProbs(policy, s, ranges, tier) -> {...decisionKey, probs}  probs = policy row for the
+//       variant: the policy's index `key_variant` ("" legacy, "c1" #604: preflop only, postflop throws).
+//   actionProbs(policy, s, ranges, tier, variant = "") -> {...decisionKey, probs}  probs = policy row for the
 //       actor's real hole (uniform when the table has no entry), aligned with `acts`.
 //   updateRanges(policy, d, ranges, action) -> new ranges after the actor of decision `d` took
 //       `action` (name or index): Bayes update with the policy row of every combo's own key.
@@ -1020,14 +1021,28 @@ function policyRow(policy, k, m) {
   return null;
 }
 
-/** The actor's TP key at state s: {seat, acts, public, steps, step, key}. */
-export function decisionKey(s, ranges, tier) {
+// Key layouts a policy file can name in its index entry (`key_variant`, #604). "" is every table before #398.
+export const KEY_VARIANTS = ["", "c1"];
+function variantOf(variant) {
+  const v = variant || "";
+  if (!KEY_VARIANTS.includes(v)) throw new Error(`key variant ${JSON.stringify(v)}: tpgto.js reads ${KEY_VARIANTS.map((x) => JSON.stringify(x)).join(", ")} only`);
+  return v;
+}
+
+/**
+ * The actor's TP key at state s: {seat, acts, public, steps, step, key}. variant "c1" (#604) uses the c1
+ * public key; its postflop step also carries the b1 hand fields (tp_key.b1_code: outs/vuln/block), which are
+ * not ported here, so a c1 postflop key throws instead of silently missing every row (callers end the mirror).
+ */
+export function decisionKey(s, ranges, tier, variant = "") {
   const { k, depth } = tierOf(tier);
+  const v = variantOf(variant);
+  if (v === "c1" && s.street > 0) throw new Error("c1 postflop key needs the b1 step fields (hand.outs/vuln/block), not in tpgto.js yet");
   const seat = s.toAct;
   const steps = equitySteps(s, seat, ranges, k);
-  const pub = publicKey(s, seat, depth);
+  const pub = v === "c1" ? publicKeyC1(s, seat, depth) : publicKey(s, seat, depth);
   const step = myStep(steps, s, seat);
-  return { seat, tier, acts: legal(s), public: pub, steps, step, key: key(pub, step) };
+  return { seat, tier, variant: v, acts: legal(s), public: pub, steps, step, key: key(pub, step) };
 }
 
 export function equityStepOf(s, seat, ranges, tier) {
@@ -1050,8 +1065,8 @@ export function seatProbs(policy, pub, steps, m) {
 }
 
 /** decisionKey plus the policy row for the actor's real hole (uniform when the table is silent). */
-export function actionProbs(policy, s, ranges, tier) {
-  const d = decisionKey(s, ranges, tier);
+export function actionProbs(policy, s, ranges, tier, variant = "") {
+  const d = decisionKey(s, ranges, tier, variant);
   const m = d.acts.length;
   const row = policyRow(policy, d.key, m);
   return { ...d, probs: row ? Array.from(row) : new Array(m).fill(1.0 / m), fromTable: !!row };
@@ -1137,7 +1152,7 @@ const TIE_EPS = 1e-9;
  * is ahead of; ties count half. `reply` is null when the action ends the street/hand or the next to act is
  * the seat itself. Pure function of its arguments.
  */
-export function rangeResponse(policy, s, ranges, tier, seat, action = null) {
+export function rangeResponse(policy, s, ranges, tier, seat, action = null, variant = "") {
   const hi = comboIndex(s.hole[seat]), dead = boardDead(s.board);
   const mine = new Float64Array(N); mine[hi] = 1;
   const vsMe = equityVs(s.board, mine);      // each combo's equity against my exact hand
@@ -1167,7 +1182,7 @@ export function rangeResponse(policy, s, ranges, tier, seat, action = null) {
   if (action != null) {
     const ns = apply(s, action);
     if (!ns.done && ns.street === s.street && ns.toAct !== seat && !ns.folded[ns.toAct]) {
-      const opp = ns.toAct, d = decisionKey(ns, ranges, tier), m = d.acts.length;
+      const opp = ns.toAct, d = decisionKey(ns, ranges, tier, variant), m = d.acts.length;
       const P = seatProbs(policy, d.public, d.steps, m);
       const kinds = d.acts.map((a) => (a === "f" ? "fold" : a === "k" || a === "c" ? "pass" : "raise"));
       const w = wOf(opp);

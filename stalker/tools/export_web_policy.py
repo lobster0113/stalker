@@ -112,7 +112,7 @@ def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: s
     return {"tier": s.get("tier", tier), "players": model["n"], "k": model["k"], "depth": model["depth"],
             "iterations": model["iterations"], "run_id": str(run), "sha": sha or s.get("sha", ""),
             "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst if strategy == "current" else None, "job": s.get("job", ""),
-            "strategy": strategy, **nut_k(model), **rules(model),
+            "strategy": strategy, **nut_k(model), **rules(model), **key_variant_of(model),
             **({"placeholder": True, "trained_on": trained_on(model)} if placeholder else {})}
 
 
@@ -160,6 +160,13 @@ def rules(model: dict) -> dict:
     from stalker.e3 import game as G
 
     return {"menu": model.get("menu", "v1"), "raise_cap": model.get("raise_cap", G.RAISE_CAP)}
+
+
+def key_variant_of(model: dict) -> dict:
+    """The key layout the table was trained with (#604): tpgto.js builds c1 keys only when the meta says so,
+    so a c1 table read with legacy keys never silently misses. Tables before #398 carry none: no field."""
+    v = model.get("key_variant") or ""
+    return {"key_variant": v} if v else {}
 
 
 def nut_k(model: dict) -> dict:
