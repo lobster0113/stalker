@@ -87,3 +87,28 @@ test("an unknown key variant is refused", () => {
   const meta = INDEX.tiers.mid.by_players["3"];
   assert.throws(() => T.decisionKey(firstDecision(3, meta), T.initialRanges(3), "mid", "b1"), /key variant "b1"/);
 });
+
+test("c1 call-or-fold spot (#610): a policy holding the call| row answers it from the table", () => {
+  // Per-seat-count exports used to drop the shared call| keys, so these spots always played uniform.
+  const meta = INDEX.tiers.mid.by_players["3"];
+  let s = firstDecision(3, meta), ranges = T.initialRanges(3);
+  const empty = new Map();
+  for (let i = 0; i < 4 && !s.done; i++) {
+    const lg = T.legal(s);
+    if (lg.join("") === "fc") break;
+    const r = T.actionProbs(empty, s, ranges, "mid", "c1");
+    const a = lg.includes("a") ? "a" : lg[lg.length - 1];   // shove (or the largest size) until someone faces it
+    ranges = T.updateRanges(empty, r, ranges, a);
+    s = T.apply(s, a);
+  }
+  assert.equal(T.legal(s).join(""), "fc", `no call-or-fold spot reached: legal ${T.legal(s).join(",")}`);
+  const miss = T.actionProbs(empty, s, ranges, "mid", "c1");
+  assert.ok(miss.key.startsWith("call|"), miss.key);
+  assert.equal(miss.fromTable, false);
+  const q = 255, row = [37, 218], pol = new Map([[miss.key, Float64Array.from(row, (v) => v / q)]]);
+  const r = T.actionProbs(pol, s, ranges, "mid", "c1");
+  assert.equal(r.fromTable, true, `${r.key} not read from the fixture row`);
+  r.probs.forEach((p, i) => assert.ok(Math.abs(p - row[i] / q) < 1e-9, `${r.key}: ${p} vs ${row[i]}/${q}`));
+  const obj = T.actionProbs({ [miss.key]: row.map((v) => v / q) }, s, ranges, "mid", "c1");
+  assert.equal(obj.fromTable, true);
+});
