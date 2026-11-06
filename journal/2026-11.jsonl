@@ -528,3 +528,4 @@
 {"ts":"2026-11-06T05:21:09Z","role":"builder-b","outcome":"changes","issue":601,"pr":602,"notes":"PR #602 CHANGES 3건(바이트 문장·후속 정리·추정 표시) 해결 푸시 72e7644","friction":"로컬에 pytest 없어 gates quick 실패(문서 전용이라 생략); 설치 시간 미소비"}
 {"ts":"2026-11-06T05:21:27Z","role":"reviewer","outcome":"skipped","issue":601,"pr":602,"notes":"not my parity","friction":""}
 {"ts":"2026-11-06T05:41:13Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #599 already has CHANGES for head d723a9c (no new commits); #602 is even parity (reviewer-b)","friction":"should_run.py printed RUN although no odd PR needed a verdict"}
+{"ts":"2026-11-06T06:01:43Z","role":"reviewer-b","outcome":"merged","issue":601,"pr":602,"notes":"PR #602 re-review: 3 CHANGES items resolved, all CI success, squash merged dc2a2c4","friction":"gates (tests) took ~40min; waited in foreground loops"}
