@@ -8,6 +8,13 @@
  "iterations": 40000,
  "strategy": "current",
  "min_visits": 0,
+ "min_visits_by_players": {
+  "2": 10,
+  "3": 5,
+  "4": 5,
+  "5": 5,
+  "6": 2
+ },
  "player_mix": [
   2,
   3,
@@ -20,11 +27,12 @@
   {
    "file": "mid-2.json",
    "players": 2,
-   "keys": 294184,
-   "keys_dropped": 0,
-   "bytes": 22619945,
-   "sha256": "c211aa987f3913024873a53a0e91c9a8f5861aea6b48f0a732eafcaec571415b",
-   "within_page_budget": false,
+   "min_visits": 10,
+   "keys": 18413,
+   "keys_dropped": 275771,
+   "bytes": 1307776,
+   "sha256": "45e5debd6261229a8096417fcc512687bf271ca2c9d71b2c032f1327e8e8ed7d",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 294184,
     "2": 127001,
@@ -45,11 +53,12 @@
   {
    "file": "mid-3.json",
    "players": 3,
-   "keys": 319679,
-   "keys_dropped": 0,
-   "bytes": 23895421,
-   "sha256": "31a6411c3570cce48eab9b1c0700b7ecb1467ee9667ed8c42880244791c39414",
-   "within_page_budget": false,
+   "min_visits": 5,
+   "keys": 36032,
+   "keys_dropped": 283647,
+   "bytes": 2542428,
+   "sha256": "72df3819591853e0d97ffeba1ddd479ab7a45ad7f5deb159436c20bb26f88d02",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 319679,
     "2": 120243,
@@ -70,11 +79,12 @@
   {
    "file": "mid-4.json",
    "players": 4,
-   "keys": 273093,
-   "keys_dropped": 0,
-   "bytes": 19740920,
-   "sha256": "ebe9abac016d005a0939403c99e0f6067ba9618c0aa4224d543674fcd066138a",
-   "within_page_budget": false,
+   "min_visits": 5,
+   "keys": 20443,
+   "keys_dropped": 252650,
+   "bytes": 1377824,
+   "sha256": "1a4dd8df6801278ad14855fce18c0b8bb1f1717401ff2bc02fd58910e46b3c41",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 273093,
     "2": 84493,
@@ -95,11 +105,12 @@
   {
    "file": "mid-5.json",
    "players": 5,
-   "keys": 213784,
-   "keys_dropped": 0,
-   "bytes": 14945335,
-   "sha256": "3eaffe176a0134939e96c22c235c56521c338f6ffdd450b27e70eb9609846f06",
-   "within_page_budget": false,
+   "min_visits": 5,
+   "keys": 11361,
+   "keys_dropped": 202423,
+   "bytes": 738013,
+   "sha256": "c629333de29783159ae93aa438c3f30b25019856162a2366d2e68537e95494ba",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 213784,
     "2": 55645,
@@ -120,11 +131,12 @@
   {
    "file": "mid-6.json",
    "players": 6,
-   "keys": 170771,
-   "keys_dropped": 0,
-   "bytes": 11762688,
-   "sha256": "e325bf027b43fe21b73d672b1d24e4334182d8c989a224088669a61249db74ed",
-   "within_page_budget": false,
+   "min_visits": 2,
+   "keys": 39155,
+   "keys_dropped": 131616,
+   "bytes": 2598304,
+   "sha256": "fa3240bb7f43ac1eeaaf316ca7ebb284914b5ab22563924f51e14c57b396c849",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 170771,
     "2": 39155,
@@ -145,7 +157,7 @@
  ],
  "index": {
   "file": "index.json",
-  "bytes": 4242,
-  "sha256": "b63b84669d483471f7d7653e290fa44a223951767275ec3169eabb667618e50f"
+  "bytes": 4257,
+  "sha256": "aa314ae9827014efb499c8c2bb956aaf460948cec59668470068f29fdb894596"
  }
 }
