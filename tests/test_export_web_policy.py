@@ -299,20 +299,23 @@ def test_key_variant_is_written_for_c1_tables_and_left_out_for_legacy_ones(tmp_p
 
 
 def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
-    # #604: mid-2..5 are copied byte for byte from ops fd521c42 (docs/research/2026-11-c1-web-export.md
-    # 「실측: 인원별 문턱」); the index routes them to c1 keys and leaves the 6-max (legacy key) entry alone.
+    # #615: mid-2..5 are copied byte for byte from ops 5b5f2875 (docs/research/2026-11-c1-web-export.md
+    # 「실측: call| 포함 재-export」); the index routes them to c1 keys and leaves the 6-max (legacy key) entry alone.
+    # #610: the earlier copy (ops fd521c42) had no shared `call|` keys, so call-or-fold spots played uniform.
     import hashlib
     from pathlib import Path
 
     pol = Path(__file__).resolve().parents[1] / "web/app/policy"
-    want = {2: "45e5debd6261229a8096417fcc512687bf271ca2c9d71b2c032f1327e8e8ed7d",
-            3: "72df3819591853e0d97ffeba1ddd479ab7a45ad7f5deb159436c20bb26f88d02",
-            4: "1a4dd8df6801278ad14855fce18c0b8bb1f1717401ff2bc02fd58910e46b3c41",
-            5: "c629333de29783159ae93aa438c3f30b25019856162a2366d2e68537e95494ba"}
+    want = {2: "a4287c014ca0f3e58ab0d9d31dc5472d860d884eb0f83e410508a79f2b981008",
+            3: "c78a325925b73ea47c15381c5c355917f38aa99b92826d470b718d81d48578ea",
+            4: "3f248f0cd2449a8ffd8310315a99fb4f1d91d283221e91c7e7291576ed0bff5b",
+            5: "0b78519957536a050e453ced988d25c838212413dfd10903245986a8647c2cd4"}
     mid = json.loads((pol / "index.json").read_text(encoding="utf-8"))["tiers"]["mid"]
     for n, sha in want.items():
         body = (pol / f"mid-{n}.json").read_bytes()
-        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from ops fd521c42; re-copy it"
+        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from ops 5b5f2875; re-copy it"
+        policy = json.loads(body)["policy"]
+        assert any(k.startswith("call|") for k in policy), f"mid-{n}.json has no call| keys; re-export after #610"
         e = mid["by_players"][str(n)]
         assert (e["file"], e["players"], e["run_id"], e["key_variant"], e["bytes"]) == (
             f"mid-{n}.json", n, "41813684540", "c1", len(body))
