@@ -32,14 +32,15 @@ import hashlib
 import json
 from collections import Counter
 from collections.abc import Callable
-from functools import cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 import numpy as np
 
 from referee.e3.lbr import seat_probs
 from referee.stats import adjust_with_corrections, bootstrap_ci
-from stalker.e2.eq_view import combo_index
+from stalker.e2.eq_view import N as EQ_N
+from stalker.e2.eq_view import combo_index, equity_vs
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
 
@@ -166,6 +167,35 @@ def committed_value(s: G.State, seat: int) -> float:
         return -s.total[seat] / G.BB
     live = sum(1 for f in s.folded if not f)
     return (pot / live - s.total[seat]) / G.BB
+
+
+@lru_cache(maxsize=4096)  # ~10 KB per board; chance terms draw fresh boards, so it must stay bounded
+def _uniform_equity(board: tuple[int, ...]) -> np.ndarray:
+    # read-only: one array per board, shared by every call on that board
+    eq = equity_vs(board, np.ones(EQ_N))
+    eq.flags.writeable = False
+    return eq
+
+
+def equity_value(s: G.State, seat: int) -> float:
+    """A board-dependent value estimate (bb) of `s` for `seat`: `eq**L * pot - total[seat]`, where `eq` is
+    the seat's own hole cards' equity against a uniform range on the current board (`stalker.e2.eq_view.
+    equity_vs`, preflop from the class table) and `L` the live opponents. `eq**L` is an approximation
+    (it treats the opponents as independent uniform ranges and ignores who is still betting); the
+    AIVAT corrections stay unbiased for any value, so it only has to track the outcome better than
+    `committed_value` to shrink the variance. Only the seat's own cards and the board are read: no
+    opponent hole cards. A folded seat is worth minus its investment; the last seat left wins the pot."""
+    pot = sum(s.total)
+    if s.folded[seat]:
+        return -s.total[seat] / G.BB
+    live = sum(1 for f in s.folded if not f) - 1
+    if live == 0:
+        return (pot - s.total[seat]) / G.BB
+    eq = float(_uniform_equity(tuple(s.board))[combo_index(s.hole[seat])])
+    return (eq ** live * pot - s.total[seat]) / G.BB
+
+
+AIVAT_VALUES = {"committed": committed_value, "equity": equity_value}
 
 
 def _chance_term(s: G.State, nxt: G.State, seat: int, value, rng, m: int) -> float:
@@ -300,13 +330,15 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--configs", nargs="*")
     ap.add_argument("--players", type=int, default=6, help="table size: 6 uses field_v2, 2-5 field_v3 (#534)")
-    ap.add_argument("--aivat", action="store_true", help="also record the AIVAT-adjusted bb/100 per config (record-only)")
+    ap.add_argument("--aivat", nargs="?", const="committed", choices=sorted(AIVAT_VALUES),
+                    help="also record the AIVAT-adjusted bb/100 per config (record-only); the value function: "
+                         "committed (default when the flag has no argument) or equity (board-dependent, #634)")
     a = ap.parse_args(argv)
     pol = json.loads(a.policy.read_text(encoding="utf-8"))
     if isinstance(pol.get(a.which), dict):
         pol = pol[a.which]
     res = evaluate(pol, a.hands, a.seed, k=K.TIER_K[a.tier], depth=K.TIER_DEPTH[a.tier], configs=a.configs,
-                   players=a.players, aivat=a.aivat)
+                   players=a.players, aivat=AIVAT_VALUES[a.aivat] if a.aivat else False)
     print(json.dumps(res, indent=1))
     return 0
 
