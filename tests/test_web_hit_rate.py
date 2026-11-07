@@ -253,3 +253,65 @@ def test_main_play_backoff_flag_and_legacy_refusal(tmp_path, capsys):
         assert "legacy" in str(e)
     else:
         raise AssertionError("--play-backoff on a legacy table must stop")
+
+
+# --- #638: breakdown of the decisions still uniform after L2 ---
+
+def test_release_fields_finds_the_one_field_that_would_hit_at_l2():
+    a = "BTN|n3|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0"
+    b = "BB|n3|1|1|0|2|1|0|tc0|s4:4|u10|hn|go|ka|e2"
+    pol = {a: [1.0, 0.0], b: [0.5, 0.5], "call|1|1|2|fc|e3": [0.2, 0.8]}
+    idx = H.masked_index(H.coarse_tables(pol))
+    # a's L2 key with the equity step changed: releasing field 14 (equity) alone finds a's row
+    assert H.release_fields(idx, a.replace("|e5|", "|e6|"), 2) == [14]
+    # differs from b in position (0) and equity (14) — two fields, so no single release hits
+    assert H.release_fields(idx, "BB|n3|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e9", 2) == []
+    # differs from a only in the position and the dropped items: field 0
+    assert H.release_fields(idx, "SB|n3|1|1|0|2|0|7|tc0|s9:9|u01|hb|gx|ka|e5", 2) == [0]
+    assert H.release_fields(idx, a.replace("|e5|", "|e6|"), 3) == []   # no row of that length
+    # a call key releases its pot-odds step (field 3; field 2 is already `*` at L2)
+    assert H.release_fields(idx, "call|1|2|0|fc|e3", 2) == [3]
+
+
+def _mid3_miss(top):
+    from pathlib import Path
+    pol, doc = H.load_policy(Path("web/app/policy/mid-3.json"))
+    return H.measure(pol, doc["players"], doc["k"], doc["depth"], 20, 5, rules=H.rules_of(doc),
+                     variant=H.variant_of(pol, doc), play_backoff=True, backoff=True, miss_report=top)
+
+
+def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged():
+    bo, mr = _mid3(True), _mid3_miss(3)
+    assert mr["schema_version"] == 4 and bo["schema_version"] == 3 and "miss_report" not in bo
+    assert {k: v for k, v in mr.items() if k not in ("miss_report", "schema_version")} == \
+        {k: v for k, v in bo.items() if k != "schema_version"}
+    rep = mr["miss_report"]
+    assert rep["top"] == 3
+    for st, c in rep["by_street"].items():
+        assert c["misses"] == bo["by_backoff"]["by_street"][st]["uniform"]
+    flop = rep["by_street"]["1"]
+    assert flop["misses"] == 5 and flop["distinct_keys"] == 5 and flop["any_field"] == 4
+    assert flop["by_field"] == {"14": 4, "3": 2, "0": 1, "5": 1}
+    assert flop["top_keys"] == [["BB|n3|1|2|1|1|2|*|tc0|s*|*|*|*|fcr25ra|e1", 1],
+                                ["BTN|n3|1|1|0|1|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150b200b300a|e7", 1],
+                                ["BTN|n3|1|1|1|1|3|*|tc0|s*|*|*|*|fcr25rr4a|e6", 1]]
+    assert rep["by_street"]["0"]["by_field"] == {"6": 1}
+    assert rep["by_street"]["3"] == {"misses": 0, "distinct_keys": 0, "top_keys": [], "by_field": {}, "any_field": 0}
+    assert mr == _mid3_miss(3)
+
+
+def test_miss_report_off_is_byte_identical_and_needs_play_backoff(tmp_path, capsys):
+    import shutil
+    import pytest
+    p = tmp_path / "mid-3.json"
+    shutil.copy("web/app/policy/mid-3.json", p)
+    assert H.main([str(p), "--hands", "2", "--play-backoff"]) == 0
+    plain = capsys.readouterr().out
+    assert H.main([str(p), "--hands", "2", "--play-backoff", "--miss-report", "0"]) == 0
+    assert capsys.readouterr().out == plain and '"miss_report"' not in plain
+    assert H.main([str(p), "--hands", "2", "--play-backoff", "--miss-report", "4"]) == 0
+    assert json.loads(capsys.readouterr().out)["miss_report"]["top"] == 4
+    with pytest.raises(SystemExit, match="--play-backoff"):
+        H.main([str(p), "--miss-report", "4"])
+    with pytest.raises(ValueError):
+        H.measure({}, N3, K, DEPTH, 1, 5, miss_report=2)
