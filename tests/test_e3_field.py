@@ -263,3 +263,68 @@ def test_evaluate_aivat_is_record_only():
     assert stripped == base and "aivat" not in base["configs"][0]
     a = with_aivat["configs"][0]["aivat"]
     assert set(a) == {"bb100", "se", "variance_ratio"} and a["se"] > 0 and a["variance_ratio"] > 0
+
+
+# --- AIVAT chance-node (board reveal) corrections (#597) ---
+
+def _board_value(s, seat):
+    # board-dependent and deterministic: rank sum of the board plus a hole/board hash noise
+    ranks = sum(c % 13 for c in s.board)
+    noise = zlib.crc32(f"{seat}|{s.hole[seat]}|{s.board}".encode()) / 2**32 - 0.5
+    return ranks * 0.3 + noise * 4
+
+
+def test_chance_off_matches_the_593_corrections_and_default_value_has_zero_chance_term():
+    opps = [personas.Persona("tag"), F.uniform]
+    n0, c0 = F.play_deal({}, opps, 9, value=F.committed_value, chance=False)
+    n1, c1 = F.play_deal({}, opps, 9, value=F.committed_value)
+    assert n0.tolist() == n1.tolist() and c0.tolist() == c1.tolist()  # committed_value ignores the board
+    n2, c2 = F.play_deal({}, opps, 9, value=_board_value, chance=False)
+    n3, c3 = F.play_deal({}, opps, 9, value=_board_value)
+    assert n2.tolist() == n3.tolist() and c2.tolist() != c3.tolist()
+
+
+def test_chance_terms_are_unbiased_and_keep_the_action_stream():
+    for opps in ([personas.Persona("tag")], [personas.Persona("tag"), F.uniform]):
+        rows = [F.play_deal({}, opps, 7_000_003 + d, value=_board_value) for d in range(200)]
+        rows_off = [F.play_deal({}, opps, 7_000_003 + d, value=_board_value, chance=False) for d in range(200)]
+        raw = np.array([r[0] for r in rows]).mean(axis=1)
+        assert raw.tolist() == np.array([r[0] for r in rows_off]).mean(axis=1).tolist()
+        chance = np.array([r[1] for r in rows]).mean(axis=1) - np.array([r[1] for r in rows_off]).mean(axis=1)
+        se = chance.std(ddof=1) / len(chance) ** 0.5
+        assert chance.std(ddof=1) > 0 and abs(chance.mean()) < 2 * se
+        cor = np.array([r[1] for r in rows]).mean(axis=1)
+        diff = raw - cor
+        assert abs(diff.mean() - raw.mean()) < 2 * cor.std(ddof=1) / len(cor) ** 0.5
+
+
+def test_allin_runout_is_one_chance_event():
+    # a runout that opens several streets at once must be counted once (same stream index)
+    seen = []
+    orig = F._chance_term
+
+    def spy(s, nxt, seat, value, rng, m):
+        seen.append(len(nxt.board) - len(s.board))
+        return orig(s, nxt, seat, value, rng, m)
+
+    F._chance_term = spy
+    try:
+        for d in range(40):
+            F.play_deal(F.uniform, [F.uniform, F.uniform], d, value=_board_value)
+    finally:
+        F._chance_term = orig
+    assert seen and set(seen) <= {1, 2, 3, 4, 5}
+
+
+def test_main_aivat_flag_adds_the_record_only_key(tmp_path, capsys, monkeypatch):
+    pol = tmp_path / "p.json"
+    pol.write_text("{}", encoding="utf-8")
+    spec = {**_AIVAT_SPEC}
+    monkeypatch.setattr(F, "load_players", lambda n: (spec, None))
+    assert F.main([str(pol), "--hands", "4", "--players", "3"]) == 0
+    plain = json.loads(capsys.readouterr().out)
+    assert F.main([str(pol), "--hands", "4", "--players", "3", "--aivat"]) == 0
+    withv = json.loads(capsys.readouterr().out)
+    assert "aivat" not in plain["configs"][0] and "aivat" in withv["configs"][0]
+    withv["configs"][0].pop("aivat")
+    assert withv == plain
