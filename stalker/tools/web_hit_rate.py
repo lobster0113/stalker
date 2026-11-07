@@ -131,9 +131,9 @@ def _row(policy: dict, key: str, m: int):
 
 def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, seed: int,
             visits: dict | None = None, min_visits=MIN_VISITS, backoff: bool = False,
-            rules: dict | None = None) -> dict:
+            rules: dict | None = None, variant: str = "c1") -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`)."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`)."""
     rng = np.random.default_rng([seed, 611, players])
     by_street = {str(st): _cell() for st in range(4)}
     kinds = {"call": _cell(), "other": _cell()}
@@ -149,8 +149,8 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
         while not s.done:
             acts, p = G.legal(s), s.to_act
             m = len(acts)
-            public = K.public_key(s, p, depth, variant="c1")
-            steps = K.equity_steps(s, p, ranges, tier_k, variant="c1")
+            public = K.public_key(s, p, depth, variant=variant)
+            steps = K.equity_steps(s, p, ranges, tier_k, variant=variant)
             real = K.key(public, K.my_step(steps, s, p))
             hit = _row(policy, real, m) is not None
             kind = "call" if public.startswith("call|") else "other"
@@ -191,6 +191,17 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
     return out
 
 
+def variant_of(policy: dict, doc: dict, choice: str = "auto") -> str:
+    """The key layout of a table: `--variant` if given, else the header's `key_variant`, else read off the first key
+    (c1 keys carry `|n<players>`; the pre-c1 keys are bare numbers; `call|` keys are the same in both, so skipped, #620)."""
+    if choice != "auto":
+        return "" if choice == "legacy" else choice
+    if "key_variant" in doc:
+        return doc["key_variant"]
+    first = next((k for k in policy if not k.startswith("call|")), None)
+    return "c1" if first is None or "|n" in first else ""
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("policy", type=Path, help="web/app/policy/<tier>-<n>.json")
@@ -198,11 +209,16 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=611)
     ap.add_argument("--backoff", action="store_true",
                     help="also count where coarser keys (L1, L2) would find a row (#618)")
+    ap.add_argument("--variant", choices=("auto", "c1", "legacy"), default="auto",
+                    help="key layout; auto = the file's key_variant, else read off its first key (#620)")
     ap.add_argument("--pod-result", type=Path, help="the training result holding the visit counts (min_visits table)")
     a = ap.parse_args(argv)
     policy, doc = load_policy(a.policy)
-    if doc.get("key_variant", "c1") != "c1" and "|n" not in next(iter(policy), ""):
-        raise SystemExit(f"{a.policy}: not a c1 table; this tool reads c1 keys only")
+    variant = variant_of(policy, doc, a.variant)
+    if variant not in ("", "c1"):
+        raise SystemExit(f"{a.policy}: key variant {variant!r}; this tool reads c1 and legacy keys only")
+    if a.backoff and not variant:
+        raise SystemExit("--backoff reads c1 keys only; a legacy table has no coarse-key levels (#620)")
     visits = None
     if a.pod_result:
         from stalker.tools import export_web_policy as X
@@ -210,8 +226,8 @@ def main(argv=None) -> int:
         st, _ = X.load_pod_result(a.pod_result)
         visits = dict(X.load_model(st).visits)
     res = measure(policy, doc["players"], doc["k"], doc["depth"], a.hands, a.seed, visits, backoff=a.backoff,
-                  rules=rules_of(doc))
-    json.dump({**res, "file": a.policy.name}, sys.stdout, indent=1)
+                  rules=rules_of(doc), variant=variant)
+    json.dump({**res, "variant": variant or "legacy", "file": a.policy.name}, sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0
 
