@@ -1,6 +1,8 @@
 """#611: web policy table hit-rate tool."""
 import json
 
+import pytest
+
 from stalker.tools import web_hit_rate as H
 
 K, DEPTH, N3 = 11, "full", 3
@@ -315,3 +317,56 @@ def test_miss_report_off_is_byte_identical_and_needs_play_backoff(tmp_path, caps
         H.main([str(p), "--miss-report", "4"])
     with pytest.raises(ValueError):
         H.measure({}, N3, K, DEPTH, 1, 5, miss_report=2)
+
+
+# --- #644: the run does not depend on PYTHONHASHSEED ---
+
+def test_range_update_column_is_zero_on_dead_combos_and_finite(monkeypatch):
+    """Dead combos (step -1) must weigh 0 in the Bayes column, as the page's seatProbs (zero-filled) does.
+    An unfilled row read whatever memory held, NaN included, so the run varied across processes."""
+    import numpy as np
+    from pathlib import Path
+    from stalker.e2.eq_view import N
+    from stalker.e3 import tp_key as TK
+    pol, doc = H.load_policy(Path("web/app/policy/mid-3.json"))
+    seen, real_es, real_ur = [], TK.equity_steps, TK.update_range
+    last = {}
+
+    def es(*a, **k):
+        last["steps"] = real_es(*a, **k)
+        return last["steps"]
+
+    def ur(ranges, seat, col):
+        seen.append((last["steps"].copy(), np.array(col)))
+        return real_ur(ranges, seat, col)
+
+    monkeypatch.setattr(TK, "equity_steps", es)
+    monkeypatch.setattr(TK, "update_range", ur)
+    real_empty = np.empty
+
+    def poisoned(shape, *a, **k):  # stale memory made visible: an unfilled (N, m) buffer reads NaN
+        if not a and not k and isinstance(shape, tuple) and len(shape) == 2 and shape[0] == N:
+            return np.full(shape, np.nan)
+        return real_empty(shape, *a, **k)
+
+    monkeypatch.setattr(np, "empty", poisoned)
+    for play in (False, True):
+        H.measure(pol, doc["players"], doc["k"], doc["depth"], 5, 5, rules=H.rules_of(doc),
+                  variant=H.variant_of(pol, doc), play_backoff=play)
+    assert seen and any((st < 0).any() for st, _ in seen)
+    for st, col in seen:
+        assert np.isfinite(col).all() and (col[st < 0] == 0).all()
+
+
+@pytest.mark.slow
+def test_play_backoff_output_is_byte_identical_across_hash_seeds():
+    import os
+    import subprocess
+    import sys
+    outs = []
+    for h in ("0", "2"):
+        env = {**os.environ, "PYTHONHASHSEED": h}
+        outs.append(subprocess.run([sys.executable, "-m", "stalker.tools.web_hit_rate", "web/app/policy/mid-3.json",
+                                    "--hands", "80", "--seed", "620", "--play-backoff", "--miss-report", "5"],
+                                   env=env, check=True, capture_output=True).stdout)
+    assert outs[0] == outs[1]
