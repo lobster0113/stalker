@@ -44,11 +44,12 @@ class PersonaParams:
     giveup_weak: float | None = None  # extra fold chance facing a turn/river bet (flop folds are fold_cbet_flop): any hand below trips (weak, pair, two pair).
     # Taken BEFORE fold_cbet_turn/fold_river, so with it set those two are overridden: measured folds land above them (docs/research/2026-11-persona-wtsd-sweep.md)
     giveup_turn: float | None = None  # replaces giveup_weak on the turn only (#533); None = giveup_weak applies to turn and river
+    giveup_nonc: float | None = None  # extra fold chance (hands below 0.9) facing a bet that is not a c-bet (donk/probe), lowers WTSD only (#569); None/0 = off, no rng draw
 
     def __post_init__(self) -> None:
         for name in ("vpip", "pfr", "aggression", "fold_to_bet", "cbet_flop", "cbet_turn", "cbet_river",
                      "fold_cbet_flop", "fold_cbet_turn", "fold_river", "river_bluff_share", "donk_flop", "probe_turn",
-                     "giveup_weak", "giveup_turn"):
+                     "giveup_weak", "giveup_turn", "giveup_nonc"):
             v = getattr(self, name)
             if v is not None and not 0.0 <= v <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1], got {v}")
@@ -94,18 +95,20 @@ PRESETS_V2: dict[str, PersonaParams] = {
     "pro": _v2(*dataclasses.astuple(PRESETS["high_stakes_pro"])[:4], (0.65, 0.48, 0.38), (0.51, 0.58, 0.62), 0.20),
 }
 
-# WTSD levers (#526, #533), (donk_flop, probe_turn, giveup_weak, giveup_turn). [assumption] empirical sweep values, fitted so a
+# WTSD levers (#526, #533), (donk_flop, probe_turn, giveup_weak, giveup_turn, giveup_nonc). [assumption] empirical sweep values, fitted so a
 # 6-max mixed field lands on the note's §9 WTSD targets (nit 21 ... station 40); donk/probe loosely follow the note's §7.2 rows,
 # but nit/weak-tight lead far more than the note since opponents must fold for their WTSD to fall that low. giveup_turn is
 # lower than giveup_weak so turn folds sit near fold_cbet_turn; giveup_weak (river) of loose types stays below the tight
-# types' so river folds keep their order.
+# types' so river folds keep their order. #569: values from the seeded fit (stalker/agents/persona_fit.py, search 2 in the note);
+# giveup_nonc stays off because no fit using it kept every seat's WTSD within 6pp.
 _WTSD_LEVERS = {
-    "nit": (1.0, 1.0, 1.0, 1.0), "weak_tight": (0.60, 1.0, 1.0, 0.7), "tag": (0.15, 0.70, 1.0, 0.60),
-    "lag": (0.12, 0.70, 0.9, 0.68), "loose_passive": (0.15, 0.50, 0.7, 0.4), "calling_station": (0.10, 0.40, 0.68, 0.25),
-    "maniac": (0.30, 0.85, 0.65, 0.25), "pro": (0.08, 0.50, 1.0, 0.65),
+    "nit": (0.8, 1.0, 1.0, 1.0, None), "weak_tight": (0.5, 0.8, 1.0, 0.7, None), "tag": (0.0, 0.7, 1.0, 0.7, None),
+    "lag": (0.02, 0.7, 0.8, 0.68, None), "loose_passive": (0.15, 0.5, 0.7, 0.4, None),
+    "calling_station": (0.1, 0.4, 0.68, 0.25, None), "maniac": (0.2, 0.85, 0.65, 0.25, None), "pro": (0.0, 0.4, 1.0, 0.65, None),
 }
 PRESETS_V2 = {k: dataclasses.replace(v, donk_flop=_WTSD_LEVERS[k][0], probe_turn=_WTSD_LEVERS[k][1],
-                                     giveup_weak=_WTSD_LEVERS[k][2], giveup_turn=_WTSD_LEVERS[k][3])
+                                     giveup_weak=_WTSD_LEVERS[k][2], giveup_turn=_WTSD_LEVERS[k][3],
+                                     giveup_nonc=_WTSD_LEVERS[k][4])
               for k, v in PRESETS_V2.items()}
 
 
@@ -201,8 +204,11 @@ class PersonaAgent(Agent):
             q = fold / wm if s <= _WEAK else (fold - wm) / 0.6 if s < 0.75 else 0.0
             if la.can_fold and q > 0 and self.rng.random() < min(1.0, q):
                 return Action("fold")
-        elif la.can_fold and self.rng.random() < p.fold_to_bet * (1.0 - s):
-            return Action("fold")
+        else:
+            if p.giveup_nonc and s < 0.9 and la.can_fold and self.rng.random() < p.giveup_nonc:  # 0/None: no rng draw
+                return Action("fold")
+            if la.can_fold and self.rng.random() < p.fold_to_bet * (1.0 - s):
+                return Action("fold")
         if self.rng.random() < g * 0.5 * s:
             return self._raise(obs, max(obs.bets.values(), default=0) + int(obs.pot * 0.75))
         return Action("call")
