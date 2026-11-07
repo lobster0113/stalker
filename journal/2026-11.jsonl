@@ -702,3 +702,4 @@
 {"ts":"2026-11-07T20:11:45Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #651,#599 are odd (reviewer's parity); no even PR to judge","friction":"should_run printed RUN although no even-numbered PR needed a verdict"}
 {"ts":"2026-11-07T20:23:24Z","role":"builder-b","outcome":"waiting_ci","issue":628,"pr":651,"notes":"web 잡 flaky(ECONNRESET) 재실행, 코드 변경 없음","friction":"리뷰어 코멘트의 rerun run id가 취소된 다른 run이라 실제 실패 run을 찾아야 했다"}
 {"ts":"2026-11-07T20:36:48Z","role":"reviewer-b","outcome":"skipped","issue":628,"pr":651,"notes":"not my parity","friction":""}
+{"ts":"2026-11-07T21:01:10Z","role":"reviewer","outcome":"merged","issue":628,"pr":651,"notes":"#651 c66cf9e MERGE: main 병합 후 CI 전부 success(이전 web ECONNRESET 해소), 수용 기준 4개 확인","friction":"gh pr comment/merge가 GraphQL 403, gh api 쓰기는 훅이 차단 — MCP github 도구로만 코멘트·머지 가능. 지침의 gh pr merge 명령이 이 환경에서 동작하지 않음"}
