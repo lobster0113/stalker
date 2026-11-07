@@ -658,3 +658,4 @@
 {"ts":"2026-11-07T09:41:33Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only odd open PR #599 already has VERDICT: CHANGES for head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-07T09:58:04Z","role":"builder","outcome":"pr_opened","issue":638,"pr":642,"notes":"web_hit_rate --miss-report: L2 미적중 분해(꼬리 키 72-97% distinct), 추천 (c) 자리→position_group L3; full gate 로컬 PASS","friction":"gates quick on main 580s timeout(테스트 단계 미완); full tests 1531s. --play-backoff 출력이 PYTHONHASHSEED에 따라 달라 #635 수치와 결정 수가 어긋나 원인 확인에 시간 씀(기존 버그, PR 후속에 기록)"}
 {"ts":"2026-11-07T09:58:13Z","role":"reviewer","outcome":"skipped","issue":638,"pr":642,"notes":"not my parity","friction":""}
+{"ts":"2026-11-07T10:01:42Z","role":"builder-b","outcome":"pr_opened","issue":640,"pr":643,"notes":"mid-2 mv=5 page policy swap; local full gate PASS","friction":"gates full local ~40min (a); local web e2e skipped for time"}
