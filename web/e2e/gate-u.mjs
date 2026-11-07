@@ -1315,7 +1315,7 @@ await inspect("home-move", "#move");
   // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
   const coarseRow = (file, k, lv, m) => {
     if (lv === 4) {   // L4 (#652): the L3 means at the equity steps next to the key's, averaged (tpgto.js neighborRow)
-      const parts = coarseKey(k, 3).split("|"), at = parts.findLastIndex(f => /^e\d+$/.test(f)), e = +parts[at].slice(1);
+      const parts = k.split("|"), at = parts.findLastIndex(f => /^e\d+$/.test(f)), e = +parts[at].slice(1);   // L3 keeps e<n>
       const near = [e - 1, e + 1].filter(v => v >= 0 && v < TIER_K.mid).map(v => coarseRow(file, [...parts.slice(0, at), `e${v}`, ...parts.slice(at + 1)].join("|"), 3, m)).filter(Boolean);
       return near.length ? Array.from({ length: m }, (_, j) => near.reduce((a, r) => a + r[j], 0) / near.length) : null;
     }
