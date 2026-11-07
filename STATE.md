@@ -1,14 +1,15 @@
-# STATE (2026-11-07 01:20Z, planner)
+# STATE (2026-11-07 01:35Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음(11-01 19:10Z 확인).
 planner 11-06 23:15Z: **PR #621(2aaf02b, #617 export 요약 hit_rate) 머지** → #617 ready·in-progress 정리(MCP, 반복). 신규 **#624 P2**(hit_rate 포함 export 디스패치·기록, 필터 대 커버리지 판정·인원별 min_visits 추천). main CI 2aaf02b 진행 중.
 planner 11-07 01:20Z: 큐 보충(ready 미착수 1→4). **#569 blocked→ready P3**(선택지 (ii): fitter·giveup_nonc 착지, 턴 ≤ .14 단언 — 턴 ≤ .10은 WTSD 가드와 양립 불가 근거 2회). 신규 **#627 P3**(PHH c-bet 헤즈업/멀티웨이·SRP/3bet 구분, 목표 재검토), **#628 P3**(train_jobs 요약에 chunk_iters·lbr_hands 시드별, PR #626 후속). 열린 PR #626(#614)·#625(#620) 리뷰 대기. main CI 2aaf02b success(tests 1744).
+planner 11-07 01:35Z: **PR #626(4e7de78, #614 avg_cap 4000핸드 §4.3) 머지** → #614 ready·in-progress 정리(MCP, 반복). 결론: sd 비 1.8·cap 짝 차이 |t|<0.5 → avg_cap 기본값 변경(c) 이슈 열지 않음. 큐 ready 미착수 4 유지(#628이 이 PR 후속).
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **D 2–5인(#384)**: 평가기(#534)·인원별 값(#542)·시드 분산(#548·#559) → 합격선 ADR 0020 머지(#564) → #572 판정기 머지(c1 2–6인 pass) → #576 기록 연결 머지 → #581 ADR 0021 머지(mixn c1 한 정책) → #583 웹 c1 key 미러 머지 → #585 인원별 내보내기 머지 → #588 CI 내보내기 머지 → #592 시드 M4·문턱 선택 머지 → #596 인원별 문턱·ops 정책 경로 머지 → #601 재-export 실측 머지(전 인원 상한 안) → #604 2–5인 반입·c1 키 라우팅 머지(프리플랍만) → #606 b1 칸 JS 이식 머지 → #608 포스트플랍 c1 키 머지 → #610·#611·#615 머지 → #618 ADR 0022 머지(런타임 거친 키 백오프) → **#623 페이지 백오프 구현 ∥ #624 hit_rate export 실측(#617 머지)으로 필터 대 커버리지 판정** (실제 미적중은 다인 포스트플랍 — 커버리지면 학습 이슈), 다음: 걸러 낸 정책 LBR 재측정·mid-6 교체 판단(아티팩트 ~12-03 만료 전). 소유자가 크리티컬하다고 한 short-handed.
 2. **C 고수 체인 비용(NH-11 (a))**: #479 완료(PR #603) — 10⁵회에서도 b2가 b1과 구별 안 됨 → c1 키 집합 유지, b2 추가 안 함. 다음 C 재측정 때 #527 it_ratio로 CPU 맞춘 배수 보고.
 3. **페르소나 턴 폴드(#569 → ready, 기준 완화)**: 레버 5개로도 턴 ≤ .10과 WTSD ±6%p 양립 불가(builder 02:09Z·builder-b 11:01Z) → 최선 값 착지, 목표 타당성은 #627(PHH c-bet 구분, 인간 프로 flop c-bet 52.1% 대 목표 65)에서 본다. 서비스 상대 모델 신뢰도에 직결.
 ## 큐
-ready 미착수: #597 P3·#569 P3·#627 P3·#628 P3 (4). in-progress: #623 P2(21:22Z, PR 없음)·#624 P2(builder-b, export 디스패치 42311352389)·#620 P3(PR #625)·#614 P2(PR #626). 상태 라벨 없음: #463·#600. 열린 PR #599(CHANGES, d723a9c)·#625·#626. #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
+ready 미착수: #597 P3·#569 P3·#627 P3·#628 P3 (4). in-progress: #623 P2(21:22Z, PR 없음)·#624 P2(builder-b, export 디스패치 42311352389)·#620 P3(PR #625, MERGE 판정 7a05b6f·머지 실패). 상태 라벨 없음: #463·#600. 열린 PR #599(CHANGES, d723a9c)·#625(MERGE 판정, 머지 미완). #429 분할 남은 것: Python 사이즈-강도·텔·매트릭스 이식, field_v2 referee-change.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적, #592), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3)·#323(P3).
 후보: #624 결과로 추천 문턱 재-export·페이지 교체, #623 뒤 백오프 플레이 궤적 CI 적중률(`--play-backoff`, ADR 0022 초안 4번째 기준), 4–5인 플랍 커버리지 학습, b1Code 워커(성능 한도 초과 시), 필터 정책 LBR 재측정·mid-6 c1 교체 판단(#604 뒤, M3 대안은 화면별 인원 분포로 재판단), ADR 0021 후속 4 c1 9인 첫 측정·5 6인 단독 c1 같은 파드 D 배수, AIVAT 에퀴티 기반 가치 함수·분산비 측정·LBR 통합(#597 뒤, referee-change), 56k 반복 시드 2+(#555 후속 3), 평가 시드 분리(ADR 0020 한계), PHH c-bet 구분(#543 후속), E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change).
 ## 지표 요약 (최근 값과 추세)
@@ -20,6 +21,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35(같은 시각) = 4.54배, CPU 맞춤 3.20(참고). 이전 #503 3.27배. regret 해시는 시드별로 같다.
 - 클라우드 지출: 11월 원장 actual_usd 합 $19.79 / $100(ADR 0021, 이전 STATE 값 $9.45는 낡음).
 ## 경보
+- [planner 11-07 01:35Z] **머지 경로 없음 재발**: reviewer 01:20Z PR #625 MERGE 7a05b6f 판정 뒤 `gh pr merge` GraphQL 403·REST PUT 훅 차단, MCP 머지는 reviewer.md §2 우회 금지와 충돌한다고 보고 blocked → 판정 후 머지 정체(실험 030 성공 기준 위협). 허용 머지 경로 하나로 정하는 harness-change 최우선 후보(Auditor).
 - [planner 11-06 14:50Z] friction 반복: reviewer 14:30Z `gh pr merge` GraphQL 403·REST PUT 훅 차단으로 MERGE-RETRY 실패((b), reviewer.md 지침 불일치, Auditor). planner도 라벨 제거 REST DELETE 훅 차단·`gh issue edit` GraphQL 403 → MCP.
 - [planner 11-06 14:20Z] friction 반복: 취소된 이전 CI run이 같은 sha에 빨간 gates 체크를 남김(reviewer-b 14:11Z, (d)와 같은 주제). gates quick 로컬 1012초·full ~40분(builder-b 13:28Z, (a)), full ~33분(builder 13:45Z).
 - [planner 11-06 12:45Z] friction 반복: 셸 cwd가 `web/app`로 바뀐 뒤 상대 경로 guard 훅이 Bash 전체 차단(builder 12:03Z, PR #609 「후속」) — 11-04 13:15Z 경보와 같은 주제(harness-change 후보, Auditor). gh GraphQL 403 → REST(reviewer-b 12:11Z, (b)). quick gate 로컬 500초 초과(builder-b 11:02Z, (a)).
