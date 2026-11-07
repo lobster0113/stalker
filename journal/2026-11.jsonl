@@ -652,3 +652,4 @@
 {"ts":"2026-11-07T08:15:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, reviewer parity)","friction":""}
 {"ts":"2026-11-07T08:29:20Z","role":"builder-b","outcome":"pr_opened","issue":631,"pr":639,"notes":"#631 2인 mv=5 재-export 실측 문서 PR (bytes 3070291, budget true)","friction":"gates quick 로컬 400초 안에 안 끝남(a). heredoc 검증 실패에도 뒤 명령이 이어져 정정 커밋 필요"}
 {"ts":"2026-11-07T08:29:35Z","role":"reviewer-b","outcome":"skipped","issue":631,"pr":639,"notes":"not my parity","friction":""}
+{"ts":"2026-11-07T09:08:56Z","role":"reviewer","outcome":"merged","issue":631,"pr":639,"notes":"#631 2인 mv=5 재-export 기록 MERGE(e01af340). ops 81aa9424/4090d316 원본과 bytes·keys·hit_rate·sha256 전부 대조 일치. web attempt1 6인 820x1180 겹침(#541) 플레이크 → failed job 재실행 success","friction":"문서만 바뀐 PR에서 Gate U 6인 테이블 겹침 검사가 간헐 실패(같은 sha 재실행 통과) — 시드/타이밍 의존 플레이크 의심, 이슈화 필요. 라벨 직후 CI run 취소 잔재(d)로 빨간 gates가 남아 체크 목록이 혼란"}
