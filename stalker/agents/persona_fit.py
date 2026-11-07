@@ -29,7 +29,7 @@ LOOSE, TIGHT = ("calling_station", "maniac", "loose_passive"), ("nit", "weak_tig
 # Penalties start inside the test's limits so a fit at search hands still passes at the test's hands.
 WTSD_TOL, FLOP_TOL, RIVER_MAX = 0.05, 0.05, 0.20
 
-Levers = dict[str, tuple[float, float, float, float, float]]
+Levers = dict[str, tuple[float | None, ...]]  # None = lever off (no rng draw); a step from None starts at 0
 
 
 def current_levers() -> Levers:
@@ -122,15 +122,15 @@ def fit(start: Levers, hands: int, rng: np.random.Generator, step: float = 0.1, 
                 n, i = coords[j]
                 cands = []
                 for d in (-step, step):
-                    v = round(min(1.0, max(0.0, cur[n][i] + d)), 4)
-                    if v != cur[n][i]:
+                    v = round(min(1.0, max(0.0, (cur[n][i] or 0.0) + d)), 4)
+                    if v != (cur[n][i] or 0.0):
                         cands.append({**cur, n: tuple(v if k == i else x for k, x in enumerate(cur[n]))})
                 vals = evaluate(cands) if cands else []
                 while vals and min(vals) < best - 1e-9:  # pattern move: keep stepping the way that helped
                     prev, (best, cur), improved = cur, (min(vals), cands[int(np.argmin(vals))]), True
                     if log:
                         log(f"{n} {LEVERS[i]}={cur[n][i]} loss={best:.4f}")
-                    v = round(min(1.0, max(0.0, 2 * cur[n][i] - prev[n][i])), 4)
+                    v = round(min(1.0, max(0.0, 2 * cur[n][i] - (prev[n][i] or 0.0))), 4)
                     cands = [] if v == cur[n][i] else [{**cur, n: tuple(v if k == i else x for k, x in enumerate(cur[n]))}]
                     vals = evaluate(cands) if cands else []
             if not improved:

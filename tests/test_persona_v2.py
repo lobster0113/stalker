@@ -14,7 +14,7 @@ WTSD = dict(zip(TYPES, (0.21, 0.23, 0.27, 0.28, 0.33, 0.40, 0.35, 0.28)))
 
 
 def test_optional_fields_default_none_and_old_presets_untouched():
-    assert all(dataclasses.astuple(p)[4:] == (None,) * 11 for p in PRESETS.values())
+    assert all(dataclasses.astuple(p)[4:] == (None,) * 12 for p in PRESETS.values())
     assert len(PRESETS_V2) == 8 and PRESETS_V2["tag"].cbet_flop == 0.65 and PRESETS_V2["pro"].fold_river == 0.62
     with pytest.raises(ValueError):
         PersonaParams(0.2, 0.1, 0.5, 0.5, cbet_flop=1.5)
@@ -94,3 +94,20 @@ def test_street_style_within_6pp_of_target_in_mixed_field():
     err = np.mean([abs(mean[n][0] - PRESETS_V2[n].fold_cbet_turn) for n in TYPES])
     err0 = np.mean([abs(base[n] - PRESETS_V2[n].fold_cbet_turn) for n in TYPES])
     assert err <= err0 / 2, (err, err0, mean)
+    # #569: the seeded fit's levers (measured .136 turn, .168 river); turn <= .10 is not reachable with WTSD within 6pp
+    # (docs/research/2026-11-persona-wtsd-sweep.md), so these lock in the best found
+    assert err <= 0.14, (err, mean)
+    river = np.mean([abs(mean[n][1] - PRESETS_V2[n].fold_river) for n in TYPES])
+    assert river <= 0.22, (river, mean)
+
+
+def test_giveup_nonc_off_is_bit_identical_and_on_folds_more():
+    # #569: None and 0 draw nothing from the rng, so the pre-lever personas replay exactly; a positive value folds more
+    def run(v):
+        ps = [dataclasses.replace(PRESETS_V2[n], giveup_nonc=v) for n in TYPES[:6]]
+        return measure_session([PersonaAgent(p, np.random.default_rng(i)) for i, p in enumerate(ps)], 400, seed=7)
+
+    off = run(None)
+    assert run(0.0) == off
+    on = run(1.0)
+    assert on != off and sum(s.wtsd for s in on) < sum(s.wtsd for s in off)
