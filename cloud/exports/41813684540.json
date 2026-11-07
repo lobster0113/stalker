@@ -9,7 +9,7 @@
  "strategy": "current",
  "min_visits": 0,
  "min_visits_by_players": {
-  "2": 10,
+  "2": 5,
   "3": 5,
   "4": 5,
   "5": 5,
@@ -27,11 +27,11 @@
   {
    "file": "mid-2.json",
    "players": 2,
-   "min_visits": 10,
-   "keys": 18898,
-   "keys_dropped": 275797,
-   "bytes": 1321335,
-   "sha256": "a4287c014ca0f3e58ab0d9d31dc5472d860d884eb0f83e410508a79f2b981008",
+   "min_visits": 5,
+   "keys": 42529,
+   "keys_dropped": 252166,
+   "bytes": 3070291,
+   "sha256": "66613749fa23f3fefe7243aeb34648eb964c0476e8fba7491701d5c52a3a3579",
    "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 294695,
@@ -57,222 +57,222 @@
     "seed": 613,
     "by_street": {
      "0": {
-      "decisions": 862,
-      "hits": 862,
+      "decisions": 865,
+      "hits": 865,
       "rate": 1.0
      },
      "1": {
-      "decisions": 145,
-      "hits": 105,
-      "rate": 0.7241379310344828
+      "decisions": 139,
+      "hits": 108,
+      "rate": 0.7769784172661871
      },
      "2": {
-      "decisions": 22,
-      "hits": 17,
-      "rate": 0.7727272727272727
+      "decisions": 33,
+      "hits": 26,
+      "rate": 0.7878787878787878
      },
      "3": {
-      "decisions": 6,
-      "hits": 5,
-      "rate": 0.8333333333333334
+      "decisions": 7,
+      "hits": 6,
+      "rate": 0.8571428571428571
      }
     },
     "by_kind": {
      "call": {
-      "decisions": 145,
-      "hits": 145,
+      "decisions": 146,
+      "hits": 146,
       "rate": 1.0
      },
      "other": {
-      "decisions": 890,
-      "hits": 844,
-      "rate": 0.9483146067415731
+      "decisions": 898,
+      "hits": 859,
+      "rate": 0.9565701559020044
      }
     },
     "by_min_visits": {
      "0": {
       "by_street": {
        "0": {
-        "decisions": 862,
-        "hits": 862,
+        "decisions": 865,
+        "hits": 865,
         "rate": 1.0
        },
        "1": {
-        "decisions": 145,
-        "hits": 105,
-        "rate": 0.7241379310344828
+        "decisions": 139,
+        "hits": 108,
+        "rate": 0.7769784172661871
        },
        "2": {
-        "decisions": 22,
-        "hits": 17,
-        "rate": 0.7727272727272727
+        "decisions": 33,
+        "hits": 26,
+        "rate": 0.7878787878787878
        },
        "3": {
-        "decisions": 6,
-        "hits": 5,
-        "rate": 0.8333333333333334
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 145,
-        "hits": 145,
+        "decisions": 146,
+        "hits": 146,
         "rate": 1.0
        },
        "other": {
-        "decisions": 890,
-        "hits": 844,
-        "rate": 0.9483146067415731
+        "decisions": 898,
+        "hits": 859,
+        "rate": 0.9565701559020044
        }
       }
      },
      "1": {
       "by_street": {
        "0": {
-        "decisions": 862,
-        "hits": 862,
+        "decisions": 865,
+        "hits": 865,
         "rate": 1.0
        },
        "1": {
-        "decisions": 145,
-        "hits": 105,
-        "rate": 0.7241379310344828
+        "decisions": 139,
+        "hits": 108,
+        "rate": 0.7769784172661871
        },
        "2": {
-        "decisions": 22,
-        "hits": 17,
-        "rate": 0.7727272727272727
+        "decisions": 33,
+        "hits": 26,
+        "rate": 0.7878787878787878
        },
        "3": {
-        "decisions": 6,
-        "hits": 5,
-        "rate": 0.8333333333333334
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 145,
-        "hits": 145,
+        "decisions": 146,
+        "hits": 146,
         "rate": 1.0
        },
        "other": {
-        "decisions": 890,
-        "hits": 844,
-        "rate": 0.9483146067415731
+        "decisions": 898,
+        "hits": 859,
+        "rate": 0.9565701559020044
        }
       }
      },
      "2": {
       "by_street": {
        "0": {
-        "decisions": 862,
-        "hits": 862,
+        "decisions": 865,
+        "hits": 865,
         "rate": 1.0
        },
        "1": {
-        "decisions": 145,
-        "hits": 77,
-        "rate": 0.5310344827586206
+        "decisions": 139,
+        "hits": 78,
+        "rate": 0.5611510791366906
        },
        "2": {
-        "decisions": 22,
-        "hits": 15,
-        "rate": 0.6818181818181818
+        "decisions": 33,
+        "hits": 22,
+        "rate": 0.6666666666666666
        },
        "3": {
-        "decisions": 6,
-        "hits": 4,
-        "rate": 0.6666666666666666
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 145,
-        "hits": 145,
+        "decisions": 146,
+        "hits": 146,
         "rate": 1.0
        },
        "other": {
-        "decisions": 890,
-        "hits": 813,
-        "rate": 0.9134831460674158
+        "decisions": 898,
+        "hits": 825,
+        "rate": 0.9187082405345212
        }
       }
      },
      "5": {
       "by_street": {
        "0": {
-        "decisions": 862,
-        "hits": 857,
-        "rate": 0.994199535962877
+        "decisions": 865,
+        "hits": 860,
+        "rate": 0.9942196531791907
        },
        "1": {
-        "decisions": 145,
-        "hits": 52,
-        "rate": 0.3586206896551724
+        "decisions": 139,
+        "hits": 51,
+        "rate": 0.3669064748201439
        },
        "2": {
-        "decisions": 22,
-        "hits": 10,
-        "rate": 0.45454545454545453
+        "decisions": 33,
+        "hits": 14,
+        "rate": 0.42424242424242425
        },
        "3": {
-        "decisions": 6,
-        "hits": 4,
-        "rate": 0.6666666666666666
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 145,
-        "hits": 145,
+        "decisions": 146,
+        "hits": 146,
         "rate": 1.0
        },
        "other": {
-        "decisions": 890,
-        "hits": 778,
-        "rate": 0.8741573033707866
+        "decisions": 898,
+        "hits": 785,
+        "rate": 0.8741648106904232
        }
       }
      },
      "10": {
       "by_street": {
        "0": {
-        "decisions": 862,
-        "hits": 846,
-        "rate": 0.9814385150812065
+        "decisions": 865,
+        "hits": 849,
+        "rate": 0.9815028901734104
        },
        "1": {
-        "decisions": 145,
-        "hits": 40,
-        "rate": 0.27586206896551724
+        "decisions": 139,
+        "hits": 34,
+        "rate": 0.2446043165467626
        },
        "2": {
-        "decisions": 22,
-        "hits": 9,
-        "rate": 0.4090909090909091
+        "decisions": 33,
+        "hits": 13,
+        "rate": 0.3939393939393939
        },
        "3": {
-        "decisions": 6,
-        "hits": 4,
-        "rate": 0.6666666666666666
+        "decisions": 7,
+        "hits": 5,
+        "rate": 0.7142857142857143
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 145,
-        "hits": 145,
+        "decisions": 146,
+        "hits": 146,
         "rate": 1.0
        },
        "other": {
-        "decisions": 890,
-        "hits": 754,
-        "rate": 0.8471910112359551
+        "decisions": 898,
+        "hits": 755,
+        "rate": 0.8407572383073497
        }
       }
      }
     }
    },
-   "hit_rate_seconds": 39.9
+   "hit_rate_seconds": 23.1
   },
   {
    "file": "mid-3.json",
@@ -307,222 +307,222 @@
     "seed": 614,
     "by_street": {
      "0": {
-      "decisions": 1405,
-      "hits": 1389,
-      "rate": 0.9886120996441281
+      "decisions": 1399,
+      "hits": 1387,
+      "rate": 0.9914224446032881
      },
      "1": {
-      "decisions": 204,
-      "hits": 123,
-      "rate": 0.6029411764705882
+      "decisions": 183,
+      "hits": 103,
+      "rate": 0.5628415300546448
      },
      "2": {
-      "decisions": 43,
-      "hits": 30,
-      "rate": 0.6976744186046512
+      "decisions": 34,
+      "hits": 22,
+      "rate": 0.6470588235294118
      },
      "3": {
-      "decisions": 9,
-      "hits": 9,
+      "decisions": 6,
+      "hits": 6,
       "rate": 1.0
      }
     },
     "by_kind": {
      "call": {
-      "decisions": 358,
-      "hits": 358,
+      "decisions": 371,
+      "hits": 371,
       "rate": 1.0
      },
      "other": {
-      "decisions": 1303,
-      "hits": 1193,
-      "rate": 0.9155794320798158
+      "decisions": 1251,
+      "hits": 1147,
+      "rate": 0.9168665067945644
      }
     },
     "by_min_visits": {
      "0": {
       "by_street": {
        "0": {
-        "decisions": 1405,
-        "hits": 1389,
-        "rate": 0.9886120996441281
+        "decisions": 1399,
+        "hits": 1387,
+        "rate": 0.9914224446032881
        },
        "1": {
-        "decisions": 204,
-        "hits": 123,
-        "rate": 0.6029411764705882
+        "decisions": 183,
+        "hits": 103,
+        "rate": 0.5628415300546448
        },
        "2": {
-        "decisions": 43,
-        "hits": 30,
-        "rate": 0.6976744186046512
+        "decisions": 34,
+        "hits": 22,
+        "rate": 0.6470588235294118
        },
        "3": {
-        "decisions": 9,
-        "hits": 9,
+        "decisions": 6,
+        "hits": 6,
         "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 358,
-        "hits": 358,
+        "decisions": 371,
+        "hits": 371,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1303,
-        "hits": 1193,
-        "rate": 0.9155794320798158
+        "decisions": 1251,
+        "hits": 1147,
+        "rate": 0.9168665067945644
        }
       }
      },
      "1": {
       "by_street": {
        "0": {
-        "decisions": 1405,
-        "hits": 1389,
-        "rate": 0.9886120996441281
+        "decisions": 1399,
+        "hits": 1387,
+        "rate": 0.9914224446032881
        },
        "1": {
-        "decisions": 204,
-        "hits": 123,
-        "rate": 0.6029411764705882
+        "decisions": 183,
+        "hits": 103,
+        "rate": 0.5628415300546448
        },
        "2": {
-        "decisions": 43,
-        "hits": 30,
-        "rate": 0.6976744186046512
+        "decisions": 34,
+        "hits": 22,
+        "rate": 0.6470588235294118
        },
        "3": {
-        "decisions": 9,
-        "hits": 9,
+        "decisions": 6,
+        "hits": 6,
         "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 358,
-        "hits": 358,
+        "decisions": 371,
+        "hits": 371,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1303,
-        "hits": 1193,
-        "rate": 0.9155794320798158
+        "decisions": 1251,
+        "hits": 1147,
+        "rate": 0.9168665067945644
        }
       }
      },
      "2": {
       "by_street": {
        "0": {
-        "decisions": 1405,
+        "decisions": 1399,
         "hits": 1372,
-        "rate": 0.9765124555160143
+        "rate": 0.9807005003573981
        },
        "1": {
-        "decisions": 204,
-        "hits": 97,
-        "rate": 0.47549019607843135
+        "decisions": 183,
+        "hits": 75,
+        "rate": 0.4098360655737705
        },
        "2": {
-        "decisions": 43,
-        "hits": 25,
-        "rate": 0.5813953488372093
+        "decisions": 34,
+        "hits": 17,
+        "rate": 0.5
        },
        "3": {
-        "decisions": 9,
-        "hits": 8,
-        "rate": 0.8888888888888888
+        "decisions": 6,
+        "hits": 5,
+        "rate": 0.8333333333333334
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 358,
-        "hits": 358,
+        "decisions": 371,
+        "hits": 371,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1303,
-        "hits": 1144,
-        "rate": 0.8779739063699156
+        "decisions": 1251,
+        "hits": 1098,
+        "rate": 0.8776978417266187
        }
       }
      },
      "5": {
       "by_street": {
        "0": {
-        "decisions": 1405,
-        "hits": 1321,
-        "rate": 0.9402135231316726
+        "decisions": 1399,
+        "hits": 1326,
+        "rate": 0.947819871336669
        },
        "1": {
-        "decisions": 204,
-        "hits": 71,
-        "rate": 0.3480392156862745
+        "decisions": 183,
+        "hits": 57,
+        "rate": 0.3114754098360656
        },
        "2": {
-        "decisions": 43,
-        "hits": 21,
-        "rate": 0.4883720930232558
+        "decisions": 34,
+        "hits": 16,
+        "rate": 0.47058823529411764
        },
        "3": {
-        "decisions": 9,
-        "hits": 6,
+        "decisions": 6,
+        "hits": 4,
         "rate": 0.6666666666666666
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 358,
-        "hits": 358,
+        "decisions": 371,
+        "hits": 371,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1303,
-        "hits": 1061,
-        "rate": 0.8142747505755947
+        "decisions": 1251,
+        "hits": 1032,
+        "rate": 0.8249400479616307
        }
       }
      },
      "10": {
       "by_street": {
        "0": {
-        "decisions": 1405,
-        "hits": 1243,
-        "rate": 0.8846975088967971
+        "decisions": 1399,
+        "hits": 1249,
+        "rate": 0.8927805575411007
        },
        "1": {
-        "decisions": 204,
-        "hits": 57,
-        "rate": 0.27941176470588236
+        "decisions": 183,
+        "hits": 47,
+        "rate": 0.2568306010928962
        },
        "2": {
-        "decisions": 43,
-        "hits": 18,
-        "rate": 0.4186046511627907
+        "decisions": 34,
+        "hits": 13,
+        "rate": 0.38235294117647056
        },
        "3": {
-        "decisions": 9,
-        "hits": 6,
+        "decisions": 6,
+        "hits": 4,
         "rate": 0.6666666666666666
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 358,
-        "hits": 358,
+        "decisions": 371,
+        "hits": 371,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1303,
-        "hits": 966,
-        "rate": 0.7413660782808903
+        "decisions": 1251,
+        "hits": 942,
+        "rate": 0.7529976019184652
        }
       }
      }
     }
    },
-   "hit_rate_seconds": 53.6
+   "hit_rate_seconds": 27.7
   },
   {
    "file": "mid-4.json",
@@ -557,222 +557,222 @@
     "seed": 615,
     "by_street": {
      "0": {
-      "decisions": 1838,
-      "hits": 1811,
-      "rate": 0.985310119695321
+      "decisions": 1859,
+      "hits": 1835,
+      "rate": 0.9870898332436794
      },
      "1": {
-      "decisions": 150,
-      "hits": 67,
-      "rate": 0.44666666666666666
+      "decisions": 167,
+      "hits": 77,
+      "rate": 0.46107784431137727
      },
      "2": {
-      "decisions": 30,
-      "hits": 15,
-      "rate": 0.5
+      "decisions": 39,
+      "hits": 21,
+      "rate": 0.5384615384615384
      },
      "3": {
-      "decisions": 4,
-      "hits": 4,
+      "decisions": 7,
+      "hits": 7,
       "rate": 1.0
      }
     },
     "by_kind": {
      "call": {
-      "decisions": 570,
-      "hits": 570,
+      "decisions": 561,
+      "hits": 561,
       "rate": 1.0
      },
      "other": {
-      "decisions": 1452,
-      "hits": 1327,
-      "rate": 0.9139118457300276
+      "decisions": 1511,
+      "hits": 1379,
+      "rate": 0.9126406353408338
      }
     },
     "by_min_visits": {
      "0": {
       "by_street": {
        "0": {
-        "decisions": 1838,
-        "hits": 1811,
-        "rate": 0.985310119695321
+        "decisions": 1859,
+        "hits": 1835,
+        "rate": 0.9870898332436794
        },
        "1": {
-        "decisions": 150,
-        "hits": 67,
-        "rate": 0.44666666666666666
+        "decisions": 167,
+        "hits": 77,
+        "rate": 0.46107784431137727
        },
        "2": {
-        "decisions": 30,
-        "hits": 15,
-        "rate": 0.5
+        "decisions": 39,
+        "hits": 21,
+        "rate": 0.5384615384615384
        },
        "3": {
-        "decisions": 4,
-        "hits": 4,
+        "decisions": 7,
+        "hits": 7,
         "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 570,
-        "hits": 570,
+        "decisions": 561,
+        "hits": 561,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1452,
-        "hits": 1327,
-        "rate": 0.9139118457300276
+        "decisions": 1511,
+        "hits": 1379,
+        "rate": 0.9126406353408338
        }
       }
      },
      "1": {
       "by_street": {
        "0": {
-        "decisions": 1838,
-        "hits": 1811,
-        "rate": 0.985310119695321
+        "decisions": 1859,
+        "hits": 1835,
+        "rate": 0.9870898332436794
        },
        "1": {
-        "decisions": 150,
-        "hits": 67,
-        "rate": 0.44666666666666666
+        "decisions": 167,
+        "hits": 77,
+        "rate": 0.46107784431137727
        },
        "2": {
-        "decisions": 30,
-        "hits": 15,
-        "rate": 0.5
+        "decisions": 39,
+        "hits": 21,
+        "rate": 0.5384615384615384
        },
        "3": {
-        "decisions": 4,
-        "hits": 4,
+        "decisions": 7,
+        "hits": 7,
         "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 570,
-        "hits": 570,
+        "decisions": 561,
+        "hits": 561,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1452,
-        "hits": 1327,
-        "rate": 0.9139118457300276
+        "decisions": 1511,
+        "hits": 1379,
+        "rate": 0.9126406353408338
        }
       }
      },
      "2": {
       "by_street": {
        "0": {
-        "decisions": 1838,
-        "hits": 1781,
-        "rate": 0.9689880304678999
+        "decisions": 1859,
+        "hits": 1800,
+        "rate": 0.9682625067240452
        },
        "1": {
-        "decisions": 150,
-        "hits": 51,
-        "rate": 0.34
+        "decisions": 167,
+        "hits": 57,
+        "rate": 0.3413173652694611
        },
        "2": {
-        "decisions": 30,
-        "hits": 13,
-        "rate": 0.43333333333333335
+        "decisions": 39,
+        "hits": 18,
+        "rate": 0.46153846153846156
        },
        "3": {
-        "decisions": 4,
-        "hits": 4,
+        "decisions": 7,
+        "hits": 7,
         "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 570,
-        "hits": 570,
+        "decisions": 561,
+        "hits": 561,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1452,
-        "hits": 1279,
-        "rate": 0.8808539944903582
+        "decisions": 1511,
+        "hits": 1321,
+        "rate": 0.8742554599602912
        }
       }
      },
      "5": {
       "by_street": {
        "0": {
-        "decisions": 1838,
-        "hits": 1662,
-        "rate": 0.9042437431991295
+        "decisions": 1859,
+        "hits": 1673,
+        "rate": 0.8999462076385153
        },
        "1": {
-        "decisions": 150,
-        "hits": 38,
-        "rate": 0.25333333333333335
+        "decisions": 167,
+        "hits": 39,
+        "rate": 0.23353293413173654
        },
        "2": {
-        "decisions": 30,
-        "hits": 10,
+        "decisions": 39,
+        "hits": 13,
         "rate": 0.3333333333333333
        },
        "3": {
-        "decisions": 4,
-        "hits": 4,
+        "decisions": 7,
+        "hits": 7,
         "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 570,
-        "hits": 570,
+        "decisions": 561,
+        "hits": 561,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1452,
-        "hits": 1144,
-        "rate": 0.7878787878787878
+        "decisions": 1511,
+        "hits": 1171,
+        "rate": 0.7749834546657842
        }
       }
      },
      "10": {
       "by_street": {
        "0": {
-        "decisions": 1838,
-        "hits": 1442,
-        "rate": 0.7845484221980413
+        "decisions": 1859,
+        "hits": 1443,
+        "rate": 0.7762237762237763
        },
        "1": {
-        "decisions": 150,
+        "decisions": 167,
         "hits": 37,
-        "rate": 0.24666666666666667
+        "rate": 0.2215568862275449
        },
        "2": {
-        "decisions": 30,
-        "hits": 10,
-        "rate": 0.3333333333333333
+        "decisions": 39,
+        "hits": 12,
+        "rate": 0.3076923076923077
        },
        "3": {
-        "decisions": 4,
-        "hits": 4,
-        "rate": 1.0
+        "decisions": 7,
+        "hits": 6,
+        "rate": 0.8571428571428571
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 570,
-        "hits": 570,
+        "decisions": 561,
+        "hits": 561,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1452,
-        "hits": 923,
-        "rate": 0.6356749311294766
+        "decisions": 1511,
+        "hits": 937,
+        "rate": 0.6201191264063534
        }
       }
      }
     }
    },
-   "hit_rate_seconds": 39.4
+   "hit_rate_seconds": 24.7
   },
   {
    "file": "mid-5.json",
@@ -807,122 +807,122 @@
     "seed": 616,
     "by_street": {
      "0": {
-      "decisions": 2249,
-      "hits": 2202,
-      "rate": 0.9791018230324589
+      "decisions": 2242,
+      "hits": 2191,
+      "rate": 0.9772524531668153
      },
      "1": {
-      "decisions": 93,
-      "hits": 41,
-      "rate": 0.44086021505376344
+      "decisions": 94,
+      "hits": 42,
+      "rate": 0.44680851063829785
      },
      "2": {
       "decisions": 16,
-      "hits": 7,
-      "rate": 0.4375
+      "hits": 6,
+      "rate": 0.375
      },
      "3": {
-      "decisions": 7,
-      "hits": 6,
-      "rate": 0.8571428571428571
+      "decisions": 3,
+      "hits": 3,
+      "rate": 1.0
      }
     },
     "by_kind": {
      "call": {
-      "decisions": 845,
-      "hits": 845,
+      "decisions": 850,
+      "hits": 850,
       "rate": 1.0
      },
      "other": {
-      "decisions": 1520,
-      "hits": 1411,
-      "rate": 0.9282894736842106
+      "decisions": 1505,
+      "hits": 1392,
+      "rate": 0.9249169435215947
      }
     },
     "by_min_visits": {
      "0": {
       "by_street": {
        "0": {
-        "decisions": 2249,
-        "hits": 2202,
-        "rate": 0.9791018230324589
+        "decisions": 2242,
+        "hits": 2191,
+        "rate": 0.9772524531668153
        },
        "1": {
-        "decisions": 93,
-        "hits": 41,
-        "rate": 0.44086021505376344
+        "decisions": 94,
+        "hits": 42,
+        "rate": 0.44680851063829785
        },
        "2": {
         "decisions": 16,
-        "hits": 7,
-        "rate": 0.4375
+        "hits": 6,
+        "rate": 0.375
        },
        "3": {
-        "decisions": 7,
-        "hits": 6,
-        "rate": 0.8571428571428571
+        "decisions": 3,
+        "hits": 3,
+        "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 845,
-        "hits": 845,
+        "decisions": 850,
+        "hits": 850,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1520,
-        "hits": 1411,
-        "rate": 0.9282894736842106
+        "decisions": 1505,
+        "hits": 1392,
+        "rate": 0.9249169435215947
        }
       }
      },
      "1": {
       "by_street": {
        "0": {
-        "decisions": 2249,
-        "hits": 2202,
-        "rate": 0.9791018230324589
+        "decisions": 2242,
+        "hits": 2191,
+        "rate": 0.9772524531668153
        },
        "1": {
-        "decisions": 93,
-        "hits": 41,
-        "rate": 0.44086021505376344
+        "decisions": 94,
+        "hits": 42,
+        "rate": 0.44680851063829785
        },
        "2": {
         "decisions": 16,
-        "hits": 7,
-        "rate": 0.4375
+        "hits": 6,
+        "rate": 0.375
        },
        "3": {
-        "decisions": 7,
-        "hits": 6,
-        "rate": 0.8571428571428571
+        "decisions": 3,
+        "hits": 3,
+        "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 845,
-        "hits": 845,
+        "decisions": 850,
+        "hits": 850,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1520,
-        "hits": 1411,
-        "rate": 0.9282894736842106
+        "decisions": 1505,
+        "hits": 1392,
+        "rate": 0.9249169435215947
        }
       }
      },
      "2": {
       "by_street": {
        "0": {
-        "decisions": 2249,
-        "hits": 2156,
-        "rate": 0.9586482881280569
+        "decisions": 2242,
+        "hits": 2134,
+        "rate": 0.951828724353256
        },
        "1": {
-        "decisions": 93,
-        "hits": 34,
-        "rate": 0.3655913978494624
+        "decisions": 94,
+        "hits": 31,
+        "rate": 0.32978723404255317
        },
        "2": {
         "decisions": 16,
@@ -930,35 +930,35 @@
         "rate": 0.3125
        },
        "3": {
-        "decisions": 7,
-        "hits": 6,
-        "rate": 0.8571428571428571
+        "decisions": 3,
+        "hits": 3,
+        "rate": 1.0
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 845,
-        "hits": 845,
+        "decisions": 850,
+        "hits": 850,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1520,
-        "hits": 1356,
-        "rate": 0.8921052631578947
+        "decisions": 1505,
+        "hits": 1323,
+        "rate": 0.8790697674418605
        }
       }
      },
      "5": {
       "by_street": {
        "0": {
-        "decisions": 2249,
+        "decisions": 2242,
         "hits": 1947,
-        "rate": 0.8657180969319698
+        "rate": 0.868421052631579
        },
        "1": {
-        "decisions": 93,
-        "hits": 31,
-        "rate": 0.3333333333333333
+        "decisions": 94,
+        "hits": 29,
+        "rate": 0.30851063829787234
        },
        "2": {
         "decisions": 16,
@@ -966,63 +966,63 @@
         "rate": 0.3125
        },
        "3": {
-        "decisions": 7,
-        "hits": 5,
-        "rate": 0.7142857142857143
+        "decisions": 3,
+        "hits": 2,
+        "rate": 0.6666666666666666
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 845,
-        "hits": 845,
+        "decisions": 850,
+        "hits": 850,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1520,
-        "hits": 1143,
-        "rate": 0.7519736842105263
+        "decisions": 1505,
+        "hits": 1133,
+        "rate": 0.7528239202657807
        }
       }
      },
      "10": {
       "by_street": {
        "0": {
-        "decisions": 2249,
-        "hits": 1754,
-        "rate": 0.7799021787461093
+        "decisions": 2242,
+        "hits": 1760,
+        "rate": 0.7850133809099019
        },
        "1": {
-        "decisions": 93,
-        "hits": 31,
-        "rate": 0.3333333333333333
+        "decisions": 94,
+        "hits": 29,
+        "rate": 0.30851063829787234
        },
        "2": {
         "decisions": 16,
-        "hits": 4,
-        "rate": 0.25
+        "hits": 5,
+        "rate": 0.3125
        },
        "3": {
-        "decisions": 7,
-        "hits": 4,
-        "rate": 0.5714285714285714
+        "decisions": 3,
+        "hits": 2,
+        "rate": 0.6666666666666666
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 845,
-        "hits": 845,
+        "decisions": 850,
+        "hits": 850,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1520,
-        "hits": 948,
-        "rate": 0.6236842105263158
+        "decisions": 1505,
+        "hits": 946,
+        "rate": 0.6285714285714286
        }
       }
      }
     }
    },
-   "hit_rate_seconds": 24.5
+   "hit_rate_seconds": 14.1
   },
   {
    "file": "mid-6.json",
@@ -1057,117 +1057,117 @@
     "seed": 617,
     "by_street": {
      "0": {
-      "decisions": 2535,
-      "hits": 2478,
-      "rate": 0.9775147928994082
+      "decisions": 2532,
+      "hits": 2476,
+      "rate": 0.9778830963665087
      },
      "1": {
       "decisions": 114,
-      "hits": 38,
-      "rate": 0.3333333333333333
+      "hits": 37,
+      "rate": 0.32456140350877194
      },
      "2": {
       "decisions": 22,
-      "hits": 13,
-      "rate": 0.5909090909090909
+      "hits": 11,
+      "rate": 0.5
      },
      "3": {
-      "decisions": 4,
-      "hits": 3,
-      "rate": 0.75
+      "decisions": 6,
+      "hits": 5,
+      "rate": 0.8333333333333334
      }
     },
     "by_kind": {
      "call": {
-      "decisions": 1097,
-      "hits": 1097,
+      "decisions": 1100,
+      "hits": 1100,
       "rate": 1.0
      },
      "other": {
-      "decisions": 1578,
-      "hits": 1435,
-      "rate": 0.9093789607097592
+      "decisions": 1574,
+      "hits": 1429,
+      "rate": 0.9078780177890724
      }
     },
     "by_min_visits": {
      "0": {
       "by_street": {
        "0": {
-        "decisions": 2535,
-        "hits": 2478,
-        "rate": 0.9775147928994082
+        "decisions": 2532,
+        "hits": 2476,
+        "rate": 0.9778830963665087
        },
        "1": {
         "decisions": 114,
-        "hits": 38,
-        "rate": 0.3333333333333333
+        "hits": 37,
+        "rate": 0.32456140350877194
        },
        "2": {
         "decisions": 22,
-        "hits": 13,
-        "rate": 0.5909090909090909
+        "hits": 11,
+        "rate": 0.5
        },
        "3": {
-        "decisions": 4,
-        "hits": 3,
-        "rate": 0.75
+        "decisions": 6,
+        "hits": 5,
+        "rate": 0.8333333333333334
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 1097,
-        "hits": 1097,
+        "decisions": 1100,
+        "hits": 1100,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1578,
-        "hits": 1435,
-        "rate": 0.9093789607097592
+        "decisions": 1574,
+        "hits": 1429,
+        "rate": 0.9078780177890724
        }
       }
      },
      "1": {
       "by_street": {
        "0": {
-        "decisions": 2535,
-        "hits": 2478,
-        "rate": 0.9775147928994082
+        "decisions": 2532,
+        "hits": 2476,
+        "rate": 0.9778830963665087
        },
        "1": {
         "decisions": 114,
-        "hits": 38,
-        "rate": 0.3333333333333333
+        "hits": 37,
+        "rate": 0.32456140350877194
        },
        "2": {
         "decisions": 22,
-        "hits": 13,
-        "rate": 0.5909090909090909
+        "hits": 11,
+        "rate": 0.5
        },
        "3": {
-        "decisions": 4,
-        "hits": 3,
-        "rate": 0.75
+        "decisions": 6,
+        "hits": 5,
+        "rate": 0.8333333333333334
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 1097,
-        "hits": 1097,
+        "decisions": 1100,
+        "hits": 1100,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1578,
-        "hits": 1435,
-        "rate": 0.9093789607097592
+        "decisions": 1574,
+        "hits": 1429,
+        "rate": 0.9078780177890724
        }
       }
      },
      "2": {
       "by_street": {
        "0": {
-        "decisions": 2535,
-        "hits": 2398,
-        "rate": 0.945956607495069
+        "decisions": 2532,
+        "hits": 2397,
+        "rate": 0.9466824644549763
        },
        "1": {
         "decisions": 114,
@@ -1176,34 +1176,34 @@
        },
        "2": {
         "decisions": 22,
-        "hits": 10,
-        "rate": 0.45454545454545453
+        "hits": 8,
+        "rate": 0.36363636363636365
        },
        "3": {
-        "decisions": 4,
-        "hits": 3,
-        "rate": 0.75
+        "decisions": 6,
+        "hits": 5,
+        "rate": 0.8333333333333334
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 1097,
-        "hits": 1097,
+        "decisions": 1100,
+        "hits": 1100,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1578,
-        "hits": 1344,
-        "rate": 0.8517110266159695
+        "decisions": 1574,
+        "hits": 1340,
+        "rate": 0.8513341804320204
        }
       }
      },
      "5": {
       "by_street": {
        "0": {
-        "decisions": 2535,
-        "hits": 2193,
-        "rate": 0.8650887573964497
+        "decisions": 2532,
+        "hits": 2195,
+        "rate": 0.8669036334913112
        },
        "1": {
         "decisions": 114,
@@ -1212,34 +1212,34 @@
        },
        "2": {
         "decisions": 22,
-        "hits": 9,
-        "rate": 0.4090909090909091
+        "hits": 8,
+        "rate": 0.36363636363636365
        },
        "3": {
-        "decisions": 4,
-        "hits": 3,
-        "rate": 0.75
+        "decisions": 6,
+        "hits": 4,
+        "rate": 0.6666666666666666
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 1097,
-        "hits": 1097,
+        "decisions": 1100,
+        "hits": 1100,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1578,
-        "hits": 1136,
-        "rate": 0.7198986058301647
+        "decisions": 1574,
+        "hits": 1135,
+        "rate": 0.7210927573062261
        }
       }
      },
      "10": {
       "by_street": {
        "0": {
-        "decisions": 2535,
-        "hits": 1974,
-        "rate": 0.778698224852071
+        "decisions": 2532,
+        "hits": 1976,
+        "rate": 0.7804107424960506
        },
        "1": {
         "decisions": 114,
@@ -1248,36 +1248,36 @@
        },
        "2": {
         "decisions": 22,
-        "hits": 9,
-        "rate": 0.4090909090909091
+        "hits": 8,
+        "rate": 0.36363636363636365
        },
        "3": {
-        "decisions": 4,
-        "hits": 2,
+        "decisions": 6,
+        "hits": 3,
         "rate": 0.5
        }
       },
       "by_kind": {
        "call": {
-        "decisions": 1097,
-        "hits": 1097,
+        "decisions": 1100,
+        "hits": 1100,
         "rate": 1.0
        },
        "other": {
-        "decisions": 1578,
-        "hits": 916,
-        "rate": 0.5804816223067174
+        "decisions": 1574,
+        "hits": 915,
+        "rate": 0.5813214739517154
        }
       }
      }
     }
    },
-   "hit_rate_seconds": 25.6
+   "hit_rate_seconds": 14.6
   }
  ],
  "index": {
   "file": "index.json",
-  "bytes": 4385,
-  "sha256": "757c320a7e82f44f1f00c1da7961ba6c2a347521a088982aeedf068215251950"
+  "bytes": 4384,
+  "sha256": "64cc508d89f24e6aca45eff9343bece4633e1c6d396d874ca5e67a1c04f99c20"
  }
 }
