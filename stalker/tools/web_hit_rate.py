@@ -237,7 +237,9 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
                     for i in rel:
                         name = f"call:{i}" if kind == "call" else str(i)
                         mc["by_field"][name] = mc["by_field"].get(name, 0) + 1
-            probs = np.empty((N, m))
+            # Dead combos (step -1) weigh 0, as the page's seatProbs; np.empty left them as stale memory (NaN at
+            # times), which changed the ranges and so the run with the process's memory layout (#644).
+            probs = np.zeros((N, m))
             for v in np.unique(steps[steps >= 0]):
                 k = K.key(public, int(v))
                 row = backoff_row(policy, tables, k, m)[0] if play_backoff else _row(policy, k, m)
