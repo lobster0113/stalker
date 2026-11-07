@@ -691,3 +691,4 @@
 {"ts":"2026-11-07T16:58:02Z","role":"reviewer-b","outcome":"skipped","issue":648,"pr":649,"notes":"not my parity","friction":""}
 {"ts":"2026-11-07T17:11:07Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 PR #649·#599 모두 홀수, 짝수 PR 없음","friction":""}
 {"ts":"2026-11-07T17:41:54Z","role":"reviewer","outcome":"merged","issue":648,"pr":649,"notes":"L4 equity ±1 neighbor in web_hit_rate; all AC verified, CI run 42393882407 green, squash-merged","friction":"gh pr comment/merge fail (GraphQL 403) and gh api mutations are hook-blocked; had to use GitHub MCP tools. Branch delete via git push --delete also rejected. Cancelled superseded run leaves a red gates check on the same sha."}
+{"ts":"2026-11-07T18:11:23Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #599 (odd, reviewer parity)","friction":""}
