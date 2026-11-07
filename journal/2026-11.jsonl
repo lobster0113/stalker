@@ -717,3 +717,4 @@
 {"ts":"2026-11-07T23:11:34Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #657,#599 are odd (reviewer share); no even PRs","friction":"should_run --sweep printed RUN though no even PR needed a verdict"}
 {"ts":"2026-11-07T23:41:23Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PRs #657,#599 already have CHANGES at current head sha","friction":""}
 {"ts":"2026-11-07T23:54:49Z","role":"builder","outcome":"pr_opened","issue":654,"pr":658,"notes":"backoff_fidelity 도구(leave-one-out TV); 로컬: 비-call| L1–L4 근사 행이 균등보다 거의 낫지 않음(L4는 플랍·턴 모두 더 멂), call| L2만 유지 기준 충족","friction":"gates quick 로컬 1024s·full tests 1105s+gate_r 250s(목표 90s, (a)); 첫 quick을 timeout 300으로 감싸 잘림(exit 143) → 재실행"}
+{"ts":"2026-11-07T23:55:09Z","role":"reviewer","outcome":"skipped","issue":654,"pr":658,"notes":"not my parity","friction":""}
