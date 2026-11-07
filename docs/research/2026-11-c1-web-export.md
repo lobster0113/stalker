@@ -258,6 +258,8 @@ M4(run 41813684540)를 2인만 `min_visits=5`로 바꿔 `cloud.yml mode=export`(
 
 3–6인 sha256 대조: `81aa9424` 기준 mid-3 c78a3259…, mid-4 3f248f0c…, mid-5 0b785199…, mid-6 c02843ca…로 `4090d316`·위 「정책 파일 sha256 대조」의 값과 **네 개 모두 같다**(문턱이 안 바뀌어 결정적). 새 mid-2는 66613749…(`cloud/policies/41813684540/mid-2.json`); `tests/test_export_web_policy.py`의 mid-2 고정값(a4287c01…)은 mv=10 파일 것이라 이 PR은 바꾸지 않는다. `web/app/policy/`·테스트·기본 문턱 불변.
 
+반입(#640): `web/app/policy/mid-2.json`을 ops `81aa9424`의 `cloud/policies/41813684540/mid-2.json`(sha256 66613749…, 3,070,291B)으로 교체하고 index의 2인 항목(bytes·keys·keys_dropped·min_visits=5)과 테스트 고정 sha를 갱신했다. 페이지 상한 여유가 2.4%(75,437B)뿐이므로 다음 재-export에서 2인이 3,145,728B를 넘으면 문턱을 다시 올려야 한다.
+
 ## 백오프 플레이 적중률 (#635)
 
 **참고용(로컬) 수치** — CI 수치가 아니다. `web_hit_rate --play-backoff`(`--backoff` 포함)는 정밀 키 미적중 때 페이지(`tpgto.js backoffRow`, #623)처럼 L1 → L2 → 균등 순으로 행을 골라 행동하고 범위도 그 행으로 갱신한다. 켜지 않으면 출력은 그대로이고, 켜면 `"play": "backoff"`·`schema_version` 3이 붙는다. 수준별 결정 수는 그 궤적에서 센다.

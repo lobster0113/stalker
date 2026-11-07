@@ -306,7 +306,8 @@ def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
     from pathlib import Path
 
     pol = Path(__file__).resolve().parents[1] / "web/app/policy"
-    want = {2: "a4287c014ca0f3e58ab0d9d31dc5472d860d884eb0f83e410508a79f2b981008",
+    # #640: mid-2 is the min_visits=5 re-export, copied from ops 81aa9424 (#631); the old mv=10 file was a4287c01….
+    want = {2: "66613749fa23f3fefe7243aeb34648eb964c0476e8fba7491701d5c52a3a3579",
             3: "c78a325925b73ea47c15381c5c355917f38aa99b92826d470b718d81d48578ea",
             4: "3f248f0cd2449a8ffd8310315a99fb4f1d91d283221e91c7e7291576ed0bff5b",
             5: "0b78519957536a050e453ced988d25c838212413dfd10903245986a8647c2cd4"}
@@ -319,6 +320,8 @@ def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
         e = mid["by_players"][str(n)]
         assert (e["file"], e["players"], e["run_id"], e["key_variant"], e["bytes"]) == (
             f"mid-{n}.json", n, "41813684540", "c1", len(body))
+        assert len(body) <= 3_145_728, f"mid-{n}.json exceeds the page budget"
+    assert mid["by_players"]["2"]["min_visits"] == 5
     assert (mid["run_id"], mid["file"]) == ("40919207457", "mid-6.json") and "key_variant" not in mid
 
 
