@@ -26,6 +26,12 @@ field position of that key (`call:<i>` for a
 `call|` key) how many of them would hit if only that one field were `*` (`by_field`; `any_field` = at least one).
 The play is unchanged; the output then carries `"miss_report"` and is schema_version 4.
 
+`--l4-neighbor` (#648, implies `--backoff`; off by default) adds a level `L4` after L3: the L3 key with only its
+equity field `e<n>` moved to `e<n-1>` and `e<n+1>` (steps outside `0..k-1` skipped); the L3 rows found there of the
+same length are averaged (one found = that row). With `--play-backoff` the play uses it too, as the page would if it
+mirrored it; `--miss-report` then breaks down what is still uniform after L4. The output carries `"l4_neighbor":
+true`, L4 in `by_backoff.levels` and is schema_version 5. Off, the output is the one without the flag, byte for byte.
+
     L1  drop the b1 hand items (`o<outs>v<vuln>k<block>`) and the stack depths (`s<mine>:<opps>` -> `s*`)
     L2  L1, and the public facts (`u<before><after>`, `h`, `g`) and the SPR step -> `*`; a `call|` key drops only
         its opponent count (it has no b1, stack or fact items)
@@ -57,7 +63,7 @@ from stalker.e3 import tp_key as K
 
 SCHEMA = "stalker.web.hit-rate"
 SCHEMA_VERSION = 2   # 2: optional by_backoff (#618); a v1 output is the same without it. 3 = play_backoff (#635),
-                     # 4 = 3 + miss_report (#638); each is the previous output plus one block
+                     # 4 = 3 + miss_report (#638), 5 = l4_neighbor (#648); each is the previous output plus one block
 MIN_VISITS = (0, 1, 2, 5, 10)
 LEVELS = ("L1", "L2", "L3")
 _EQ = re.compile(r"e\d+")
@@ -108,19 +114,31 @@ def coarse_tables(policy: dict) -> list[dict]:
     return out
 
 
-def backoff_level(policy: dict, tables: list[dict], key: str, m: int) -> int:
-    """0 = the exact key has a row, 1.. = the first coarse level with a row of length m, len(LEVELS)+1 = none."""
-    if _row(policy, key, m) is not None:
-        return 0
-    for level, tab in enumerate(tables, 1):
-        if m in tab.get(coarse_key(key, level), {}):
-            return level
-    return len(tables) + 1
+def neighbor_row(tables: list[dict], key: str, m: int, top: int):
+    """L4 (module doc): the mean of the L3 rows of length m at the L3 key with its equity step moved by -1 and +1
+    (steps outside 0..top skipped), None when neither has one."""
+    parts = coarse_key(key, len(LEVELS)).split("|")
+    at = max(i for i, f in enumerate(parts) if _EQ.fullmatch(f))
+    step = int(parts[at][1:])
+    rows = []
+    for v in (step - 1, step + 1):
+        if 0 <= v <= top:
+            r = tables[len(LEVELS) - 1].get("|".join(parts[:at] + [f"e{v}"] + parts[at + 1:]), {}).get(m)
+            if r is not None:
+                rows.append(r)
+    return np.mean(rows, axis=0).tolist() if rows else None
 
 
-def backoff_row(policy: dict, tables: list[dict], key: str, m: int):
+def backoff_level(policy: dict, tables: list[dict], key: str, m: int, l4: int | None = None) -> int:
+    """0 = the exact key has a row, 1.. = the first coarse level with a row of length m, after the last level
+    (L3, or L4 with `l4` = the top equity step) none. `l4=None` is the old lookup."""
+    return backoff_row(policy, tables, key, m, l4)[1]
+
+
+def backoff_row(policy: dict, tables: list[dict], key: str, m: int, l4: int | None = None):
     """(row, level) the page plays for `key` (`tpgto.js backoffRow`): the exact row (level 0), else the first coarse
-    level's mean row, else (None, len(LEVELS)+1) = uniform."""
+    level's mean row, else (None, len(LEVELS)+1) = uniform. With `l4` (the top equity step, #648) L4's
+    `neighbor_row` is tried after L3 and uniform is len(LEVELS)+2."""
     row = _row(policy, key, m)
     if row is not None:
         return row, 0
@@ -128,7 +146,10 @@ def backoff_row(policy: dict, tables: list[dict], key: str, m: int):
         r = tab.get(coarse_key(key, level), {}).get(m)
         if r is not None:
             return r, level
-    return None, len(tables) + 1
+    if l4 is None:
+        return None, len(tables) + 1
+    r = neighbor_row(tables, key, m, l4)
+    return (r, len(tables) + 1) if r is not None else (None, len(tables) + 2)
 
 
 def masked_index(tables: list[dict]) -> set:
@@ -160,13 +181,13 @@ def _mreport(c: dict, top: int) -> dict:
             "by_field": by_field, "any_field": c["any_field"]}
 
 
-def _bcell() -> dict:
-    return {"decisions": 0, "exact": 0, **{name: 0 for name in LEVELS}, "uniform": 0}
+def _bcell(l4: bool = False) -> dict:
+    return {"decisions": 0, "exact": 0, **{name: 0 for name in LEVELS}, **({"L4": 0} if l4 else {}), "uniform": 0}
 
 
 def _brate(c: dict) -> dict:
     n = c["decisions"]
-    names = ("exact", *LEVELS, "uniform")
+    names = ("exact", *LEVELS, *(("L4",) if "L4" in c else ()), "uniform")
     return {**c, "rate": {k: (c[k] / n if n else None) for k in names}}
 
 
@@ -198,21 +219,22 @@ def _row(policy: dict, key: str, m: int):
 def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, seed: int,
             visits: dict | None = None, min_visits=MIN_VISITS, backoff: bool = False,
             rules: dict | None = None, variant: str = "c1", play_backoff: bool = False,
-            miss_report: int = 0) -> dict:
+            miss_report: int = 0, l4_neighbor: bool = False) -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`)."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`). `l4_neighbor`: the L4 equity-neighbor level (module doc; implies `backoff`)."""
     if miss_report and not play_backoff:
         raise ValueError("miss_report needs play_backoff (#638)")
-    backoff = backoff or play_backoff
+    backoff = backoff or play_backoff or l4_neighbor
+    l4 = tier_k - 1 if l4_neighbor else None
     rng = np.random.default_rng([seed, 611, players])
     by_street = {str(st): _cell() for st in range(4)}
     kinds = {"call": _cell(), "other": _cell()}
     cand = {str(v): {"street": {str(st): _cell() for st in range(4)}, "call": _cell(), "other": _cell()}
             for v in min_visits} if visits is not None else {}
     tables = coarse_tables(policy) if backoff else []
-    names = ("exact", *LEVELS, "uniform")
-    b_street = {str(st): _bcell() for st in range(4)}
-    b_kind = {"call": _bcell(), "other": _bcell()}
+    names = ("exact", *LEVELS, *(("L4",) if l4_neighbor else ()), "uniform")
+    b_street = {str(st): _bcell(l4_neighbor) for st in range(4)}
+    b_kind = {"call": _bcell(l4_neighbor), "other": _bcell(l4_neighbor)}
     index = masked_index(tables) if miss_report else set()
     m_street = {str(st): _mcell() for st in range(4)}
     for _ in range(hands):
@@ -236,7 +258,7 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
                     c["decisions"] += 1
                     c["hits"] += int(h)
             if backoff:
-                level = names[backoff_level(policy, tables, real, m)]
+                level = names[backoff_level(policy, tables, real, m, l4)]
                 for c in (b_street[str(s.street)], b_kind[kind]):
                     c["decisions"] += 1
                     c[level] += 1
@@ -255,19 +277,21 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
             probs = np.zeros((N, m))
             for v in np.unique(steps[steps >= 0]):
                 k = K.key(public, int(v))
-                row = backoff_row(policy, tables, k, m)[0] if play_backoff else _row(policy, k, m)
+                row = backoff_row(policy, tables, k, m, l4)[0] if play_backoff else _row(policy, k, m)
                 probs[steps == v] = row if row is not None else np.full(m, 1.0 / m)
-            real_row = backoff_row(policy, tables, real, m)[0] if play_backoff else _row(policy, real, m)
+            real_row = backoff_row(policy, tables, real, m, l4)[0] if play_backoff else _row(policy, real, m)
             pr = np.asarray(real_row if real_row is not None else np.full(m, 1.0 / m), dtype=float)
             i = int(rng.choice(m, p=pr / pr.sum()))
             ranges = K.update_range(ranges, p, probs[:, i])
             s = G.apply(s, acts[i])
-    version = 4 if miss_report else 3 if play_backoff else SCHEMA_VERSION
+    version = 5 if l4_neighbor else 4 if miss_report else 3 if play_backoff else SCHEMA_VERSION
     out = {"schema": SCHEMA, "schema_version": version, "players": players, "hands": hands, "seed": seed,
            "by_street": {k: _rate(c) for k, c in by_street.items()},
            "by_kind": {k: _rate(c) for k, c in kinds.items()}}
     if play_backoff:
         out["play"] = "backoff"
+    if l4_neighbor:
+        out["l4_neighbor"] = True
     if visits is not None:
         out["by_min_visits"] = {v: {"by_street": {k: _rate(c) for k, c in t["street"].items()},
                                     "by_kind": {k: _rate(t[k]) for k in ("call", "other")}} for v, t in cand.items()}
@@ -304,6 +328,8 @@ def main(argv=None) -> int:
                     help="play by the page's backoff rule, not uniform, on an exact miss; implies --backoff (#635)")
     ap.add_argument("--miss-report", type=int, default=0, metavar="N",
                     help="top-N last-level (L3) keys still uniform and the one-field releases that would hit; needs --play-backoff (#638)")
+    ap.add_argument("--l4-neighbor", action="store_true",
+                    help="after L3, try the L3 rows one equity step either side (L4, #648); implies --backoff")
     ap.add_argument("--variant", choices=("auto", "c1", "legacy"), default="auto",
                     help="key layout; auto = the file's key_variant, else read off its first key (#620)")
     ap.add_argument("--pod-result", type=Path, help="the training result holding the visit counts (min_visits table)")
@@ -316,7 +342,7 @@ def main(argv=None) -> int:
     variant = variant_of(policy, doc, a.variant)
     if variant not in ("", "c1"):
         raise SystemExit(f"{a.policy}: key variant {variant!r}; this tool reads c1 and legacy keys only")
-    if (a.backoff or a.play_backoff) and not variant:
+    if (a.backoff or a.play_backoff or a.l4_neighbor) and not variant:
         raise SystemExit("--backoff/--play-backoff read c1 keys only; a legacy table has no coarse-key levels (#620)")
     visits = None
     if a.pod_result:
@@ -325,7 +351,8 @@ def main(argv=None) -> int:
         st, _ = X.load_pod_result(a.pod_result)
         visits = dict(X.load_model(st).visits)
     res = measure(policy, doc["players"], doc["k"], doc["depth"], a.hands, a.seed, visits, backoff=a.backoff,
-                  play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant, miss_report=a.miss_report)
+                  play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant, miss_report=a.miss_report,
+                  l4_neighbor=a.l4_neighbor)
     json.dump({**res, "variant": variant or "legacy", "file": a.policy.name}, sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0
