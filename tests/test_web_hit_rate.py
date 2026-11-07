@@ -404,3 +404,78 @@ def test_a_key_found_only_at_l3_backs_off_to_the_group_mean():
     assert H.backoff_row(pol, tabs, co, 2) == ([0.5, 0.5], 3)
     sb = co.replace("CO|", "SB|")   # blind group: no row
     assert H.backoff_row(pol, tabs, sb, 2) == (None, 4)
+
+
+# --- #648: L4 = the L3 rows one equity step either side ---
+
+_CO6 = "CO|n6|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e{}|o1v1k0"
+
+
+def _l4(pol, key, m=2, top=K - 1):
+    tabs = H.coarse_tables(pol)
+    return H.backoff_row(pol, tabs, key, m, top)
+
+
+def test_l4_averages_both_neighbors_or_takes_the_one_found():
+    pol = {_CO6.format(4): [1.0, 0.0], _CO6.format(6): [0.0, 1.0]}
+    assert _l4(pol, _CO6.format(5)) == ([0.5, 0.5], 4)   # (a) both sides
+    assert _l4(pol, _CO6.format(7)) == ([0.0, 1.0], 4)   # (b) only e6
+    assert _l4(pol, _CO6.format(8)) == (None, 5)         # (d) no neighbor -> uniform, one level past L4
+    assert H.backoff_row(pol, H.coarse_tables(pol), _CO6.format(5), 2) == (None, 4)   # off: the old lookup
+    assert _l4(pol, _CO6.format(5), m=3) == (None, 5)    # rows of another length are never used
+
+
+def test_l4_skips_steps_outside_0_to_top():
+    # (c) the lowest step has only an upper neighbor; a row at top+1 exists only in a hand-made table and is never read
+    pol = {_CO6.format(1): [1.0, 0.0], _CO6.format(K - 2): [0.0, 1.0], _CO6.format(K): [1.0, 0.0]}
+    assert _l4(pol, _CO6.format(0)) == ([1.0, 0.0], 4)
+    assert _l4(pol, _CO6.format(K - 1)) == ([0.0, 1.0], 4)
+
+
+def test_l4_on_call_and_basic_keys():
+    # (e) the equity field is found wherever it sits; the rest of the L3 key stays
+    call = {"call|1|*|3|fc|e3": [0.2, 0.8]}
+    assert _l4(call, "call|1|2|3|fc|e4") == ([0.2, 0.8], 4)
+    assert _l4(call, "call|1|2|2|fc|e4") == (None, 5)
+    basic = "b|n3|late|1|1|0|2|tc0|s4:4|u10|hn|ka|e{}"
+    pol = {basic.format(2): [0.4, 0.6], basic.format(4): [0.6, 0.4]}
+    assert _l4(pol, basic.format(3), top=4) == ([0.5, 0.5], 4)
+    assert _l4(pol, basic.format(3).replace("|late|", "|blind|"), top=4) == (None, 5)
+
+
+def test_l4_counts_a_level_and_off_is_byte_identical(tmp_path, capsys):
+    import shutil
+    p = tmp_path / "mid-3.json"
+    shutil.copy("web/app/policy/mid-3.json", p)
+    args = [str(p), "--hands", "3", "--seed", "620", "--play-backoff", "--miss-report", "3"]
+    assert H.main(args) == 0
+    off = capsys.readouterr().out
+    assert '"l4_neighbor"' not in off and '"L4"' not in off
+    assert H.main(args) == 0
+    assert capsys.readouterr().out == off
+    assert H.main(args + ["--l4-neighbor"]) == 0
+    on = json.loads(capsys.readouterr().out)
+    assert on["l4_neighbor"] is True and on["schema_version"] == 5
+    assert on["by_backoff"]["levels"] == ["exact", "L1", "L2", "L3", "L4", "uniform"]
+    o = json.loads(off)
+    for st, c in on["by_backoff"]["by_street"].items():
+        assert sum(c[k] for k in on["by_backoff"]["levels"]) == c["decisions"]
+        assert set(c["rate"]) == set(on["by_backoff"]["levels"])
+    assert H.main([str(p), "--hands", "3", "--l4-neighbor"]) == 0   # implies --backoff, play stays uniform
+    b = json.loads(capsys.readouterr().out)
+    assert "by_backoff" in b and "play" not in b
+    assert o["schema_version"] == 4
+
+
+@pytest.mark.slow
+def test_l4_output_is_byte_identical_across_hash_seeds():
+    import os
+    import subprocess
+    import sys
+    outs = []
+    for h in ("0", "2"):
+        env = {**os.environ, "PYTHONHASHSEED": h}
+        outs.append(subprocess.run([sys.executable, "-m", "stalker.tools.web_hit_rate", "web/app/policy/mid-3.json",
+                                    "--hands", "80", "--seed", "620", "--play-backoff", "--l4-neighbor",
+                                    "--miss-report", "5"], env=env, check=True, capture_output=True).stdout)
+    assert outs[0] == outs[1] and b'"L4"' in outs[0]
