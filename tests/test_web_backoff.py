@@ -90,3 +90,85 @@ def test_coarse_key_and_coarse_tables_match_python(node):
     for k in small:
         counts[H.coarse_key(k, 2)] = counts.get(H.coarse_key(k, 2), 0) + 1
     assert max(counts.values()) > 1, "the small table never averages two rows; pick keys that share a coarse key"
+
+
+# Reads {"queries": [[key, m, top], ...], "table": {key: row}}; prints tpgto.js backoffRow for each query.
+_NODE_ROW = """
+import * as T from %s;
+let src = ""; process.stdin.on("data", (c) => (src += c)); process.stdin.on("end", () => {
+  const { queries, table } = JSON.parse(src);
+  const pol = new Map(Object.entries(table).map(([k, r]) => [k, Float64Array.from(r)]));
+  process.stdout.write(JSON.stringify(queries.map(([k, m, top]) => {
+    const { row, from } = T.backoffRow(pol, k, m, "c1", top);
+    return { row: row ? Array.from(row) : null, from };
+  })));
+});
+"""
+_NAMES = ("exact", *H.LEVELS, "L4", False)
+
+
+def _js_rows(node, queries, table):
+    r = subprocess.run([node, "--input-type=module", "-e", _NODE_ROW % json.dumps(TPGTO)],
+                       input=json.dumps({"queries": queries, "table": table}),
+                       capture_output=True, text=True, encoding="utf-8", timeout=120)
+    assert r.returncode == 0, r.stderr[-3000:]
+    return json.loads(r.stdout)
+
+
+def _assert_same(node, queries, table):
+    """JS backoffRow == Python backoff_row(l4=top) on every query: same level, same row to 6 decimals."""
+    tables = H.coarse_tables(table)
+    js = _js_rows(node, queries, table)
+    seen = []
+    for (k, m, top), j in zip(queries, js):
+        row, level = H.backoff_row(table, tables, k, m, top)
+        assert j["from"] == _NAMES[level], f"{k} m={m}: JS {j['from']} vs Python {_NAMES[level]}"
+        if row is None:
+            assert j["row"] is None, k
+        else:
+            assert np.allclose(j["row"], row, atol=5e-7), f"{k} m={m}: JS {j['row']} vs {row}"
+            assert [round(x, 6) for x in j["row"]] == [round(float(x), 6) for x in row], k
+        seen.append(_NAMES[level])
+    return seen
+
+
+def _at(k: str, v: int) -> str:
+    parts = k.split("|")
+    at = max(i for i, f in enumerate(parts) if H._EQ.fullmatch(f))
+    return "|".join(parts[:at] + [f"e{v}"] + parts[at + 1:])
+
+
+def test_l4_neighbor_cases_match_python(node):
+    """#652 (a) both neighbors averaged, (b) one, (c) e0 / top boundary, (d) none -> uniform, (e) call| and b| keys."""
+    mid, beg = K.TIER_K["mid"] - 1, K.TIER_K["beginner"] - 1
+    base = "BB|n3|1|1|0|2|0|3|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0"
+    call = "call|1|2|3|fc|e4"
+    basic = "b|blind|n3|1|1|0|2|0|tc0|ka|e2"
+    table = {_at(base, 4): [1.0, 0.0, 0.0], _at(base, 6): [0.0, 0.5, 0.5],   # (a)
+             _at(base, 1): [0.2, 0.3, 0.5],                                   # (b) e0 and e2 see only e1
+             _at(base, mid - 1): [0.6, 0.4, 0.0], _at(base, mid + 1): [0.0, 0.0, 1.0],   # (c) above top: never
+             _at(call, 3): [0.25, 0.75], _at(call, 5): [0.75, 0.25],          # (e) call|
+             _at(basic, 3): [0.1, 0.9]}                                        # (e) b|, beginner top 4
+    queries = [[base, 3, mid], [_at(base, 0), 3, mid], [_at(base, 2), 3, mid], [_at(base, mid), 3, mid],
+               [base.replace("BB|", "BTN|", 1), 3, mid],   # (d) another position group: no row at e4/e6
+               [base, 2, mid],                  # (d) neighbors only of another length
+               [call, 2, mid], [_at(basic, beg), 2, beg], [_at(basic, 2), 2, beg], [_at(basic, 0), 2, beg]]
+    seen = _assert_same(node, queries, table)
+    assert seen == ["L4", "L4", "L4", "L4", False, False, "L4", "L4", "L4", False], seen
+    js = _js_rows(node, queries[:4], table)
+    assert js[0]["row"] == [0.5, 0.25, 0.25]          # (a) the mean of both
+    assert js[1]["row"] == js[2]["row"] == [0.2, 0.3, 0.5]   # (b) one, and e0 reads only e1
+    assert js[3]["row"] == [0.6, 0.4, 0.0]            # (c) top: e<top+1> is skipped
+
+
+@pytest.mark.slow   # ~3 s: mid-3 keys against a table of a few of its rows
+def test_backoff_row_with_l4_matches_python_on_mid3(node):
+    policy, _ = H.load_policy(MID3)
+    rng = np.random.default_rng(652)
+    keys = list(policy)
+    pick = rng.choice(len(keys), 2000, replace=False).tolist()
+    table = {keys[i]: policy[keys[i]] for i in pick[:300]}
+    queries = [[keys[i], len(policy[keys[i]]), K.TIER_K["mid"] - 1] for i in pick[300:]]
+    queries += [[k, len(policy[k]), K.TIER_K["mid"] - 1] for k in keys if k.startswith("call|")][:50]
+    seen = _assert_same(node, queries, table)
+    assert {"L4", False} <= set(seen), f"levels reached: {sorted(map(str, set(seen)))}"

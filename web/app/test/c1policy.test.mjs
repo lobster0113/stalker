@@ -160,13 +160,15 @@ test("backoff (#623): exact, else the L1 mean row, else L2, else uniform — fro
   assert.equal(u.fromTable, false);
   assert.ok(u.probs.every((p) => p === 1 / m));
   // Range updates read the same backoff rows: combos whose key coarsens to k2 take the L2 row (never action 0),
-  // the others have no row at any level and stay uniform.
+  // those at the equity steps next to it its L4 mean (the same row, #652), the others have no row and stay uniform.
   const after = T.updateRanges(l2, r2, ranges, 0);
   let same = 0;
   for (let i = 0; i < after[d.seat].length; i++) {
     if (d.steps[i] < 0) continue;
-    if (T.coarseKey(T.key(d.public, d.steps[i]), 2) === k2) { same++; assert.equal(after[d.seat][i], 0, "range update ignored the L2 row"); }
-    else if (ranges[d.seat][i] > 0) assert.ok(after[d.seat][i] > 0, "a combo without any row was not uniform");
+    const ki = T.key(d.public, d.steps[i]), from = T.backoffRow(l2, ki, m, "c1", T.TIER_K.mid - 1).from;
+    if (T.coarseKey(ki, 2) === k2) { same++; assert.equal(from, "L2"); assert.equal(after[d.seat][i], 0, "range update ignored the L2 row"); }
+    else if (from === "L4") { assert.equal(after[d.seat][i], 0, "range update ignored the L4 row"); }
+    else if (ranges[d.seat][i] > 0) { assert.equal(from, false); assert.ok(after[d.seat][i] > 0, "a combo without any row was not uniform"); }
   }
   assert.ok(same > 0);
   const viaUniform = T.updateRanges(new Map(), T.actionProbs(new Map(), s, ranges, "mid", "c1"), ranges, 0);
@@ -244,4 +246,32 @@ test("backoff L3 (#645): a key whose L2 key misses reads the mean row of its pos
   const r = T.actionProbs(pol, post.s, post.ranges, "mid", "c1");
   assert.equal(r.fromTable, "L3");
   assert.deepEqual(r.probs, Array.from({ length: m }, (_, i) => (i === m - 1 ? 1 : 0)));
+});
+
+test("backoff L4 (#652): a key whose L3 key misses reads the mean of the L3 rows at the equity steps next to it", () => {
+  const { post } = spots(), d = T.decisionKey(post.s, post.ranges, "mid", "c1"), m = d.acts.length;
+  const e = Number(d.key.match(/\|e(\d+)(\||$)/)[1]), top = T.TIER_K.mid - 1;
+  const at = (v) => d.key.replace(/\|e\d+(?=\||$)/, `|e${v}`);
+  const row = (a) => Float64Array.from({ length: m }, (_, i) => (i === a ? 1 : 0));
+  const near = [e - 1, e + 1].filter((v) => v >= 0 && v <= top);
+  assert.ok(near.length, d.key);
+  const pol = new Map(near.map((v, j) => [at(v), row(j === 0 ? 0 : m - 1)]));
+  for (const k of pol.keys()) assert.notEqual(T.coarseKey(k, 3), T.coarseKey(d.key, 3));
+  const r = T.actionProbs(pol, post.s, post.ranges, "mid", "c1");
+  assert.equal(r.fromTable, "L4");
+  const want = Array.from({ length: m }, (_, i) => near.reduce((t, _v, j) => t + row(j === 0 ? 0 : m - 1)[i], 0) / near.length);
+  assert.deepEqual(r.probs, want);
+  // Two steps away is no neighbor; an L3 hit still wins over L4; legacy tables never reach it.
+  const far = new Map([[at(e + 2 <= top ? e + 2 : e - 2), row(0)]]);
+  assert.equal(T.actionProbs(far, post.s, post.ranges, "mid", "c1").fromTable, false);
+  const both = new Map([...pol, [d.key.replace(/\|o[^|]*$/, "|o9v9k9"), row(1)]]);
+  assert.equal(T.actionProbs(both, post.s, post.ranges, "mid", "c1").fromTable, "L1");
+  assert.equal(T.actionProbs(pol, post.s, post.ranges, "mid", "").fromTable, false);
+  // The bound: a hand-made row above the tier's top step is no neighbor of the top step.
+  const topKey = at(top), over = new Map([[d.key.replace(/\|e\d+(?=\||$)/, `|e${top + 1}`), row(0)]]);
+  assert.equal(T.backoffRow(over, topKey, m, "c1", top).from, false);
+  assert.equal(T.backoffRow(over, topKey, m, "c1").from, "L4", "unbounded by default");
+  // Range updates read the same L4 rows.
+  const after = T.updateRanges(pol, r, post.ranges, m - 1);
+  assert.ok(after[d.seat].some((w, i) => w > 0 && d.steps[i] >= 0));
 });

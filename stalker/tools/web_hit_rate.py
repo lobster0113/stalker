@@ -28,9 +28,9 @@ The play is unchanged; the output then carries `"miss_report"` and is schema_ver
 
 `--l4-neighbor` (#648, implies `--backoff`; off by default) adds a level `L4` after L3: the L3 key with only its
 equity field `e<n>` moved to `e<n-1>` and `e<n+1>` (steps outside `0..k-1` skipped); the L3 rows found there of the
-same length are averaged (one found = that row). With `--play-backoff` the play uses it too, as the page would if it
-mirrored it; `--miss-report` then breaks down what is still uniform after L4. The output carries `"l4_neighbor":
-true`, L4 in `by_backoff.levels` and is schema_version 5. Off, the output is the one without the flag, byte for byte.
+same length are averaged (one found = that row). With `--play-backoff` the play uses it too, as the page does since
+#652 (`tpgto.js backoffRow`); `--miss-report` then breaks down what is still uniform after L4. The output carries
+`"l4_neighbor": true`, L4 in `by_backoff.levels` and is schema_version 5. Off, the output is the one without the flag, byte for byte.
 
     L1  drop the b1 hand items (`o<outs>v<vuln>k<block>`) and the stack depths (`s<mine>:<opps>` -> `s*`)
     L2  L1, and the public facts (`u<before><after>`, `h`, `g`) and the SPR step -> `*`; a `call|` key drops only
