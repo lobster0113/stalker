@@ -1,5 +1,9 @@
 """Population stats (VPIP·PFR·3-bet·AF·WTSD·W$SD·flop c-bet) from PHH hand records (#519).
 
+Flop c-bet and fold-to-flop-c-bet are also split into 4 cells (#627): heads-up | multiway (players
+who saw the flop) x single-raised | 3-bet+ pot (preflop raises), because persona targets such as
+TAG 65 are quoted for heads-up single-raised pots.
+
 Used only to validate persona targets (docs/research/2026-10-30-population-stats.md) against public
 data; the parser stays in referee/gate_r/phh.py (imported, not modified). Seat 1 is SB, seat 2 is BB
 (PHH convention, same as the recorded blinds order). Pure function of the records -> deterministic.
@@ -10,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from collections import defaultdict
 
 from referee.gate_r.phh import load_sample
@@ -17,13 +22,16 @@ from referee.gate_r.phh import load_sample
 BOT = "Pluribus"
 _KEYS = ("hands", "vpip", "pfr", "tb_opp", "tb", "bets", "calls", "flop", "wtsd", "showdowns",
          "sd_won", "cb_opp", "cb")
+CELLS = ("hu_srp", "hu_3bp", "mw_srp", "mw_3bp")
+_CELL_KEYS = tuple(f"{k}_{c}" for c in CELLS for k in ("cb_opp", "cb", "fcb_opp", "fcb"))
+_ALL_KEYS = _KEYS + _CELL_KEYS
 
 
 def hand_counts(rec: dict) -> dict[str, dict[str, int]]:
     """Per-player raw counters for one hand. Hands with fewer than 3 players give nothing."""
     names = rec["players"]
     n = len(names)
-    out = {p: dict.fromkeys(_KEYS, 0) for p in names}
+    out = {p: dict.fromkeys(_ALL_KEYS, 0) for p in names}
     if n < 3:
         return {}
     for p in names:
@@ -41,6 +49,9 @@ def hand_counts(rec: dict) -> dict[str, dict[str, int]]:
     saw_flop = [False] * n
     flop_bet_made = False
     flop_acted = [False] * n
+    cell = ""
+    cbet_live = False  # a flop c-bet is the only bet so far: the next actors face it
+    faced_cb = [False] * n
     for a in rec["actions"]:
         t = a.split()
         if t[0] == "d":
@@ -51,6 +62,7 @@ def hand_counts(rec: dict) -> dict[str, dict[str, int]]:
                 if street == 1:
                     for i in range(n):
                         saw_flop[i] = alive[i]
+                    cell = ("hu" if sum(alive) == 2 else "mw") + ("_srp" if raises == 1 else "_3bp")
             continue
         i = int(t[0][1:]) - 1
         c = out[names[i]]
@@ -90,9 +102,21 @@ def hand_counts(rec: dict) -> dict[str, dict[str, int]]:
                 c["bets"] += 1
                 cur = committed[i] = int(t[2])
             if street == 1:
+                is_cb = False
                 if i == pf_aggressor and not flop_acted[i] and not flop_bet_made:
+                    is_cb = kind == "cbr"
                     c["cb_opp"] += 1
-                    c["cb"] += kind == "cbr"
+                    c["cb"] += is_cb
+                    c[f"cb_opp_{cell}"] += 1
+                    c[f"cb_{cell}"] += is_cb
+                elif cbet_live and not faced_cb[i]:
+                    faced_cb[i] = True
+                    c[f"fcb_opp_{cell}"] += 1
+                    c[f"fcb_{cell}"] += kind == "f"
+                    if kind == "cbr":  # raised: later actors face a raise, not the c-bet
+                        cbet_live = False
+                if is_cb:
+                    cbet_live = True
                 flop_acted[i] = True
                 flop_bet_made = flop_bet_made or kind == "cbr"
     n_alive = sum(alive)
@@ -109,7 +133,7 @@ def hand_counts(rec: dict) -> dict[str, dict[str, int]]:
 
 def aggregate(recs: list[dict]) -> dict[str, dict[str, int]]:
     """Counters summed into `bot` (Pluribus seat) and `human` groups."""
-    tot = {g: dict.fromkeys(_KEYS, 0) for g in ("bot", "human")}
+    tot = {g: dict.fromkeys(_ALL_KEYS, 0) for g in ("bot", "human")}
     for rec in recs:
         for p, c in hand_counts(rec).items():
             g = tot["bot" if p == BOT else "human"]
@@ -138,11 +162,34 @@ def rates(c: dict[str, int]) -> dict[str, float | None]:
     }
 
 
+def _wilson(a: int, b: int) -> list[float] | None:
+    """95% Wilson interval in percent; behaves at small b and rates near 0/100."""
+    if not b:
+        return None
+    z = 1.959964
+    p = a / b
+    d = 1 + z * z / b
+    mid = (p + z * z / (2 * b)) / d
+    half = z * math.sqrt(p * (1 - p) / b + z * z / (4 * b * b)) / d
+    return [round(100 * (mid - half), 1), round(100 * (mid + half), 1)]
+
+
+def cell_rates(c: dict[str, int]) -> dict[str, dict]:
+    """Flop c-bet and fold-to-flop-c-bet per cell, with opportunities and 95% intervals."""
+    out = {}
+    for cell in CELLS:
+        cb, cbo = c[f"cb_{cell}"], c[f"cb_opp_{cell}"]
+        f, fo = c[f"fcb_{cell}"], c[f"fcb_opp_{cell}"]
+        out[cell] = {"cbet": _pct(cb, cbo), "cbet_opps": cbo, "cbet_ci95": _wilson(cb, cbo),
+                     "fold_to_cbet": _pct(f, fo), "fold_opps": fo, "fold_ci95": _wilson(f, fo)}
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
-    res = {g: rates(c) for g, c in aggregate(load_sample()).items()}
+    res = {g: {**rates(c), "cells": cell_rates(c)} for g, c in aggregate(load_sample()).items()}
     if args.json:
         print(json.dumps(res, indent=1, sort_keys=True))
     else:
