@@ -715,3 +715,4 @@
 {"ts":"2026-11-07T22:35:01Z","role":"reviewer","outcome":"changes","issue":653,"pr":657,"notes":"main(#655)과 docs/ARCHITECTURE.md 충돌로 CI 미실행 -> 리베이스·CI 통과 요청","friction":"충돌(dirty) PR은 pull_request CI가 안 돌아 체크가 0개; gh pr checks는 GraphQL 403이라 REST check-runs로 확인"}
 {"ts":"2026-11-07T22:45:00Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PRs #657 (CHANGES 705c9e8, dirty) and #599 (CHANGES d723a9c) already judged at current head","friction":""}
 {"ts":"2026-11-07T23:11:34Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #657,#599 are odd (reviewer share); no even PRs","friction":"should_run --sweep printed RUN though no even PR needed a verdict"}
+{"ts":"2026-11-07T23:41:23Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PRs #657,#599 already have CHANGES at current head sha","friction":""}
