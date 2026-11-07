@@ -61,7 +61,7 @@
    "by_players": {
     "2": {
      "file": "mid-2.json",
-     "bytes": 1321335,
+     "bytes": 3070291,
      "tier": "mid",
      "players": 2,
      "k": 11,
@@ -81,9 +81,9 @@
      "menu": "real",
      "raise_cap": null,
      "q": 255,
-     "min_visits": 10,
-     "keys": 18898,
-     "keys_dropped": 275797,
+     "min_visits": 5,
+     "keys": 42529,
+     "keys_dropped": 252166,
      "key_variant": "c1"
     },
     "3": {
