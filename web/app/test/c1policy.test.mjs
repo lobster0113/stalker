@@ -211,7 +211,36 @@ test("backoff (#623): legacy tables (6-max beginner, mid, pro) never back off", 
 test("backoff (#623): coarse tables of mid-3 (largest c1 file) are built once per policy", () => {
   const { pol } = decoded(read("../policy/mid-3.json"));
   const t0 = performance.now(), tabs = T.coarseTables(pol), ms = performance.now() - t0;
-  assert.equal(tabs.length, 2);
+  assert.equal(tabs.length, 3);
   assert.equal(T.coarseTables(pol), tabs, "not cached per policy");
-  console.log(`coarse tables mid-3: ${pol.size} keys -> L1 ${tabs[0].size}, L2 ${tabs[1].size} in ${ms.toFixed(0)} ms (reference only)`);
+  assert.ok(tabs[2].size < tabs[1].size, "L3 must merge L2 keys of positions in the same group");
+  console.log(`coarse tables mid-3: ${pol.size} keys -> L1 ${tabs[0].size}, L2 ${tabs[1].size}, L3 ${tabs[2].size} in ${ms.toFixed(0)} ms (reference only)`);
+});
+
+test("backoff L3 (#645): a key whose L2 key misses reads the mean row of its position group", () => {
+  // Every c1 position name maps to tp_key.position_group at its player count (2-6), pro keys at field 1.
+  const tail = "|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0";
+  const want = { 2: ["blind", "blind"], 3: ["late", "blind", "blind"], 4: ["late", "late", "blind", "blind"],
+                 5: ["early", "late", "late", "blind", "blind"], 6: ["early", "early", "late", "late", "blind", "blind"] };
+  for (const [n, groups] of Object.entries(want)) {
+    T.c1PositionNames(+n).forEach((name, seat) => {
+      assert.equal(T.coarseKey(`${name}|n${n}${tail}`, 3), `${groups[seat]}|n${n}|1|1|0|2|0|*|tc0|s*|*|*|*|ka|e5`, `${name} n${n}`);
+      assert.equal(T.coarseKey(`p|${name}|n${n}${tail}`, 3).split("|")[1], groups[seat]);
+    });
+  }
+  assert.equal(T.coarseKey("call|1|2|3|fc|e4", 3), T.coarseKey("call|1|2|3|fc|e4", 2));
+  assert.throws(() => T.coarseKey(`XX|n6${tail}`, 3), /c1 position name/);
+  // The real decision: a table holding only another seat of the same group answers at L3; the page marks it.
+  const { post } = spots(), d = T.decisionKey(post.s, post.ranges, "mid", "c1"), m = d.acts.length;
+  const [name, players] = d.key.split("|"), n = +players.slice(1), names = T.c1PositionNames(n);
+  const g = T.positionGroup(n, names.indexOf(name));
+  const mate = names.find((x, i) => x !== name && T.positionGroup(n, i) === g);
+  assert.ok(mate, `${d.key}: no other seat in group ${g}`);
+  const sib = [mate, ...d.key.split("|").slice(1)].join("|");
+  assert.notEqual(T.coarseKey(sib, 2), T.coarseKey(d.key, 2));
+  assert.equal(T.coarseKey(sib, 3), T.coarseKey(d.key, 3));
+  const pol = new Map([[sib, Float64Array.from({ length: m }, (_, i) => (i === m - 1 ? 1 : 0))]]);
+  const r = T.actionProbs(pol, post.s, post.ranges, "mid", "c1");
+  assert.equal(r.fromTable, "L3");
+  assert.deepEqual(r.probs, Array.from({ length: m }, (_, i) => (i === m - 1 ? 1 : 0)));
 });

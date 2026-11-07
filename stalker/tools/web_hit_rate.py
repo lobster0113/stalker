@@ -11,8 +11,8 @@ checkpoint (`--pod-result`, as `export_web_players`) it also gives the same tabl
 a key hits when the table has it and the checkpoint saw it that often.
 
 `--backoff` (#618) also asks, for every decision whose exact key misses, whether a coarser key would have found a
-row: the table's rows are averaged per coarse key (`coarse_key`, levels `L1`, `L2`; rows of a different length are
-never merged), and each decision is counted at the first level that hits: exact -> L1 -> L2 -> uniform. The play
+row: the table's rows are averaged per coarse key (`coarse_key`, levels `L1`, `L2`, `L3`; rows of a different length
+are never merged), and each decision is counted at the first level that hits: exact -> L1 -> L2 -> L3 -> uniform. The play
 itself keeps the old rule (a miss plays uniformly), so turning it off gives the old output unchanged.
 
 `--play-backoff` (#635, implies `--backoff`) plays by the page's real rule instead (#623, `tpgto.js backoffRow`): an
@@ -20,12 +20,21 @@ exact miss acts from (and updates the ranges with) the first coarse level's mean
 one. The trajectory is then the one the page makes; the output says `"play": "backoff"` (absent = uniform play, the
 old output) and is schema_version 3.
 
+`--miss-report N` (#638, needs `--play-backoff`) breaks down the decisions that stay uniform after the last level (L3
+since #645, L2 before): per street the N most frequent last-level keys of those misses (count desc, key asc), and per
+field position of that key (`call:<i>` for a
+`call|` key) how many of them would hit if only that one field were `*` (`by_field`; `any_field` = at least one).
+The play is unchanged; the output then carries `"miss_report"` and is schema_version 4.
+
     L1  drop the b1 hand items (`o<outs>v<vuln>k<block>`) and the stack depths (`s<mine>:<opps>` -> `s*`)
     L2  L1, and the public facts (`u<before><after>`, `h`, `g`) and the SPR step -> `*`; a `call|` key drops only
         its opponent count (it has no b1, stack or fact items)
+    L3  L2, and the c1 position name -> its `tp_key.position_group` (early / late / blind) at that player count
+        (#645); `call|` and beginner `b|` keys are as at L2 (no position name)
 
 What stays at L2 is what the beginner key asks too (TP.md §4.1): position, players, street, opponents, raise count,
-initiative, pot odds, the legal menu and the hand's equity step.
+initiative, pot odds, the legal menu and the hand's equity step; L3 asks the position as the beginner key does (its
+group).
 
     python -m stalker.tools.web_hit_rate web/app/policy/mid-3.json --hands 1000 --seed 611
     python -m stalker.tools.web_hit_rate web/app/policy/mid-3.json --pod-result result.json
@@ -47,9 +56,10 @@ from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
 
 SCHEMA = "stalker.web.hit-rate"
-SCHEMA_VERSION = 2   # 2: optional by_backoff (#618); a v1 output is the same without it
+SCHEMA_VERSION = 2   # 2: optional by_backoff (#618); a v1 output is the same without it. 3 = play_backoff (#635),
+                     # 4 = 3 + miss_report (#638); each is the previous output plus one block
 MIN_VISITS = (0, 1, 2, 5, 10)
-LEVELS = ("L1", "L2")
+LEVELS = ("L1", "L2", "L3")
 _EQ = re.compile(r"e\d+")
 _B1 = re.compile(r"o[\d-](v[\d-])?(k[\d-])?")
 _STACK = re.compile(r"s\d+(:\d*)?")
@@ -57,12 +67,18 @@ _FACT = re.compile(r"u\d*|h[nmba]|g[nmxo]")
 _SPR_AT = 7   # field index of the SPR step in a full-depth key (`tp_key.public_key`), after a pro `p|`
 
 
+def position_group_of(name: str, players: str) -> str:
+    """`tp_key.position_group` of the seat a c1 position name (`tp_key.C1_POSITIONS`) stands for at `n<players>`."""
+    n = int(players[1:])
+    return K.position_group(n, K.c1_position_names(n).index(name))
+
+
 def coarse_key(key: str, level: int) -> str:
-    """The key with the items of backoff `level` (1 = L1, 2 = L2; module doc) dropped; level 0 is the key."""
+    """The key with the items of backoff `level` (1 = L1, 2 = L2, 3 = L3; module doc) dropped; level 0 is the key."""
     if level <= 0:
         return key
     parts = key.split("|")
-    if parts[0] == "call":
+    if parts[0] == "call":   # no position field: L3 = L2
         if level >= 2:
             parts[2] = "*"
         return "|".join(parts)
@@ -73,6 +89,9 @@ def coarse_key(key: str, level: int) -> str:
         head = ["*" if _FACT.fullmatch(f) else f for f in head]
         if head[0] != "b":   # basic keys carry no SPR
             head[_SPR_AT + (head[0] == "p")] = "*"
+    if level >= 3 and head[0] != "b":   # basic keys already carry the group
+        at = int(head[0] == "p")
+        head[at] = position_group_of(head[at], head[at + 1])
     return "|".join(head + tail)
 
 
@@ -112,6 +131,35 @@ def backoff_row(policy: dict, tables: list[dict], key: str, m: int):
     return None, len(tables) + 1
 
 
+def masked_index(tables: list[dict]) -> set:
+    """(field position, last-level key with that field `*`, row length) for every last-level row: one-field-release lookups."""
+    out = set()
+    for ck, by_m in tables[len(LEVELS) - 1].items():
+        parts = ck.split("|")
+        for i in range(len(parts)):
+            masked = "|".join(parts[:i] + ["*"] + parts[i + 1:])
+            out.update((i, masked, m) for m in by_m)
+    return out
+
+
+def release_fields(index: set, key: str, m: int) -> list[int]:
+    """Field positions of `key`'s last-level key that, set to `*` alone, find a last-level row of length m (fields already `*` skip)."""
+    parts = coarse_key(key, len(LEVELS)).split("|")
+    return [i for i, f in enumerate(parts) if f != "*"
+            and (i, "|".join(parts[:i] + ["*"] + parts[i + 1:]), m) in index]
+
+
+def _mcell() -> dict:
+    return {"misses": 0, "keys": {}, "by_field": {}, "any_field": 0}
+
+
+def _mreport(c: dict, top: int) -> dict:
+    keys = sorted(c["keys"].items(), key=lambda kv: (-kv[1], kv[0]))[:top]
+    by_field = dict(sorted(c["by_field"].items(), key=lambda kv: (-kv[1], kv[0])))
+    return {"misses": c["misses"], "distinct_keys": len(c["keys"]), "top_keys": [list(kv) for kv in keys],
+            "by_field": by_field, "any_field": c["any_field"]}
+
+
 def _bcell() -> dict:
     return {"decisions": 0, "exact": 0, **{name: 0 for name in LEVELS}, "uniform": 0}
 
@@ -149,9 +197,12 @@ def _row(policy: dict, key: str, m: int):
 
 def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, seed: int,
             visits: dict | None = None, min_visits=MIN_VISITS, backoff: bool = False,
-            rules: dict | None = None, variant: str = "c1", play_backoff: bool = False) -> dict:
+            rules: dict | None = None, variant: str = "c1", play_backoff: bool = False,
+            miss_report: int = 0) -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`)."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`)."""
+    if miss_report and not play_backoff:
+        raise ValueError("miss_report needs play_backoff (#638)")
     backoff = backoff or play_backoff
     rng = np.random.default_rng([seed, 611, players])
     by_street = {str(st): _cell() for st in range(4)}
@@ -162,6 +213,8 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
     names = ("exact", *LEVELS, "uniform")
     b_street = {str(st): _bcell() for st in range(4)}
     b_kind = {"call": _bcell(), "other": _bcell()}
+    index = masked_index(tables) if miss_report else set()
+    m_street = {str(st): _mcell() for st in range(4)}
     for _ in range(hands):
         s = G.deal(rng, players, **(rules or {}))
         ranges = K.initial_ranges(players)
@@ -187,7 +240,19 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
                 for c in (b_street[str(s.street)], b_kind[kind]):
                     c["decisions"] += 1
                     c[level] += 1
-            probs = np.empty((N, m))
+                if miss_report and level == "uniform":
+                    mc = m_street[str(s.street)]
+                    ck = coarse_key(real, len(LEVELS))
+                    mc["misses"] += 1
+                    mc["keys"][ck] = mc["keys"].get(ck, 0) + 1
+                    rel = release_fields(index, real, m)
+                    mc["any_field"] += int(bool(rel))
+                    for i in rel:
+                        name = f"call:{i}" if kind == "call" else str(i)
+                        mc["by_field"][name] = mc["by_field"].get(name, 0) + 1
+            # Dead combos (step -1) weigh 0, as the page's seatProbs; np.empty left them as stale memory (NaN at
+            # times), which changed the ranges and so the run with the process's memory layout (#644).
+            probs = np.zeros((N, m))
             for v in np.unique(steps[steps >= 0]):
                 k = K.key(public, int(v))
                 row = backoff_row(policy, tables, k, m)[0] if play_backoff else _row(policy, k, m)
@@ -197,7 +262,8 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
             i = int(rng.choice(m, p=pr / pr.sum()))
             ranges = K.update_range(ranges, p, probs[:, i])
             s = G.apply(s, acts[i])
-    out = {"schema": SCHEMA, "schema_version": 3 if play_backoff else SCHEMA_VERSION, "players": players, "hands": hands, "seed": seed,
+    version = 4 if miss_report else 3 if play_backoff else SCHEMA_VERSION
+    out = {"schema": SCHEMA, "schema_version": version, "players": players, "hands": hands, "seed": seed,
            "by_street": {k: _rate(c) for k, c in by_street.items()},
            "by_kind": {k: _rate(c) for k, c in kinds.items()}}
     if play_backoff:
@@ -210,6 +276,9 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
                                  name: sum(len(by_m) for by_m in tab.values()) for name, tab in zip(LEVELS, tables)}},
                              "by_street": {k: _brate(c) for k, c in b_street.items()},
                              "by_kind": {k: _brate(c) for k, c in b_kind.items()}}
+    if miss_report:
+        out["miss_report"] = {"top": miss_report,
+                              "by_street": {k: _mreport(c, miss_report) for k, c in m_street.items()}}
     return out
 
 
@@ -230,13 +299,19 @@ def main(argv=None) -> int:
     ap.add_argument("--hands", type=int, default=200)
     ap.add_argument("--seed", type=int, default=611)
     ap.add_argument("--backoff", action="store_true",
-                    help="also count where coarser keys (L1, L2) would find a row (#618)")
+                    help="also count where coarser keys (L1, L2, L3) would find a row (#618, #645)")
     ap.add_argument("--play-backoff", action="store_true",
                     help="play by the page's backoff rule, not uniform, on an exact miss; implies --backoff (#635)")
+    ap.add_argument("--miss-report", type=int, default=0, metavar="N",
+                    help="top-N last-level (L3) keys still uniform and the one-field releases that would hit; needs --play-backoff (#638)")
     ap.add_argument("--variant", choices=("auto", "c1", "legacy"), default="auto",
                     help="key layout; auto = the file's key_variant, else read off its first key (#620)")
     ap.add_argument("--pod-result", type=Path, help="the training result holding the visit counts (min_visits table)")
     a = ap.parse_args(argv)
+    if a.miss_report and not a.play_backoff:
+        raise SystemExit("--miss-report needs --play-backoff: it breaks down the misses of the page's backoff play (#638)")
+    if a.miss_report < 0:
+        raise SystemExit("--miss-report N: N must be >= 1 (0 = off)")
     policy, doc = load_policy(a.policy)
     variant = variant_of(policy, doc, a.variant)
     if variant not in ("", "c1"):
@@ -250,7 +325,7 @@ def main(argv=None) -> int:
         st, _ = X.load_pod_result(a.pod_result)
         visits = dict(X.load_model(st).visits)
     res = measure(policy, doc["players"], doc["k"], doc["depth"], a.hands, a.seed, visits, backoff=a.backoff,
-                  play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant)
+                  play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant, miss_report=a.miss_report)
     json.dump({**res, "variant": variant or "legacy", "file": a.policy.name}, sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0
