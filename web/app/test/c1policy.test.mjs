@@ -19,7 +19,7 @@ test("3-handed mid: the first preflop decision's c1 key is a row of mid-3.json (
   const s = firstDecision(3, meta);
   const r = T.actionProbs(pol, s, T.initialRanges(3), "mid", meta.key_variant);
   assert.ok(r.key.startsWith("BTN|n3|0|"), r.key);
-  assert.ok(r.fromTable, `c1 key ${r.key} is not in mid-3.json`);
+  assert.equal(r.fromTable, "exact", `c1 key ${r.key} is not in mid-3.json`);
   assert.equal(r.probs.length, r.acts.length);
   const legacy = T.actionProbs(pol, s, T.initialRanges(3), "mid");
   assert.equal(legacy.fromTable, false, "the legacy key must not hit a c1 table (that was the silent miss)");
@@ -30,7 +30,7 @@ test("every shipped 2–5인 c1 policy answers its first preflop decision from t
     const meta = INDEX.tiers.mid.by_players[String(n)];
     const pol = read(`../policy/${meta.file}`).policy;
     const r = T.actionProbs(pol, firstDecision(n, meta), T.initialRanges(n), "mid", meta.key_variant);
-    assert.ok(r.fromTable, `${n}-handed: c1 key ${r.key} is not in ${meta.file}`);
+    assert.equal(r.fromTable, "exact", `${n}-handed: c1 key ${r.key} is not in ${meta.file}`);
   }
 });
 
@@ -66,7 +66,7 @@ test("3-handed mid c1 postflop (#608): seeded hands reach the flop and their c1+
       } else {
         post++;
         if (!r.key.startsWith("call|")) assert.match(r.key, /\|e\d+\|o[-0-3]v[-0-2]k[-0-2]$/, r.key);
-        if (r.fromTable) {
+        if (r.fromTable === "exact") {
           hits++;
           const row = doc.policy[r.key];
           assert.equal(r.probs.length, row.length);
@@ -107,8 +107,111 @@ test("c1 call-or-fold spot (#610): a policy holding the call| row answers it fro
   assert.equal(miss.fromTable, false);
   const q = 255, row = [37, 218], pol = new Map([[miss.key, Float64Array.from(row, (v) => v / q)]]);
   const r = T.actionProbs(pol, s, ranges, "mid", "c1");
-  assert.equal(r.fromTable, true, `${r.key} not read from the fixture row`);
+  assert.equal(r.fromTable, "exact", `${r.key} not read from the fixture row`);
   r.probs.forEach((p, i) => assert.ok(Math.abs(p - row[i] / q) < 1e-9, `${r.key}: ${p} vs ${row[i]}/${q}`));
   const obj = T.actionProbs({ [miss.key]: row.map((v) => v / q) }, s, ranges, "mid", "c1");
-  assert.equal(obj.fromTable, true);
+  assert.equal(obj.fromTable, "exact");
+});
+
+// ---------------------------------------------------------------- #623 miss backoff (ADR 0022)
+
+// A c1 call-or-fold spot and a postflop decision of a seeded 3-handed hand (keys: "call|..." and "...|e<n>|o..").
+function spots() {
+  const meta = INDEX.tiers.mid.by_players["3"], empty = new Map();
+  let s = firstDecision(3, meta), ranges = T.initialRanges(3);
+  for (let i = 0; i < 4 && !s.done && T.legal(s).join("") !== "fc"; i++) {
+    const lg = T.legal(s), r = T.actionProbs(empty, s, ranges, "mid", "c1"), a = lg.includes("a") ? "a" : lg[lg.length - 1];
+    ranges = T.updateRanges(empty, r, ranges, a); s = T.apply(s, a);
+  }
+  const call = { s, ranges };
+  s = firstDecision(3, meta); ranges = T.initialRanges(3);
+  while (s.street === 0) {
+    const r = T.actionProbs(empty, s, ranges, "mid", "c1"), a = r.acts.includes("c") ? "c" : "k";
+    ranges = T.updateRanges(empty, r, ranges, a); s = T.apply(s, a);
+  }
+  return { call, post: { s, ranges } };
+}
+
+test("backoff (#623): exact, else the L1 mean row, else L2, else uniform — fromTable says which", () => {
+  const { post } = spots(), { s, ranges } = post;
+  const d = T.decisionKey(s, ranges, "mid", "c1"), m = d.acts.length, k1 = T.coarseKey(d.key, 1), k2 = T.coarseKey(d.key, 2);
+  assert.notEqual(k1, d.key); assert.notEqual(k2, k1);
+  // Keys sharing the L1 key (another b1 label / stack field), and one sharing only the L2 key (other facts).
+  const sib1a = d.key.replace(/\|o[^|]*$/, "|o9v9k9"), sib1b = d.key.replace(/\|s[^|]*\|/, "|s1:1|").replace(/\|o[^|]*$/, "|o8v8k8");
+  assert.equal(T.coarseKey(sib1a, 1), k1); assert.equal(T.coarseKey(sib1b, 1), k1);
+  const sib2 = d.key.replace(/\|u\d*\|/, "|u99|");
+  assert.notEqual(T.coarseKey(sib2, 1), k1); assert.equal(T.coarseKey(sib2, 2), k2);
+  const row = (a) => Float64Array.from({ length: m }, (_, i) => (i === a ? 1 : 0));
+  const exact = new Map([[d.key, row(0)], [sib1a, row(1)]]);
+  const re = T.actionProbs(exact, s, ranges, "mid", "c1");
+  assert.equal(re.fromTable, "exact");
+  assert.deepEqual(re.probs, Array.from(row(0)));
+  const l1 = new Map([[sib1a, row(0)], [sib1b, row(1)], [sib2, row(m - 1)]]);
+  const r1 = T.actionProbs(l1, s, ranges, "mid", "c1");
+  assert.equal(r1.fromTable, "L1");
+  assert.deepEqual(r1.probs, Array.from({ length: m }, (_, i) => (row(0)[i] + row(1)[i]) / 2));
+  const l2 = new Map([[sib2, row(m - 1)]]);
+  const r2 = T.actionProbs(l2, s, ranges, "mid", "c1");
+  assert.equal(r2.fromTable, "L2");
+  assert.deepEqual(r2.probs, Array.from(row(m - 1)));
+  // A row of another length under the same coarse key is never used.
+  const other = new Map([[sib1a, Float64Array.from({ length: m + 1 }, () => 1 / (m + 1))]]);
+  const u = T.actionProbs(other, s, ranges, "mid", "c1");
+  assert.equal(u.fromTable, false);
+  assert.ok(u.probs.every((p) => p === 1 / m));
+  // Range updates read the same backoff rows: combos whose key coarsens to k2 take the L2 row (never action 0),
+  // the others have no row at any level and stay uniform.
+  const after = T.updateRanges(l2, r2, ranges, 0);
+  let same = 0;
+  for (let i = 0; i < after[d.seat].length; i++) {
+    if (d.steps[i] < 0) continue;
+    if (T.coarseKey(T.key(d.public, d.steps[i]), 2) === k2) { same++; assert.equal(after[d.seat][i], 0, "range update ignored the L2 row"); }
+    else if (ranges[d.seat][i] > 0) assert.ok(after[d.seat][i] > 0, "a combo without any row was not uniform");
+  }
+  assert.ok(same > 0);
+  const viaUniform = T.updateRanges(new Map(), T.actionProbs(new Map(), s, ranges, "mid", "c1"), ranges, 0);
+  assert.ok(viaUniform[d.seat].some((w) => w > 0));
+});
+
+test("backoff (#623): a call| key backs off only at L2 (opponent count)", () => {
+  const { call } = spots(), { s, ranges } = call;
+  const d = T.decisionKey(s, ranges, "mid", "c1");
+  assert.ok(d.key.startsWith("call|"), d.key);
+  assert.equal(T.coarseKey(d.key, 1), d.key);
+  const parts = d.key.split("|"); parts[2] = String(Number(parts[2]) + 1);
+  const sib = parts.join("|"), pol = new Map([[sib, Float64Array.from([0.25, 0.75])]]);
+  const r = T.actionProbs(pol, s, ranges, "mid", "c1");
+  assert.equal(r.fromTable, "L2");
+  assert.deepEqual(r.probs, [0.25, 0.75]);
+});
+
+test("backoff (#623): legacy tables (6-max beginner, mid, pro) never back off", () => {
+  for (const tier of ["beginner", "mid", "pro"]) {
+    const meta = INDEX.tiers[tier];
+    assert.equal(meta.key_variant, undefined, `${tier}-6 is not a legacy table any more`);
+    const { pol } = decoded(read(`../policy/${meta.file}`));
+    let s = firstDecision(6, meta), ranges = T.initialRanges(6), seen = 0;
+    while (!s.done && seen < 12) {
+      const r = T.actionProbs(pol, s, ranges, tier, meta.key_variant);
+      assert.ok(r.fromTable === "exact" || r.fromTable === false, `${tier}: ${r.fromTable}`);
+      const row = pol.get(r.key);
+      if (row && row.length === r.acts.length) assert.deepEqual(r.probs, Array.from(row));
+      else assert.ok(r.probs.every((p) => p === 1 / r.acts.length), `${tier} miss is not uniform: ${r.key}`);
+      const a = r.acts.includes("c") ? "c" : r.acts.includes("k") ? "k" : r.acts[0];
+      ranges = T.updateRanges(pol, r, ranges, a); s = T.apply(s, a); seen++;
+    }
+  }
+  // The same table and key: a c1 lookup backs off to the sibling's row, a legacy one stays uniform.
+  const { post } = spots(), d = T.decisionKey(post.s, post.ranges, "mid", "c1");
+  const sib = d.key.replace(/\|o[^|]*$/, "|o9v9k9"), pol = new Map([[sib, Float64Array.from({ length: d.acts.length }, (_, i) => (i ? 0 : 1))]]);
+  assert.equal(T.actionProbs(pol, post.s, post.ranges, "mid", "c1").fromTable, "L1");
+  assert.equal(T.actionProbs(pol, post.s, post.ranges, "mid", "").fromTable, false);
+});
+
+test("backoff (#623): coarse tables of mid-3 (largest c1 file) are built once per policy", () => {
+  const { pol } = decoded(read("../policy/mid-3.json"));
+  const t0 = performance.now(), tabs = T.coarseTables(pol), ms = performance.now() - t0;
+  assert.equal(tabs.length, 2);
+  assert.equal(T.coarseTables(pol), tabs, "not cached per policy");
+  console.log(`coarse tables mid-3: ${pol.size} keys -> L1 ${tabs[0].size}, L2 ${tabs[1].size} in ${ms.toFixed(0)} ms (reference only)`);
 });

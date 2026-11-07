@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { coarseKey } from "../app/tpgto.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // The page loads the TP-GTO engine and policies with import()/fetch, which file:// blocks: serve web/.
@@ -1308,7 +1309,13 @@ await inspect("home-move", "#move");
 // AI 포스트플랍 키 형식, 표에 있는 키의 확률, 거울 유지 종료, 거울 꺼짐 경고 없음, 긴 작업(b1 계산) 한도.
 {
   const C1_RUN = "41813684540";
-  const C1_LONG_TASK_MS = 2000;   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
+  const C1_LONG_TASK_MS = 2000;
+  const C1_COARSE_MS = 1500;   // building the L1/L2 coarse tables of mid-3 (largest c1 file) at load, #623
+  // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
+  const coarseRow = (file, k, lv, m) => {
+    const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
+    return rows.length ? Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length) : null;
+  };   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
   // 2·4·5인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
   // c1policy.test.mjs checks that their first preflop c1 keys hit mid-<n>.json.
   {
@@ -1367,7 +1374,7 @@ await inspect("home-move", "#move");
       const row = file.policy[d.key];
       if (!row) continue;
       hit++;
-      must(d.fromTable && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 ${n}인: 페이지 확률이 mid-${n}.json 행과 다름 (${d.key})`);
+      must(d.fromTable === "exact" && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 ${n}인: 페이지 확률이 mid-${n}.json 행과 다름 (${d.key})`);
     }
     must(log.length >= 1 && hit >= 1,
       `c1 ${n}인: 첫 핸드 상대 프리플랍 결정이 정책 표에서 나오지 않음 (결정 ${log.length}, 적중 ${hit}) — decisionKey variant 확인 (#604)`);
@@ -1398,13 +1405,21 @@ await inspect("home-move", "#move");
       }
       must(!!done && done.ok, `c1 3인: 플랍 이상 간 핸드가 엔진 거울을 켠 채 끝나지 않음 (${JSON.stringify(done)}) — decisionKey c1 포스트플랍 확인 (#608)`);
       const post = done ? (await pg.evaluate(h => TPG.botLog.filter(x => x.hand === h && x.tier === "mid"), done.hand)).filter(d => streetOf(d.key) > 0) : [];
-      let postHit = 0;
+      let postHit = 0, postNear = 0;
       for (const d of post) {
         must(d.key.startsWith("call|") || (/\|n3\|/.test(d.key) && /\|o[-0-3]v[-0-2]k[-0-2]$/.test(d.key)), `c1 3인: 포스트플랍 AI 키가 c1+b1 형식이 아님 (${d.key})`);
         const row = file.policy[d.key];
-        if (!row) { must(!d.fromTable, `c1 3인: 표에 없는 포스트플랍 키를 표에서 읽었다고 함 (${d.key})`); continue; }
+        if (!row || row.length !== d.acts.length) {
+          must(d.fromTable !== "exact", `c1 3인: 표에 없는 포스트플랍 키를 표에서 읽었다고 함 (${d.key})`);
+          if (d.fromTable) {   // L1/L2: the mean row of the same coarse key (#623)
+            postNear++;
+            const want = coarseRow(file, d.key, d.fromTable === "L1" ? 1 : 2, d.acts.length);
+            must(!!want && want.every((v, j) => Math.abs(v - d.probs[j]) < 1e-9), `c1 3인: ${d.fromTable} 백오프 확률이 mid-3.json 거친 키 평균과 다름 (${d.key})`);
+          } else must(d.probs.every(p => Math.abs(p - 1 / d.acts.length) < 1e-12), `c1 3인: 어느 단계에도 없는 키가 균등이 아님 (${d.key})`);
+          continue;
+        }
         postHit++;
-        must(d.fromTable && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 3인: 포스트플랍 확률이 mid-3.json 행과 다름 (${d.key})`);
+        must(d.fromTable === "exact" && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 3인: 포스트플랍 확률이 mid-3.json 행과 다름 (${d.key})`);
       }
       const longMs = await pg.evaluate(() => window.__c1Long);
       must(longMs < C1_LONG_TASK_MS, `c1 3인: 포스트플랍 중 메인 스레드 작업 ${longMs.toFixed(0)}ms ≥ ${C1_LONG_TASK_MS}ms — b1Code 캐시 확인, 넘으면 워커 이슈로 (#608)`);
@@ -1412,7 +1427,43 @@ await inspect("home-move", "#move");
       const bots = await pg.evaluate(() => document.querySelectorAll("#infobar [data-untrained]").length + [...document.querySelectorAll(".seat:not(.hero) .persona")].filter(e => e.textContent.includes("규칙 봇")).length);
       must(bots === 0, "c1 3인: 포스트플랍 핸드 뒤 규칙 봇 배지가 보임");
       await pg.screenshot({ path: `${shots}/c1-postflop-3-laptop.png` });
-      console.log(`c1 3인 포스트플랍: 핸드 #${done?.hand} 거울 유지 종료, AI 포스트플랍 결정 ${post.length}개(표 적중 ${postHit}), 최장 작업 ${longMs.toFixed(0)}ms`);
+      console.log(`c1 3인 포스트플랍: 핸드 #${done?.hand} 거울 유지 종료, AI 포스트플랍 결정 ${post.length}개(표 적중 ${postHit}, 거친 키 ${postNear}), 최장 작업 ${longMs.toFixed(0)}ms`);
+      // #623: the coarse tables are built once at load, inside the load budget.
+      const coarseMs = await pg.evaluate(() => TPG.coarseMs?.["mid-3"]);
+      must(Number.isFinite(coarseMs) && coarseMs < C1_COARSE_MS, `c1 3인: 거친 표 생성 ${coarseMs}ms (예산 ${C1_COARSE_MS}ms) — tpgto.js coarseTables 확인 (#623)`);
+      // #623 review: drop every exact postflop row from the loaded table (the coarse tables were built at load and
+      // keep them), so the hero's next postflop decision backs off. Its comparison must say it is a nearby
+      // situation's average and must not grade the hero's frequency; the hand table and replay record say so too.
+      await pg.evaluate(() => { const pol = TPG.pol["mid-3"]; for (const k of [...pol.keys()]) if (!k.startsWith("call|") && +k.split("|")[2] > 0) pol.delete(k); });
+      let near = null;
+      for (let guard = 0; guard < 60 && !near; guard++) {
+        const hand = await pg.evaluate(() => G.handNo);
+        await pg.waitForSelector(QUICK).catch(() => {});
+        const st = await pg.evaluate(() => ({ street: G.eng?.s?.street ?? -1, from: CUR?.g?.model?.fromTable ?? null }));
+        const btn = pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first();
+        if (!(await btn.count())) { await pg.waitForTimeout(200); continue; }
+        await btn.click();
+        if (st.street > 0 && (st.from === "L1" || st.from === "L2")) {
+          await pg.evaluate(() => { window.__hold = true; });
+          await pg.click("#tp-go");
+          near = st;
+          break;
+        }
+        await pg.click("#tp-go");
+        await pg.waitForFunction(h => G.handNo !== h || G.eng?.lastHand?.hand === h || document.querySelector("#tp-body [data-card='quick-act']"), hand).catch(() => {});
+      }
+      must(!!near, "c1 3인: 정확 행을 지운 뒤에도 근사(L1/L2) 내 포스트플랍 결정이 오지 않음 (#623)");
+      if (near) {
+        const tag = pg.locator("#tp-body [data-model-action] [data-near]");
+        await tag.waitFor();
+        must((await tag.getAttribute("data-near")) === near.from && (await tag.textContent()).includes("비슷한 상황 평균(근사)"), `근사 표시: 문구·단계가 다름 (${await tag.textContent()})`);
+        must((await pg.locator("#tp-body [data-model-action] .t").first().textContent()).includes("채점 안 함"), "근사 표시: 근사 행인데 내 선택 빈도를 채점처럼 보여 줌 (#623)");
+        const rec = await pg.evaluate(() => ({ near: G.decs?.at(-1)?.act?.near ?? null, row: handReviewHTML(G.handNo, true).includes("data-near"), report: sessionReport() }));
+        must(rec.near === near.from && rec.row, `근사 표시: 핸드 결정 표·기록에 근사 표시가 없음 (${JSON.stringify({ near: rec.near, row: rec.row })})`);
+        must(rec.report.near >= 1 && rec.report.low.every(d => !d.act.near), "근사 표시: 세션 리포트가 근사 결정을 빈도 비교에 셈");
+        await inspect("near-review", "#tp-body [data-model-action] [data-near]", pg);
+        console.log(`근사 표시: 내 포스트플랍 결정 ${near.from}, 핸드 표·리포트에서 제외`);
+      }
     }
     must(!errs.length, `c1 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
     console.log(`c1 ${n}인: 모델 목록 run ${C1_RUN}, 첫 핸드 AI 결정 ${log.length}개 중 표 적중 ${hit}`);

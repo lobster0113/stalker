@@ -56,6 +56,8 @@ export function serialize(games) { return JSON.stringify(wrap(games)); }
 export function verdict(an) {
   if (!an || an.p == null) return null;
   if (an.leak) return { key: "skip", text: "채점 안 함" };
+  // #623: the row was a nearby situation's average (c1 coarse-key backoff), not this spot's answer.
+  if (an.near) return { key: "skip", text: "근사 · 채점 안 함" };
   if (an.p >= GOOD_P) return { key: "good", text: "잘함" };
   if (an.p >= WARN_P) return { key: "warn", text: "아쉬움" };
   return { key: "bad", text: "실수" };
@@ -70,7 +72,9 @@ export function reasons(an, act, names = {}) {
   const aggressive = act.type === "raise";
   if (an.p != null) {
     const top = an.top && an.top !== an.name ? ` 정책이 가장 자주 고르는 건 ${an.top}(${pc(an.topP)})이에요.` : "";
-    out.push({ kind: "freq", text: `내 선택 ${an.name}은 정책이 ${an.approx ? "대략 " : ""}${pc(an.p)} 쓰는 액션이에요.${top}` });
+    out.push({ kind: "freq", text: an.near
+      ? `이 상황 그대로의 학습 표본이 없어 비슷한 상황 평균(근사)으로 비교했어요: 내 선택 ${an.name}은 그 평균에서 ${pc(an.p)}예요. 채점하지 않아요.${top}`
+      : `내 선택 ${an.name}은 정책이 ${an.approx ? "대략 " : ""}${pc(an.p)} 쓰는 액션이에요.${top}` });
   }
   const r = an.reply;
   if (aggressive && r) {
