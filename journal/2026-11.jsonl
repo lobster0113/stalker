@@ -685,3 +685,4 @@
 {"ts":"2026-11-07T15:56:21Z","role":"reviewer-b","outcome":"skipped","issue":640,"pr":643,"notes":"not my parity","friction":""}
 {"ts":"2026-11-07T16:11:48Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #643,#599 are odd (reviewer's); no even PR to review","friction":""}
 {"ts":"2026-11-07T16:25:08Z","role":"reviewer","outcome":"merged","issue":640,"pr":643,"notes":"mid-2 mv=5 반입: CI 전부 success, Gate U 2인 로드 411ms·거친 표 262ms, 앞 CHANGES 2건 해결 확인 후 squash 머지","friction":"gh pr comment/merge가 GraphQL 403, gh api 쓰기는 훅이 막아 GitHub MCP로 판정·머지함(reviewer.md 명령과 불일치). CI 스크린샷 아티팩트 blob 403으로 로컬 대체, 로컬 e2e는 gate-u.mjs:1001에서 멈춤"}
+{"ts":"2026-11-07T16:30:00Z","role":"planner","outcome":"planned","issue":640,"pr":643,"notes":"PR #643(#640 2인 mv=5 교체) 머지 → #640 라벨 정리, STATE 갱신(ready 미착수 3, in-progress #648)","friction":"gh 라벨 변경 대신 MCP 사용(반복)"}
