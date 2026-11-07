@@ -142,3 +142,52 @@ def test_backoff_counts_are_deterministic_and_off_is_the_old_output():
         assert c["decisions"] == off["by_street"][st]["decisions"]
         assert c["exact"] == off["by_street"][st]["hits"]
         assert c["exact"] + c["L1"] + c["L2"] + c["uniform"] == c["decisions"]
+
+
+# --- #620: legacy (pre-c1) key tables ---
+
+def _asked(variant, rules=None):
+    spy = Spy()
+    H.measure(spy, N3, K, DEPTH, 1, 5, variant=variant, rules=rules)
+    return spy.asked
+
+
+def test_legacy_variant_looks_up_the_pre_c1_key_the_page_asks():
+    legacy, c1 = _asked("")[0], _asked("c1")[0]
+    assert "|n" not in legacy   # bare-number fields, no position/players names
+    assert "|n" in c1 and legacy != c1
+
+
+def test_legacy_table_hits_by_exact_counts_and_c1_table_of_same_hand_does_not():
+    legacy = _asked("")[0]
+    for width in (2, 3, 4, 5, 6):
+        r = H.measure({legacy: [1.0 / width] * width}, N3, K, DEPTH, 1, 5, variant="")
+        if r["by_street"]["0"]["hits"]:
+            break
+    assert r["by_street"]["0"]["hits"] == 1 and _totals(r)[1] == 1
+    assert r["by_kind"]["call"]["decisions"] == 1   # the call-or-fold key is the same in both layouts
+    assert _totals(H.measure({legacy: [0.5, 0.5]}, N3, K, DEPTH, 1, 5, variant="c1"))[1] == 0
+
+
+def test_variant_of_reads_header_then_first_key_and_the_flag_wins():
+    assert H.variant_of({}, {"key_variant": "c1"}) == "c1"
+    assert H.variant_of({"0|0|1|1|0|2|0|fcra|e0": [1.0]}, {}) == ""
+    assert H.variant_of({"BTN|n3|0|e1": [1.0]}, {}) == "c1"
+    assert H.variant_of({"call|0|1|1|fc|e0": [1.0], "0|0|1|1|0|2|0|fcra|e0": [1.0]}, {}) == ""
+    assert H.variant_of({"call|0|1|1|fc|e0": [1.0]}, {}) == "c1"
+    assert H.variant_of({}, {}) == "c1"
+    assert H.variant_of({"call|0|1|1|fc|e0": [1.0]}, {}, "legacy") == ""
+
+
+def test_main_reads_a_legacy_file_as_legacy(tmp_path, capsys):
+    p = tmp_path / "t-3.json"
+    p.write_text(json.dumps({"q": 255, "players": N3, "k": K, "depth": DEPTH,
+                             "policy": {"0|0|1|1|0|2|0|fcra|e0": [255, 0]}}), encoding="utf-8")
+    assert H.main([str(p), "--hands", "1"]) == 0
+    assert json.loads(capsys.readouterr().out)["variant"] == "legacy"
+    try:
+        H.main([str(p), "--backoff"])
+    except SystemExit as e:
+        assert "legacy" in str(e)
+    else:
+        raise AssertionError("--backoff on a legacy table must stop")
