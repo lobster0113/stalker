@@ -15,14 +15,14 @@ ROOT = Path(__file__).resolve().parent.parent
 TPGTO = (ROOT / "web" / "app" / "tpgto.js").as_uri()
 MID3 = ROOT / "web" / "app" / "policy" / "mid-3.json"
 
-# Reads {"keys": [...], "table": {key: row}} on stdin; prints both coarse levels of every key and the coarse tables.
+# Reads {"keys": [...], "table": {key: row}} on stdin; prints every coarse level of every key and the coarse tables.
 _NODE = """
 import * as T from %s;
 let src = ""; process.stdin.on("data", (c) => (src += c)); process.stdin.on("end", () => {
   const { keys, table } = JSON.parse(src);
   const tabs = T.coarseTables(new Map(Object.entries(table).map(([k, r]) => [k, Float64Array.from(r)])));
   const out = tabs.map((t) => Object.fromEntries([...t].map(([ck, byM]) => [ck, Object.fromEntries([...byM].map(([m, r]) => [m, Array.from(r)]))])));
-  process.stdout.write(JSON.stringify({ coarse: keys.map((k) => [T.coarseKey(k, 1), T.coarseKey(k, 2)]), tables: out }));
+  process.stdout.write(JSON.stringify({ coarse: keys.map((k) => T.BACKOFF_LEVELS.map((_, l) => T.coarseKey(k, l + 1))), tables: out }));
 });
 """
 
@@ -61,6 +61,10 @@ def test_coarse_key_and_coarse_tables_match_python(node):
         assert all(k.startswith({"pro": "p|", "basic": "b|"}.get(depth, "")) for k in ks if not k.startswith("call|")), depth
         assert any("|o" in k for k in ks), f"{depth}: no postflop key with b1 items reached"
         keys += ks
+    for n in (2, 4, 5, 6):   # #645: L3 maps each player count's position names to their groups
+        ks = _seeded_keys("full", "mid", n, 1, 2)
+        assert {k.split("|")[0] for k in ks if not k.startswith("call|")} >= {"BB"}, n
+        keys += ks
     policy, _ = H.load_policy(MID3)
     rng = np.random.default_rng(623)
     sample = [k for i, k in enumerate(policy) if i in set(rng.choice(len(policy), 1500, replace=False).tolist())]
@@ -70,10 +74,12 @@ def test_coarse_key_and_coarse_tables_match_python(node):
     # A small table: mid-3 rows that share coarse keys, with two lengths under some of them.
     small = {k: policy[k] for k in sample[:400]}
     js = _run(node, keys, small)
-    for k, (c1, c2) in zip(keys, js["coarse"]):
-        assert (c1, c2) == (H.coarse_key(k, 1), H.coarse_key(k, 2)), f"{k}: JS {c1} / {c2}"
+    for k, cs in zip(keys, js["coarse"]):
+        assert cs == [H.coarse_key(k, lv) for lv in range(1, len(H.LEVELS) + 1)], f"{k}: JS {cs}"
+    groups = {(k.split("|")[1], cs[2].split("|")[0]) for k, cs in zip(keys, js["coarse"]) if k[0] not in "bcp"}
+    assert {g for _, g in groups} == {"early", "late", "blind"} and {n for n, _ in groups} == {"n2", "n3", "n4", "n5", "n6"}
     py = H.coarse_tables(small)
-    assert len(js["tables"]) == len(py) == 2
+    assert len(js["tables"]) == len(py) == 3
     for lv, (jt, pt) in enumerate(zip(js["tables"], py), 1):
         assert set(jt) == set(pt), f"L{lv}: coarse key sets differ"
         for ck, by_m in pt.items():

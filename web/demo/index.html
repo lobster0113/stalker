@@ -1942,7 +1942,8 @@ const LOW_FREQ = 0.10;
 // A c1 miss answered by a coarse key (ADR 0022, #623) is a nearby situation's average, not this spot's answer:
 // it is shown as such and, like a leak cell, never graded as a frequency.
 const NEAR_TXT = "비슷한 상황 평균(근사)";
-const nearOf = m => (m && (m.fromTable === "L1" || m.fromTable === "L2") ? m.fromTable : undefined);
+const NEAR_WHAT = { L1: "핸드 세부·스택 깊이 무시", L2: "공개 정보·SPR까지 무시", L3: "공개 정보·SPR 무시, 자리는 앞·뒤·블라인드 묶음으로" };   // #623, #645
+const nearOf = m => (m && NEAR_WHAT[m.fromTable] ? m.fromTable : undefined);
 function recordDecision(gr) {
   if (!gr) return;
   const a = gr.refs.find(r => r.kind === "model-action"), m = a?.model, top = m ? m.mix.slice().sort((x, y) => y.p - x.p)[0] : null;
@@ -3015,7 +3016,7 @@ function modelActionHTML(r) {
   return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 ${freq}</span>${modelTag(m)}</div>
     ${leakHTML(leak)}${modelMixHTML(r.model, you)}
     ${you?.note ? `<div class="cap"><span>${you.note}</span></div>` : ""}
-    <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${near ? ` · <span data-near="${near}">${NEAR_TXT}</span>: 이 상황 그대로의 학습 표본이 없어 비슷한 상황(${near === "L1" ? "핸드 세부·스택 깊이 무시" : "공개 정보·SPR까지 무시"})의 평균이에요` : r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
+    <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${near ? ` · <span data-near="${near}">${NEAR_TXT}</span>: 이 상황 그대로의 학습 표본이 없어 비슷한 상황(${NEAR_WHAT[near]})의 평균이에요` : r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
     <div class="model-line">TP-GTO · 학습 중간본 · ${modelLine(m)}</div></div>`;
 }
 function modelWhyHTML(k, g) {

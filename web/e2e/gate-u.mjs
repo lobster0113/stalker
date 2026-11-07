@@ -1310,7 +1310,7 @@ await inspect("home-move", "#move");
 {
   const C1_RUN = "41813684540";
   const C1_LONG_TASK_MS = 2000;
-  const C1_COARSE_MS = 1500;   // building the L1/L2 coarse tables of mid-3 (largest c1 file) at load, #623
+  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of mid-3 (largest c1 file) at load, #623
   // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
   const coarseRow = (file, k, lv, m) => {
     const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
@@ -1411,9 +1411,9 @@ await inspect("home-move", "#move");
         const row = file.policy[d.key];
         if (!row || row.length !== d.acts.length) {
           must(d.fromTable !== "exact", `c1 3인: 표에 없는 포스트플랍 키를 표에서 읽었다고 함 (${d.key})`);
-          if (d.fromTable) {   // L1/L2: the mean row of the same coarse key (#623)
+          if (d.fromTable) {   // L1/L2/L3: the mean row of the same coarse key (#623, #645)
             postNear++;
-            const want = coarseRow(file, d.key, d.fromTable === "L1" ? 1 : 2, d.acts.length);
+            const want = coarseRow(file, d.key, Number(d.fromTable.slice(1)), d.acts.length);
             must(!!want && want.every((v, j) => Math.abs(v - d.probs[j]) < 1e-9), `c1 3인: ${d.fromTable} 백오프 확률이 mid-3.json 거친 키 평균과 다름 (${d.key})`);
           } else must(d.probs.every(p => Math.abs(p - 1 / d.acts.length) < 1e-12), `c1 3인: 어느 단계에도 없는 키가 균등이 아님 (${d.key})`);
           continue;
@@ -1443,7 +1443,7 @@ await inspect("home-move", "#move");
         const btn = pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first();
         if (!(await btn.count())) { await pg.waitForTimeout(200); continue; }
         await btn.click();
-        if (st.street > 0 && (st.from === "L1" || st.from === "L2")) {
+        if (st.street > 0 && ["L1", "L2", "L3"].includes(st.from)) {
           await pg.evaluate(() => { window.__hold = true; });
           await pg.click("#tp-go");
           near = st;
@@ -1452,7 +1452,7 @@ await inspect("home-move", "#move");
         await pg.click("#tp-go");
         await pg.waitForFunction(h => G.handNo !== h || G.eng?.lastHand?.hand === h || document.querySelector("#tp-body [data-card='quick-act']"), hand).catch(() => {});
       }
-      must(!!near, "c1 3인: 정확 행을 지운 뒤에도 근사(L1/L2) 내 포스트플랍 결정이 오지 않음 (#623)");
+      must(!!near, "c1 3인: 정확 행을 지운 뒤에도 근사(L1/L2/L3) 내 포스트플랍 결정이 오지 않음 (#623)");
       if (near) {
         const tag = pg.locator("#tp-body [data-model-action] [data-near]");
         await tag.waitFor();

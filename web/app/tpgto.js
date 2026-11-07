@@ -50,8 +50,8 @@
 //       variant: the policy's index `key_variant` ("" legacy, "c1" #604/#608: c1 public key, postflop step + b1 fields).
 //   actionProbs(policy, s, ranges, tier, variant = "") -> {...decisionKey, probs, fromTable}  probs = policy row
 //       for the actor's real hole, aligned with `acts`. c1 tables back off on a miss (ADR 0022, #623): exact ->
-//       L1 -> L2 coarse key (coarseKey; the mean of the table's rows sharing it, coarseTables) -> uniform;
-//       fromTable says which: "exact" | "L1" | "L2" | false. Legacy ("") tables never back off.
+//       L1 -> L2 -> L3 coarse key (coarseKey; the mean of the table's rows sharing it, coarseTables) -> uniform;
+//       fromTable says which: "exact" | "L1" | "L2" | "L3" | false. Legacy ("") tables never back off.
 //   updateRanges(policy, d, ranges, action) -> new ranges after the actor of decision `d` took
 //       `action` (name or index): Bayes update with the policy row of every combo's own key.
 //   seatProbs(policy, public, steps, m, variant = "") -> per-combo rows (Float64Array(1326*m), row-major), same backoff.
@@ -1154,16 +1154,17 @@ function policyRow(policy, k, m) {
 
 // ---------------------------------------------------------------- c1 miss backoff (ADR 0022, #623)
 // Same definitions as stalker/tools/web_hit_rate.py (coarse_key, coarse_tables); tests/test_web_backoff.py
-// compares the two. L1 drops the b1 hand items and the stack depths, L2 also the public facts and the SPR step.
-export const BACKOFF_LEVELS = ["L1", "L2"];
+// compares the two. L1 drops the b1 hand items and the stack depths, L2 also the public facts and the SPR step, L3
+// also turns the position name into its group (positionGroup, as the beginner key; #645).
+export const BACKOFF_LEVELS = ["L1", "L2", "L3"];
 const RE_EQ = /^e\d+$/, RE_B1 = /^o[\d-](v[\d-])?(k[\d-])?$/, RE_STACK = /^s\d+(:\d*)?$/, RE_FACT = /^(u\d*|h[nmba]|g[nmxo])$/;
 const SPR_AT = 7;   // field index of the SPR step in a full-depth key, after a pro "p|"
 
-/** The c1 key with the items of backoff `level` (1 = L1, 2 = L2) dropped; level 0 is the key itself. */
+/** The c1 key with the items of backoff `level` (1 = L1, 2 = L2, 3 = L3) dropped; level 0 is the key itself. */
 export function coarseKey(k, level) {
   if (level <= 0) return k;
   const parts = k.split("|");
-  if (parts[0] === "call") {
+  if (parts[0] === "call") {   // no position name: L3 = L2
     if (level >= 2) parts[2] = "*";
     return parts.join("|");
   }
@@ -1175,6 +1176,11 @@ export function coarseKey(k, level) {
   if (level >= 2) {
     head = head.map((f) => (RE_FACT.test(f) ? "*" : f));
     if (head[0] !== "b") head[SPR_AT + (head[0] === "p" ? 1 : 0)] = "*";   // basic keys carry no SPR
+  }
+  if (level >= 3 && head[0] !== "b") {   // basic keys already carry the group
+    const at = head[0] === "p" ? 1 : 0, n = Number(head[at + 1].slice(1)), seat = c1PositionNames(n).indexOf(head[at]);
+    if (seat < 0) throw new Error(`coarseKey: ${JSON.stringify(head[at])} is not a ${n}-handed c1 position name`);
+    head[at] = positionGroup(n, seat);
   }
   return head.concat(tail).join("|");
 }
@@ -1214,7 +1220,7 @@ export function coarseTables(policy) {
   return t;
 }
 
-/** {row, from}: the exact row ("exact"), else (c1 only) the first coarse level's mean row ("L1"/"L2"), else {null, false}. */
+/** {row, from}: the exact row ("exact"), else (c1 only) the first coarse level's mean row ("L1"/"L2"/"L3"), else {null, false}. */
 function backoffRow(policy, k, m, variant) {
   const row = policyRow(policy, k, m);
   if (row) return { row, from: "exact" };
@@ -1291,7 +1297,7 @@ export function seatProbs(policy, pub, steps, m, variant = "") {
 }
 
 /**
- * decisionKey plus the policy row for the actor's real hole. fromTable: "exact", "L1"/"L2" (c1 tables only: the
+ * decisionKey plus the policy row for the actor's real hole. fromTable: "exact", "L1"/"L2"/"L3" (c1 tables only: the
  * mean row of the same coarse key, ADR 0022), or false (no row at any level: uniform).
  */
 export function actionProbs(policy, s, ranges, tier, variant = "") {
