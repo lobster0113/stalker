@@ -1942,7 +1942,7 @@ const LOW_FREQ = 0.10;
 // A c1 miss answered by a coarse key (ADR 0022, #623) is a nearby situation's average, not this spot's answer:
 // it is shown as such and, like a leak cell, never graded as a frequency.
 const NEAR_TXT = "비슷한 상황 평균(근사)";
-const NEAR_WHAT = { L1: "핸드 세부·스택 깊이 무시", L2: "공개 정보·SPR까지 무시", L3: "공개 정보·SPR 무시, 자리는 앞·뒤·블라인드 묶음으로" };   // #623, #645
+const NEAR_WHAT = { L1: "핸드 세부·스택 깊이 무시", L2: "공개 정보·SPR까지 무시", L3: "공개 정보·SPR 무시, 자리는 앞·뒤·블라인드 묶음으로", L4: "자리 묶음에 더해 에퀴티 한 칸 위·아래" };   // #623, #645, #652
 const nearOf = m => (m && NEAR_WHAT[m.fromTable] ? m.fromTable : undefined);
 function recordDecision(gr) {
   if (!gr) return;

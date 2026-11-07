@@ -49,3 +49,9 @@
 - 헤즈업은 두 자리 모두 blind 묶음이라 L3가 BTN·BB 행을 합친다. 2인은 L2 뒤 미적중에서 자리를 풀어 적중하는 비율이 9%로 가장 작아(#638 표) 영향이 작다.
 - 조건 둔감 유지: 자리 묶음은 모든 좌석이 보는 공개 정보이고, 초보 키(`tp_key.public_key` basic, TP.md §4.1 초보 깊이)가 이미 쓰는 같은 정의다. L3 행도 L1/L2처럼 AI 좌석 행동·레인지 갱신에만 쓰고, 내 결정이 L3로 답해지면 복기는 "비슷한 상황 평균(근사)"으로 표시하고 점수에서 뺀다(`web/demo/index.html` `nearOf`, `games.js` `verdict`).
 - 범위 밖: L3 뒤에도 남는 미적중의 에퀴티 이웃 단계 L4(별도 판단), 정책 파일 교체·재학습.
+
+## 갱신 (#652): L4 = L3 행의 에퀴티 ±1 이웃 평균
+- 근거: #648(PR #649) — Python `web_hit_rate.py --l4-neighbor` 측정에서 L4가 3·4·6인 플랍 균등을 6.2–10.7%p 줄였다(로컬 참고, `docs/research/2026-11-c1-web-export.md` 「L4 에퀴티 이웃 측정 (#648)」).
+- 정의: L4 = L3 키에서 에퀴티 칸 `e<n>`만 `e<n-1>`·`e<n+1>`로 바꾼 L3 행(같은 행 길이). 둘 다 있으면 평균, 하나면 그 행, 등급의 단계 범위 `0..k-1` 밖은 건너뛴다. 새 거친 표는 만들지 않고 L3 표를 두 번 더 조회한다(표 크기·로드 시간 불변). 백오프 순서: 정밀 → L1 → L2 → L3 → **L4** → 균등. `fromTable`은 `"exact"|"L1"|"L2"|"L3"|"L4"|false`. 구현: `stalker/tools/web_hit_rate.py` `neighbor_row`·`backoff_row(l4=k-1)`, `web/app/tpgto.js` `backoffRow(…, top)`(내부 `neighborRow`, `actionProbs`·`seatProbs`·`updateRanges`·`rangeResponse`가 등급의 `TIER_K - 1`을 넘긴다; 대조 `tests/test_web_backoff.py`).
+- 조건 둔감 유지: 에퀴티 칸은 자기 패와 공개 보드, 공개 행동으로 갱신한 공개 범위로만 정해진다. 이웃 단계 행은 "에퀴티가 한 칸 다른 같은 공개 상황"의 전략이고 숨은 정보를 쓰지 않는다. L4 행도 L1–L3처럼 AI 좌석 행동·레인지 갱신에만 쓰고, 내 결정이 L4로 답해지면 복기는 "비슷한 상황 평균(근사)"으로 표시하고 점수에서 뺀다(`web/demo/index.html` `NEAR_WHAT`·`nearOf`, `games.js` `verdict`).
+- 범위 밖: 이웃 행이 그 칸의 실제 전략과 얼마나 다른지(착취 가능성) 측정, 5인 커버리지(#629), 정책 파일 교체.

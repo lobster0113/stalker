@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { coarseKey } from "../app/tpgto.js";
+import { coarseKey, TIER_K } from "../app/tpgto.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // The page loads the TP-GTO engine and policies with import()/fetch, which file:// blocks: serve web/.
@@ -1314,6 +1314,11 @@ await inspect("home-move", "#move");
   const C1_LOAD_MS = 30000;    // click on the mid tier -> policy parsed (mid-2 is 3 MB), #640
   // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
   const coarseRow = (file, k, lv, m) => {
+    if (lv === 4) {   // L4 (#652): the L3 means at the equity steps next to the key's, averaged (tpgto.js neighborRow)
+      const parts = coarseKey(k, 3).split("|"), at = parts.findLastIndex(f => /^e\d+$/.test(f)), e = +parts[at].slice(1);
+      const near = [e - 1, e + 1].filter(v => v >= 0 && v < TIER_K.mid).map(v => coarseRow(file, [...parts.slice(0, at), `e${v}`, ...parts.slice(at + 1)].join("|"), 3, m)).filter(Boolean);
+      return near.length ? Array.from({ length: m }, (_, j) => near.reduce((a, r) => a + r[j], 0) / near.length) : null;
+    }
     const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
     return rows.length ? Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length) : null;
   };   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
@@ -1420,7 +1425,7 @@ await inspect("home-move", "#move");
         const row = file.policy[d.key];
         if (!row || row.length !== d.acts.length) {
           must(d.fromTable !== "exact", `c1 3인: 표에 없는 포스트플랍 키를 표에서 읽었다고 함 (${d.key})`);
-          if (d.fromTable) {   // L1/L2/L3: the mean row of the same coarse key (#623, #645)
+          if (d.fromTable) {   // L1/L2/L3: the mean row of the same coarse key (#623, #645); L4: its equity neighbors (#652)
             postNear++;
             const want = coarseRow(file, d.key, Number(d.fromTable.slice(1)), d.acts.length);
             must(!!want && want.every((v, j) => Math.abs(v - d.probs[j]) < 1e-9), `c1 3인: ${d.fromTable} 백오프 확률이 mid-3.json 거친 키 평균과 다름 (${d.key})`);
@@ -1452,7 +1457,7 @@ await inspect("home-move", "#move");
         const btn = pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first();
         if (!(await btn.count())) { await pg.waitForTimeout(200); continue; }
         await btn.click();
-        if (st.street > 0 && ["L1", "L2", "L3"].includes(st.from)) {
+        if (st.street > 0 && ["L1", "L2", "L3", "L4"].includes(st.from)) {
           await pg.evaluate(() => { window.__hold = true; });
           await pg.click("#tp-go");
           near = st;
@@ -1461,7 +1466,7 @@ await inspect("home-move", "#move");
         await pg.click("#tp-go");
         await pg.waitForFunction(h => G.handNo !== h || G.eng?.lastHand?.hand === h || document.querySelector("#tp-body [data-card='quick-act']"), hand).catch(() => {});
       }
-      must(!!near, "c1 3인: 정확 행을 지운 뒤에도 근사(L1/L2/L3) 내 포스트플랍 결정이 오지 않음 (#623)");
+      must(!!near, "c1 3인: 정확 행을 지운 뒤에도 근사(L1–L4) 내 포스트플랍 결정이 오지 않음 (#623)");
       if (near) {
         const tag = pg.locator("#tp-body [data-model-action] [data-near]");
         await tag.waitFor();
