@@ -643,3 +643,4 @@
 {"ts":"2026-11-07T06:11:13Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd, reviewer share); no even PRs","friction":""}
 {"ts":"2026-11-07T06:41:08Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only odd open PR #599 already has VERDICT: CHANGES for head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-07T07:11:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #599 (odd, reviewer parity); no even PRs to judge","friction":"should_run --sweep printed RUN with no even-numbered PR open"}
+{"ts":"2026-11-07T07:17:49Z","role":"builder-b","outcome":"pr_opened","issue":635,"pr":636,"notes":"web_hit_rate --play-backoff + mid-6 백오프 플레이 측정, 추천 보류","friction":"quick/full 게이트가 병렬 측정과 CPU를 나눠 quick만 23분; 계획 코멘트 생략"}
