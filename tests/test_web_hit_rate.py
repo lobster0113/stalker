@@ -126,7 +126,7 @@ def test_a_missing_key_hits_at_l1_with_the_mean_of_the_rows_it_shares_with():
     assert tabs[0][H.coarse_key(third, 1)][3] == [1.0, 0.0, 0.0]
     assert H.backoff_level(pol, tabs, a, 2) == 0
     assert H.backoff_level(pol, tabs, third, 2) == 1
-    assert H.backoff_level(pol, tabs, third, 4) == 3   # no row of that length at any level: uniform
+    assert H.backoff_level(pol, tabs, third, 4) == 4   # no row of that length at any level: uniform
     l2_only = "BTN|n3|1|1|0|2|0|4|tc0|s5:5|u01|ha|gm|ka|e5|o-v-k2"
     assert H.backoff_level(pol, tabs, l2_only, 2) == 2
 
@@ -139,11 +139,11 @@ def test_backoff_counts_are_deterministic_and_off_is_the_old_output():
     assert on == H.measure(pol, N3, K, DEPTH, 3, 5, backoff=True)
     assert {k: v for k, v in on.items() if k != "by_backoff"} == off and "by_backoff" not in off
     bb = on["by_backoff"]
-    assert bb["levels"] == ["exact", "L1", "L2", "uniform"]
+    assert bb["levels"] == ["exact", "L1", "L2", "L3", "uniform"]
     for st, c in bb["by_street"].items():
         assert c["decisions"] == off["by_street"][st]["decisions"]
         assert c["exact"] == off["by_street"][st]["hits"]
-        assert c["exact"] + c["L1"] + c["L2"] + c["uniform"] == c["decisions"]
+        assert c["exact"] + c["L1"] + c["L2"] + c["L3"] + c["uniform"] == c["decisions"]
 
 
 # --- #620: legacy (pre-c1) key tables ---
@@ -205,7 +205,7 @@ def _mid3(play):
 
 
 def _levels(r):
-    keys = ("decisions", "exact", "L1", "L2", "uniform")
+    keys = ("decisions", "exact", "L1", "L2", "L3", "uniform")
     return {st: {k: c[k] for k in keys} for st, c in r["by_backoff"]["by_street"].items()}
 
 
@@ -213,17 +213,18 @@ def test_play_backoff_levels_are_exact_and_the_trajectory_differs_from_uniform_p
     uni, bo = _mid3(False), _mid3(True)
     assert "play" not in uni and uni["schema_version"] == 2
     assert bo["play"] == "backoff" and bo["schema_version"] == 3 and bo == _mid3(True)
-    assert _levels(uni) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, uniform=1),
-                            "1": dict(decisions=14, exact=6, L1=2, L2=1, uniform=5),
-                            "2": dict(decisions=4, exact=1, L1=2, L2=0, uniform=1),
-                            "3": dict(decisions=0, exact=0, L1=0, L2=0, uniform=0)}
-    assert _levels(bo) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, uniform=1),
-                           "1": dict(decisions=13, exact=6, L1=1, L2=1, uniform=5),
-                           "2": dict(decisions=3, exact=1, L1=1, L2=0, uniform=1),
-                           "3": dict(decisions=0, exact=0, L1=0, L2=0, uniform=0)}
+    # #645: uniform play keeps the L1/L2 counts of #635; the turn decision that stayed uniform now finds an L3 row
+    assert _levels(uni) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, L3=0, uniform=1),
+                            "1": dict(decisions=14, exact=6, L1=2, L2=1, L3=0, uniform=5),
+                            "2": dict(decisions=4, exact=1, L1=2, L2=0, L3=1, uniform=0),
+                            "3": dict(decisions=0, exact=0, L1=0, L2=0, L3=0, uniform=0)}
+    assert _levels(bo) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, L3=0, uniform=1),
+                           "1": dict(decisions=13, exact=6, L1=1, L2=1, L3=0, uniform=5),
+                           "2": dict(decisions=3, exact=1, L1=0, L2=0, L3=1, uniform=1),
+                           "3": dict(decisions=0, exact=0, L1=0, L2=0, L3=0, uniform=0)}
     for r in (uni, bo):
         for c in r["by_backoff"]["by_street"].values():
-            assert c["exact"] + c["L1"] + c["L2"] + c["uniform"] == c["decisions"]
+            assert c["exact"] + c["L1"] + c["L2"] + c["L3"] + c["uniform"] == c["decisions"]
 
 
 def test_backoff_row_is_exact_then_coarse_then_none():
@@ -233,7 +234,7 @@ def test_backoff_row_is_exact_then_coarse_then_none():
     tabs = H.coarse_tables(pol)
     assert H.backoff_row(pol, tabs, a, 2) == ([1.0, 0.0], 0)
     assert H.backoff_row(pol, tabs, third, 2) == ([1.0, 0.0], 1)
-    assert H.backoff_row(pol, tabs, third, 3) == (None, 3)
+    assert H.backoff_row(pol, tabs, third, 3) == (None, 4)
 
 
 def test_main_play_backoff_flag_and_legacy_refusal(tmp_path, capsys):
@@ -257,7 +258,7 @@ def test_main_play_backoff_flag_and_legacy_refusal(tmp_path, capsys):
         raise AssertionError("--play-backoff on a legacy table must stop")
 
 
-# --- #638: breakdown of the decisions still uniform after L2 ---
+# --- #638: breakdown of the decisions still uniform after the last level (L2, L3 since #645) ---
 
 def test_release_fields_finds_the_one_field_that_would_hit_at_l2():
     a = "BTN|n3|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0"
@@ -294,9 +295,10 @@ def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged():
     flop = rep["by_street"]["1"]
     assert flop["misses"] == 5 and flop["distinct_keys"] == 5 and flop["any_field"] == 4
     assert flop["by_field"] == {"14": 4, "3": 2, "0": 1, "5": 1}
-    assert flop["top_keys"] == [["BB|n3|1|2|1|1|2|*|tc0|s*|*|*|*|fcr25ra|e1", 1],
-                                ["BTN|n3|1|1|0|1|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150b200b300a|e7", 1],
-                                ["BTN|n3|1|1|1|1|3|*|tc0|s*|*|*|*|fcr25rr4a|e6", 1]]
+    # since #645 the report reads the last level (L3): position names are their groups
+    assert flop["top_keys"] == [["blind|n3|1|2|0|2|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150a|e6", 1],
+                                ["blind|n3|1|2|1|1|2|*|tc0|s*|*|*|*|fcr25ra|e1", 1],
+                                ["late|n3|1|1|0|1|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150b200b300a|e7", 1]]
     assert rep["by_street"]["0"]["by_field"] == {"6": 1}
     assert rep["by_street"]["3"] == {"misses": 0, "distinct_keys": 0, "top_keys": [], "by_field": {}, "any_field": 0}
     assert mr == _mid3_miss(3)
@@ -370,3 +372,35 @@ def test_play_backoff_output_is_byte_identical_across_hash_seeds():
                                     "--hands", "80", "--seed", "620", "--play-backoff", "--miss-report", "5"],
                                    env=env, check=True, capture_output=True).stdout)
     assert outs[0] == outs[1]
+
+
+# --- #645: L3 = L2 with the position name -> its position group ---
+
+def test_l3_replaces_the_position_name_with_its_group_at_every_player_count():
+    from stalker.e3 import tp_key as TK
+    tail = "|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0"
+    for n in range(2, 7):
+        for seat, name in enumerate(TK.C1_POSITIONS[n]):
+            k = f"{name}|n{n}{tail}"
+            l2 = H.coarse_key(k, 2)
+            assert H.coarse_key(k, 3) == "|".join([TK.position_group(n, seat)] + l2.split("|")[1:])
+    assert H.coarse_key("UTG|n6" + tail, 3).startswith("early|n6|")
+    assert H.coarse_key("CO|n6" + tail, 3).startswith("late|n6|")
+    assert H.coarse_key("BTN|n2" + tail, 3).startswith("blind|n2|")   # heads-up both seats post a blind
+    assert H.coarse_key("CO|n4" + tail, 3).startswith("late|n4|")
+    assert H.coarse_key("p|HJ|n5" + tail, 3).startswith("p|early|n5|")   # pro keys: the name is field 1
+    for k in ("call|1|2|3|fc|e4", "b|n3|late|1|1|0|2|tc0|s4:4|u10|hn|ka|e5"):   # no position name: L3 = L2
+        assert H.coarse_key(k, 3) == H.coarse_key(k, 2)
+
+
+def test_a_key_found_only_at_l3_backs_off_to_the_group_mean():
+    co = "CO|n6|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0"
+    btn = co.replace("CO|", "BTN|")   # BTN shares CO's group (late) at 6 players, HJ (early) does not
+    btn_u = btn.replace("|u10|", "|u01|")   # same L2 key as btn
+    hj = co.replace("CO|", "HJ|")
+    pol = {btn: [1.0, 0.0], btn_u: [0.0, 1.0], hj: [0.2, 0.8]}
+    tabs = H.coarse_tables(pol)
+    assert H.backoff_level(pol, tabs, co, 2) == 3
+    assert H.backoff_row(pol, tabs, co, 2) == ([0.5, 0.5], 3)
+    sb = co.replace("CO|", "SB|")   # blind group: no row
+    assert H.backoff_row(pol, tabs, sb, 2) == (None, 4)

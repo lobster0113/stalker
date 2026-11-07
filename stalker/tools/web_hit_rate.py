@@ -11,8 +11,8 @@ checkpoint (`--pod-result`, as `export_web_players`) it also gives the same tabl
 a key hits when the table has it and the checkpoint saw it that often.
 
 `--backoff` (#618) also asks, for every decision whose exact key misses, whether a coarser key would have found a
-row: the table's rows are averaged per coarse key (`coarse_key`, levels `L1`, `L2`; rows of a different length are
-never merged), and each decision is counted at the first level that hits: exact -> L1 -> L2 -> uniform. The play
+row: the table's rows are averaged per coarse key (`coarse_key`, levels `L1`, `L2`, `L3`; rows of a different length
+are never merged), and each decision is counted at the first level that hits: exact -> L1 -> L2 -> L3 -> uniform. The play
 itself keeps the old rule (a miss plays uniformly), so turning it off gives the old output unchanged.
 
 `--play-backoff` (#635, implies `--backoff`) plays by the page's real rule instead (#623, `tpgto.js backoffRow`): an
@@ -20,17 +20,21 @@ exact miss acts from (and updates the ranges with) the first coarse level's mean
 one. The trajectory is then the one the page makes; the output says `"play": "backoff"` (absent = uniform play, the
 old output) and is schema_version 3.
 
-`--miss-report N` (#638, needs `--play-backoff`) breaks down the decisions that stay uniform after L2: per street the
-N most frequent L2 keys of those misses (count desc, key asc), and per field position of the L2 key (`call:<i>` for a
+`--miss-report N` (#638, needs `--play-backoff`) breaks down the decisions that stay uniform after the last level (L3
+since #645, L2 before): per street the N most frequent last-level keys of those misses (count desc, key asc), and per
+field position of that key (`call:<i>` for a
 `call|` key) how many of them would hit if only that one field were `*` (`by_field`; `any_field` = at least one).
 The play is unchanged; the output then carries `"miss_report"` and is schema_version 4.
 
     L1  drop the b1 hand items (`o<outs>v<vuln>k<block>`) and the stack depths (`s<mine>:<opps>` -> `s*`)
     L2  L1, and the public facts (`u<before><after>`, `h`, `g`) and the SPR step -> `*`; a `call|` key drops only
         its opponent count (it has no b1, stack or fact items)
+    L3  L2, and the c1 position name -> its `tp_key.position_group` (early / late / blind) at that player count
+        (#645); `call|` and beginner `b|` keys are as at L2 (no position name)
 
 What stays at L2 is what the beginner key asks too (TP.md §4.1): position, players, street, opponents, raise count,
-initiative, pot odds, the legal menu and the hand's equity step.
+initiative, pot odds, the legal menu and the hand's equity step; L3 asks the position as the beginner key does (its
+group).
 
     python -m stalker.tools.web_hit_rate web/app/policy/mid-3.json --hands 1000 --seed 611
     python -m stalker.tools.web_hit_rate web/app/policy/mid-3.json --pod-result result.json
@@ -55,7 +59,7 @@ SCHEMA = "stalker.web.hit-rate"
 SCHEMA_VERSION = 2   # 2: optional by_backoff (#618); a v1 output is the same without it. 3 = play_backoff (#635),
                      # 4 = 3 + miss_report (#638); each is the previous output plus one block
 MIN_VISITS = (0, 1, 2, 5, 10)
-LEVELS = ("L1", "L2")
+LEVELS = ("L1", "L2", "L3")
 _EQ = re.compile(r"e\d+")
 _B1 = re.compile(r"o[\d-](v[\d-])?(k[\d-])?")
 _STACK = re.compile(r"s\d+(:\d*)?")
@@ -63,12 +67,18 @@ _FACT = re.compile(r"u\d*|h[nmba]|g[nmxo]")
 _SPR_AT = 7   # field index of the SPR step in a full-depth key (`tp_key.public_key`), after a pro `p|`
 
 
+def position_group_of(name: str, players: str) -> str:
+    """`tp_key.position_group` of the seat a c1 position name (`tp_key.C1_POSITIONS`) stands for at `n<players>`."""
+    n = int(players[1:])
+    return K.position_group(n, K.c1_position_names(n).index(name))
+
+
 def coarse_key(key: str, level: int) -> str:
-    """The key with the items of backoff `level` (1 = L1, 2 = L2; module doc) dropped; level 0 is the key."""
+    """The key with the items of backoff `level` (1 = L1, 2 = L2, 3 = L3; module doc) dropped; level 0 is the key."""
     if level <= 0:
         return key
     parts = key.split("|")
-    if parts[0] == "call":
+    if parts[0] == "call":   # no position field: L3 = L2
         if level >= 2:
             parts[2] = "*"
         return "|".join(parts)
@@ -79,6 +89,9 @@ def coarse_key(key: str, level: int) -> str:
         head = ["*" if _FACT.fullmatch(f) else f for f in head]
         if head[0] != "b":   # basic keys carry no SPR
             head[_SPR_AT + (head[0] == "p")] = "*"
+    if level >= 3 and head[0] != "b":   # basic keys already carry the group
+        at = int(head[0] == "p")
+        head[at] = position_group_of(head[at], head[at + 1])
     return "|".join(head + tail)
 
 
@@ -119,7 +132,7 @@ def backoff_row(policy: dict, tables: list[dict], key: str, m: int):
 
 
 def masked_index(tables: list[dict]) -> set:
-    """(field position, L2 key with that field `*`, row length) for every L2 row: one-field-release lookups."""
+    """(field position, last-level key with that field `*`, row length) for every last-level row: one-field-release lookups."""
     out = set()
     for ck, by_m in tables[len(LEVELS) - 1].items():
         parts = ck.split("|")
@@ -130,7 +143,7 @@ def masked_index(tables: list[dict]) -> set:
 
 
 def release_fields(index: set, key: str, m: int) -> list[int]:
-    """Field positions of `key`'s L2 key that, set to `*` alone, find an L2 row of length m (fields already `*` skip)."""
+    """Field positions of `key`'s last-level key that, set to `*` alone, find a last-level row of length m (fields already `*` skip)."""
     parts = coarse_key(key, len(LEVELS)).split("|")
     return [i for i, f in enumerate(parts) if f != "*"
             and (i, "|".join(parts[:i] + ["*"] + parts[i + 1:]), m) in index]
@@ -187,7 +200,7 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
             rules: dict | None = None, variant: str = "c1", play_backoff: bool = False,
             miss_report: int = 0) -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `miss_report`: the top-N L2 miss breakdown (module doc; needs `play_backoff`)."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`)."""
     if miss_report and not play_backoff:
         raise ValueError("miss_report needs play_backoff (#638)")
     backoff = backoff or play_backoff
@@ -286,11 +299,11 @@ def main(argv=None) -> int:
     ap.add_argument("--hands", type=int, default=200)
     ap.add_argument("--seed", type=int, default=611)
     ap.add_argument("--backoff", action="store_true",
-                    help="also count where coarser keys (L1, L2) would find a row (#618)")
+                    help="also count where coarser keys (L1, L2, L3) would find a row (#618, #645)")
     ap.add_argument("--play-backoff", action="store_true",
                     help="play by the page's backoff rule, not uniform, on an exact miss; implies --backoff (#635)")
     ap.add_argument("--miss-report", type=int, default=0, metavar="N",
-                    help="top-N L2 keys still uniform and the one-field releases that would hit; needs --play-backoff (#638)")
+                    help="top-N last-level (L3) keys still uniform and the one-field releases that would hit; needs --play-backoff (#638)")
     ap.add_argument("--variant", choices=("auto", "c1", "legacy"), default="auto",
                     help="key layout; auto = the file's key_variant, else read off its first key (#620)")
     ap.add_argument("--pod-result", type=Path, help="the training result holding the visit counts (min_visits table)")

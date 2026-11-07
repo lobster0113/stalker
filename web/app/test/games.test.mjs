@@ -39,7 +39,7 @@ test("verdict thresholds and leak cells", () => {
 });
 
 test("a decision answered by a coarse-key average (#623) is shown as approximate and not graded", () => {
-  for (const near of ["L1", "L2"]) {
+  for (const near of ["L1", "L2", "L3"]) {
     const v = G.verdict({ p: 0.02, near });
     assert.equal(v.key, "skip");
     assert.equal(v.text, "근사 · 채점 안 함");
