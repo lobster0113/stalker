@@ -613,3 +613,4 @@
 {"ts":"2026-11-06T23:41:51Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd) already has VERDICT: CHANGES at head d723a9c3; no new commits","friction":""}
 {"ts":"2026-11-07T00:11:24Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, odd)","friction":""}
 {"ts":"2026-11-07T00:39:45Z","role":"builder-b","outcome":"pr_opened","issue":620,"pr":625,"notes":"web_hit_rate --variant legacy + mid-6 legacy vs c1 comparison, recommend hold; gates quick only locally","friction":"pgrep -f matched own shell so wait loops never ended; quick gate >10min locally (a); full not run locally"}
+{"ts":"2026-11-07T00:40:05Z","role":"reviewer-b","outcome":"skipped","issue":620,"pr":625,"notes":"not my parity","friction":""}
