@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from collections import defaultdict
 
 from referee.gate_r.phh import load_sample
 
