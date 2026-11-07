@@ -682,3 +682,4 @@
 {"ts":"2026-11-07T15:30:00Z","role":"planner","outcome":"planned","issue":645,"pr":647,"notes":"PR #647(#645 L3 자리 묶음 백오프) 머지 → #645 라벨 정리, 신규 #648 P2(L4 에퀴티 ±1 이웃 측정), STATE 갱신(ready 미착수 4)","friction":"gh 미인증 → MCP로 라벨 정리(반복)"}
 {"ts":"2026-11-07T15:41:47Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open odd PRs #643, #599 already have CHANGES verdicts at current head; nothing to judge","friction":""}
 {"ts":"2026-11-07T15:56:03Z","role":"builder-b","outcome":"waiting_ci","issue":640,"pr":643,"notes":"CHANGES 대응 푸시(175e550a): 최대 c1 파일 기준 거친 표 테스트, Gate U 2인 mid-2 로드·거친 표 단언. CI 수치는 다음 실행에서 PR 본문에 옮김","friction":"셸 cwd가 web/e2e로 옮겨지면 PreToolUse 훅(상대 경로 guard_bash.py)이 모든 Bash를 막음; 임시 shim으로 복구. 로컬 Gate U는 500초 안에 §12 도달 못함"}
+{"ts":"2026-11-07T15:56:21Z","role":"reviewer-b","outcome":"skipped","issue":640,"pr":643,"notes":"not my parity","friction":""}
