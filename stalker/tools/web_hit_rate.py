@@ -13,7 +13,12 @@ a key hits when the table has it and the checkpoint saw it that often.
 `--backoff` (#618) also asks, for every decision whose exact key misses, whether a coarser key would have found a
 row: the table's rows are averaged per coarse key (`coarse_key`, levels `L1`, `L2`; rows of a different length are
 never merged), and each decision is counted at the first level that hits: exact -> L1 -> L2 -> uniform. The play
-itself keeps the page's rule (a miss plays uniformly), so turning it off gives the old output unchanged.
+itself keeps the old rule (a miss plays uniformly), so turning it off gives the old output unchanged.
+
+`--play-backoff` (#635, implies `--backoff`) plays by the page's real rule instead (#623, `tpgto.js backoffRow`): an
+exact miss acts from (and updates the ranges with) the first coarse level's mean row, uniform only when no level has
+one. The trajectory is then the one the page makes; the output says `"play": "backoff"` (absent = uniform play, the
+old output) and is schema_version 3.
 
     L1  drop the b1 hand items (`o<outs>v<vuln>k<block>`) and the stack depths (`s<mine>:<opps>` -> `s*`)
     L2  L1, and the public facts (`u<before><after>`, `h`, `g`) and the SPR step -> `*`; a `call|` key drops only
@@ -94,6 +99,19 @@ def backoff_level(policy: dict, tables: list[dict], key: str, m: int) -> int:
     return len(tables) + 1
 
 
+def backoff_row(policy: dict, tables: list[dict], key: str, m: int):
+    """(row, level) the page plays for `key` (`tpgto.js backoffRow`): the exact row (level 0), else the first coarse
+    level's mean row, else (None, len(LEVELS)+1) = uniform."""
+    row = _row(policy, key, m)
+    if row is not None:
+        return row, 0
+    for level, tab in enumerate(tables, 1):
+        r = tab.get(coarse_key(key, level), {}).get(m)
+        if r is not None:
+            return r, level
+    return None, len(tables) + 1
+
+
 def _bcell() -> dict:
     return {"decisions": 0, "exact": 0, **{name: 0 for name in LEVELS}, "uniform": 0}
 
@@ -131,9 +149,10 @@ def _row(policy: dict, key: str, m: int):
 
 def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, seed: int,
             visits: dict | None = None, min_visits=MIN_VISITS, backoff: bool = False,
-            rules: dict | None = None, variant: str = "c1") -> dict:
+            rules: dict | None = None, variant: str = "c1", play_backoff: bool = False) -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`)."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`)."""
+    backoff = backoff or play_backoff
     rng = np.random.default_rng([seed, 611, players])
     by_street = {str(st): _cell() for st in range(4)}
     kinds = {"call": _cell(), "other": _cell()}
@@ -170,16 +189,19 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
                     c[level] += 1
             probs = np.empty((N, m))
             for v in np.unique(steps[steps >= 0]):
-                row = _row(policy, K.key(public, int(v)), m)
+                k = K.key(public, int(v))
+                row = backoff_row(policy, tables, k, m)[0] if play_backoff else _row(policy, k, m)
                 probs[steps == v] = row if row is not None else np.full(m, 1.0 / m)
-            real_row = _row(policy, real, m)
+            real_row = backoff_row(policy, tables, real, m)[0] if play_backoff else _row(policy, real, m)
             pr = np.asarray(real_row if real_row is not None else np.full(m, 1.0 / m), dtype=float)
             i = int(rng.choice(m, p=pr / pr.sum()))
             ranges = K.update_range(ranges, p, probs[:, i])
             s = G.apply(s, acts[i])
-    out = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION, "players": players, "hands": hands, "seed": seed,
+    out = {"schema": SCHEMA, "schema_version": 3 if play_backoff else SCHEMA_VERSION, "players": players, "hands": hands, "seed": seed,
            "by_street": {k: _rate(c) for k, c in by_street.items()},
            "by_kind": {k: _rate(c) for k, c in kinds.items()}}
+    if play_backoff:
+        out["play"] = "backoff"
     if visits is not None:
         out["by_min_visits"] = {v: {"by_street": {k: _rate(c) for k, c in t["street"].items()},
                                     "by_kind": {k: _rate(t[k]) for k in ("call", "other")}} for v, t in cand.items()}
@@ -209,6 +231,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=611)
     ap.add_argument("--backoff", action="store_true",
                     help="also count where coarser keys (L1, L2) would find a row (#618)")
+    ap.add_argument("--play-backoff", action="store_true",
+                    help="play by the page's backoff rule, not uniform, on an exact miss; implies --backoff (#635)")
     ap.add_argument("--variant", choices=("auto", "c1", "legacy"), default="auto",
                     help="key layout; auto = the file's key_variant, else read off its first key (#620)")
     ap.add_argument("--pod-result", type=Path, help="the training result holding the visit counts (min_visits table)")
@@ -217,8 +241,8 @@ def main(argv=None) -> int:
     variant = variant_of(policy, doc, a.variant)
     if variant not in ("", "c1"):
         raise SystemExit(f"{a.policy}: key variant {variant!r}; this tool reads c1 and legacy keys only")
-    if a.backoff and not variant:
-        raise SystemExit("--backoff reads c1 keys only; a legacy table has no coarse-key levels (#620)")
+    if (a.backoff or a.play_backoff) and not variant:
+        raise SystemExit("--backoff/--play-backoff read c1 keys only; a legacy table has no coarse-key levels (#620)")
     visits = None
     if a.pod_result:
         from stalker.tools import export_web_policy as X
@@ -226,7 +250,7 @@ def main(argv=None) -> int:
         st, _ = X.load_pod_result(a.pod_result)
         visits = dict(X.load_model(st).visits)
     res = measure(policy, doc["players"], doc["k"], doc["depth"], a.hands, a.seed, visits, backoff=a.backoff,
-                  rules=rules_of(doc), variant=variant)
+                  play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant)
     json.dump({**res, "variant": variant or "legacy", "file": a.policy.name}, sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0

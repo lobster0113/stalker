@@ -191,3 +191,65 @@ def test_main_reads_a_legacy_file_as_legacy(tmp_path, capsys):
         assert "legacy" in str(e)
     else:
         raise AssertionError("--backoff on a legacy table must stop")
+
+
+# --- #635: play by the page's backoff rule ---
+
+def _mid3(play):
+    from pathlib import Path
+    pol, doc = H.load_policy(Path("web/app/policy/mid-3.json"))
+    return H.measure(pol, doc["players"], doc["k"], doc["depth"], 20, 5, rules=H.rules_of(doc),
+                     variant=H.variant_of(pol, doc), play_backoff=play, backoff=True)
+
+
+def _levels(r):
+    keys = ("decisions", "exact", "L1", "L2", "uniform")
+    return {st: {k: c[k] for k in keys} for st, c in r["by_backoff"]["by_street"].items()}
+
+
+def test_play_backoff_levels_are_exact_and_the_trajectory_differs_from_uniform_play():
+    uni, bo = _mid3(False), _mid3(True)
+    assert "play" not in uni and uni["schema_version"] == 2
+    assert bo["play"] == "backoff" and bo["schema_version"] == 3 and bo == _mid3(True)
+    assert _levels(uni) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, uniform=1),
+                            "1": dict(decisions=14, exact=6, L1=2, L2=1, uniform=5),
+                            "2": dict(decisions=4, exact=1, L1=2, L2=0, uniform=1),
+                            "3": dict(decisions=0, exact=0, L1=0, L2=0, uniform=0)}
+    assert _levels(bo) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, uniform=1),
+                           "1": dict(decisions=13, exact=6, L1=1, L2=1, uniform=5),
+                           "2": dict(decisions=3, exact=1, L1=1, L2=0, uniform=1),
+                           "3": dict(decisions=0, exact=0, L1=0, L2=0, uniform=0)}
+    for r in (uni, bo):
+        for c in r["by_backoff"]["by_street"].values():
+            assert c["exact"] + c["L1"] + c["L2"] + c["uniform"] == c["decisions"]
+
+
+def test_backoff_row_is_exact_then_coarse_then_none():
+    a = "BTN|n3|1|1|0|2|0|0|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0"
+    third = a.replace("s4:4", "s5:5")
+    pol = {a: [1.0, 0.0]}
+    tabs = H.coarse_tables(pol)
+    assert H.backoff_row(pol, tabs, a, 2) == ([1.0, 0.0], 0)
+    assert H.backoff_row(pol, tabs, third, 2) == ([1.0, 0.0], 1)
+    assert H.backoff_row(pol, tabs, third, 3) == (None, 3)
+
+
+def test_main_play_backoff_flag_and_legacy_refusal(tmp_path, capsys):
+    import shutil
+    p = tmp_path / "mid-3.json"
+    shutil.copy("web/app/policy/mid-3.json", p)
+    assert H.main([str(p), "--hands", "1"]) == 0
+    off = json.loads(capsys.readouterr().out)
+    assert "play" not in off and "by_backoff" not in off
+    assert H.main([str(p), "--hands", "1", "--play-backoff"]) == 0
+    on = json.loads(capsys.readouterr().out)
+    assert on["play"] == "backoff" and "by_backoff" in on
+    leg = tmp_path / "t-3.json"
+    leg.write_text(json.dumps({"q": 255, "players": N3, "k": K, "depth": DEPTH,
+                               "policy": {"0|0|1|1|0|2|0|fcra|e0": [255, 0]}}), encoding="utf-8")
+    try:
+        H.main([str(leg), "--play-backoff"])
+    except SystemExit as e:
+        assert "legacy" in str(e)
+    else:
+        raise AssertionError("--play-backoff on a legacy table must stop")
