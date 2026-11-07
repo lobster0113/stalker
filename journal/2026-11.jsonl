@@ -633,3 +633,4 @@
 {"ts":"2026-11-07T03:41:41Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-07T04:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd parity (reviewer); no even PRs or merge retries","friction":""}
 {"ts":"2026-11-07T04:41:40Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: open odd PR #599 already has VERDICT CHANGES at head d723a9c; no new commits, skipped","friction":""}
+{"ts":"2026-11-07T04:53:34Z","role":"builder-b","outcome":"pr_opened","issue":597,"pr":632,"notes":"AIVAT chance-node corrections + --aivat CLI; pytest not-slow 1630 passed locally, full gate left to CI","friction":"gates quick local >580s (timed out), ran pytest -m not slow ~21min instead"}
