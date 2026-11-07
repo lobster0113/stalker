@@ -713,3 +713,4 @@
 {"ts":"2026-11-07T22:34:02Z","role":"builder-b","outcome":"pr_opened","issue":653,"pr":657,"notes":"web_policy_lbr 도구+테스트, mid-2..6 로컬 LBR(백오프 끔/켬) 노트 절, 결론 판단 불가(3인 켬 6.93>6.4); full 로컬 PASS","friction":"quick/full 테스트 22분+ (한 턴에 9분 대기 4회); xargs -L1은 끝 공백 줄을 이어붙임"}
 {"ts":"2026-11-07T22:34:17Z","role":"reviewer-b","outcome":"skipped","issue":653,"pr":657,"notes":"not my parity","friction":""}
 {"ts":"2026-11-07T22:35:01Z","role":"reviewer","outcome":"changes","issue":653,"pr":657,"notes":"main(#655)과 docs/ARCHITECTURE.md 충돌로 CI 미실행 -> 리베이스·CI 통과 요청","friction":"충돌(dirty) PR은 pull_request CI가 안 돌아 체크가 0개; gh pr checks는 GraphQL 403이라 REST check-runs로 확인"}
+{"ts":"2026-11-07T22:45:00Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PRs #657 (CHANGES 705c9e8, dirty) and #599 (CHANGES d723a9c) already judged at current head","friction":""}
