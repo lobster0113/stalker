@@ -44,10 +44,71 @@ test("a policy without key_variant (6-max mid) keeps the legacy key", () => {
   assert.equal(d.variant, "");
 });
 
-test("c1 postflop throws (b1 step fields not ported) and an unknown variant is refused", () => {
+// mid-3.json rows are integers over q (the page divides on load, web/demo/index.html tpgLoad).
+const decoded = (doc) => { const q = doc.q || 255, pol = new Map(); for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], (v) => v / q)); return { pol, q }; };
+
+test("3-handed mid c1 postflop (#608): seeded hands reach the flop and their c1+b1 keys read mid-3.json rows", () => {
   const meta = INDEX.tiers.mid.by_players["3"];
-  let s = firstDecision(3, meta);
-  while (s.street === 0) s = T.apply(s, T.legal(s).includes("c") ? "c" : "k");
-  assert.throws(() => T.decisionKey(s, T.initialRanges(3), "mid", "c1"), /c1 postflop key needs the b1 step fields/);
+  const doc = read("../policy/mid-3.json"), { pol, q } = decoded(doc);
+  // The table keeps postflop rows seen >= min_visits times, so most limped or multiway flops miss. A single
+  // raised pot (BTN opens its likeliest raise, SB folds, BB calls, then checks down) hits within a few deals.
+  let post = 0, hits = 0;
+  for (let h = 0; h < 30 && hits === 0; h++) {
+    const perm = Array.from({ length: 52 }, (_, i) => (i * 17 + h * 5) % 52);
+    let s = T.newHand({ n: 3, holes: [perm.slice(0, 2), perm.slice(2, 4), perm.slice(4, 6)], board: perm.slice(6, 11), ...T.menuOf(meta) });
+    let ranges = T.initialRanges(3);
+    while (!s.done) {
+      const r = T.actionProbs(pol, s, ranges, "mid", "c1");
+      let a;
+      if (s.street === 0) {
+        if (s.toAct === 0) a = r.acts.filter((x) => x[0] === "r").reduce((b, x) => (r.probs[r.acts.indexOf(x)] > r.probs[r.acts.indexOf(b)] ? x : b));
+        else a = s.toAct === 1 ? "f" : r.acts.includes("c") ? "c" : "k";
+      } else {
+        post++;
+        if (!r.key.startsWith("call|")) assert.match(r.key, /\|e\d+\|o[-0-3]v[-0-2]k[-0-2]$/, r.key);
+        if (r.fromTable) {
+          hits++;
+          const row = doc.policy[r.key];
+          assert.equal(r.probs.length, row.length);
+          r.probs.forEach((p, i) => assert.ok(Math.abs(p - row[i] / q) < 1e-9, `${r.key}: ${p} vs ${row[i]}/${q}`));
+        }
+        a = r.acts.includes("k") ? "k" : "c";
+      }
+      ranges = T.updateRanges(pol, r, ranges, a);
+      s = T.apply(s, a);
+    }
+  }
+  console.log(`c1 mid-3 postflop: ${post} decisions, ${hits} from the table`);
+  assert.ok(post > 0, "no postflop decision reached");
+  assert.ok(hits > 0, `no c1 postflop key of ${post} was a row of mid-3.json`);
+});
+
+test("an unknown key variant is refused", () => {
+  const meta = INDEX.tiers.mid.by_players["3"];
   assert.throws(() => T.decisionKey(firstDecision(3, meta), T.initialRanges(3), "mid", "b1"), /key variant "b1"/);
+});
+
+test("c1 call-or-fold spot (#610): a policy holding the call| row answers it from the table", () => {
+  // Per-seat-count exports used to drop the shared call| keys, so these spots always played uniform.
+  const meta = INDEX.tiers.mid.by_players["3"];
+  let s = firstDecision(3, meta), ranges = T.initialRanges(3);
+  const empty = new Map();
+  for (let i = 0; i < 4 && !s.done; i++) {
+    const lg = T.legal(s);
+    if (lg.join("") === "fc") break;
+    const r = T.actionProbs(empty, s, ranges, "mid", "c1");
+    const a = lg.includes("a") ? "a" : lg[lg.length - 1];   // shove (or the largest size) until someone faces it
+    ranges = T.updateRanges(empty, r, ranges, a);
+    s = T.apply(s, a);
+  }
+  assert.equal(T.legal(s).join(""), "fc", `no call-or-fold spot reached: legal ${T.legal(s).join(",")}`);
+  const miss = T.actionProbs(empty, s, ranges, "mid", "c1");
+  assert.ok(miss.key.startsWith("call|"), miss.key);
+  assert.equal(miss.fromTable, false);
+  const q = 255, row = [37, 218], pol = new Map([[miss.key, Float64Array.from(row, (v) => v / q)]]);
+  const r = T.actionProbs(pol, s, ranges, "mid", "c1");
+  assert.equal(r.fromTable, true, `${r.key} not read from the fixture row`);
+  r.probs.forEach((p, i) => assert.ok(Math.abs(p - row[i] / q) < 1e-9, `${r.key}: ${p} vs ${row[i]}/${q}`));
+  const obj = T.actionProbs({ [miss.key]: row.map((v) => v / q) }, s, ranges, "mid", "c1");
+  assert.equal(obj.fromTable, true);
 });

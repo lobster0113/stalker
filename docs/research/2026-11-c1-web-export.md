@@ -110,6 +110,22 @@ M2·M3도 인원별 최소 문턱이 같다(2인 10, 3–5인 5, 6인 2). 다만
 
 실측이 추정보다 3.7–7.6% 작다. 키당 바이트가 줄어든 원인은 측정하지 않았다(「추정」: 문턱으로 남은 키는 방문이 많은 쪽이라 줄었을 수 있다). 모든 인원이 상한 안이라 더 높은 문턱을 제시할 필요는 없다.
 
+## 실측: call| 포함 재-export (#615)
+
+#610(PR #613, main 3021f8f)이 공유 `call|` 키를 모든 인원 파일에 넣도록 고친 뒤, 위 절과 같은 입력(`export_min_visits=0`, `export_min_visits_by_players=2:10,3:5,4:5,5:5,6:2`, M4 run 41813684540, tier=mid, current)으로 `cloud.yml mode=export` run **42259084460**을 디스패치했다. 값은 ops 커밋 `5b5f2875`(`ops:cloud/exports/41813684540.json`, `ops:cloud/policies/41813684540/`)에서 옮겼고 직접 돌린 값은 없다(CLAUDE.md). 이전 값은 `fd521c42`(위 절). 원장 `ops:budget/ledger.jsonl`에는 이 run id 줄이 0개다.
+
+| 인원 | min_visits | keys | 이전 keys (fd521c42) | 키 증가 | bytes | within_page_budget | sha256 |
+|---|---|---|---|---|---|---|---|
+| 2 | 10 | 18,898 | 18,413 | +485 | 1,321,335 | true | a4287c014ca0f3e58ab0d9d31dc5472d860d884eb0f83e410508a79f2b981008 |
+| 3 | 5 | 36,523 | 36,032 | +491 | 2,556,152 | true | c78a325925b73ea47c15381c5c355917f38aa99b92826d470b718d81d48578ea |
+| 4 | 5 | 20,934 | 20,443 | +491 | 1,391,548 | true | 3f248f0cd2449a8ffd8310315a99fb4f1d91d283221e91c7e7291576ed0bff5b |
+| 5 | 5 | 11,852 | 11,361 | +491 | 751,737 | true | 0b78519957536a050e453ced988d25c838212413dfd10903245986a8647c2cd4 |
+| 6 | 2 | 39,660 | 39,155 | +505 | 2,612,414 | true | c02843ca27a14668b466020eec09afde571376c4347e923bfd19ef1c36bd8e2f |
+
+상한 3,145,728바이트 안이다. 가장 큰 3인이 2,556,152바이트(81.3%), 6인이 2,612,414바이트(83.0%)다. 3–5인은 같은 491개, 2인은 문턱 10이라 485개가 늘었다(키 수 차이는 요약 값의 뺄셈). `index.json`(ops) sha256: `757c320a7e82f44f1f00c1da7961ba6c2a347521a088982aeedf068215251950`.
+
+`web/app/policy/mid-2..5.json`은 `5b5f2875`의 파일과 바이트 동일하게 교체했고, `index.json` mid `by_players` 2–5의 `bytes`·`keys`·`keys_dropped`를 ops `index.json`에서 옮겼다. mid-6(레거시 키) 항목은 그대로다.
+
 ## 후속 (제안, 이 PR 범위 밖)
 1. **(완료, #601) export를 `min_visits=10`으로 다시 디스패치해 실제 바이트 확인**: M4에 `export_min_visits=10`을 넣어 다시 돌리면 `within_page_budget`과 실제 `bytes`가 나와 위 추정을 대체한다. 같은 `ops:cloud/exports/<run>.json`을 덮어쓰므로 이 노트가 인용한 커밋(3f342f4)은 히스토리에서 찾아야 한다. 아티팩트 만료(~12-03) 전에 하고, 정책 파일을 main으로 옮기는 이슈와 묶는다.
 2. **(완료, #596) 인원별 `min_visits`**: `export_web_players`가 인원별 문턱(예 `2:10,3:5,4:5,5:5,6:2`)을 받으면 3–6인이 키를 2–16배 더 남긴다. `area:ai`·`kind:feature` 후보(harness-change, `cloud.yml` 입력 추가).

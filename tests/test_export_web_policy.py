@@ -193,7 +193,7 @@ def mixn(tmp_path_factory):
     return ck, m
 
 
-def test_players_split_a_c1_mix_into_disjoint_complete_files(tmp_path, mixn):
+def test_players_split_a_c1_mix_into_complete_files_sharing_call_keys(tmp_path, mixn):
     from stalker.e3.mccfr import key_players
 
     ck, m = mixn
@@ -209,8 +209,10 @@ def test_players_split_a_c1_mix_into_disjoint_complete_files(tmp_path, mixn):
     assert shared and all(k.startswith("call|") for k in shared)
     for n, doc in docs.items():
         own = {k for k in cur if key_players(k) == n}
-        assert own and set(doc["policy"]) == own and doc["keys"] == len(own) and doc["players"] == n
-    assert sum(d["keys"] for d in docs.values()) == len(cur) - len(shared) == len(cur) - m.shared_keys()
+        assert own and set(doc["policy"]) == own | shared and doc["keys"] == len(own) + len(shared) and doc["players"] == n
+    # every count's own keys land in exactly one file; the shared call| keys in all of them (#610)
+    assert sum(d["keys"] for d in docs.values()) == len(cur) + (len(MIX) - 1) * len(shared)
+    assert len(shared) == m.shared_keys()
     tiers = json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]
     assert tiers["file"] == "beginner-6.json" and tiers["players"] == 6
     assert {k: v["file"] for k, v in tiers["by_players"].items()} == {"2": "beginner-2.json", "4": "beginner-4.json"}
@@ -297,21 +299,34 @@ def test_key_variant_is_written_for_c1_tables_and_left_out_for_legacy_ones(tmp_p
 
 
 def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
-    # #604: mid-2..5 are copied byte for byte from ops fd521c42 (docs/research/2026-11-c1-web-export.md
-    # 「실측: 인원별 문턱」); the index routes them to c1 keys and leaves the 6-max (legacy key) entry alone.
+    # #615: mid-2..5 are copied byte for byte from ops 5b5f2875 (docs/research/2026-11-c1-web-export.md
+    # 「실측: call| 포함 재-export」); the index routes them to c1 keys and leaves the 6-max (legacy key) entry alone.
+    # #610: the earlier copy (ops fd521c42) had no shared `call|` keys, so call-or-fold spots played uniform.
     import hashlib
     from pathlib import Path
 
     pol = Path(__file__).resolve().parents[1] / "web/app/policy"
-    want = {2: "45e5debd6261229a8096417fcc512687bf271ca2c9d71b2c032f1327e8e8ed7d",
-            3: "72df3819591853e0d97ffeba1ddd479ab7a45ad7f5deb159436c20bb26f88d02",
-            4: "1a4dd8df6801278ad14855fce18c0b8bb1f1717401ff2bc02fd58910e46b3c41",
-            5: "c629333de29783159ae93aa438c3f30b25019856162a2366d2e68537e95494ba"}
+    want = {2: "a4287c014ca0f3e58ab0d9d31dc5472d860d884eb0f83e410508a79f2b981008",
+            3: "c78a325925b73ea47c15381c5c355917f38aa99b92826d470b718d81d48578ea",
+            4: "3f248f0cd2449a8ffd8310315a99fb4f1d91d283221e91c7e7291576ed0bff5b",
+            5: "0b78519957536a050e453ced988d25c838212413dfd10903245986a8647c2cd4"}
     mid = json.loads((pol / "index.json").read_text(encoding="utf-8"))["tiers"]["mid"]
     for n, sha in want.items():
         body = (pol / f"mid-{n}.json").read_bytes()
-        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from ops fd521c42; re-copy it"
+        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from ops 5b5f2875; re-copy it"
+        policy = json.loads(body)["policy"]
+        assert any(k.startswith("call|") for k in policy), f"mid-{n}.json has no call| keys; re-export after #610"
         e = mid["by_players"][str(n)]
         assert (e["file"], e["players"], e["run_id"], e["key_variant"], e["bytes"]) == (
             f"mid-{n}.json", n, "41813684540", "c1", len(body))
     assert (mid["run_id"], mid["file"]) == ("40919207457", "mid-6.json") and "key_variant" not in mid
+
+
+def test_keep_players_keeps_the_shared_call_keys_in_every_seat_count():
+    # #610: `call|` keys name no seat count (mixn shares them), so each per-count file must carry them;
+    # dropping them left mid-3.json with none and the page played every call-or-fold spot uniform.
+    pol = {"call|0|1|2|fc": [0.3, 0.7], "BTN|n3|x|1": [0.5, 0.5], "BTN|n4|x|1": [0.2, 0.8],
+           "b|n3|y|2": [1.0, 0.0], "p|SB|n4|z|3": [0.1, 0.9]}
+    assert set(X.keep_players(pol, 3)) == {"call|0|1|2|fc", "BTN|n3|x|1", "b|n3|y|2"}
+    assert set(X.keep_players(pol, 4)) == {"call|0|1|2|fc", "BTN|n4|x|1", "p|SB|n4|z|3"}
+    assert set(X.keep_players(pol, 5)) == {"call|0|1|2|fc"}
