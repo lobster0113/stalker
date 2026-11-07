@@ -208,13 +208,14 @@ test("backoff (#623): legacy tables (6-max beginner, mid, pro) never back off", 
   assert.equal(T.actionProbs(pol, post.s, post.ranges, "mid", "").fromTable, false);
 });
 
-test("backoff (#623): coarse tables of mid-3 (largest c1 file) are built once per policy", () => {
-  const { pol } = decoded(read("../policy/mid-3.json"));
+test("backoff (#623): coarse tables of the largest c1 file are built once per policy", () => {
+  const big = Object.values(INDEX.tiers.mid.by_players).filter(e => e.key_variant === "c1").sort((a, b) => b.bytes - a.bytes)[0];
+  const { pol } = decoded(read("../policy/" + big.file.split("/").pop()));
   const t0 = performance.now(), tabs = T.coarseTables(pol), ms = performance.now() - t0;
   assert.equal(tabs.length, 3);
   assert.equal(T.coarseTables(pol), tabs, "not cached per policy");
   assert.ok(tabs[2].size < tabs[1].size, "L3 must merge L2 keys of positions in the same group");
-  console.log(`coarse tables mid-3: ${pol.size} keys -> L1 ${tabs[0].size}, L2 ${tabs[1].size}, L3 ${tabs[2].size} in ${ms.toFixed(0)} ms (reference only)`);
+  console.log(`coarse tables ${big.file}: ${pol.size} keys -> L1 ${tabs[0].size}, L2 ${tabs[1].size}, L3 ${tabs[2].size} in ${ms.toFixed(0)} ms (reference only)`);
 });
 
 test("backoff L3 (#645): a key whose L2 key misses reads the mean row of its position group", () => {

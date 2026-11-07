@@ -1310,7 +1310,8 @@ await inspect("home-move", "#move");
 {
   const C1_RUN = "41813684540";
   const C1_LONG_TASK_MS = 2000;
-  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of mid-3 (largest c1 file) at load, #623
+  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of the largest c1 file (mid-2 since #640) at load, #623
+  const C1_LOAD_MS = 30000;    // click on the mid tier -> policy parsed (mid-2 is 3 MB), #640
   // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
   const coarseRow = (file, k, lv, m) => {
     const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
@@ -1333,7 +1334,7 @@ await inspect("home-move", "#move");
     }
     await pg.close();
   }
-  for (const n of [3]) {
+  for (const n of [2, 3]) {
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await autoContinue(pg);
     pg.setDefaultTimeout(120_000);
@@ -1345,8 +1346,16 @@ await inspect("home-move", "#move");
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
     await pg.selectOption("#c-seats", String(n));
+    const loadT0 = Date.now();
     await pg.click("#set-tier [data-v='mid']");
     await pg.waitForFunction(k => TPG.pol[k], `mid-${n}`, { timeout: 120_000 });
+    const loadMs = Date.now() - loadT0;
+    if (n === 2) {   // #640: the largest c1 file loads and builds its coarse tables inside the budgets
+      const cms = await pg.evaluate(() => TPG.coarseMs?.["mid-2"]);
+      must(loadMs < C1_LOAD_MS, `c1 2인: mid-2 로드 ${loadMs}ms ≥ ${C1_LOAD_MS}ms — 파일 크기·파싱 확인 (#640)`);
+      must(Number.isFinite(cms) && cms < C1_COARSE_MS, `c1 2인: 거친 표 생성 ${cms}ms (예산 ${C1_COARSE_MS}ms) (#640)`);
+      console.log(`c1 2인 mid-2 성능: 로드 ${loadMs}ms, 거친 표 ${Number(cms).toFixed(0)}ms`);
+    }
     const ms = await pg.evaluate(() => [...document.querySelectorAll("#model-status .ms")].map(e => e.textContent));
     const mid = ms.find(t => t.startsWith("중수")) || "";
     must(mid.includes(`상대 ${n - 1}명 = TP-GTO 중수 정책`) && mid.includes(`run ${C1_RUN}`) && !mid.includes("학습 중 ·"),
