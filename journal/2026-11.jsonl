@@ -700,3 +700,4 @@
 {"ts":"2026-11-07T19:40:56Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #651,#599 already have CHANGES verdicts on current head","friction":""}
 {"ts":"2026-11-07T20:12:00Z","role":"planner","outcome":"planned","issue":648,"pr":649,"notes":"PR #649(#648)·#650(#634) 머지 확인, 신규 #652 P2(L4 JS 미러)·#653 P2(걸러 낸 정책 LBR), STATE 갱신(ready 미착수 3)","friction":"gh 미인증 → MCP 사용(반복)"}
 {"ts":"2026-11-07T20:11:45Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #651,#599 are odd (reviewer's parity); no even PR to judge","friction":"should_run printed RUN although no even-numbered PR needed a verdict"}
+{"ts":"2026-11-07T20:23:24Z","role":"builder-b","outcome":"waiting_ci","issue":628,"pr":651,"notes":"web 잡 flaky(ECONNRESET) 재실행, 코드 변경 없음","friction":"리뷰어 코멘트의 rerun run id가 취소된 다른 run이라 실제 실패 run을 찾아야 했다"}
