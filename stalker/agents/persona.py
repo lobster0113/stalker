@@ -45,14 +45,22 @@ class PersonaParams:
     # Taken BEFORE fold_cbet_turn/fold_river, so with it set those two are overridden: measured folds land above them (docs/research/2026-11-persona-wtsd-sweep.md)
     giveup_turn: float | None = None  # replaces giveup_weak on the turn only (#533); None = giveup_weak applies to turn and river
     giveup_nonc: float | None = None  # extra fold chance (hands below 0.9) facing a bet that is not a c-bet (donk/probe), lowers WTSD only (#569); None/0 = off, no rng draw
+    # Flop cell levers (#670): human pros c-bet a multiway flop about half as often as a heads-up one and a 3-bet pot more
+    # often (population-stats note §10.1.1). Multiway = 3+ players saw the flop, 3-bet pot = 2+ preflop raises, the cells of
+    # persona_stats.flop_cell. None = cbet_flop/fold_cbet_flop apply to every cell; no rng draw depends on them.
+    cbet_flop_mw_mult: float | None = None  # multiplies cbet_flop on a multiway flop
+    cbet_flop_3bp_mult: float | None = None  # multiplies cbet_flop after 2+ preflop raises (may exceed 1; the result is capped at 1)
+    fold_cbet_flop_mw: float | None = None  # replaces fold_cbet_flop on a multiway flop
 
     def __post_init__(self) -> None:
         for name in ("vpip", "pfr", "aggression", "fold_to_bet", "cbet_flop", "cbet_turn", "cbet_river",
                      "fold_cbet_flop", "fold_cbet_turn", "fold_river", "river_bluff_share", "donk_flop", "probe_turn",
-                     "giveup_weak", "giveup_turn", "giveup_nonc"):
+                     "giveup_weak", "giveup_turn", "giveup_nonc", "cbet_flop_mw_mult", "fold_cbet_flop_mw"):
             v = getattr(self, name)
             if v is not None and not 0.0 <= v <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1], got {v}")
+        if self.cbet_flop_3bp_mult is not None and not 0.0 <= self.cbet_flop_3bp_mult <= 2.0:
+            raise ValueError(f"cbet_flop_3bp_mult must be in [0, 2], got {self.cbet_flop_3bp_mult}")
         if self.pfr > self.vpip:
             raise ValueError("pfr must be <= vpip")
 
@@ -100,16 +108,24 @@ PRESETS_V2: dict[str, PersonaParams] = {
 # but nit/weak-tight lead far more than the note since opponents must fold for their WTSD to fall that low. giveup_turn is
 # lower than giveup_weak so turn folds sit near fold_cbet_turn; giveup_weak (river) of loose types stays below the tight
 # types' so river folds keep their order. #569: values from the seeded fit (stalker/agents/persona_fit.py, search 2 in the note);
-# giveup_nonc stays off because no fit using it kept every seat's WTSD within 6pp.
+# giveup_nonc stays off because no fit using it kept every seat's WTSD within 6pp. #670 refit pro's probe_turn (0.4 -> 0.3)
+# and giveup_turn (0.65 -> 0.6) with its flop cell levers: a grid over those two and pro's flop folds, keeping the mixed
+# test's WTSD and turn/river fold bounds.
 _WTSD_LEVERS = {
     "nit": (0.8, 1.0, 1.0, 1.0, None), "weak_tight": (0.5, 0.8, 1.0, 0.7, None), "tag": (0.0, 0.7, 1.0, 0.7, None),
     "lag": (0.02, 0.7, 0.8, 0.68, None), "loose_passive": (0.15, 0.5, 0.7, 0.4, None),
-    "calling_station": (0.1, 0.4, 0.68, 0.25, None), "maniac": (0.2, 0.85, 0.65, 0.25, None), "pro": (0.0, 0.4, 1.0, 0.65, None),
+    "calling_station": (0.1, 0.4, 0.68, 0.25, None), "maniac": (0.2, 0.85, 0.65, 0.25, None), "pro": (0.0, 0.3, 1.0, 0.6, None),
 }
 PRESETS_V2 = {k: dataclasses.replace(v, donk_flop=_WTSD_LEVERS[k][0], probe_turn=_WTSD_LEVERS[k][1],
                                      giveup_weak=_WTSD_LEVERS[k][2], giveup_turn=_WTSD_LEVERS[k][3],
                                      giveup_nonc=_WTSD_LEVERS[k][4])
               for k, v in PRESETS_V2.items()}
+# #670: pro's flop c-bet per cell instead of one "GTO" value — targets are the human pros of the PHH sample (note §10.1:
+# heads-up single-raised 53, heads-up 3-bet+ 62, multiway single-raised 29, fold to c-bet heads-up single-raised 44,
+# multiway 71). [assumption] levels fitted on seeded sessions (tests/test_persona_v2.py `test_pro_flop_cells_hit_human_targets`):
+# realized folds sit a few points above the lever, so fold_cbet_flop is set below 44. Other types keep one value (#670 scope).
+PRESETS_V2["pro"] = dataclasses.replace(PRESETS_V2["pro"], cbet_flop=0.545, cbet_flop_3bp_mult=1.14, cbet_flop_mw_mult=0.53,
+                                        fold_cbet_flop=0.38, fold_cbet_flop_mw=0.66)
 
 
 def persona_params(name: str) -> PersonaParams:
@@ -133,16 +149,22 @@ class PersonaAgent(Agent):
         self.params, self.rng = params, rng
         self._pf_aggr: int | None = None  # seat of the last preflop raiser in the current hand
         self._first_bettor: dict[int, int] = {}  # street (board size 3/4/5) -> seat of its first bettor
+        self._live: set[int] = set()  # seats dealt in and not folded preflop = players on the flop
+        self._pf_raises = 0
 
     def observe(self, event: Event) -> None:
         # Per-hand memory for c-bet logic only; the table's public events give the street boundaries that
         # `action_history` lacks. It never touches the rng, so personas without street params are unchanged.
         if event.type == "NEW_HAND":
-            self._pf_aggr, self._first_bettor = None, {}
+            self._pf_aggr, self._first_bettor, self._live = None, {}, set(event.data["seat_players"])
+            self._pf_raises = 0
+        elif event.type == "ACTION" and event.data["action"] == "fold" and event.data["street"] == 0:
+            self._live.discard(event.data["seat"])
         elif event.type == "ACTION" and event.data["action"] == "raise":
             seat, street = event.data["seat"], event.data["street"]
             if street == 0:
                 self._pf_aggr = seat
+                self._pf_raises += 1
             else:
                 self._first_bettor.setdefault(street, seat)
 
@@ -174,8 +196,14 @@ class PersonaAgent(Agent):
         g = min(1.0, p.aggression * (0.6 + 0.8 * s))  # chance to bet or raise
         wm = _weak_mass(p.vpip)
         street = len(obs.board) - 2  # 1 flop, 2 turn, 3 river
+        mw = street == 1 and len(self._live or obs.in_hand) > 2
         if la.call_amount == 0:
             cb = (p.cbet_flop, p.cbet_turn, p.cbet_river)[street - 1]
+            if cb is not None and street == 1:
+                if mw and p.cbet_flop_mw_mult is not None:
+                    cb *= p.cbet_flop_mw_mult
+                if self._pf_raises >= 2 and p.cbet_flop_3bp_mult is not None:
+                    cb *= p.cbet_flop_3bp_mult
             if cb is not None and self._pf_aggr == obs.seat:
                 weak = s <= _WEAK
                 share = p.river_bluff_share if street == 3 else None
@@ -196,6 +224,8 @@ class PersonaAgent(Agent):
         if give is not None and street >= 2 and s < 0.9 and la.can_fold and self.rng.random() < give:
             return Action("fold")
         fold = (p.fold_cbet_flop, p.fold_cbet_turn, p.fold_river)[street - 1]
+        if mw and p.fold_cbet_flop_mw is not None:
+            fold = p.fold_cbet_flop_mw
         if street < 3:  # a c-bet: the first bet of the street came from the preflop aggressor
             fold = fold if self._first_bettor.get(len(obs.board)) == self._pf_aggr != obs.seat else None
             # note: also true when facing a re-raise after that first bet, unlike persona_stats' `fcb` (n == 1 only)
