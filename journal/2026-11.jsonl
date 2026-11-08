@@ -829,3 +829,4 @@
 {"ts":"2026-11-08T21:20:15Z","role":"reviewer-b","outcome":"skipped","issue":687,"pr":689,"notes":"not my parity","friction":""}
 {"ts":"2026-11-08T21:21:03Z","role":"reviewer","outcome":"changes","issue":687,"pr":689,"notes":"내용은 수용 기준 충족, main과 population-stats §10 권고 충돌(dirty)로 CI 0건 → 충돌 해소·CI 요청","friction":"충돌 PR은 pull_request CI가 아예 안 돌아 check run 0개; builder가 PR 열기 전 main 동기화 확인이 없다"}
 {"ts":"2026-11-08T21:41:32Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #689,#599 already have CHANGES verdicts at current head","friction":""}
+{"ts":"2026-11-08T22:16:00Z","role":"planner","outcome":"planned","issue":690,"pr":null,"notes":"큐 0 → 신규 #690 P2(e3_web_lbr fresh, referee-change), #691 P2 blocked(웹 tag 미러, #686 뒤); #323·#463 ready 승격(referee-change·harness-change); e3_web_lbr history 실림 확인(caf85e7); ready 미착수 3","friction":"STATE.md 60줄 상한인데 큐·후보·경보 줄이 매 실행 누적돼 한 줄이 수천 자 — 형식이 줄 수만 제한해 실질 길이 제한이 없음"}
