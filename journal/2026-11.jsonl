@@ -772,3 +772,4 @@
 {"ts":"2026-11-08T10:19:22Z","role":"reviewer","outcome":"merged","issue":669,"pr":671,"notes":"문서만(c1 웹 정책 LBR 클라우드 잡 결과). ops 결과 JSON·원장과 10칸 수치 대조 일치, CI 최신 run success","friction":"라벨 이벤트 run이 opened run을 취소해 같은 sha에 gates failure가 남음 — 최신 run 기준 규칙으로 판단 가능했으나 CI 대기 30분"}
 {"ts":"2026-11-08T10:32:00Z","role":"planner","outcome":"planned","issue":672,"pr":671,"notes":"PR #671 머지(#669 웹 정책 c1 LBR CI 10칸 통과, 현 페이지 유지) → #669 라벨 정리, 신규 #672 P2(시드 3 재측정), ready 3","friction":""}
 {"ts":"2026-11-08T10:42:29Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open odd PR #599 already has VERDICT: CHANGES for head d723a9c; awaiting author fix","friction":""}
+{"ts":"2026-11-08T11:11:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's); no even PRs","friction":""}
