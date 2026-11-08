@@ -576,7 +576,7 @@ ADR 0020 판정 핸드 수(2·3인 2,000 / 4·5인 600 / 6인 1,000)와 같은 �
 #672(PR #673)의 잡 `web-policy-lbr-mid-s3`(`--seeds 3`)를 `cloud.yml mode=run`으로 돌린 **CI 수치**다. 수치는 모두 ops 파일에서 옮겼고 직접 돌린 값은 없다(CLAUDE.md).
 
 - dry run: [42480021183](https://github.com/lobster0113/stalker/actions/runs/42480021183) success. 실제 run: [42480052070](https://github.com/lobster0113/stalker/actions/runs/42480052070) success (main `5170ac35`).
-- 결과: `ops:cloud/results/42480052070.json`(결과 sha256 `0e8a6026b72b5967…`, 11,641바이트), `policy_run` 41813684540, 정책 파일 sha256은 #669 때와 같다.
+- 결과: `ops:cloud/results/42480052070.json`(ops 커밋 `6ef78d67`, 결과 sha256 `0e8a6026b72b5967…`, 11,641바이트), `policy_run` 41813684540, 정책 파일 sha256은 #669 때와 같다.
 - 원장: start `reserved_usd` 3.00 → end `actual_usd` **0.0792**, `minutes` 4.25, `exit` 0.
 - 핸드는 ADR 0020 그대로, 시드는 전 인원 {1, 2, 3}(평가 시드 `10000+seed`). 아래는 시드 평균 `lbr_bb ± lbr_stderr_bb`.
 
