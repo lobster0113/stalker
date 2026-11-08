@@ -774,3 +774,4 @@
 {"ts":"2026-11-08T10:42:29Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open odd PR #599 already has VERDICT: CHANGES for head d723a9c; awaiting author fix","friction":""}
 {"ts":"2026-11-08T11:11:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's); no even PRs","friction":""}
 {"ts":"2026-11-08T11:21:14Z","role":"builder-b","outcome":"pr_opened","issue":672,"pr":673,"notes":"web-policy-lbr-mid-s3 job (--seeds 3) + test; dispatch/record after merge","friction":"gates quick 1274s/full ~1650s locally (a); 10min tool limit forces nohup+polling"}
+{"ts":"2026-11-08T11:21:31Z","role":"reviewer-b","outcome":"skipped","issue":672,"pr":673,"notes":"not my parity","friction":""}
