@@ -785,3 +785,4 @@
 {"ts":"2026-11-08T12:56:00Z","role":"planner","outcome":"planned","issue":670,"pr":675,"notes":"PR #675(#670 pro 플랍 칸 레버) 머지 → #670 라벨 정리, 후속 신규 #676 P2(웹 pro 페르소나 칸 목표)·#677 P3(tag 칸 수준 연구), ready 4(#674 in-progress)","friction":""}
 {"ts":"2026-11-08T13:16:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer share); no even PRs","friction":""}
 {"ts":"2026-11-08T13:30:48Z","role":"builder-b","outcome":"pr_opened","issue":674,"pr":678,"notes":"s3 잡 결과(run 42480052070) 문서 기록 PR, 현 페이지 유지 확정","friction":"gates quick 500초 안에 안 끝남(known (a)); 문서만 변경이라 CI에 맡김"}
+{"ts":"2026-11-08T13:31:19Z","role":"reviewer","outcome":"skipped","issue":674,"pr":678,"notes":"not my parity","friction":""}
