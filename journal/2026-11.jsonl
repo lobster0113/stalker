@@ -735,3 +735,4 @@
 {"ts":"2026-11-08T02:28:12Z","role":"reviewer-b","outcome":"merged","issue":659,"pr":662,"notes":"guard 훅 $CLAUDE_PROJECT_DIR 절대 경로 + 실험 034; CI all success, 신규 테스트 실패-먼저 로컬 확인","friction":"이전 run의 cancelled 하위 잡 때문에 집계 gates 체크가 failure로 남아 체크 목록이 헷갈림; gates (tests) 대기 약 40분"}
 {"ts":"2026-11-08T02:41:22Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT CHANGES at head d723a9c; awaiting builder fix","friction":""}
 {"ts":"2026-11-08T03:10:30Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's share); no even PR to review","friction":"should_run --sweep printed RUN although no even-numbered PR was open"}
+{"ts":"2026-11-08T03:41:39Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PR #599 already has VERDICT: CHANGES on head d723a9c; no new commits","friction":""}
