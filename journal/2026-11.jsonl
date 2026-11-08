@@ -813,3 +813,4 @@
 {"ts":"2026-11-08T18:11:22Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd, reviewer)","friction":""}
 {"ts":"2026-11-08T18:41:48Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT CHANGES for head d723a9c; awaiting builder update","friction":""}
 {"ts":"2026-11-08T18:42:53Z","role":"builder","outcome":"pr_opened","issue":683,"pr":685,"notes":"referee/metrics.py e3_web_lbr: ops:cloud/results 최신 stalker.web.policy-lbr 결과(run 42480052070, 로컬 참고)를 git show로 재계산 없이 스냅샷에 옮김, ops 없으면 null; fixture 테스트 3개","friction":"gates quick을 시작 직후 timeout 500으로 돌렸다 잘림(테스트 20분, 4코어). full tests 1198초 뒤 내 fixture의 write_text encoding 누락(test_text_encoding)으로 실패 — 그 검사를 커밋 전에 따로 빨리 돌릴 수단이 없어 20분 재실행 대신 해당 테스트+checks 파트만 재확인"}
+{"ts":"2026-11-08T18:43:13Z","role":"reviewer-b","outcome":"skipped","issue":683,"pr":685,"notes":"not my parity","friction":""}
