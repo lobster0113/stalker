@@ -32,6 +32,13 @@ same length are averaged (one found = that row). With `--play-backoff` the play 
 #652 (`tpgto.js backoffRow`); `--miss-report` then breaks down what is still uniform after L4. The output carries
 `"l4_neighbor": true`, L4 in `by_backoff.levels` and is schema_version 5. Off, the output is the one without the flag, byte for byte.
 
+`--fidelity` (#666, needs `--play-backoff`) weighs the backoff rows by what the page really plays: at every decision whose
+exact key hits, that key's row is taken out of the coarse tables (`backoff_fidelity.loo_row`, mean combine, L4 as
+`--l4-neighbor` says) and the first approximate level's row is set against the exact row, so a key that comes up often
+counts as often. Output `"fidelity"`: street (0..3) -> level (L1..L3, L4, uniform) -> `n` decisions, `tv_mean`,
+`uniform_tv_mean`, `argmax_agree`, `uniform_argmax_agree` (uniform counts 1/m; ties go to the smallest index). The play is
+unchanged; the output is schema_version 6 and, without the flag, the one without it, byte for byte.
+
     L1  drop the b1 hand items (`o<outs>v<vuln>k<block>`) and the stack depths (`s<mine>:<opps>` -> `s*`)
     L2  L1, and the public facts (`u<before><after>`, `h`, `g`) and the SPR step -> `*`; a `call|` key drops only
         its opponent count (it has no b1, stack or fact items)
@@ -63,7 +70,7 @@ from stalker.e3 import tp_key as K
 
 SCHEMA = "stalker.web.hit-rate"
 SCHEMA_VERSION = 2   # 2: optional by_backoff (#618); a v1 output is the same without it. 3 = play_backoff (#635),
-                     # 4 = 3 + miss_report (#638), 5 = l4_neighbor (#648); each is the previous output plus one block
+                     # 4 = 3 + miss_report (#638), 5 = l4_neighbor (#648), 6 = fidelity (#666); each is the previous output plus one block
 MIN_VISITS = (0, 1, 2, 5, 10)
 LEVELS = ("L1", "L2", "L3")
 _EQ = re.compile(r"e\d+")
@@ -219,11 +226,17 @@ def _row(policy: dict, key: str, m: int):
 def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, seed: int,
             visits: dict | None = None, min_visits=MIN_VISITS, backoff: bool = False,
             rules: dict | None = None, variant: str = "c1", play_backoff: bool = False,
-            miss_report: int = 0, l4_neighbor: bool = False) -> dict:
+            miss_report: int = 0, l4_neighbor: bool = False, fidelity: bool = False) -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`). `l4_neighbor`: the L4 equity-neighbor level (module doc; implies `backoff`)."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `fidelity`: the play-weighted leave-one-out quality of the backoff rows (module doc; needs `play_backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`). `l4_neighbor`: the L4 equity-neighbor level (module doc; implies `backoff`)."""
     if miss_report and not play_backoff:
         raise ValueError("miss_report needs play_backoff (#638)")
+    if fidelity and not play_backoff:
+        raise ValueError("fidelity needs play_backoff (#666)")
+    if fidelity:
+        from stalker.tools import backoff_fidelity as BF   # it imports this module
+        sums = BF.sum_tables(policy)
+        fid: dict = {str(st): {} for st in range(4)}
     backoff = backoff or play_backoff or l4_neighbor
     l4 = tier_k - 1 if l4_neighbor else None
     rng = np.random.default_rng([seed, 611, players])
@@ -257,6 +270,16 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
                 for c in (tab["street"][str(s.street)], tab[kind]):
                     c["decisions"] += 1
                     c["hits"] += int(h)
+            if fidelity and hit:
+                approx, lname = BF.loo_row(sums, real, policy[real], tier_k - 1 if l4_neighbor else None)
+                exact = policy[real]
+                agree = 1.0 / m if lname == "uniform" else float(np.argmax(approx) == np.argmax(exact))
+                f = fid[str(s.street)].setdefault(lname, [0, 0.0, 0.0, 0.0, 0.0])
+                f[0] += 1
+                f[1] += BF.tv(exact, approx)
+                f[2] += BF.tv(exact, np.full(m, 1.0 / m))
+                f[3] += agree
+                f[4] += 1.0 / m
             if backoff:
                 level = names[backoff_level(policy, tables, real, m, l4)]
                 for c in (b_street[str(s.street)], b_kind[kind]):
@@ -284,7 +307,7 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
             i = int(rng.choice(m, p=pr / pr.sum()))
             ranges = K.update_range(ranges, p, probs[:, i])
             s = G.apply(s, acts[i])
-    version = 5 if l4_neighbor else 4 if miss_report else 3 if play_backoff else SCHEMA_VERSION
+    version = 6 if fidelity else 5 if l4_neighbor else 4 if miss_report else 3 if play_backoff else SCHEMA_VERSION
     out = {"schema": SCHEMA, "schema_version": version, "players": players, "hands": hands, "seed": seed,
            "by_street": {k: _rate(c) for k, c in by_street.items()},
            "by_kind": {k: _rate(c) for k, c in kinds.items()}}
@@ -300,6 +323,10 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
                                  name: sum(len(by_m) for by_m in tab.values()) for name, tab in zip(LEVELS, tables)}},
                              "by_street": {k: _brate(c) for k, c in b_street.items()},
                              "by_kind": {k: _brate(c) for k, c in b_kind.items()}}
+    if fidelity:
+        out["fidelity"] = {st: {lv: {"n": f[0], "tv_mean": round(f[1] / f[0], 6), "uniform_tv_mean": round(f[2] / f[0], 6),
+                                     "argmax_agree": round(f[3] / f[0], 6), "uniform_argmax_agree": round(f[4] / f[0], 6)}
+                                for lv, f in sorted(by.items())} for st, by in fid.items()}
     if miss_report:
         out["miss_report"] = {"top": miss_report,
                               "by_street": {k: _mreport(c, miss_report) for k, c in m_street.items()}}
@@ -330,12 +357,16 @@ def main(argv=None) -> int:
                     help="top-N last-level (L3) keys still uniform and the one-field releases that would hit; needs --play-backoff (#638)")
     ap.add_argument("--l4-neighbor", action="store_true",
                     help="after L3, try the L3 rows one equity step either side (L4, #648); implies --backoff")
+    ap.add_argument("--fidelity", action="store_true",
+                    help="play-weighted leave-one-out quality of the backoff rows at exact hits; needs --play-backoff (#666)")
     ap.add_argument("--variant", choices=("auto", "c1", "legacy"), default="auto",
                     help="key layout; auto = the file's key_variant, else read off its first key (#620)")
     ap.add_argument("--pod-result", type=Path, help="the training result holding the visit counts (min_visits table)")
     a = ap.parse_args(argv)
     if a.miss_report and not a.play_backoff:
         raise SystemExit("--miss-report needs --play-backoff: it breaks down the misses of the page's backoff play (#638)")
+    if a.fidelity and not a.play_backoff:
+        raise SystemExit("--fidelity needs --play-backoff: it weighs the rows by the page's backoff trajectory (#666)")
     if a.miss_report < 0:
         raise SystemExit("--miss-report N: N must be >= 1 (0 = off)")
     policy, doc = load_policy(a.policy)
@@ -352,7 +383,7 @@ def main(argv=None) -> int:
         visits = dict(X.load_model(st).visits)
     res = measure(policy, doc["players"], doc["k"], doc["depth"], a.hands, a.seed, visits, backoff=a.backoff,
                   play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant, miss_report=a.miss_report,
-                  l4_neighbor=a.l4_neighbor)
+                  l4_neighbor=a.l4_neighbor, fidelity=a.fidelity)
     json.dump({**res, "variant": variant or "legacy", "file": a.policy.name}, sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0
