@@ -348,6 +348,13 @@ def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
     return {"iters": iters, "hands": NOISE_SIM_HANDS, "rows": rows, "wall_sim_seconds": round(time.monotonic() - t0, 1)}
 
 
+def _review_sched(iters: int, seed: int, out: Path) -> dict:
+    """#600: fixed 1·3·7 vs fixed+long vs Leitner on a simulated learner; `iters` is unused (kept for the CI interface)."""
+    from stalker.service.review_sched import seed_rows
+
+    return {"iters": iters, "rows": seed_rows(seed)}
+
+
 def _vcfr_fixed_point(iters: int, seed: int, out: Path) -> dict:
     """#411: range-policy fixed point arms A-D on two river menus and Leduc, exact best response."""
     from stalker.vcfr.fixed_point import run_seed
@@ -419,6 +426,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-c1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-c1-w4", workers=4, menu="real", raise_cap=None,
                                    ranges="average", avg_rule="own", key_variant="c1", stacks="sampled"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
+        "review-sched": _review_sched,                                                  # #600
         "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -589,6 +597,9 @@ def summarize(job: str, folder: Path) -> dict:
         from stalker.vcfr.fixed_point import aggregate, table
         agg = aggregate(runs)
         out.update({"aggregate": agg, "table": table(agg)})
+    if job == "review-sched" and runs:
+        from stalker.service.review_sched import aggregate
+        out.update({"table": aggregate([r["rows"] for r in runs]) if len(runs) > 1 else None})
     if job == "tp-noise-sim" and runs:
         out.update({"iters": runs[0]["iters"], "hands": runs[0]["hands"], "rows_by_seed": [r["rows"] for r in runs]})
     return out

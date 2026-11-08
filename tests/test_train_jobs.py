@@ -411,3 +411,10 @@ def test_summarize_omits_chunk_iters_and_lbr_hands_when_any_run_lacks_them(tmp_p
     out = T.summarize("e3-x", tmp_path)
     assert "chunk_iters_by_seed" not in out and "lbr_hands_by_seed" not in out
     assert out["runs"] == 2 and out["lbr_bb_by_seed"] == [1.0, 1.0]
+
+
+def test_review_sched_job_summarizes_paired_seeds(tmp_path):
+    for sd in (1, 2, 3):
+        T.run("review-sched", 1, sd, tmp_path)
+    s = T.summarize("review-sched", tmp_path)
+    assert s["runs"] == 3 and {r["exam_day"] for r in s["table"]} == {14, 60}
