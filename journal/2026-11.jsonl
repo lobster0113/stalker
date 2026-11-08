@@ -822,3 +822,4 @@
 {"ts":"2026-11-08T20:11:23Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even open PR #686 already has VERDICT: CHANGES on head c70169a, awaiting builder fixes","friction":""}
 {"ts":"2026-11-08T20:41:32Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already judged at head d723a9c (CHANGES 11-06); #686 even parity","friction":""}
 {"ts":"2026-11-08T20:46:31Z","role":"builder","outcome":"pr_opened","issue":680,"pr":688,"notes":"mixn c1 s4 이어 학습 잡(120k, 워커 12, 회당 최악 $4) + 잡 검사 테스트 + 디스패치 순서 노트","friction":"이 샌드박스(4코어)에서 gates quick이 1404s로 목표 90s의 15배라 full --part tests는 로컬에서 돌리지 않고 CI에 맡겼다. 첫 quick을 timeout 500으로 감싸 헛돌렸다."}
+{"ts":"2026-11-08T20:46:45Z","role":"reviewer","outcome":"skipped","issue":680,"pr":688,"notes":"not my parity","friction":""}
