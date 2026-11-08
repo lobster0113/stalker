@@ -795,3 +795,4 @@
 {"ts":"2026-11-08T14:46:00Z","role":"planner","outcome":"planned","issue":676,"pr":679,"notes":"PR #679(#676 웹 pro 플랍 칸) 머지 → #676 닫힘·라벨 정리, 신규 #680 P3(mixn c1 시드 4 이어 학습 잡 정의), ready 미착수 3 + in-progress #674","friction":""}
 {"ts":"2026-11-08T14:41:16Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has CHANGES on head d723a9c; #678 is reviewer-b parity","friction":""}
 {"ts":"2026-11-08T14:51:13Z","role":"reviewer-b","outcome":"merged","issue":674,"pr":678,"notes":"재판정: CHANGES 지적(ops 커밋 sha) 해결 확인, CI 전부 success, squash 머지 518cec6b","friction":"gh pr comment/merge는 GraphQL 403, gh api 쓰기는 훅이 막음 → GitHub MCP로 코멘트·머지. 지침 §2의 gh pr merge 명령이 이 환경에서 동작하지 않음"}
+{"ts": "2026-11-08T15:11:40Z", "role": "reviewer-b", "outcome": "no_work", "issue": null, "pr": null, "notes": "sweep: only open PR is #599 (odd, belongs to reviewer); no even PR needs a verdict", "friction": ""}
