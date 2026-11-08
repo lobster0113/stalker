@@ -737,3 +737,4 @@
 {"ts":"2026-11-08T03:10:30Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's share); no even PR to review","friction":"should_run --sweep printed RUN although no even-numbered PR was open"}
 {"ts":"2026-11-08T03:41:39Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PR #599 already has VERDICT: CHANGES on head d723a9c; no new commits","friction":""}
 {"ts": "2026-11-08T03:47:20Z", "role": "builder", "outcome": "pr_opened", "issue": 660, "pr": 664, "notes": "backoff_fidelity --combine mode + argmax_agree(schema 2). 로컬: mode가 TV 78/79칸 더 나쁨, argmax도 못 이김 → mean 유지, L1·L2 유지, L3 조건부, L4 제거 후보(8/20칸). #654 '평균≈균등' 원인 추정 기각", "friction": "gates quick(main) 로컬 1268s·full tests 1446s+gate_r 302s((a) 여전); 두 게이트가 CPU를 나눠 더 느렸을 수 있음"}
+{"ts":"2026-11-08T03:47:32Z","role":"reviewer","outcome":"skipped","issue":660,"pr":664,"notes":"not my parity","friction":""}
