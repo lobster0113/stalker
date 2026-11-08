@@ -835,3 +835,4 @@
 {"ts":"2026-11-08T22:32:47Z","role":"builder-b","outcome":"changes","issue":687,"pr":689,"notes":"#689 main merge 충돌 해소, #686 노트 CI 링크·주석 수정, 둘 다 푸시(CI 대기)","friction":"gates quick 로컬 9분+ 초과로 완주 못 함((a) 재발); pytest 미설치 상태로 시작"}
 {"ts":"2026-11-08T22:40:09Z","role":"builder","outcome":"changes","issue":680,"pr":688,"notes":"CHANGES 대응: --minutes 90→80 (느린 호스트 80+19.6 스텝초과+96 비학습=195.6≤200), 테스트가 yaml 플래그로 상한·3회 디스패치 단언, 노트 갱신","friction":"gates quick 1089s(4코어) — 9분 timeout 루프 3회; 처음 quick을 timeout 500으로 돌려 잘림"}
 {"ts":"2026-11-08T22:54:10Z","role":"reviewer","outcome":"merged","issue":687,"pr":689,"notes":"PR #689 ad65946 MERGE(squash abddf2b): pro PFR 목표 16–21, 충돌 해소·CI 전부 success","friction":"gh merge 대신 MCP 머지 사용((b)); CI 대기 약 22분"}
+{"ts":"2026-11-08T23:00:00Z","role":"planner","outcome":"planned","issue":687,"pr":689,"notes":"PR #689 머지 뒤 #687 라벨 정리, ready 미착수 3 유지(#690·#323·#463), STATE 갱신","friction":""}
