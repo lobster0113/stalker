@@ -479,3 +479,86 @@ def test_l4_output_is_byte_identical_across_hash_seeds():
                                     "--hands", "80", "--seed", "620", "--play-backoff", "--l4-neighbor",
                                     "--miss-report", "5"], env=env, check=True, capture_output=True).stdout)
     assert outs[0] == outs[1] and b'"L4"' in outs[0]
+
+
+# --- #666: play-weighted backoff fidelity ---
+
+def _fid_table():
+    from stalker.e3 import game as G
+    import numpy as np
+    spy = Spy()
+    H.measure(spy, N3, K, DEPTH, 1, 5)
+    a = spy.asked[0]
+    m = len(G.legal(G.deal(np.random.default_rng([5, 611, N3]), N3)))
+    sib = a.replace("|s6:6|", "|s7:7|", 1)   # same L1 key (stack depths are dropped there)
+    assert sib != a and H.coarse_key(sib, 1) == H.coarse_key(a, 1)
+    ra, rb = [0.0] * m, [0.0] * m
+    ra[0], rb[1] = 1.0, 1.0
+    return a, m, {a: ra, sib: rb}, ra, rb
+
+
+def test_fidelity_weighs_by_decisions_and_exact_numbers():
+    a, m, pol, ra, rb = _fid_table()
+    r = H.measure(pol, N3, K, DEPTH, 4, 5, play_backoff=True, fidelity=True)
+    assert r["schema_version"] == 6
+    f = r["fidelity"]
+    assert set(f) == {"0", "1", "2", "3"}
+    n_a = r["by_street"]["0"]["hits"]   # a and its sibling are the only rows, both preflop
+    got = f["0"]["L1"]
+    assert n_a == 1 and got["n"] == 1 and "uniform" not in f["0"]   # the sibling is never played, so only `a` hits, via L1
+    # the approximation of one pure row is the other pure row: TV 1, argmax wrong; uniform has TV 1 - 1/m
+    assert got["tv_mean"] == 1.0 and got["argmax_agree"] == 0.0
+    assert got["uniform_tv_mean"] == round(1 - 1.0 / m, 6) and got["uniform_argmax_agree"] == round(1.0 / m, 6)
+    assert f["1"] == {} and f["2"] == {} and f["3"] == {}
+
+
+def test_fidelity_is_weighted_by_decisions_not_keys(monkeypatch):
+    from collections import Counter
+    from stalker.e3 import game as G
+    from stalker.tools import backoff_fidelity as BF
+    import numpy as np
+    spy = Spy()
+    H.measure(spy, N3, K, DEPTH, 12, 5)
+    k1, k2 = [k for k, _ in Counter(spy.asked).most_common() if "|s6:6|" in k][:2]
+    m = len(G.legal(G.deal(np.random.default_rng([5, 611, N3]), N3)))
+    pure = lambda i: [1.0 if j == i else 0.0 for j in range(m)]
+    half = [0.5, 0.5] + [0.0] * (m - 2)
+    sib = lambda k: k.replace("|s6:6|", "|s7:7|", 1)   # same L1 key, never played, so it is the only other row of the group
+    pol = {k1: pure(0), sib(k1): half, k2: pure(0), sib(k2): pure(1)}
+    seen: Counter = Counter()
+    orig = BF.loo_row
+    monkeypatch.setattr(BF, "loo_row", lambda sums, key, row, l4=None: (seen.update([key]), orig(sums, key, row, l4))[1])
+    r = H.measure(pol, N3, K, DEPTH, 12, 5, play_backoff=True, fidelity=True)
+    n1, n2 = seen[k1], seen[k2]
+    assert max(n1, n2) >= 2 and n1 != n2 and set(seen) == {k1, k2}   # one key repeats, the two keys occur a different number of times
+    got = r["fidelity"]["0"]["L1"]
+    assert got["n"] == n1 + n2 == r["by_street"]["0"]["hits"]
+    tv = {k1: 0.5, k2: 1.0}     # k1: pure(0) vs half; k2: pure(0) vs pure(1)
+    agree = {k1: 1.0, k2: 0.0}  # half's argmax is 0 (first max)
+    n = {k1: n1, k2: n2}
+    w_tv = sum(n[k] * tv[k] for n in [n] for k in n) / (n1 + n2)
+    w_ag = sum(n[k] * agree[k] for k in n) / (n1 + n2)
+    assert got["tv_mean"] == round(w_tv, 6) and got["argmax_agree"] == round(w_ag, 6)
+    assert w_tv != (tv[k1] + tv[k2]) / 2 and w_ag != 0.5   # a per-key average would give other numbers
+
+
+def test_fidelity_off_is_byte_identical_and_needs_play_backoff(tmp_path, capsys):
+    import shutil
+    p = tmp_path / "mid-3.json"
+    shutil.copy("web/app/policy/mid-3.json", p)
+    args = [str(p), "--hands", "3", "--seed", "620", "--play-backoff", "--l4-neighbor"]
+    assert H.main(args) == 0
+    off = capsys.readouterr().out
+    assert '"fidelity"' not in off
+    assert H.main(args + ["--fidelity"]) == 0
+    on = capsys.readouterr().out
+    d = json.loads(on)
+    assert d["schema_version"] == 6 and d["fidelity"]
+    assert H.main(args + ["--fidelity"]) == 0 and capsys.readouterr().out == on
+    rest = {k: v for k, v in d.items() if k not in ("fidelity", "schema_version")}
+    base = {k: v for k, v in json.loads(off).items() if k != "schema_version"}
+    assert rest == base   # the play is unchanged
+    with pytest.raises(SystemExit, match="--play-backoff"):
+        H.main([str(p), "--fidelity"])
+    with pytest.raises(ValueError):
+        H.measure({}, N3, K, DEPTH, 1, 5, fidelity=True)
