@@ -96,3 +96,14 @@ def test_job_spec_passes_the_launcher_dry_run(tmp_path):
     job = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-mid.yaml")
     assert job.result_path and "web_policy_lbr_job" in job.command
     assert job.hourly_usd * job.max_minutes / 60 <= 5.0
+
+
+def test_seeds3_job_spec_differs_only_in_seeds_and_stays_under_budget():
+    sys.path.insert(0, str(ROOT / "harness/cloud"))
+    import launcher
+    base = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-mid.yaml")
+    s3 = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid-s3.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-mid-s3.yaml")
+    assert s3.command == base.command.replace("--workers 32 --out /result/web-policy-lbr-mid.json",
+                                             "--workers 32 --seeds 3 --out /result/web-policy-lbr-mid-s3.json")
+    assert s3.result_path == "/result/web-policy-lbr-mid-s3.json"
+    assert s3.hourly_usd * s3.max_minutes / 60 <= 3.0
