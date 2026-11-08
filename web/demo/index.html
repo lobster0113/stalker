@@ -1764,7 +1764,7 @@ async function runLoop() {
 async function playHand(token) {
   const alive = () => G && token === gameToken;
   if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
-  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
+  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.potRaises = 0; G.flopPlayers = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
   // TP-GTO tables: every seat starts each hand at 100BB (top-up, excess banked into the session result)
   if (G.eng) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
   // replenish
@@ -1809,6 +1809,7 @@ async function playHand(token) {
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
       engCheckBoard();
       G.prevAgg = G.lastAgg; G.prevBet = G.streetRaises > (st === 1 ? 1 : 0);   // persona c-bet / probe spots (#429)
+      if (st === 1) { G.potRaises = G.streetRaises - 1; G.flopPlayers = live().length; }   // persona flop cell (#676)
       G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null; G.streetRaises = 0;
       await sleep(500);
     }
@@ -2083,7 +2084,8 @@ function personaAct(s) {
     preflop: { raises: G.streetRaises - 1, limpers: live().filter(o => o !== s && o.bet === G.bb && o.i !== G.bbI).length, limped: s.bet === G.bb && s.i !== G.bbI,
       iRaised: mine.raised, openerPos: agg ? posName(agg) : null, openTo: G.currentBet },
     postflop: { aggressor: G.prevAgg === s.i, prevAggLive: G.prevAgg != null && G.prevAgg !== s.i && !G.seats[G.prevAgg].folded, prevBet: !!G.prevBet,
-      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises },
+      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises,
+      potRaises: G.potRaises, flopPlayers: G.flopPlayers },
     hand: { cards: s.cards }, board: G.board,
   }, rand);
   if (a.type === "check") mine.checked = true;
