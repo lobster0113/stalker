@@ -127,7 +127,7 @@ PRESETS_V2 = {k: dataclasses.replace(v, donk_flop=_WTSD_LEVERS[k][0], probe_turn
 PRESETS_V2["pro"] = dataclasses.replace(PRESETS_V2["pro"], cbet_flop=0.545, cbet_flop_3bp_mult=1.14, cbet_flop_mw_mult=0.53,
                                         fold_cbet_flop=0.38, fold_cbet_flop_mw=0.66)
 # #684: tag's cells, same method (note §10.1.4: heads-up single-raised 62, heads-up 3-bet+ 70, multiway single-raised 42, fold to
-# c-bet heads-up single-raised 48, multiway 68). [assumption] start values from the note; folds and probe/giveup refit on seeded sessions.
+# c-bet heads-up single-raised 48, multiway 68). [assumption] start values from the note; start values hold all five cells within 6pp on seeded sessions, so no grid; probe/giveup unchanged (mixed-table WTSD guard passes).
 PRESETS_V2["tag"] = dataclasses.replace(PRESETS_V2["tag"], cbet_flop=0.62, cbet_flop_3bp_mult=1.13, cbet_flop_mw_mult=0.68,
                                         fold_cbet_flop=0.40, fold_cbet_flop_mw=0.62)
 
