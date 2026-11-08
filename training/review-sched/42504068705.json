@@ -1,0 +1,140 @@
+{
+ "job": "review-sched",
+ "runs": 8,
+ "seeds": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8
+ ],
+ "ref": "claude/600-review-scheduler-spike",
+ "sha": "b080194c48cc411a79090ad8438cb48cea33d528",
+ "run_id": "42504068705",
+ "resumed_from_run": null,
+ "table": [
+  {
+   "exam_day": 14,
+   "model": "exp",
+   "scheduler": "fixed",
+   "score_mean": 0.2165255573765395,
+   "score_sd": 0.023769401532394124,
+   "reviews_per_item": 1.8666666666666667
+  },
+  {
+   "exam_day": 14,
+   "model": "exp",
+   "scheduler": "fixed_long",
+   "score_mean": 0.2165255573765395,
+   "score_sd": 0.023769401532394124,
+   "reviews_per_item": 1.8666666666666667,
+   "gain_vs_fixed_mean": 0.0,
+   "gain_vs_fixed_sd": 0.0,
+   "adopt": false
+  },
+  {
+   "exam_day": 14,
+   "model": "exp",
+   "scheduler": "leitner",
+   "score_mean": 0.21643669362355672,
+   "score_sd": 0.020822963954205288,
+   "reviews_per_item": 1.8666666666666667,
+   "gain_vs_fixed_mean": -8.886375298278182e-05,
+   "gain_vs_fixed_sd": 0.01271053502742207,
+   "adopt": false
+  },
+  {
+   "exam_day": 14,
+   "model": "power",
+   "scheduler": "fixed",
+   "score_mean": 0.5711735072208983,
+   "score_sd": 0.039578496291364104,
+   "reviews_per_item": 1.8666666666666667
+  },
+  {
+   "exam_day": 14,
+   "model": "power",
+   "scheduler": "fixed_long",
+   "score_mean": 0.5711735072208983,
+   "score_sd": 0.039578496291364104,
+   "reviews_per_item": 1.8666666666666667,
+   "gain_vs_fixed_mean": 0.0,
+   "gain_vs_fixed_sd": 0.0,
+   "adopt": false
+  },
+  {
+   "exam_day": 14,
+   "model": "power",
+   "scheduler": "leitner",
+   "score_mean": 0.566167598095797,
+   "score_sd": 0.040181113049832455,
+   "reviews_per_item": 1.8666666666666667,
+   "gain_vs_fixed_mean": -0.005005909125101293,
+   "gain_vs_fixed_sd": 0.014400070929596682,
+   "adopt": false
+  },
+  {
+   "exam_day": 60,
+   "model": "exp",
+   "scheduler": "fixed",
+   "score_mean": 0.0098828081456761,
+   "score_sd": 0.007975430731074868,
+   "reviews_per_item": 3.0
+  },
+  {
+   "exam_day": 60,
+   "model": "exp",
+   "scheduler": "fixed_long",
+   "score_mean": 0.1592539993804833,
+   "score_sd": 0.024306740484814415,
+   "reviews_per_item": 5.4,
+   "gain_vs_fixed_mean": 0.14937119123480716,
+   "gain_vs_fixed_sd": 0.02340730372921496,
+   "adopt": true
+  },
+  {
+   "exam_day": 60,
+   "model": "exp",
+   "scheduler": "leitner",
+   "score_mean": 0.15310865175268246,
+   "score_sd": 0.02357633581714214,
+   "reviews_per_item": 8.0,
+   "gain_vs_fixed_mean": 0.14322584360700635,
+   "gain_vs_fixed_sd": 0.022580540395344847,
+   "adopt": true
+  },
+  {
+   "exam_day": 60,
+   "model": "power",
+   "scheduler": "fixed",
+   "score_mean": 0.1645469918074072,
+   "score_sd": 0.05026450186727771,
+   "reviews_per_item": 3.0
+  },
+  {
+   "exam_day": 60,
+   "model": "power",
+   "scheduler": "fixed_long",
+   "score_mean": 0.4320792581123356,
+   "score_sd": 0.09009926843950786,
+   "reviews_per_item": 5.4,
+   "gain_vs_fixed_mean": 0.2675322663049285,
+   "gain_vs_fixed_sd": 0.04499886488269648,
+   "adopt": true
+  },
+  {
+   "exam_day": 60,
+   "model": "power",
+   "scheduler": "leitner",
+   "score_mean": 0.45046572779927296,
+   "score_sd": 0.11183367137652947,
+   "reviews_per_item": 8.0,
+   "gain_vs_fixed_mean": 0.2859187359918658,
+   "gain_vs_fixed_sd": 0.07654011374786068,
+   "adopt": true
+  }
+ ]
+}
