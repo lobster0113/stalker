@@ -46,7 +46,7 @@ def fetch(policy_run: str, dest: Path, tarball: bytes | None = None) -> None:
     raw = tarball if tarball is not None else urllib.request.urlopen(OPS_TARBALL).read()
     dest.mkdir(parents=True, exist_ok=True)
     found = 0
-    with tarfile.open(fileobj=io.BytesIO(raw)) as t:
+    with tarfile.open(None, "r:gz", fileobj=io.BytesIO(raw)) as t:
         for m in t.getmembers():
             rel = m.name.split("/", 1)[-1]
             if m.isfile() and rel.startswith(prefix) and rel.count("/") == prefix.count("/"):

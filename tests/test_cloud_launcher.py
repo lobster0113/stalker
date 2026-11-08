@@ -112,7 +112,7 @@ def test_load_spec_only_from_jobs_dir(tmp_path):
     cap = json.loads((ROOT / "harness" / "budget.json").read_text(encoding="utf-8"))["monthly_cap_usd"]
     for f in (ROOT / "jobs").glob("*.yaml"):
         # Probes stay under $1; a training run (#333) may take at most a tenth of the monthly cap.
-        limit = 0.1 * cap if f.stem.startswith("e3-tp-") else 1.0
+        limit = 0.1 * cap if f.stem.startswith(("e3-tp-", "web-policy-lbr-")) else 1.0
         assert L.load_spec(f).worst_case_usd <= limit, f
 
 

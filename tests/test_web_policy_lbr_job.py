@@ -34,7 +34,7 @@ def test_plan_matches_adr_0020_table():
 
 def _tar(files):
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as t:
+    with tarfile.open(None, "w:gz", fileobj=buf) as t:
         for name, data in files.items():
             ti = tarfile.TarInfo("stalker-ops/" + name)
             ti.size = len(data)
@@ -86,13 +86,13 @@ def test_run_end_to_end_is_byte_identical(tmp_path, monkeypatch):
     J.run("r1", a, src=src)
     J.run("r1", b, src=src)
     assert a.read_bytes() == b.read_bytes()
-    res = json.loads(a.read_text())
+    res = json.loads(a.read_text(encoding="utf-8"))
     assert res["rows"][0]["hands"] == 3 and "by_players" not in res and res["backoff"]["off"]["2"]["seeds"] == [1]
 
 
 def test_job_spec_passes_the_launcher_dry_run(tmp_path):
     sys.path.insert(0, str(ROOT / "harness/cloud"))
     import launcher
-    job = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid.yaml").read_text(), "jobs/web-policy-lbr-mid.yaml")
+    job = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-mid.yaml")
     assert job.result_path and "web_policy_lbr_job" in job.command
     assert job.hourly_usd * job.max_minutes / 60 <= 5.0
