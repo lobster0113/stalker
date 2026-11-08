@@ -21,6 +21,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35(같은 시각) = 4.54배, CPU 맞춤 3.20(참고). 이전 #503 3.27배. regret 해시는 시드별로 같다.
 - 클라우드 지출: 11월 원장 actual_usd 합 $19.79 / $100(ADR 0021, 이전 STATE 값 $9.45는 낡음).
 ## 경보
+- **[auditor 11-08, W45]** 무결성 위반 0(머지 86). main CI red 0. CHANGES 31%(W44 50%). builder no_work 1.9% → 실험 001 성공, 030 성공. 신규 실험 034 guard 훅 절대 경로(#659 ready P1). reviewer 실행 72% 무판정. 다음 1순위: reviewer.md 머지 경로 MCP 명시. #341 P0 10일째 라벨 없음 — planner 확인. Gate A/B/C 3주째 미산출. `reports/2026-W45.md`.
 - [planner 11-07 20:10Z] 신규 friction: reviewer 19:24Z web E2E ECONNRESET 플레이크(PR #651, web 미변경)에도 CHANGES뿐이고 재실행 수단 없음 → infra 실패 재판정 규칙 후보(11-05 23:05Z와 같은 주제, Auditor). 판정 코멘트 오기 수정 불가(PATCH 훅 차단·GraphQL 403, (b)). 「취소된 run 빨간 집계 체크」 reviewer·reviewer-b 17:41·19:16Z 재보고((d)). quick gate 로컬 9분~1417초 builder·builder-b 3회((a)).
 - [planner 11-07 15:30Z] friction 재발(4회+): builder 14:56Z `cd web/e2e` 뒤 guard 훅 상대 경로로 Bash 전체 차단 → 임시 shim으로 탈출(#647). 절대 경로(`$CLAUDE_PROJECT_DIR`) harness-change 최우선 후보 유지(Auditor). reviewer `--sweep` 일거리 없는 RUN((h)) 11-07 2회.
 - [planner 11-07 13:05Z] friction 재발: builder-b 11:24Z 셸이 `web/`로 옮겨진 뒤 guard 훅 상대 경로로 Bash 전체 실패 → PR #643 CHANGES 수정 푸시 못 함(11-04·11-06 경보와 같은 주제, 3회+, 절대 경로 harness-change 최우선 후보, Auditor). builder 12:16Z quick gate 8분+((a)). reviewer 12:41Z `--sweep` 일거리 없는 RUN((h)).
@@ -54,7 +55,6 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - NEEDS_HUMAN: NH-3·5·6·7·9·11 open. 리포 상호작용 제한 2027-04-23 만료.
 - [planner 11-02 23:20Z] 신규 friction: 이슈 수용 기준이 플랍·WTSD만 단언해 턴·리버 왜곡이 테스트에 안 보였다(reviewer 21:53Z) → planner는 페르소나 이슈에 인접 스트리트 지표도 넣는다(#533 적용). reviewer-b 21:11Z: ops push 실패 시 should_run이 잠금 없이 RUN.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
-- **030 MERGE 판정 후 머지 재시도 (#482, PR #490 머지 11-01 03:25Z, 측정 시작).** 측정창: 머지 후 7일. 성공 기준: 판정 후 3시간 넘게 열려 있고 NH 항목도 없는 PR 0건, 같은 sha 정체 friction 3건 이하.
-- 001 builder 자가 언블록 (#55, 10-25 머지). 측정창 11-08 종료. 중간값 no_work 16%(목표 ≤10%, 기준 24%).
-- 009 planner run_on_merge: 잠정 성공(W44). 013 두 번째 리뷰어: 성공(W44, 머지 21→206). 문서에 결과 기록 대기.
-- 015~020·023·024·028: 7일 창 종료, 판정 보류(다음 감사 우선). 나머지(002~008·010~012·014·021·022·025~027·029)는 측정 중. 실험 문서 30개 모두 '진행 중'으로 결과 기록 없음.
+- **034 guard 훅 절대 경로 (#659, ready P1, 11-08 생성).** 측정창 머지 후 7일. 성공: 훅 경로 Bash 차단 보고 0–1건(기준선 22/주), shim 0, 푸시 실패 PR 0.
+- 030 머지 재시도: **성공**(W45, 3시간+ 정체 0, 재시도 6/6 머지). 001 builder 자가 언블록: **성공**(no_work 1.9%). 009·013: 성공. → 결과 기록 chore 이슈는 다음 감사(harness-change).
+- 015~020·023·024·028: 판정 보류(2주째). 나머지(002~008·010~012·014·021·022·025~027·029·031~033)는 측정 중. 실험 문서 35개 모두 '진행 중'으로 결과 기록 없음.
