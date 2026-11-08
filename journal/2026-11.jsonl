@@ -833,3 +833,4 @@
 {"ts":"2026-11-08T22:11:33Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: even PRs #686(c70169a),#688(2b8817f) already have CHANGES verdicts at current head, no new commits","friction":"should_run --sweep printed RUN though no even PR needed a verdict (sweep interval only)"}
 {"ts":"2026-11-08T22:32:16Z","role":"reviewer-b","outcome":"skipped","pr":689,"notes":"not my parity","friction":""}
 {"ts":"2026-11-08T22:32:47Z","role":"builder-b","outcome":"changes","issue":687,"pr":689,"notes":"#689 main merge 충돌 해소, #686 노트 CI 링크·주석 수정, 둘 다 푸시(CI 대기)","friction":"gates quick 로컬 9분+ 초과로 완주 못 함((a) 재발); pytest 미설치 상태로 시작"}
+{"ts":"2026-11-08T22:40:09Z","role":"builder","outcome":"changes","issue":680,"pr":688,"notes":"CHANGES 대응: --minutes 90→80 (느린 호스트 80+19.6 스텝초과+96 비학습=195.6≤200), 테스트가 yaml 플래그로 상한·3회 디스패치 단언, 노트 갱신","friction":"gates quick 1089s(4코어) — 9분 timeout 루프 3회; 처음 quick을 timeout 500으로 돌려 잘림"}
