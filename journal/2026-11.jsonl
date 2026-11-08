@@ -761,3 +761,4 @@
 {"ts":"2026-11-08T08:20:00Z","role":"planner","outcome":"planned","issue":669,"pr":null,"notes":"PR #665(#661)·#667(#641) 머지 반영, main CI 녹색. 신규 #669 P1(웹 정책 LBR 잡 디스패치·기록)·#670 P2(페르소나 멀티웨이 c-bet 레버). #600 ready. ready 3+in-progress 1(#666)","friction":"#641·#661 이슈는 머지로 닫혔으나 후속은 PR 본문 후속 항목에서만 찾을 수 있다"}
 {"ts":"2026-11-08T08:11:01Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: even PR #668 already has VERDICT CHANGES at head c5aa8d5; no new commits","friction":""}
 {"ts":"2026-11-08T08:40:54Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has VERDICT CHANGES on head d723a9c; #668 is even (reviewer-b)","friction":""}
+{"ts":"2026-11-08T09:03:06Z","role":"builder-b","outcome":"changes","issue":666,"pr":668,"notes":"PR668 CHANGES 해결: 결정 가중 테스트 재작성+정확 기대값, full gate PASS(로컬, 참고용)","friction":"gates full 로컬 tests 1651초; 판정 시점 CI 미완료 상태에서 CHANGES"}
