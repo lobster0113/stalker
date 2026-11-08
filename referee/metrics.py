@@ -3,6 +3,10 @@
 Only CI runs this for the record. Product metrics register here through referee-change PRs as
 their evaluators come online. The retired Gate A/B and sufficiency keys (ADR 0008) were dropped
 in #101; their last values stay in history.jsonl.
+
+`e3_web_lbr` (#683) copies the newest `stalker.web.policy-lbr` cloud result (ADR 0020 per-player LBR,
+limit, pass; backoff on/off) from `ops:cloud/results/<run id>.json` so the service-policy strength axis
+has a history; it is `null` when ops or such a result is missing.
 """
 from __future__ import annotations
 
@@ -150,11 +154,54 @@ def gate_f_e1() -> dict:
     return out
 
 
+WEB_LBR_SCHEMA = "stalker.web.policy-lbr"
+_RESULT_PATH = re.compile(r"^cloud/results/(\d+)\.json$")
+
+
+def _git(repo: Path, *args: str, timeout: float = 60) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, timeout=timeout)
+
+
+def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:
+    """Newest service-policy LBR result from ops, copied as is (no recomputation).
+
+    The CI snapshot step runs before any ops worktree exists, so the files are read with `git show`.
+    A failed fetch falls back to whatever `ref` already holds; no ref or no result gives `None`."""
+    try:
+        if fetch:
+            _git(repo, "fetch", "-q", "origin", "ops")
+        ls = _git(repo, "ls-tree", "--name-only", f"{ref}:cloud/results")
+        if ls.returncode != 0:
+            return {"e3_web_lbr": None}
+        runs = sorted((int(m.group(1)) for n in ls.stdout.split()
+                       if (m := _RESULT_PATH.match(f"cloud/results/{n}"))), reverse=True)
+        for run in runs:
+            shown = _git(repo, "show", f"{ref}:cloud/results/{run}.json")
+            try:
+                doc = json.loads(shown.stdout) if shown.returncode == 0 else None
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(doc, dict) or doc.get("schema") != WEB_LBR_SCHEMA:
+                continue
+            by_players: dict = {}
+            for mode, cells in sorted(doc.get("backoff", {}).items()):
+                for n, cell in cells.items():
+                    by_players.setdefault(str(n), {})[mode] = {
+                        k: cell.get(k) for k in ("lbr_bb", "lbr_stderr_bb", "limit", "pass")}
+            on = [m["on"]["pass"] for m in by_players.values() if "on" in m]
+            return {"e3_web_lbr": {"run": run, "policy_run": doc.get("policy_run"),
+                                   "by_players": dict(sorted(by_players.items(), key=lambda kv: int(kv[0]))),
+                                   "all_pass_on": bool(on) and all(p is True for p in on)}}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return {"e3_web_lbr": None}
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1):
+    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr):
         t0 = time.monotonic()
         snap.update(part())
         print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)

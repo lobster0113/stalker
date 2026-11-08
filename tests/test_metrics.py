@@ -1,3 +1,6 @@
+import json
+import subprocess
+
 import pytest
 
 from referee import metrics
@@ -35,6 +38,7 @@ def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
+    monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
@@ -43,6 +47,7 @@ def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
+    monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
     snap = metrics.snapshot()
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
     assert not retired, retired
@@ -107,6 +112,7 @@ PARTS = {
     "e1": {"e1_stacks", "e1_iters", "e1_tp_beginner_exploitability", "e1_tp_mid_exploitability",
            "e1_tp_pro_exploitability", "e1_nash_fp_exploitability", "e1_tp_uniform_beginner_exploitability"},
     "gate_f_e1": {f"gate_f_e1_{t}_{k}" for t in ("beginner", "mid", "pro") for k in ("nash_loss", "nash_loss_added")},
+    "e3_web_lbr": {"e3_web_lbr"},
 }
 
 
@@ -120,3 +126,61 @@ def test_snapshot_key_set_and_stage_timings(monkeypatch, capsys):
     err = capsys.readouterr().err
     for name in [*PARTS, "code_size"]:
         assert f"metrics: {name} " in err, err
+
+
+def _git(cwd, *args):
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=cwd, check=True,
+                   capture_output=True)
+
+
+def _lbr_result(run_policy, lbr_on_3, pass_on_3=True):
+    cell = lambda lbr, limit, ok: {"hands": 600, "lbr_bb": lbr, "lbr_stderr_bb": 0.3, "limit": limit,
+                                   "pass": ok, "policy_sha256": "x", "seeds": [1, 2, 3]}
+    return {"schema": "stalker.web.policy-lbr", "schema_version": 1, "policy_run": run_policy,
+            "backoff": {"on": {"2": cell(5.5, 9.0, True), "3": cell(lbr_on_3, 6.4, pass_on_3)},
+                        "off": {"2": cell(6.8, 9.0, True), "3": cell(4.4, 6.4, True)}},
+            "rows": [], "thresholds": "referee/e3/lbr_thresholds_v1.json"}
+
+
+@pytest.fixture
+def ops_clone(tmp_path):
+    """A clone whose origin has an ops branch with two policy-lbr results and newer unrelated ones."""
+    origin = tmp_path / "origin"
+    (origin / "cloud" / "results").mkdir(parents=True)
+    _git(origin, "init", "-q", "-b", "ops")
+    res = origin / "cloud" / "results"
+    (res / "100.json").write_text(json.dumps(_lbr_result("p1", 9.9, False)))
+    (res / "200.json").write_text(json.dumps(_lbr_result("p2", 4.5)))
+    (res / "300.json").write_text(json.dumps({"schema": "stalker.cloud.other", "by_players": {}}))
+    (res / "400.summary.json").write_text(json.dumps(_lbr_result("p4", 1.0)))
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "ops")
+    clone = tmp_path / "clone"
+    _git(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
+    return origin, clone
+
+
+def test_e3_web_lbr_copies_the_newest_policy_lbr_result(ops_clone):
+    _, clone = ops_clone
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["policy_run"] == "p2"
+    assert got["by_players"]["3"]["on"] == {"lbr_bb": 4.5, "lbr_stderr_bb": 0.3, "limit": 6.4, "pass": True}
+    assert got["by_players"]["2"]["off"]["lbr_bb"] == 6.8
+    assert list(got["by_players"]) == ["2", "3"]
+    assert got["all_pass_on"] is True
+
+
+def test_e3_web_lbr_fetches_new_results_and_reports_failures(ops_clone):
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "250.json").write_text(json.dumps(_lbr_result("p3", 7.0, False)))
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "newer")
+    assert metrics.e3_web_lbr(repo=clone, fetch=False)["e3_web_lbr"]["run"] == 200
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 250 and got["all_pass_on"] is False
+
+
+def test_e3_web_lbr_is_null_without_ops(tmp_path):
+    _git(tmp_path, "init", "-q")
+    assert metrics.e3_web_lbr(repo=tmp_path) == {"e3_web_lbr": None}
+    assert metrics.e3_web_lbr(repo=tmp_path / "missing") == {"e3_web_lbr": None}
