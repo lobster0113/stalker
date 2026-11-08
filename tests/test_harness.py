@@ -78,7 +78,7 @@ def test_bash_guard_hook_runs_from_subdirectory(tmp_path):
     sub.mkdir(parents=True)
     for cmd in _hook_commands():
         for shell_cmd, code in [("ls", 0), ("git push --force origin x", 2)]:
-            r = subprocess.run(cmd, shell=True, cwd=sub, env=env, capture_output=True, text=True,
+            r = subprocess.run(cmd, shell=True, cwd=sub, env=env, capture_output=True, text=True, encoding="utf-8",
                                input=json.dumps({"tool_input": {"command": shell_cmd}}))
             assert r.returncode == code, (cmd, shell_cmd, r.stderr)
 
