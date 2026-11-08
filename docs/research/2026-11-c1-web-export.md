@@ -487,6 +487,9 @@ python -m stalker.tools.web_hit_rate web/app/policy/mid-6.json --hands 2000 --se
 - 한계: 플랍 이후 결정이 757–767/105–121/29–30개뿐이라 턴·리버는 오차가 크다. 시드 둘뿐이다.
 - 교체를 다시 판단할 조건(후속 후보, 이 이슈 범위 밖): mid-6을 더 오래 학습한 c1 체크포인트(반복 ≥ 수십만)로 다시 export한 뒤 같은 명령을 재실행. 교체한다면 필요한 작업은 파일 반입, `index.json` 갱신, Gate U 성능 한도 확인, 테스트의 sha 고정 갱신. 원본 체크포인트 아티팩트가 ~12-03에 만료되므로 그 전에 결정해야 한다.
 
+### 이어 학습 잡과 디스패치 순서 (#680)
+`jobs/e3-tp-mid-c1-mixn-s4-long-pod32.yaml`은 s4 잡과 학습 플래그가 같고(시드 4·mixn 2–6·c1·real·average/own·sampled) `--max-iters 120000`, 워커 12(메모리, 잡 머리 주석)와 `--minutes 80`(느린 호스트에서도 `max_minutes` 200 안에 끝나게)만 다르다. `pod_train`의 잡 이름(`e3-tp-mid-c1-mixn-pod`)은 yaml 이름·워커 수와 무관해 s4 결과를 이어 받는다. 디스패치는 `cloud.yml mode=run job=jobs/e3-tp-mid-c1-mixn-s4-long-pod32.yaml`에 **첫 회 `resume_run=41813684540`**, 이후 매번 **직전 run의 id**를 `resume_run`으로 준다. 결과의 `iters`가 120000이고 `stopped_by`가 `max_iters`이면 끝이다. 예상 3회(회당 7.1 it/s면 36,000회, 가장 느린 관측 5.1 it/s면 30,000회. 최악 $4.00, 합 $12.00). 회당 최악 시간은 학습 80분 + 한 스텝(6,000회) 초과 19.6분 + 비학습 96분(run 41670499712 실측 86분 + resume 로드 여유) = 195.6분이다. 결과에 `checkpoint_note`(95MB 업로드 상한 초과)가 붙으면 체인을 더 이을 수 없으니 그 run에서 멈추고 export한다. 원본 아티팩트 만료(~12-03) 전에 첫 회를 디스패치해야 한다. 디스패치·결과 기록은 후속 이슈다.
+
 ## 후속 (제안, 이 PR 범위 밖)
 1. **(완료, #601) export를 `min_visits=10`으로 다시 디스패치해 실제 바이트 확인**: M4에 `export_min_visits=10`을 넣어 다시 돌리면 `within_page_budget`과 실제 `bytes`가 나와 위 추정을 대체한다. 같은 `ops:cloud/exports/<run>.json`을 덮어쓰므로 이 노트가 인용한 커밋(3f342f4)은 히스토리에서 찾아야 한다. 아티팩트 만료(~12-03) 전에 하고, 정책 파일을 main으로 옮기는 이슈와 묶는다.
 2. **(완료, #596) 인원별 `min_visits`**: `export_web_players`가 인원별 문턱(예 `2:10,3:5,4:5,5:5,6:2`)을 받으면 3–6인이 키를 2–16배 더 남긴다. `area:ai`·`kind:feature` 후보(harness-change, `cloud.yml` 입력 추가).
