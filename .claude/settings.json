@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python harness/hooks/guard_bash.py"
+            "command": "python \"$CLAUDE_PROJECT_DIR/harness/hooks/guard_bash.py\""
           }
         ]
       }
