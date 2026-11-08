@@ -398,6 +398,8 @@ PYTHONHASHSEED=0 python -m stalker.tools.web_hit_rate <ops:cloud/policies/418136
 
 L4가 3·4·6인(과 교체 전 2인 파일)에서 플랍 균등을 5%p 이상(6.2–10.7%p) 줄인다(5인 3.5%p, 현재 2인 mv=5 파일 3.4%p) → 이슈의 문턱(어느 인원이든 5%p 이상)을 넘는다. `tpgto.js backoffRow`에 같은 L4(L3 표에서 에퀴티 ±1 이웃 평균)를 미러하고 ADR 0022에 수준을 더하는 후속 이슈를 추천한다. 조건 둔감 근거: 에퀴티 칸은 자기 패와 공개 보드(와 공개 행동으로 갱신한 범위)로만 정해지고, 근사 행은 채점에서 빠진다. 5인은 L4로도 해결되지 않으므로 커버리지 학습(#629)은 별도 레버로 남는다.
 
+JS 미러 완료 (#652): `tpgto.js backoffRow`가 같은 L4를 찾고 ADR 0022 「갱신 (#652)」에 수준을 더했다.
+
 ## 후속 (제안, 이 PR 범위 밖)
 1. **(완료, #601) export를 `min_visits=10`으로 다시 디스패치해 실제 바이트 확인**: M4에 `export_min_visits=10`을 넣어 다시 돌리면 `within_page_budget`과 실제 `bytes`가 나와 위 추정을 대체한다. 같은 `ops:cloud/exports/<run>.json`을 덮어쓰므로 이 노트가 인용한 커밋(3f342f4)은 히스토리에서 찾아야 한다. 아티팩트 만료(~12-03) 전에 하고, 정책 파일을 main으로 옮기는 이슈와 묶는다.
 2. **(완료, #596) 인원별 `min_visits`**: `export_web_players`가 인원별 문턱(예 `2:10,3:5,4:5,5:5,6:2`)을 받으면 3–6인이 키를 2–16배 더 남긴다. `area:ai`·`kind:feature` 후보(harness-change, `cloud.yml` 입력 추가).
