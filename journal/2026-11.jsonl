@@ -768,3 +768,4 @@
 {"ts":"2026-11-08T09:41:27Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: open PR #599 already has CHANGES verdict for head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-08T09:48:26Z","role":"reviewer-b","outcome":"skipped","issue":669,"pr":671,"notes":"not my parity","friction":""}
 {"ts":"2026-11-08T09:48:40Z","role":"builder","outcome":"pr_opened","issue":669,"pr":671,"notes":"web-policy-lbr-mid 클라우드 잡 run 42466969467 디스패치($0.05, 2.68분), 10칸 모두 ADR 0020 선 통과(3인 켬 4.578<6.4) → 현 페이지 유지, 노트에 기록","friction":"로컬 quick gate 테스트가 4코어 컨테이너에서 1126초(목표 90초)라 대기 대부분을 차지. 세션 시작 시 로컬 origin/main 참조가 낡아(HEAD보다 이전) checkout -b origin/main이 옛 트리에 브랜치를 만들 뻔함 — fetch 후 분기 필요. 잡 명세 예상 시간(25–90분)이 실측 2.7분과 크게 달라 대기 계획이 어긋남"}
+{"ts":"2026-11-08T10:11:02Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: even PR #599 already has VERDICT: CHANGES on head d723a9c (no new commits); skipped","friction":""}
