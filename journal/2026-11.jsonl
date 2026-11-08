@@ -828,3 +828,4 @@
 {"ts":"2026-11-08T21:19:45Z","role":"builder-b","outcome":"pr_opened","issue":687,"pr":689,"notes":"pro PFR 목표 16–21(18.5) 문서·웹 테스트 반영","friction":"gates quick 1055초·full 1140초 tests (a) 재발"}
 {"ts":"2026-11-08T21:20:15Z","role":"reviewer-b","outcome":"skipped","issue":687,"pr":689,"notes":"not my parity","friction":""}
 {"ts":"2026-11-08T21:21:03Z","role":"reviewer","outcome":"changes","issue":687,"pr":689,"notes":"내용은 수용 기준 충족, main과 population-stats §10 권고 충돌(dirty)로 CI 0건 → 충돌 해소·CI 요청","friction":"충돌 PR은 pull_request CI가 아예 안 돌아 check run 0개; builder가 PR 열기 전 main 동기화 확인이 없다"}
+{"ts":"2026-11-08T21:41:32Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #689,#599 already have CHANGES verdicts at current head","friction":""}
