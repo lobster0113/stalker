@@ -564,9 +564,73 @@ Training Game이 쓰는 웹 페르소나(`web/app/personas.js`)에 Python pro(§
 
 시드 2000–2004에서 판정 칸(c-bet 헤즈업·싱글 52.5–54.3, 헤즈업·3-bet+ 61.3–63.6, 멀티웨이·싱글 27.3–32.9, 폴드 헤즈업·싱글 41.8–44.4, 멀티웨이 폴드 0.66일 때)은 모두 목표 ±6 안이었다. 기존 pro 합계(pro 1석 + tag 5석)는 c-bet 51.4→54.0, 폴드 47.4→37.1로 둘 다 기존 범위(50–70, 38–52, ±6) 안이라 합계 검사는 그대로 두었다. VPIP·PFR·3bet·WTSD는 24.2·18.2·11.1·26.7. 검사: `web/app/test/personas.test.mjs`의 `pro flop cells hit the human pro targets`(판정 칸마다 기회 ≥ 150).
 
+#### 10.1.4 tag 플랍 칸 수준: 저스테이크 근거 (#677)
+
+이슈 #677은 이 절을 §10.1.3으로 요청했으나 그 번호는 #676(웹 pro)이 먼저 썼으므로 §10.1.4로 둔다. 코드는 바꾸지 않았다.
+
+**근거 상태.** 저스테이크(마이크로~로우) 레귤러의 플랍 c-bet·c-bet 폴드를 **헤즈업/멀티웨이 × 싱글/3-bet+ 칸으로 나눈 공개 집계는 찾지 못했다**(2026-11-08 검색). 찾은 것은 합계 수치와 방향 주장뿐이다:
+- 저스테이크 모집단 플랍 c-bet 합계 65–70% [DC], TAG 55–75 (65) [DC][BR-CB] — §2.3. 칸 구분 없음.
+- 3-bet 팟은 SPR이 낮아(≈4–7 대 싱글 ≈10–15) 싱글보다 c-bet이 잦고, 솔버식 헤즈업 c-bet은 싱글 50–70%·3-bet 팟 70–85% [DC-CB]. 등급 C(방법·DB 미기재), 방향은 인간 프로 칸(62 > 53, §10.1)과 일치.
+- 멀티웨이에서는 c-bet을 줄이고 밸류 위주로 친다(블러프 방어 부담이 나뉨) [DC-CB][VIP-CB]. 저스테이크에서 "멀티웨이 저 SPR 팟 과잉 c-bet"이 흔한 릭이라는 서술 [DC-CB]. 빈도 수치 없음(등급 C).
+- 플랍 c-bet 폴드: TAG 40–56 (50) [BR-CB][U20], 인간 프로 헤즈업·싱글 43.9 (§10.1). 멀티웨이 폴드 수치는 인간 프로 70.7(기회 41)뿐.
+
+그래서 칸 값은 **[가정]**이고, 도출은 하나의 규칙을 따른다: 수준(헤즈업·싱글)은 TAG 합계 근거(§2.3)에서, 칸 사이의 비는 인간 프로 칸 구조(§10.1)에서 가져오되, 저스테이크 과잉 c-bet 방향 [DC][DC-CB]만큼 pro보다 c-bet을 덜 줄인다.
+
+| 칸 | 목표(범위) | 도출 |
+|---|---|---|
+| c-bet 헤즈업·싱글 | **62** (56–68) [가정] | TAG 합계 65 [DC][BR-CB]에서, 합계에 섞이는 멀티웨이(낮은 칸)를 빼면 헤즈업·싱글은 합계와 같거나 높아야 한다. pro 53 (§10.1)보다 높게 둬 유형 간격(TAG가 더 자주 c-bet = 착취 대상)을 유지한다. §10.1의 "58–60 검토"와 범위가 겹친다. |
+| c-bet 헤즈업·3-bet+ | **70** (64–76) [가정] | 인간 프로 비 62/53 ≈ 1.17 을 62에 곱하면 72. 솔버식 3-bet 팟 70–85 [DC-CB] 하단과 맞춰 70. |
+| c-bet 멀티웨이·싱글 | **42** (34–50) [가정] | 인간 프로 비 29.3/53.0 ≈ 0.55 를 쓰면 34. 저스테이크 레귤러는 멀티웨이에서 덜 줄인다는 방향 [DC-CB]으로 비를 0.68로 둔다(62 × 0.68 ≈ 42). 범위 하단 34가 프로 비 그대로인 경우다. |
+| c-bet 폴드 헤즈업·싱글 | **48** (42–54) [BR-CB][U20] | §7.2 TAG 값 유지. 인간 프로 43.9보다 약간 높다(§7.2 pro "GTO+3"과 TAG의 기존 간격 유지). |
+| c-bet 폴드 멀티웨이·싱글 | **68** (62–74) [가정] | 인간 프로의 헤즈업→멀티웨이 폭 +26.8 (43.9→70.7)의 3/4을 48에 더함(68). 3/4은 인간 쪽 멀티웨이 기회 41로 폭이 불확실해서 줄인 값. pro 71보다 낮다. |
+
+멀티웨이·3-bet+는 인간 기회 5·2라 목표를 두지 않는다(배수 두 개를 곱한 결과를 그대로 받는다). 판정은 §9의 ±6%p.
+
+**추천 레버 값과 로컬 측정(참고용, CI 수치 아님).** §10.1.1과 같은 혼합 테이블 3개(`tests/test_persona_v2.py::test_street_style_within_6pp_of_target_in_mixed_field`의 구성·시드, 20,000핸드), tag만 바꾸고 tag 2석 합산. 칸 값 = % (기회 수). WTSD 가드 = 그 테스트의 유형별 ±6%p.
+
+| tag 레버 (`cbet_flop`, `mw_mult`, `3bp_mult`, `fold_cbet_flop`, `fold_cbet_flop_mw` / `probe_turn`, `giveup_turn`) | c-bet 헤즈업·싱글 | 헤즈업·3-bet+ | 멀티웨이·싱글 | 멀티웨이·3-bet+ | 폴드 헤즈업·싱글 | 멀티웨이·싱글 | WTSD 가드 |
+|---|---|---|---|---|---|---|---|
+| 현재(레버 없음, 0.65·0.48 / 0.7·0.7) | 64.8 (1342) | 62.3 (313) | 65.5 (941) | 63.3 (1098) | 64.3 (112) | 59.2 (333) | 통과 |
+| 0.62·0.68·1.13·0.36·0.64 / 현재 | 63.4 (1336) | 68.0 (284) | 41.6 (915) | 48.7 (1001) | 50.9 (114) | 72.4 (319) | **lag 0.363 > 0.34** |
+| 0.62·0.68·1.13·0.40·0.60 / 현재 | 61.4 (1311) | 71.7 (300) | 42.6 (928) | 49.9 (985) | 48.2 (112) | 70.7 (328) | **lag 0.370 > 0.34** |
+| 0.62·0.68·1.13·0.40·0.64 / 현재 | 61.5 (1332) | 71.2 (302) | 39.5 (947) | 49.5 (1092) | 48.3 (118) | 72.9 (317) | 통과 |
+| 0.62·0.68·1.13·0.33·0.60 / 현재 | 64.8 (1335) | 69.0 (287) | 42.3 (905) | 51.5 (998) | 43.7 (119) | 68.4 (329) | 통과 |
+| **0.62·0.68·1.13·0.40·0.60 / 0.8·0.75** | 60.1 (1350) | 69.2 (292) | 44.8 (931) | 48.4 (1018) | 54.8 (115) | 67.7 (310) | 통과 |
+| 0.62·0.68·1.13·0.36·0.64 / 0.8·0.75 | 62.3 (1328) | 69.5 (282) | 42.3 (929) | 47.5 (1037) | 43.8 (112) | 72.4 (326) | 통과 |
+
+추천: `cbet_flop` 0.65→**0.62**, `cbet_flop_mw_mult` **0.68**, `cbet_flop_3bp_mult` **1.13**, `fold_cbet_flop` 0.48→**0.38–0.40**, `fold_cbet_flop_mw` **0.60–0.64**, 그리고 WTSD 보정으로 `probe_turn` 0.7→**0.8**, `giveup_turn` 0.7→**0.75**. 마지막 폴드 두 값은 적용 이슈의 격자(§10.1.2처럼)에서 고른다. c-bet 칸은 레버 그대로 목표 안에 들어오지만(c-bet은 실현값이 레버와 거의 같다), 폴드는 실현값이 레버보다 몇 %p 높고 헤즈업·싱글 폴드 기회가 혼합 필드에서 ≈115로 작아 같은 레버에서도 43.7–54.8로 흔들린다(±6 판정에 기회 ≥ 150이 필요).
+
+예상 부작용:
+- **WTSD (lag).** tag의 멀티웨이 c-bet이 65→42로 줄면 체크다운 팟이 늘어, #675(§10.1.2)에서 pro가 겪은 것과 같은 경로로 같은 테이블 lag의 WTSD가 허용선 0.34를 넘는다(위 표 7개 중 2개, 0.363·0.370). 레버가 rng 소비 순서를 바꿔 같은 값 근처에서도 통과/실패가 갈리므로 한 점이 아니라 격자로 고른다. tag 자신의 `probe_turn`·`giveup_turn` 보정(0.8·0.75)으로 두 번 시도 모두 가드를 지켰다. `giveup_weak`는 이미 1.0이라 더 쓸 수 없다.
+- **WTSD (tag 자신).** 헤즈업 폴드를 낮추면 tag가 더 끝까지 가서 WTSD가 오르고(0.296·0.315), 보정을 넣으면 내려간다(0.227–0.299). 목표 0.27 ±6 안이지만 하단에 붙을 수 있다.
+- **턴·리버 폴드 가드.** `giveup_turn`을 올리면 tag의 턴 폴드가 오른다. 혼합 테스트의 턴 오차 ≤ .14·리버 ≤ .22와 loose < tight 순서 단언을 다시 확인해야 한다.
+- **비트 동일 테스트.** `tests/test_persona_v2.py::test_cell_levers_off_replay_is_bit_identical`의 레버 없는 유형 목록에 tag가 있다. 적용 PR은 tag를 목록에서 빼고 다이제스트를 새로 떠야 한다(#569 제약: 다른 유형은 비트 동일 유지). 혼합 테스트는 tag 합계 c-bet·폴드 판정을 건너뛰게 되므로 `len(seen) == 22`가 20이 된다.
+- **웹.** 웹 tag(`web/app/personas.js`)는 #676 pro 칸 테스트의 중립 상대 3석이다. 웹 tag를 바꾸면 그 테스트의 pro 칸 측정도 움직인다. 웹 미러는 Python 적용과 분리한다.
+
+**적용 이슈 초안 (계약 형식).**
+
+```
+## 목표
+tag 페르소나(Python PRESETS_V2)에 #670 칸 레버를 켜, 플랍 c-bet·폴드를 §10.1.4의 tag 칸 목표에 맞춘다.
+## 수용 기준 (모두 검증 가능해야 함)
+- [ ] PRESETS_V2["tag"]에 cbet_flop·cbet_flop_mw_mult·cbet_flop_3bp_mult·fold_cbet_flop·fold_cbet_flop_mw를 넣는다(시작값 0.62·0.68·1.13·0.40·0.62, 폴드 둘과 probe_turn·giveup_turn은 작은 격자로 고름).
+- [ ] tests/test_persona_v2.py에 slow 칸 테스트 추가(pro 칸 테스트 방식, 판정 칸마다 기회 ≥ 150): c-bet 헤즈업·싱글 62 ±6, 헤즈업·3-bet+ 70 ±6, 멀티웨이·싱글 42 ±6, 폴드 헤즈업·싱글 48 ±6, 멀티웨이·싱글 68 ±6.
+- [ ] 기존 혼합 테스트(WTSD ±6%p, 턴 오차 ≤ .14, 리버 ≤ .22, loose<tight)가 그대로 통과. tag를 test_cell_levers_off_replay_is_bit_identical 목록에서 빼고 나머지 유형 다이제스트는 새 값으로(그 유형들의 레버가 그대로임을 단언).
+- [ ] 노트 §10.1.4에 적용 측정(참고용) 한 줄과 CI 결과.
+- [ ] python -m referee.gates quick PASS, PR CI success.
+## 범위 밖
+- 웹 tag 미러(별도 이슈, #676 pro 칸 테스트의 중립 상대 영향 검토 포함), pro·다른 유형 값 변경.
+## 선행
+- #677
+## 참고
+- docs/research/2026-10-30-population-stats.md §10.1.2·§10.1.4, stalker/agents/persona.py, PR #675
+```
+
+한계: 칸 목표는 공개 집계가 없어 [가정]이다. 저스테이크 실제 칸 값을 재려면 저스테이크 핸드 기록(공개 PHH 중 저스테이크 표본)이 필요하다 — 찾으면 이 절의 값을 그것으로 바꾼다. 측정은 혼합 테이블 하나의 시드 묶음이며 CI 지표가 아니다.
+
 ## 출처
 
-모든 접근일 2026-10-30. "날짜"는 게시일(없으면 추정 근거).
+모든 접근일 2026-10-30(따로 적은 것 제외). "날짜"는 게시일(없으면 추정 근거).
 
 - [U20] Upswing Poker, Dan B., "Poker HUD Stats" — 2020-07-03. https://upswingpoker.com/poker-hud-stats/
 - [U25] Upswing Poker, Dan B., "The Population Leak You Can't Ignore: Overfolding vs Raises in 3-Bet Pots" — 2025-08-29. 500nl+ DB, 184 플랍 솔버 비교. https://upswingpoker.com/in-position-raising-3-bet-pots-part-ii/
@@ -585,6 +649,8 @@ Training Game이 쓰는 웹 페르소나(`web/app/personas.js`)에 Python pro(§
 - [GW-RR] GTO Wizard, "River Refinements: When Your Opponent Won't Check-Raise" — 날짜 미확인. https://blog.gtowizard.com/river-refinements-when-your-opponent-wont-check-raise/
 - [GW-MSB] GTO Wizard, "The Math of Multi-Street Bluffs" — 날짜 미확인. https://blog.gtowizard.com/the-math-of-multistreet-bluffs/
 - [DC] DeucesCracked, "HUD Stats" — 날짜 없음(© 2026). 등급 C. https://www.deucescracked.com/poker/strategy/hud-stats
+- [DC-CB] DeucesCracked, "Continuation Bet Strategy 2026: Modern C-Bet Theory (Cash)" — 날짜 없음(2026 표기), 접근 2026-11-08, 검색 요약만 확인(본문 접속 불가). 등급 C. https://www.deucescracked.com/blog/continuation-bet-strategy-2026-modern-cbet-theory-cash
+- [VIP-CB] VIP-Grinders, "Continuation Betting" 전략 글 — 날짜 미확인, 접근 2026-11-08, 검색 요약만 확인. 등급 C. https://www.vip-grinders.com/poker-strategy/continuation-betting/
 - [PSK] PokerSkill, "Poker opening ranges by position" 및 플레이어 유형 글로서리 — 날짜 없음. 등급 C. https://www.pokerskill.com/charts/opening-ranges/
 - [PSK-SIZE] PokerSkill 글로서리 "Sizing Tell" — 날짜 없음. 등급 C. https://www.pokerskill.com/poker-glossary/sizing-tell/
 - [PT] PokerTube, "How to use a preflop chart" (PokerCoaching 차트 인용, UTG 17.6%) — 날짜 미확인. https://www.pokertube.com/article/how-to-use-a-preflop-chart-in-poker
