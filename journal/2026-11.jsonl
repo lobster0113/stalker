@@ -807,3 +807,4 @@
 {"ts":"2026-11-08T17:16:16Z","role":"reviewer","outcome":"skipped","issue":600,"pr":682,"notes":"not my parity","friction":""}
 {"ts":"2026-11-08T17:21:22Z","role":"builder-b","outcome":"changes","issue":600,"pr":682,"notes":"addressed CHANGES: review-sched CI job run 42504068705, fixed_long arm, conclusion revised; waiting CI","friction":"reviewer judged before gates(tests) finished (~40min CI)"}
 {"ts":"2026-11-08T17:21:49Z","role":"reviewer","outcome":"skipped","issue":600,"pr":682,"notes":"not my parity","friction":""}
+{"ts":"2026-11-08T17:40:52Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has CHANGES verdict on head d723a9c; #682 is even (reviewer-b)","friction":"should_run.py printed RUN although no odd PR needed a verdict"}
