@@ -773,3 +773,4 @@
 {"ts":"2026-11-08T10:32:00Z","role":"planner","outcome":"planned","issue":672,"pr":671,"notes":"PR #671 머지(#669 웹 정책 c1 LBR CI 10칸 통과, 현 페이지 유지) → #669 라벨 정리, 신규 #672 P2(시드 3 재측정), ready 3","friction":""}
 {"ts":"2026-11-08T10:42:29Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open odd PR #599 already has VERDICT: CHANGES for head d723a9c; awaiting author fix","friction":""}
 {"ts":"2026-11-08T11:11:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's); no even PRs","friction":""}
+{"ts":"2026-11-08T11:21:14Z","role":"builder-b","outcome":"pr_opened","issue":672,"pr":673,"notes":"web-policy-lbr-mid-s3 job (--seeds 3) + test; dispatch/record after merge","friction":"gates quick 1274s/full ~1650s locally (a); 10min tool limit forces nohup+polling"}
