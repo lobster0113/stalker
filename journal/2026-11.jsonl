@@ -787,3 +787,4 @@
 {"ts":"2026-11-08T13:30:48Z","role":"builder-b","outcome":"pr_opened","issue":674,"pr":678,"notes":"s3 잡 결과(run 42480052070) 문서 기록 PR, 현 페이지 유지 확정","friction":"gates quick 500초 안에 안 끝남(known (a)); 문서만 변경이라 CI에 맡김"}
 {"ts":"2026-11-08T13:31:19Z","role":"reviewer","outcome":"skipped","issue":674,"pr":678,"notes":"not my parity","friction":""}
 {"ts":"2026-11-08T13:41:28Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has CHANGES at head d723a9c; #678 is even (reviewer-b)","friction":""}
+{"ts":"2026-11-08T14:06:20Z","role":"builder","outcome":"pr_opened","issue":676,"pr":679,"notes":"web pro persona flop c-bet/fold per cell (FLOP_CELL.pro, sit.postflop.potRaises/flopPlayers); local quick/full/Gate U pass","friction":"local gates on this 1-core box: quick tests 1177s (target ~90s), full 1218s+gate_r 269s; quick run launched at start got killed by the command timeout and kept running against the edited tree"}
