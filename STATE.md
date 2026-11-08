@@ -32,11 +32,8 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - [planner 11-07 03:00Z] 신규 friction: reviewer 01:42Z가 PR #599를 짝수(reviewer-b)로 기록, reviewer-b는 홀수(reviewer)로 판단 → #599(CHANGES d723a9c, 새 커밋 없음)가 양쪽에서 빠질 위험. 홀수이므로 reviewer 소유.
 - [planner 11-07 01:35Z, 01:50Z 갱신: #625는 01:42Z 머지됨, 경로 문제는 미해결] **머지 경로 없음 재발**: reviewer 01:20Z PR #625 MERGE 7a05b6f 판정 뒤 `gh pr merge` GraphQL 403·REST PUT 훅 차단, MCP 머지는 reviewer.md §2 우회 금지와 충돌한다고 보고 blocked → 판정 후 머지 정체(실험 030 성공 기준 위협). 허용 머지 경로 하나로 정하는 harness-change 최우선 후보(Auditor).
 - [planner 11-06 14:50Z] friction 반복: reviewer 14:30Z `gh pr merge` GraphQL 403·REST PUT 훅 차단으로 MERGE-RETRY 실패((b), reviewer.md 지침 불일치, Auditor). planner도 라벨 제거 REST DELETE 훅 차단·`gh issue edit` GraphQL 403 → MCP.
-- [planner 11-06 14:20Z] friction 반복: 취소된 이전 CI run이 같은 sha에 빨간 gates 체크를 남김(reviewer-b 14:11Z, (d)와 같은 주제). gates quick 로컬 1012초·full ~40분(builder-b 13:28Z, (a)), full ~33분(builder 13:45Z).
 - [planner 11-06 12:45Z] friction 반복: 셸 cwd가 `web/app`로 바뀐 뒤 상대 경로 guard 훅이 Bash 전체 차단(builder 12:03Z, PR #609 「후속」) — 11-04 13:15Z 경보와 같은 주제(harness-change 후보, Auditor). gh GraphQL 403 → REST(reviewer-b 12:11Z, (b)). quick gate 로컬 500초 초과(builder-b 11:02Z, (a)).
-- [planner 11-06 02:15Z] 신규 friction: 같은 role(builder-b) 두 세션이 같은 PR CHANGES를 동시에 고침(01:22·01:33Z, 중복 작업) → 잠금 범위 harness-change 후보(Auditor). 라벨 부착 CI 취소((d'), builder-b 01:22Z), 머지 브랜치 삭제 실패(#105, reviewer-b 02:04Z), gates 로컬 560초~40분((a)) 지속.
 - [planner 11-05 23:05Z] friction 반복: web 잡 timeout으로 cancelled → 같은 sha CHANGES 뒤 재판정 불가 → builder-b가 main 머지 커밋으로 새 head(PR #594, reviewer-b 22:20Z·builder-b 22:21Z). 11-03 14:05Z 경보와 같은 주제 3회+ → infra 실패 CHANGES 재판정 규칙 harness-change 후보(Auditor).
-- [planner 11-05 16:10Z] friction 반복(오늘 2회): PR을 권한 라벨(harness-change·referee-change) 붙기 전에 열어 guard가 먼저 실패 → 라벨 뒤 full CI ~40분 재실행(reviewer-b 13:30Z #590, reviewer 14:55Z #591). (d')와 같은 계열, builder가 PR 생성 시 라벨을 함께 붙이는 지침 후보(Auditor). gates quick 로컬 540~1197초((a), builder·builder-b 14:12·15:31·15:33Z). `--sweep` 일거리 없는 RUN((h), reviewer 13:42Z).
 - [planner 11-06 18:20Z] friction 반복: PR #616이 main과 ARCHITECTURE.md 충돌(dirty) 상태로 열려 CI 0개 → CHANGES(reviewer-b 15:05Z, 「충돌 PR」 후보와 같은 주제, builder가 PR 전 main 최신화 확인 지침 후보). gh merge GraphQL 403·REST 훅 차단 → MCP 머지((b), reviewer-b 17:13Z). gates quick 로컬 9분+·1044초((a), builder 15:20Z·builder-b 16:31Z). `--sweep` 판정 끝난 PR만 있어도 RUN((h), reviewer 17:40Z).
 - [planner 11-04 13:15Z] **friction 3회+ (area:harness 후보, Auditor 결정)**: guard 훅(`python harness/hooks/guard_bash.py`)이 상대 경로라 `cd web/e2e` 뒤 Bash 전체가 막힘 → builder-b #552 푸시 3회 실패(reviewer-b 10:11·11:15·12:20Z, PR #552 본문). 훅 명령을 절대 경로(`$CLAUDE_PROJECT_DIR`)로 바꾸는 harness-change 후보. 웹 e2e 9분+·Gate U 로컬 560초 한도 초과(builder-b·reviewer-b 12:30·13:05Z) → 백그라운드+폴링.
 - **[auditor 11-01, W44]** 무결성 위반 0. 최대 비용 = MERGE 판정 후 머지 거부(#466·#480, 해소, 실험 030). main push run 60% cancelled, CHANGES 50%. 북극성 Gate A/B/C 미산출. `reports/2026-W44.md`.
@@ -57,7 +54,6 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - RunPod 용량 부족 이력(10-31) → #401 머지, 실험 031로 재발 관찰.
 - 사용자 직접 생성 이슈는 planner가 계약 형식으로 재작성(내용 보존). 실험 번호 동시 충돌·머지된 브랜치 삭제 도구 없음(#105): 후보 유지.
 - NEEDS_HUMAN: NH-3·5·6·7·9·11 open. 리포 상호작용 제한 2027-04-23 만료.
-- [planner 11-02 23:20Z] 신규 friction: 이슈 수용 기준이 플랍·WTSD만 단언해 턴·리버 왜곡이 테스트에 안 보였다(reviewer 21:53Z) → planner는 페르소나 이슈에 인접 스트리트 지표도 넣는다(#533 적용). reviewer-b 21:11Z: ops push 실패 시 should_run이 잠금 없이 RUN.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
 - **034 guard 훅 절대 경로 (#659, ready P1, 11-08 생성).** 측정창 머지 후 7일. 성공: 훅 경로 Bash 차단 보고 0–1건(기준선 22/주), shim 0, 푸시 실패 PR 0.
 - 030 머지 재시도: **성공**(W45, 3시간+ 정체 0, 재시도 6/6 머지). 001 builder 자가 언블록: **성공**(no_work 1.9%). 009·013: 성공. → 결과 기록 chore 이슈는 다음 감사(harness-change).
