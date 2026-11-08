@@ -32,14 +32,15 @@ import hashlib
 import json
 from collections import Counter
 from collections.abc import Callable
-from functools import cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 import numpy as np
 
 from referee.e3.lbr import seat_probs
 from referee.stats import adjust_with_corrections, bootstrap_ci
-from stalker.e2.eq_view import combo_index
+from stalker.e2.eq_view import N as EQ_N
+from stalker.e2.eq_view import combo_index, equity_vs
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
 
@@ -168,8 +169,52 @@ def committed_value(s: G.State, seat: int) -> float:
     return (pot / live - s.total[seat]) / G.BB
 
 
+@lru_cache(maxsize=4096)  # ~10 KB per board; chance terms draw fresh boards, so it must stay bounded
+def _uniform_equity(board: tuple[int, ...]) -> np.ndarray:
+    # read-only: one array per board, shared by every call on that board
+    eq = equity_vs(board, np.ones(EQ_N))
+    eq.flags.writeable = False
+    return eq
+
+
+def equity_value(s: G.State, seat: int) -> float:
+    """A board-dependent value estimate (bb) of `s` for `seat`: `eq**L * pot - total[seat]`, where `eq` is
+    the seat's own hole cards' equity against a uniform range on the current board (`stalker.e2.eq_view.
+    equity_vs`, preflop from the class table) and `L` the live opponents. `eq**L` is an approximation
+    (it treats the opponents as independent uniform ranges and ignores who is still betting); the
+    AIVAT corrections stay unbiased for any value, so it only has to track the outcome better than
+    `committed_value` to shrink the variance. Only the seat's own cards and the board are read: no
+    opponent hole cards. A folded seat is worth minus its investment; the last seat left wins the pot."""
+    pot = sum(s.total)
+    if s.folded[seat]:
+        return -s.total[seat] / G.BB
+    live = sum(1 for f in s.folded if not f) - 1
+    if live == 0:
+        return (pot - s.total[seat]) / G.BB
+    eq = float(_uniform_equity(tuple(s.board))[combo_index(s.hole[seat])])
+    return (eq ** live * pot - s.total[seat]) / G.BB
+
+
+AIVAT_VALUES = {"committed": committed_value, "equity": equity_value}
+
+
+def _chance_term(s: G.State, nxt: G.State, seat: int, value, rng, m: int) -> float:
+    """`v(h.board) - mean_m v(h.board_m)` for a board reveal `s -> nxt`: `m` alternative boards of the
+    same size are drawn from the cards left in `s.deck` (the actual board is one more draw from it), so
+    the term has mean zero for any `value`. A reveal that opens several streets at once (all-in
+    runout) is one chance event."""
+    cnt = len(nxt.board) - len(s.board)
+    alts = []
+    for _ in range(m):
+        idx = sorted(rng.choice(len(s.deck), size=cnt, replace=False).tolist())
+        keep = tuple(c for i, c in enumerate(s.deck) if i not in set(idx))
+        alts.append(nxt._replace(board=s.board + tuple(s.deck[i] for i in idx), deck=keep))
+    v = value(nxt, seat)
+    return -float(np.mean([value(x, seat) - v for x in alts]))  # diff first: exactly 0 for a board-blind value
+
+
 def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = "basic",
-              value: Callable[[G.State, int], float] | None = None):
+              value: Callable[[G.State, int], float] | None = None, chance: bool = True, chance_m: int = 8):
     """The target's net (bb) in each seat rotation of one deal. `target`: a TP-key policy dict or a
     callable state -> probabilities over the legal actions; `opponents`: one actor per other seat
     (a `Champion` is a TP-key policy with its own beliefs).
@@ -178,7 +223,12 @@ def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = 
     rotation, the sum over decisions by actors whose strategy is known (a TP-key policy, a champion,
     or `uniform`) of `v(h.a) - sum_a' p(a') v(h.a')`. Each term has mean zero, so `net - corrections`
     is unbiased with less variance. Personas and other callables are not corrected. The action
-    random stream is the same with or without `value`."""
+    random stream is the same with or without `value`.
+
+    `chance` (default on) also adds a board-reveal term per chance event (`_chance_term`, `chance_m`
+    alternative boards from the separate stream `[deal_seed, 2, event]`). The default `committed_value`
+    does not depend on the board, so that term is exactly 0 there: board-dependent value functions
+    (e.g. equity) are needed for it to reduce variance. `chance=False` gives the #593 corrections."""
     n = len(opponents) + 1
     # every TP-key policy at the table, once each, with how it reads a seat: (policy, read)
     readers = [(target, lambda s, p, r: seat_probs(target, s, p, r, k, depth))] if isinstance(target, dict) else []
@@ -193,6 +243,7 @@ def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = 
         for j, opp in enumerate(opponents):
             actors[(seat + 1 + j) % n] = opp
         ranges = [K.initial_ranges(n) for _ in readers]
+        events = 0
         while not s.done:
             p, acts = s.to_act, G.legal(s)
             tables = [read(s, p, r) for (_, read), r in zip(readers, ranges)]
@@ -205,6 +256,9 @@ def play_deal(target, opponents: list, deal_seed: int, k: int = 5, depth: str = 
             if value is not None and (mine is not None or who is uniform):
                 vals = np.array([value(nxt if i == a else G.apply(s, x), seat) for i, x in enumerate(acts)])
                 corr[seat] += vals[a] - float(vals @ (row / row.sum()))
+            if value is not None and chance and len(nxt.board) > len(s.board):
+                corr[seat] += _chance_term(s, nxt, seat, value, np.random.default_rng([deal_seed, 2, events]), chance_m)
+                events += 1
             s = nxt
         out[seat] = float(G.payoff(s)[seat]) / G.BB
     return out if value is None else (out, corr)
@@ -276,12 +330,15 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--configs", nargs="*")
     ap.add_argument("--players", type=int, default=6, help="table size: 6 uses field_v2, 2-5 field_v3 (#534)")
+    ap.add_argument("--aivat", nargs="?", const="committed", choices=sorted(AIVAT_VALUES),
+                    help="also record the AIVAT-adjusted bb/100 per config (record-only); the value function: "
+                         "committed (default when the flag has no argument) or equity (board-dependent, #634)")
     a = ap.parse_args(argv)
     pol = json.loads(a.policy.read_text(encoding="utf-8"))
     if isinstance(pol.get(a.which), dict):
         pol = pol[a.which]
     res = evaluate(pol, a.hands, a.seed, k=K.TIER_K[a.tier], depth=K.TIER_DEPTH[a.tier], configs=a.configs,
-                   players=a.players)
+                   players=a.players, aivat=AIVAT_VALUES[a.aivat] if a.aivat else False)
     print(json.dumps(res, indent=1))
     return 0
 

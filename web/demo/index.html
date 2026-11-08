@@ -1764,7 +1764,7 @@ async function runLoop() {
 async function playHand(token) {
   const alive = () => G && token === gameToken;
   if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
-  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
+  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.potRaises = 0; G.flopPlayers = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
   // TP-GTO tables: every seat starts each hand at 100BB (top-up, excess banked into the session result)
   if (G.eng) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
   // replenish
@@ -1809,6 +1809,7 @@ async function playHand(token) {
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
       engCheckBoard();
       G.prevAgg = G.lastAgg; G.prevBet = G.streetRaises > (st === 1 ? 1 : 0);   // persona c-bet / probe spots (#429)
+      if (st === 1) { G.potRaises = G.streetRaises - 1; G.flopPlayers = live().length; }   // persona flop cell (#676)
       G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null; G.streetRaises = 0;
       await sleep(500);
     }
@@ -1845,7 +1846,7 @@ function heroAnalysis(a, L) {
   const base = (G.decs || []).at(-1);
   if (!base || base.hand !== G.handNo || base.used || !base.act) return null;
   base.used = true;
-  const an = { name: base.act.me, p: base.act.p, approx: base.act.approx || undefined, top: base.act.top, topP: base.act.topP, leak: base.act.leak || undefined,
+  const an = { name: base.act.me, p: base.act.p, approx: base.act.approx || undefined, top: base.act.top, topP: base.act.topP, leak: base.act.leak || undefined, near: base.act.near || undefined,
     tp: base.total != null ? { total: base.total, worst: base.rows.slice().sort((x, y) => x.score - y.score).slice(0, 2) } : undefined };
   if (!engOn()) return an;
   try {
@@ -1939,11 +1940,16 @@ function sessHTML(net) {
 }
 // Session report (#464): every graded decision of this game, kept so the player can stop and look back.
 const LOW_FREQ = 0.10;
+// A c1 miss answered by a coarse key (ADR 0022, #623) is a nearby situation's average, not this spot's answer:
+// it is shown as such and, like a leak cell, never graded as a frequency.
+const NEAR_TXT = "비슷한 상황 평균(근사)";
+const NEAR_WHAT = { L1: "핸드 세부·스택 깊이 무시", L2: "공개 정보·SPR까지 무시", L3: "공개 정보·SPR 무시, 자리는 앞·뒤·블라인드 묶음으로", L4: "자리 묶음에 더해 에퀴티 한 칸 위·아래" };   // #623, #645, #652
+const nearOf = m => (m && NEAR_WHAT[m.fromTable] ? m.fromTable : undefined);
 function recordDecision(gr) {
   if (!gr) return;
   const a = gr.refs.find(r => r.kind === "model-action"), m = a?.model, top = m ? m.mix.slice().sort((x, y) => y.p - x.p)[0] : null;
   (G.decs ||= []).push({ hand: G.handNo, street: gr.street, cards: gr.hand, total: gr.total, rows: gr.rows.map(r => ({ k: r.k, score: r.score })),
-    act: m && a.you ? { me: m.mix.find(x => x.a === a.you.label)?.name || a.you.label, p: a.you.p, approx: !!a.you.approx, top: top.name, topP: top.p, leak: m.leak?.kind === "leak" } : null });
+    act: m && a.you ? { me: m.mix.find(x => x.a === a.you.label)?.name || a.you.label, p: a.you.p, approx: !!a.you.approx, top: top.name, topP: top.p, leak: m.leak?.kind === "leak", near: nearOf(m) } : null });
 }
 function sessionReport() {
   const ds = G.decs || [], hs = G.hands || [], hero = G.seats.find(x => x.isHero);
@@ -1951,10 +1957,10 @@ function sessionReport() {
   const graded = ds.filter(d => d.total != null), items = {};
   for (const d of ds) for (const r of d.rows) { const it = items[r.k] ||= { k: r.k, n: 0, sum: 0 }; it.n++; it.sum += r.score; }
   const byItem = Object.values(items).map(it => ({ ...it, avg: Math.round(it.sum / it.n) })).sort((a, b) => a.avg - b.avg);
-  const acts = ds.filter(d => d.act && !d.act.leak), low = acts.filter(d => d.act.p < LOW_FREQ);
+  const acts = ds.filter(d => d.act && !d.act.leak && !d.act.near), low = acts.filter(d => d.act.p < LOW_FREQ);
   return { hands: hs.length, decisions: ds.length, net, graded: graded.length,
     score: graded.length ? Math.round(graded.reduce((a, d) => a + d.total, 0) / graded.length) : null, byItem,
-    compared: acts.length, placeholder: acts.length > 0 && isPlaceholder(modelMeta(G.tier, G.n)), leaks: ds.filter(d => d.act?.leak).length,
+    compared: acts.length, placeholder: acts.length > 0 && isPlaceholder(modelMeta(G.tier, G.n)), leaks: ds.filter(d => d.act?.leak).length, near: ds.filter(d => d.act?.near).length,
     meanFreq: acts.length ? acts.reduce((a, d) => a + d.act.p, 0) / acts.length : null, low };
 }
 function reportHTML(r) {
@@ -1963,7 +1969,7 @@ function reportHTML(r) {
   const kpis = `<div class="rp-kpis">${kpi(r.hands, "끝난 핸드", "data-rp-hands")}${kpi(r.decisions, "내 결정", "data-rp-decisions")}${r.net == null ? "" : kpi(`<span class="${r.net > 0 ? "good" : r.net < 0 ? "bad" : ""}">${sgn(r.net)} BB</span>`, "세션 손익", "data-rp-net")}${kpi(r.score ?? "—", "TP 점수 평균", "data-rp-score")}</div>`;
   const items = r.byItem.length ? `<h3>항목별 점수 (약한 순)</h3><table data-rp-items><tbody>${r.byItem.map(it => `<tr data-k="${it.k}"><th scope="row">${SHORT[it.k] || it.k}</th><td class="r num">${it.avg}점</td><td class="r num">${it.n}회</td></tr>`).join("")}</tbody></table>`
     : `<p class="rp-note">채점된 판단 항목이 없어요. Guided로 두거나 Quick에서 '분석 보기'를 열면 항목별 점수가 쌓여요.</p>`;
-  const act = r.compared ? `<h3>TP-GTO 액션 비교${r.placeholder ? ` <span class="conf model" data-rp-placeholder>임시 정책 기준</span>` : ""}</h3><p class="rp-note" data-rp-act>비교한 결정 <b class="num">${r.compared}</b>회 · 내 선택의 평균 정책 빈도 <b class="num">${pc(r.meanFreq)}</b> · 정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만) <b class="num">${r.low.length}</b>회${r.leaks ? ` · 알려진 결함 칸 ${r.leaks}회는 빼고 셌어요` : ""}</p>
+  const act = r.compared ? `<h3>TP-GTO 액션 비교${r.placeholder ? ` <span class="conf model" data-rp-placeholder>임시 정책 기준</span>` : ""}</h3><p class="rp-note" data-rp-act>비교한 결정 <b class="num">${r.compared}</b>회 · 내 선택의 평균 정책 빈도 <b class="num">${pc(r.meanFreq)}</b> · 정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만) <b class="num">${r.low.length}</b>회${r.leaks ? ` · 알려진 결함 칸 ${r.leaks}회는 빼고 셌어요` : ""}${r.near ? ` · <span data-rp-near>${NEAR_TXT} ${r.near}회는 빼고 셌어요</span>` : ""}</p>
     ${r.low.length ? `<table data-rp-low><tbody>${r.low.map(d => `<tr><td>#${d.hand} · ${d.street}</td><td>${d.cards}</td><td>내 선택 ${d.act.me} <span class="num">${d.act.approx ? "≈" : ""}${pc(d.act.p)}</span></td><td>정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span></td></tr>`).join("")}</tbody></table>` : ""}`
     : `<p class="rp-note">TP-GTO 정책과 비교한 결정이 없어요(캐시게임 6인 100BB에서 비교돼요).</p>`;
   const hands = r.hands ? `<details data-rp-hands-list><summary>핸드별 결과 ${r.hands}개</summary><table><tbody>${(G.hands || []).slice().reverse().map(x => `<tr><td>#${x.no}</td><td>${x.cards}</td><td>${x.folded ? "폴드" : x.net > 0 ? "획득" : x.net < 0 ? "패배" : "본전"}</td><td class="r num ${x.net > 0 ? "good" : x.net < 0 ? "bad" : ""}">${sgn(x.net)}</td></tr>`).join("")}</tbody></table></details>` : "";
@@ -2078,7 +2084,8 @@ function personaAct(s) {
     preflop: { raises: G.streetRaises - 1, limpers: live().filter(o => o !== s && o.bet === G.bb && o.i !== G.bbI).length, limped: s.bet === G.bb && s.i !== G.bbI,
       iRaised: mine.raised, openerPos: agg ? posName(agg) : null, openTo: G.currentBet },
     postflop: { aggressor: G.prevAgg === s.i, prevAggLive: G.prevAgg != null && G.prevAgg !== s.i && !G.seats[G.prevAgg].folded, prevBet: !!G.prevBet,
-      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises },
+      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises,
+      potRaises: G.potRaises, flopPlayers: G.flopPlayers },
     hand: { cards: s.cards }, board: G.board,
   }, rand);
   if (a.type === "check") mine.checked = true;
@@ -2169,6 +2176,8 @@ function tpgLoad(tier, n = 6) {
         TPG.rules[pk] = TPG.mod.menuOf(doc);   // the size menu the table was trained on (v1 when the file does not say)
         const q = doc.q || 255, pol = new Map();
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
+        // c1 tables back off on a miss (ADR 0022, #623): build the coarse tables here, not on the first AI decision.
+        if (m.key_variant === "c1") { const t0 = performance.now(); TPG.mod.coarseTables(pol); TPG.coarseMs = { ...(TPG.coarseMs || {}), [pk]: Math.round(performance.now() - t0) }; }
         TPG.pol[pk] = pol;
       }
       if (m && !(pk in TPG.leaks)) {
@@ -2959,8 +2968,8 @@ function foldView(guided) {
 // side by side, and the next hand waits for the player.
 function handReviewHTML(no, live = false) {
   const ds = (G.decs || []).filter(d => d.hand === no), hr = (G.hands || []).find(x => x.no === no), pc = x => Math.round(x * 100) + "%";
-  const rows = ds.map(d => `<tr data-hr-dec><td>${d.street}</td><td>${d.act ? `내 선택 ${d.act.me} <span class="num">${d.act.leak ? "채점 안 함" : (d.act.approx ? "≈" : "") + pc(d.act.p)}</span>` : "—"}</td><td>${d.act ? `정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span>` : "TP-GTO 비교 없음"}</td><td class="r num">${d.total == null ? "—" : d.total + "점"}</td></tr>`).join("");
-  const low = ds.filter(d => d.act && !d.act.leak && d.act.p < LOW_FREQ), worst = ds.flatMap(d => d.rows).sort((a, b) => a.score - b.score)[0];
+  const rows = ds.map(d => `<tr data-hr-dec><td>${d.street}</td><td>${d.act ? `내 선택 ${d.act.me} <span class="num">${d.act.leak ? "채점 안 함" : d.act.near ? `<span data-near>${NEAR_TXT} · 채점 안 함</span>` : (d.act.approx ? "≈" : "") + pc(d.act.p)}</span>` : "—"}</td><td>${d.act ? `정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span>` : "TP-GTO 비교 없음"}</td><td class="r num">${d.total == null ? "—" : d.total + "점"}</td></tr>`).join("");
+  const low = ds.filter(d => d.act && !d.act.leak && !d.act.near && d.act.p < LOW_FREQ), worst = ds.flatMap(d => d.rows).sort((a, b) => a.score - b.score)[0];
   const net = hr ? hr.net : 0, sgn = x => (x > 0 ? "+" : "") + bbf(x);
   const me = G.seats.find(x => x.isHero), head = live ? `핸드 #${no} 분석 · ${me ? me.cards.map(cardTxt).join(" ") : ""} · 진행 중` : `핸드 #${no} 분석 · ${hr?.cards || ""} · <span class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${sgn(net)} BB</span>`;
   return `<div class="hand-review" data-hand-review="${no}"${live ? " data-live" : ""}><div style="font-weight:600">${head}</div>
@@ -3004,11 +3013,12 @@ function mixRefHTML(mix, you, title) {
 function modelActionHTML(r) {
   const m = r.model.meta, you = r.you, leak = r.model.leak;
   // In a known leak cell the row is wrong, so the hero's frequency in it is not shown as a grade.
-  const freq = leak?.kind === "leak" ? `<span style="font-size:11px;color:var(--faint)">채점 안 함</span>` : `<b class="num">${you ? (you.approx ? "≈" : "") + Math.round(you.p * 100) + "%" : "—"}</b>${you?.approx ? ` <span class="conf" data-approx title="메뉴 밖 사이즈의 번역 오차가 커서 근사값이에요 (#417)">근사(번역)</span>` : ""}`;
+  const near = nearOf(r.model);
+  const freq = leak?.kind === "leak" || near ? `<span style="font-size:11px;color:var(--faint)">채점 안 함</span>` : `<b class="num">${you ? (you.approx ? "≈" : "") + Math.round(you.p * 100) + "%" : "—"}</b>${you?.approx ? ` <span class="conf" data-approx title="메뉴 밖 사이즈의 번역 오차가 커서 근사값이에요 (#417)">근사(번역)</span>` : ""}`;
   return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 ${freq}</span>${modelTag(m)}</div>
     ${leakHTML(leak)}${modelMixHTML(r.model, you)}
     ${you?.note ? `<div class="cap"><span>${you.note}</span></div>` : ""}
-    <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
+    <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${near ? ` · <span data-near="${near}">${NEAR_TXT}</span>: 이 상황 그대로의 학습 표본이 없어 비슷한 상황(${NEAR_WHAT[near]})의 평균이에요` : r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
     <div class="model-line">TP-GTO · 학습 중간본 · ${modelLine(m)}</div></div>`;
 }
 function modelWhyHTML(k, g) {

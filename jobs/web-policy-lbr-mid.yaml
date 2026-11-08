@@ -1,0 +1,16 @@
+# #661 (#653 follow-up 1): c1 LBR of the filtered web policy files ops:cloud/policies/41813684540/mid-{2..6}.json at
+# ADR 0020's hands (2-3p 2000, 4-5p 600, 6p 1000) and minimum seeds (1, 1, 2, 2, 2 -> seeds 1 and 2, eval seed 10000+seed),
+# backoff off and on = 20 cells over 32 workers. Other policy run: change POLICY_RUN below in a PR.
+# Estimate: the local 4-core cells took 500-700 s per 800-1000 hands; the longest cell here (3p, 2000 hands) ~25-40 min.
+# Worst case = hourly_usd * max_minutes / 60 = 1.2 * 150 / 60 = $3.00 (expected ~$1). Result: ops:cloud/results/<run id>.json
+name: web-policy-lbr-mid
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; POLICY_RUN=41813684540; python3 -m stalker.tools.web_policy_lbr_job --policy-run $POLICY_RUN --workers 32 --out /result/web-policy-lbr-mid.json
+cpu_flavors: [cpu5c, cpu3c]
+flavor_hourly_usd: [1.2, 1.0]
+vcpu: 32
+disk_gb: 10
+max_minutes: 150
+hourly_usd: 1.2
+est_cost_usd: 1.0
+result_path: /result/web-policy-lbr-mid.json

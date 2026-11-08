@@ -28,6 +28,10 @@
 - `mode=export export_run=<run id> tier=<등급>`: 앞선 mixn c1 `run`의 아티팩트 `cloud-result-<run id>`를 러너에서 받아 `python -m stalker.tools.export_web_players export`로 2·3·4·5·6인 웹 정책 파일(`<등급>-<n>.json`)과 `web/app/policy/index.json` 갱신본을 만들고 아티팩트 `web-policy-<run id>`(30일)로 올린다(#588, ADR 0021 후속 2). 파드를 띄우지 않고 원장 줄도 남기지 않는다(`cloud-budget` 그룹). 파일별 `keys`·`players`·`bytes`·`sha256`·`lbr_bb`·`within_page_budget`(3MB 페이지 상한 이하인가)·`keys_by_min_visits`(`--min-visits` 문턱별 남는 키 수)와 `index.json`의 바이트·sha256 요약이 `ops:cloud/exports/<run id>.json`에 올라간다 — 에이전트는 이 파일로 결과를 본다. 선택 입력 `export_strategy`(`current`|`average`, 기본 current)·`export_min_visits`(기본 0)·`export_min_visits_by_players`(예 `2:10,3:5,4:5,5:5,6:2`, 기본 빈 문자열 = 없음; 지정한 인원만 그 문턱, 나머지는 `export_min_visits`; 파일별 실제 값은 요약 `files[].min_visits`). 3MB 페이지 상한 안의 파일만 `index.json`(그 파일들만 나열)과 함께 `ops:cloud/policies/<run id>/`에 올라가고, 상한을 넘은 파일은 요약에만 남는다(run은 실패하지 않음, #596). 에이전트는 이 경로에서 읽어 다음 PR로 `web/app/policy/`에 옮긴다. main·`web/app/policy/`에는 커밋하지 않는다(정책 교체는 별도 PR). 아티팩트가 없거나 만료되면 첫 오류 줄이 `artifact cloud-result-<id> not found/expired: 다시 학습하거나 다른 run을 지정`으로 실패한다. `player_mix`가 없는 결과는 고치는 방법(`export_web_policy --pod-result`)과 함께 거부된다.
 - 매일 03:17 UTC: `reap` — 기한 지난 `stalker-*` pod 종료, 원장 정리.
 
+## 웹 정책 LBR 잡 (`web-policy-lbr-mid.yaml`, #661)
+- 서비스가 쓰는 걸러 낸 정책(`ops:cloud/policies/<run>/mid-{2..6}.json`)을 ADR 0020 핸드 수(2·3인 2,000 / 4·5인 600 / 6인 1,000)·시드(1, 2 → 평가 시드 10001·10002)로 백오프 끔/켬 두 번씩 잰다. 디스패치: `mode=run job=jobs/web-policy-lbr-mid.yaml`(먼저 `dry_run=true`). 다른 정책 run이면 명세의 `POLICY_RUN`을 바꾸는 PR.
+- 예상 비용: cpu5c 32 vCPU $1.2/h × 약 40~90분 ≈ $1~2, 최악 $3.00(`max_minutes: 150`). 결과: `ops:cloud/results/<run id>.json`의 `backoff.on|off.<n>`(`lbr_bb`·`lbr_stderr_bb`·`limit`·`pass`).
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
