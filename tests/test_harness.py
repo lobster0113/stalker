@@ -54,6 +54,35 @@ def test_bash_guard_checks_each_command_separately():
         assert g.check(cmd), cmd
 
 
+def _hook_commands():
+    import json
+    settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    return [h["command"] for groups in settings.get("hooks", {}).values() for g in groups for h in g["hooks"]
+            if h.get("type") == "command"]
+
+
+def test_hook_commands_do_not_depend_on_cwd():
+    # A relative `harness/...` path breaks every Bash call once the shell cd's into web/ (experiment 034).
+    cmds = _hook_commands()
+    assert cmds
+    for cmd in cmds:
+        assert '"$CLAUDE_PROJECT_DIR/harness/' in cmd, f'hook must use "$CLAUDE_PROJECT_DIR/harness/...": {cmd}'
+        assert not re.search(r"(^|\s)harness/", cmd), cmd
+
+
+def test_bash_guard_hook_runs_from_subdirectory(tmp_path):
+    import json
+    import os
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(ROOT)}
+    sub = tmp_path / "web" / "e2e"
+    sub.mkdir(parents=True)
+    for cmd in _hook_commands():
+        for shell_cmd, code in [("ls", 0), ("git push --force origin x", 2)]:
+            r = subprocess.run(cmd, shell=True, cwd=sub, env=env, capture_output=True, text=True,
+                               input=json.dumps({"tool_input": {"command": shell_cmd}}))
+            assert r.returncode == code, (cmd, shell_cmd, r.stderr)
+
+
 def test_schedule_covers_all_routines():
     import json
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))
