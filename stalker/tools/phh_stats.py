@@ -17,11 +17,11 @@ import json
 import math
 
 from referee.gate_r.phh import load_sample
+from stalker.agents.persona_stats import CELLS, flop_cell
 
 BOT = "Pluribus"
 _KEYS = ("hands", "vpip", "pfr", "tb_opp", "tb", "bets", "calls", "flop", "wtsd", "showdowns",
          "sd_won", "cb_opp", "cb")
-CELLS = ("hu_srp", "hu_3bp", "mw_srp", "mw_3bp")
 _CELL_KEYS = tuple(f"{k}_{c}" for c in CELLS for k in ("cb_opp", "cb", "fcb_opp", "fcb"))
 _ALL_KEYS = _KEYS + _CELL_KEYS
 
@@ -61,7 +61,7 @@ def hand_counts(rec: dict) -> dict[str, dict[str, int]]:
                 if street == 1:
                     for i in range(n):
                         saw_flop[i] = alive[i]
-                    cell = ("hu" if sum(alive) == 2 else "mw") + ("_srp" if raises == 1 else "_3bp")
+                    cell = flop_cell(sum(alive), raises)
             continue
         i = int(t[0][1:]) - 1
         c = out[names[i]]
