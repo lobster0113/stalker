@@ -119,7 +119,7 @@ const TARGETS = {
   fish: { VPIP: [30, 45], PFR: [5, 12], "3bet": [1, 4], cbet: [40, 60], FCB: [30, 45], WTSD: [30, 36] },
   station: { VPIP: [40, 65], PFR: [2, 8], "3bet": [0.5, 3], cbet: [30, 50], FCB: [15, 35], WTSD: [35, 45] },
   maniac: { VPIP: [45, 80], PFR: [30, 60], "3bet": [15, 30], cbet: [80, 95], FCB: [25, 40], WTSD: [30, 40] },
-  pro: { VPIP: [22, 28], PFR: [18, 24], "3bet": [7, 11], cbet: [50, 70], FCB: [38, 52], WTSD: [26, 30] },
+  pro: { VPIP: [22, 28], PFR: [16, 21], "3bet": [7, 11], cbet: [50, 70], FCB: [38, 52], WTSD: [26, 30] },
 };
 // Tolerance in %p beyond the cited range: preflop stats are tight by construction, postflop ones
 // emerge from a simplified strength model and a TAG-only table.
