@@ -16,7 +16,7 @@ WTSD = dict(zip(TYPES, (0.21, 0.23, 0.27, 0.28, 0.33, 0.40, 0.35, 0.28)))
 
 def test_optional_fields_default_none_and_old_presets_untouched():
     assert all(dataclasses.astuple(p)[4:] == (None,) * 15 for p in PRESETS.values())
-    assert len(PRESETS_V2) == 8 and PRESETS_V2["tag"].cbet_flop == 0.65 and PRESETS_V2["pro"].fold_river == 0.62
+    assert len(PRESETS_V2) == 8 and PRESETS_V2["tag"].cbet_flop == 0.62 and PRESETS_V2["pro"].fold_river == 0.62
     with pytest.raises(ValueError):
         PersonaParams(0.2, 0.1, 0.5, 0.5, cbet_flop=1.5)
 
@@ -83,7 +83,7 @@ def test_street_style_within_6pp_of_target_in_mixed_field():
             seen.add((n, "wtsd"))
             if st.wtsd is None or abs(st.wtsd - WTSD[n]) > 0.06:
                 bad.append(f"{n} wtsd: target {WTSD[n]:.2f} measured {st.wtsd}")
-    assert len(seen) == 22 and not bad, bad
+    assert len(seen) == 20 and not bad, bad
     # giveup_weak overrides fold_cbet_turn/fold_river (docs/research/2026-11-persona-wtsd-sweep.md): the measured folds
     # sit above their targets, so only guard what the servers rely on: loose types fold clearly less than tight ones, no
     # type folds almost always (reviewer #531: calling_station must not fold to 61% of turn c-bets above the tight group)
@@ -127,10 +127,10 @@ def _core(stats):
 def test_cell_levers_off_replay_is_bit_identical():
     # #670 under #569's constraint: types without the levers replay exactly as before them. The digest was taken on main
     # 4720829 (before #670) with the same call; the levers and their bookkeeping never draw from the rng.
-    names = ["nit", "weak_tight", "tag", "lag", "maniac", "calling_station"]
+    names = ["nit", "weak_tight", "lag", "maniac", "calling_station", "loose_passive"]
     assert all(getattr(PRESETS_V2[n], k) is None for n in names for k in _CELL_LEVERS)
     st = measure_session([PersonaAgent(PRESETS_V2[n], np.random.default_rng(i)) for i, n in enumerate(names)], 400, seed=9)
-    assert hashlib.sha256(repr(_core(st)).encode()).hexdigest()[:16] == "8d9153e84ec24fdd"
+    assert hashlib.sha256(repr(_core(st)).encode()).hexdigest()[:16] == "145e60ae4b33df9c"
 
     # neutral lever values move no threshold, so the replay equals the levers-off one; real values change play
     def run(**kw):
@@ -141,6 +141,39 @@ def test_cell_levers_off_replay_is_bit_identical():
     assert run(cbet_flop_mw_mult=0.3) != st and run(fold_cbet_flop_mw=0.9) != st
     with pytest.raises(ValueError):
         PersonaParams(0.2, 0.1, 0.5, 0.5, cbet_flop_3bp_mult=2.5)
+
+
+def _pooled_cells(persona, tables, hands=25000):
+    """Pool one persona's flop-cell opportunities over every seat of that type at the given tables."""
+    opp = {k: 0 for k in (f"{b}_{c}" for b in ("cb", "f") for c in CELLS)}
+    hit, seats = dict(opp), []
+    for t, grp in enumerate(tables):
+        ss = np.random.SeedSequence(t).spawn(6)
+        st = measure_session([PersonaAgent(PRESETS_V2[n], np.random.default_rng(s)) for n, s in zip(grp, ss)], hands,
+                             seed=100 + t)
+        for n, x in zip(grp, st):
+            if n != persona:
+                continue
+            seats.append(x)
+            for c, v in x.flop_cells.items():
+                opp[f"cb_{c}"] += v.cbet_opps
+                hit[f"cb_{c}"] += round((v.cbet or 0) * v.cbet_opps)
+                opp[f"f_{c}"] += v.fold_opps
+                hit[f"f_{c}"] += round((v.fold_cbet or 0) * v.fold_opps)
+    return {k: hit[k] / opp[k] for k in opp if opp[k]}, opp, seats
+
+
+@pytest.mark.slow
+def test_tag_flop_cells_hit_human_targets():
+    # #684: tag's cells (note §10.1.4) +-6pp, same method as the pro test; the multiway fold cell is judged here too
+    tables = [("tag", "maniac", "tag", "nit", "lag", "weak_tight"),
+              ("tag", "calling_station", "tag", "loose_passive", "lag", "maniac")]
+    got, opp, seats = _pooled_cells("tag", tables)
+    targets = {"cb_hu_srp": 0.62, "cb_hu_3bp": 0.70, "cb_mw_srp": 0.42, "f_hu_srp": 0.48, "f_mw_srp": 0.68}
+    assert all(opp[k] >= 150 for k in targets), opp
+    assert all(abs(got[k] - t) <= 0.06 for k, t in targets.items()), (got, opp)
+    p = PRESETS_V2["tag"]
+    assert all(abs(x.vpip - p.vpip) <= 0.05 and abs(x.pfr - p.pfr) <= 0.05 for x in seats), seats
 
 
 @pytest.mark.slow
