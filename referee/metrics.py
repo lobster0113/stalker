@@ -159,7 +159,7 @@ _RESULT_PATH = re.compile(r"^cloud/results/(\d+)\.json$")
 
 
 def _git(repo: Path, *args: str, timeout: float = 60) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, encoding="utf-8", timeout=timeout)
 
 
 def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:

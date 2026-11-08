@@ -149,10 +149,10 @@ def ops_clone(tmp_path):
     (origin / "cloud" / "results").mkdir(parents=True)
     _git(origin, "init", "-q", "-b", "ops")
     res = origin / "cloud" / "results"
-    (res / "100.json").write_text(json.dumps(_lbr_result("p1", 9.9, False)))
-    (res / "200.json").write_text(json.dumps(_lbr_result("p2", 4.5)))
-    (res / "300.json").write_text(json.dumps({"schema": "stalker.cloud.other", "by_players": {}}))
-    (res / "400.summary.json").write_text(json.dumps(_lbr_result("p4", 1.0)))
+    (res / "100.json").write_text(json.dumps(_lbr_result("p1", 9.9, False)), encoding="utf-8")
+    (res / "200.json").write_text(json.dumps(_lbr_result("p2", 4.5)), encoding="utf-8")
+    (res / "300.json").write_text(json.dumps({"schema": "stalker.cloud.other", "by_players": {}}), encoding="utf-8")
+    (res / "400.summary.json").write_text(json.dumps(_lbr_result("p4", 1.0)), encoding="utf-8")
     _git(origin, "add", "-A")
     _git(origin, "commit", "-qm", "ops")
     clone = tmp_path / "clone"
@@ -172,7 +172,7 @@ def test_e3_web_lbr_copies_the_newest_policy_lbr_result(ops_clone):
 
 def test_e3_web_lbr_fetches_new_results_and_reports_failures(ops_clone):
     origin, clone = ops_clone
-    (origin / "cloud" / "results" / "250.json").write_text(json.dumps(_lbr_result("p3", 7.0, False)))
+    (origin / "cloud" / "results" / "250.json").write_text(json.dumps(_lbr_result("p3", 7.0, False)), encoding="utf-8")
     _git(origin, "add", "-A")
     _git(origin, "commit", "-qm", "newer")
     assert metrics.e3_web_lbr(repo=clone, fetch=False)["e3_web_lbr"]["run"] == 200
