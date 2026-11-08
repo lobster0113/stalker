@@ -806,3 +806,4 @@
 {"ts":"2026-11-08T17:11:28Z","role":"reviewer-b","outcome":"skipped","issue":600,"pr":682,"notes":"sweep: only even PR #682 already has VERDICT: CHANGES for head fd50320; no new commits","friction":""}
 {"ts":"2026-11-08T17:16:16Z","role":"reviewer","outcome":"skipped","issue":600,"pr":682,"notes":"not my parity","friction":""}
 {"ts":"2026-11-08T17:21:22Z","role":"builder-b","outcome":"changes","issue":600,"pr":682,"notes":"addressed CHANGES: review-sched CI job run 42504068705, fixed_long arm, conclusion revised; waiting CI","friction":"reviewer judged before gates(tests) finished (~40min CI)"}
+{"ts":"2026-11-08T17:21:49Z","role":"reviewer","outcome":"skipped","issue":600,"pr":682,"notes":"not my parity","friction":""}
