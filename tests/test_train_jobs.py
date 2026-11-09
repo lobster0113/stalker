@@ -394,3 +394,27 @@ def test_summary_first_in_rows_read_gz_and_plain_policy(tmp_path):
     (tmp_path / "k-seed1.policy.json").write_text("{}", encoding="utf-8")
     assert find_table(tmp_path, "k-seed1.policy", recursive=True).name == "k-seed1.policy.json"
     assert find_table(tmp_path, "none-seed1.policy", recursive=True) is None
+
+
+def test_summarize_records_chunk_iters_and_lbr_hands_by_seed(tmp_path):
+    for s, h in ((1, 4000), (2, 4000)):
+        (tmp_path / f"e3-x-seed{s}.json").write_text(
+            json.dumps(_e3_seed_json(s, iters_per_s=1.0, chunk_iters=0, lbr_hands=h + s)), encoding="utf-8")
+    out = T.summarize("e3-x", tmp_path)
+    assert out["chunk_iters_by_seed"] == [0, 0] and out["lbr_hands_by_seed"] == [4001, 4002]
+
+
+def test_summarize_omits_chunk_iters_and_lbr_hands_when_any_run_lacks_them(tmp_path):
+    (tmp_path / "e3-x-seed1.json").write_text(
+        json.dumps(_e3_seed_json(1, iters_per_s=1.0, chunk_iters=5, lbr_hands=10)), encoding="utf-8")
+    (tmp_path / "e3-x-seed2.json").write_text(json.dumps(_e3_seed_json(2, iters_per_s=1.0)), encoding="utf-8")
+    out = T.summarize("e3-x", tmp_path)
+    assert "chunk_iters_by_seed" not in out and "lbr_hands_by_seed" not in out
+    assert out["runs"] == 2 and out["lbr_bb_by_seed"] == [1.0, 1.0]
+
+
+def test_review_sched_job_summarizes_paired_seeds(tmp_path):
+    for sd in (1, 2, 3):
+        T.run("review-sched", 1, sd, tmp_path)
+    s = T.summarize("review-sched", tmp_path)
+    assert s["runs"] == 3 and {r["exam_day"] for r in s["table"]} == {14, 60}

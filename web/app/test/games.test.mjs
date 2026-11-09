@@ -38,6 +38,18 @@ test("verdict thresholds and leak cells", () => {
   assert.equal(G.verdict(null), null);
 });
 
+test("a decision answered by a coarse-key average (#623) is shown as approximate and not graded", () => {
+  for (const near of ["L1", "L2", "L3", "L4"]) {
+    const v = G.verdict({ p: 0.02, near });
+    assert.equal(v.key, "skip");
+    assert.equal(v.text, "근사 · 채점 안 함");
+  }
+  const r = G.reasons({ name: "콜", p: 0.3, near: "L1" }, act({ type: "call" }));
+  assert.match(r[0].text, /비슷한 상황 평균\(근사\)/);
+  assert.match(r[0].text, /채점하지 않아요/);
+  assert.equal(G.verdict({ p: 0.02 }).text, "실수", "exact rows keep their verdict");
+});
+
 test("reasons come from the numbers: a bet that folds out the weaker hands is called out", () => {
   const an = { name: "벳 75%", p: 0.4, top: "체크", topP: 0.5, beats: 0.9, reply: { canFold: true, weakFold: 0.78, strongFold: 0.05, strongOfContinuing: 0.85, fold: 0.74 } };
   const r = G.reasons(an, act({ type: "raise" }));
