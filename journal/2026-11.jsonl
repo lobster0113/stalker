@@ -910,3 +910,4 @@
 {"ts":"2026-11-09T14:18:28Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd, reviewer). no even PRs pending","friction":""}
 {"ts":"2026-11-09T14:41:59Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES on head d723a9c; no new commits since","friction":""}
 {"ts":"2026-11-09T15:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer)","friction":""}
+{"ts":"2026-11-09T15:42:06Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES on head d723a9c; no new commits since","friction":"should_run --sweep returns RUN on interval even when the only PR already has a verdict on its head sha"}
