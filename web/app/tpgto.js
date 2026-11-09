@@ -48,11 +48,16 @@
 //   decisionKey(s, ranges, tier, variant = "") -> {seat, variant, acts, public, steps, step, key}
 //       tier: "beginner" | "mid" | "pro"; steps: Int32Array(1326) of the actor's combos (-1 dead).
 //       variant: the policy's index `key_variant` ("" legacy, "c1" #604/#608: c1 public key, postflop step + b1 fields).
-//   actionProbs(policy, s, ranges, tier, variant = "") -> {...decisionKey, probs}  probs = policy row for the
-//       actor's real hole (uniform when the table has no entry), aligned with `acts`.
+//   actionProbs(policy, s, ranges, tier, variant = "") -> {...decisionKey, probs, fromTable}  probs = policy row
+//       for the actor's real hole, aligned with `acts`. c1 tables back off on a miss (ADR 0022, #623): exact ->
+//       L1 -> L2 -> L3 coarse key (coarseKey; the mean of the table's rows sharing it, coarseTables) -> L4 (the L3
+//       key with its equity step moved by -1 and +1, the mean of the L3 rows found, #652) -> uniform;
+//       fromTable says which: "exact" | "L1" | "L2" | "L3" | "L4" | false. Legacy ("") tables never back off.
 //   updateRanges(policy, d, ranges, action) -> new ranges after the actor of decision `d` took
 //       `action` (name or index): Bayes update with the policy row of every combo's own key.
-//   seatProbs(policy, public, steps, m) -> per-combo rows (Float64Array(1326*m), row-major).
+//   seatProbs(policy, public, steps, m, variant = "", top = Infinity) -> per-combo rows (Float64Array(1326*m),
+//       row-major), same backoff; top = the tier's top equity step (TIER_K - 1) bounds L4's neighbors.
+//   backoffRow(policy, key, m, variant = "", top = Infinity) -> {row, from}: the lookup both use.
 //   updateRange(ranges, seat, probsColumn) -> low level, as tp_key.update_range.
 //   equityStepOf(s, seat, ranges, tier) -> the actor's step (with board.nut encoded for pro).
 //   equitySteps(s, seat, ranges, k), publicKey(s, seat, depth), key(public, step), myStep(...)
@@ -1150,6 +1155,114 @@ function policyRow(policy, k, m) {
   return null;
 }
 
+// ---------------------------------------------------------------- c1 miss backoff (ADR 0022, #623)
+// Same definitions as stalker/tools/web_hit_rate.py (coarse_key, coarse_tables); tests/test_web_backoff.py
+// compares the two. L1 drops the b1 hand items and the stack depths, L2 also the public facts and the SPR step, L3
+// also turns the position name into its group (positionGroup, as the beginner key; #645). L4 (#652, neighbor_row)
+// is no coarse table: it reads the L3 table at the equity steps next to the key's.
+export const BACKOFF_LEVELS = ["L1", "L2", "L3"];
+export const BACKOFF_NEIGHBOR = "L4";
+const RE_EQ = /^e\d+$/, RE_B1 = /^o[\d-](v[\d-])?(k[\d-])?$/, RE_STACK = /^s\d+(:\d*)?$/, RE_FACT = /^(u\d*|h[nmba]|g[nmxo])$/;
+const SPR_AT = 7;   // field index of the SPR step in a full-depth key, after a pro "p|"
+
+/** The c1 key with the items of backoff `level` (1 = L1, 2 = L2, 3 = L3) dropped; level 0 is the key itself. */
+export function coarseKey(k, level) {
+  if (level <= 0) return k;
+  const parts = k.split("|");
+  if (parts[0] === "call") {   // no position name: L3 = L2
+    if (level >= 2) parts[2] = "*";
+    return parts.join("|");
+  }
+  let at = -1;
+  for (let i = 0; i < parts.length; i++) if (RE_EQ.test(parts[i])) at = i;
+  if (at < 0) throw new Error(`coarseKey: ${JSON.stringify(k)} has no equity step (e<n>); only c1 keys back off`);
+  let head = parts.slice(0, at).map((f) => (RE_STACK.test(f) ? "s*" : f));
+  const tail = parts.slice(at).filter((f) => !RE_B1.test(f));
+  if (level >= 2) {
+    head = head.map((f) => (RE_FACT.test(f) ? "*" : f));
+    if (head[0] !== "b") head[SPR_AT + (head[0] === "p" ? 1 : 0)] = "*";   // basic keys carry no SPR
+  }
+  if (level >= 3 && head[0] !== "b") {   // basic keys already carry the group
+    const at = head[0] === "p" ? 1 : 0, n = Number(head[at + 1].slice(1)), seat = c1PositionNames(n).indexOf(head[at]);
+    if (seat < 0) throw new Error(`coarseKey: ${JSON.stringify(head[at])} is not a ${n}-handed c1 position name`);
+    head[at] = positionGroup(n, seat);
+  }
+  return head.concat(tail).join("|");
+}
+
+/**
+ * Per backoff level, coarse key -> Map(row length -> mean of the table's rows with that coarse key). Rows of a
+ * different length never merge. Built once per policy object (cached) — the page warms it on load (tpgLoad).
+ */
+const COARSE = new WeakMap();
+export function coarseTables(policy) {
+  if (!policy || typeof policy !== "object") return [];
+  let t = COARSE.get(policy);
+  if (t) return t;
+  const entries = policy instanceof Map ? policy.entries() : Object.entries(policy);
+  const acc = BACKOFF_LEVELS.map(() => new Map());
+  for (const [k, row] of entries) {
+    for (let l = 0; l < acc.length; l++) {
+      const ck = coarseKey(k, l + 1);
+      let byM = acc[l].get(ck);
+      if (!byM) acc[l].set(ck, (byM = new Map()));
+      let c = byM.get(row.length);
+      if (!c) byM.set(row.length, (c = { tot: new Float64Array(row.length), n: 0 }));
+      for (let a = 0; a < row.length; a++) c.tot[a] += row[a];
+      c.n++;
+    }
+  }
+  t = acc.map((lv) => {
+    const out = new Map();
+    for (const [ck, byM] of lv) {
+      const o = new Map();
+      for (const [m, c] of byM) o.set(m, c.tot.map((x) => x / c.n));
+      out.set(ck, o);
+    }
+    return out;
+  });
+  COARSE.set(policy, t);
+  return t;
+}
+
+/**
+ * L4 (web_hit_rate.neighbor_row): the mean of the L3 rows of length m at k's L3 key with its equity step moved by -1
+ * and +1 (steps outside 0..top skipped), null when neither has one.
+ */
+function neighborRow(tabs, k, m, top) {
+  const parts = coarseKey(k, BACKOFF_LEVELS.length).split("|");
+  let at = -1;
+  for (let i = 0; i < parts.length; i++) if (RE_EQ.test(parts[i])) at = i;
+  const step = Number(parts[at].slice(1)), l3 = tabs[BACKOFF_LEVELS.length - 1], rows = [];
+  for (const v of [step - 1, step + 1]) {
+    if (v < 0 || v > top) continue;
+    const r = l3.get(parts.slice(0, at).concat(`e${v}`, parts.slice(at + 1)).join("|"))?.get(m);
+    if (r) rows.push(r);
+  }
+  if (!rows.length) return null;
+  return Float64Array.from({ length: m }, (_, a) => rows.reduce((t, r) => t + r[a], 0) / rows.length);
+}
+
+/**
+ * {row, from}: the exact row ("exact"), else (c1 only) the first coarse level's mean row ("L1"/"L2"/"L3"), else
+ * the L4 equity-neighbor mean ("L4"), else {null, false}. top: the tier's top equity step (Infinity = unbounded;
+ * a table never has a step above its tier's, so only a hand-made table can tell the two apart).
+ */
+export function backoffRow(policy, k, m, variant = "", top = Infinity) {
+  const row = policyRow(policy, k, m);
+  if (row) return { row, from: "exact" };
+  if (variant === "c1") {
+    const tabs = coarseTables(policy);
+    for (let l = 0; l < tabs.length; l++) {
+      const r = tabs[l].get(coarseKey(k, l + 1))?.get(m);
+      if (r) return { row: r, from: BACKOFF_LEVELS[l] };
+    }
+    const r = neighborRow(tabs, k, m, top);
+    if (r) return { row: r, from: BACKOFF_NEIGHBOR };
+  }
+  return { row: null, from: false };
+}
+
 // Key layouts a policy file can name in its index entry (`key_variant`, #604). "" is every table before #398.
 export const KEY_VARIANTS = ["", "c1"];
 function variantOf(variant) {
@@ -1197,26 +1310,31 @@ export function equityStepOf(s, seat, ranges, tier) {
 }
 
 /** Per-combo action probabilities, row-major (combo i, action a) at i*m + a; zeros on dead combos. */
-export function seatProbs(policy, pub, steps, m) {
+export function seatProbs(policy, pub, steps, m, variant = "", top = Infinity) {
   const out = new Float64Array(N * m);
   const rows = new Map();
   const uni = 1.0 / m;
+  const v1 = variantOf(variant);
   for (let i = 0; i < N; i++) {
     const v = steps[i];
     if (v < 0) continue;
     let row = rows.get(v);
-    if (row === undefined) { row = policyRow(policy, key(pub, v), m); rows.set(v, row); }
+    if (row === undefined) { row = backoffRow(policy, key(pub, v), m, v1, top).row; rows.set(v, row); }
     for (let a = 0; a < m; a++) out[i * m + a] = row ? row[a] : uni;
   }
   return out;
 }
 
-/** decisionKey plus the policy row for the actor's real hole (uniform when the table is silent). */
+/**
+ * decisionKey plus the policy row for the actor's real hole. fromTable: "exact", "L1"/"L2"/"L3" (c1 tables only: the
+ * mean row of the same coarse key, ADR 0022), "L4" (the L3 rows at the neighboring equity steps, #652), or false
+ * (no row at any level: uniform).
+ */
 export function actionProbs(policy, s, ranges, tier, variant = "") {
   const d = decisionKey(s, ranges, tier, variant);
   const m = d.acts.length;
-  const row = policyRow(policy, d.key, m);
-  return { ...d, probs: row ? Array.from(row) : new Array(m).fill(1.0 / m), fromTable: !!row };
+  const { row, from } = backoffRow(policy, d.key, m, d.variant, tierOf(tier).k - 1);
+  return { ...d, probs: row ? Array.from(row) : new Array(m).fill(1.0 / m), fromTable: from };
 }
 
 /** Ranges after the actor of decision d took `action` (name or index). */
@@ -1224,7 +1342,7 @@ export function updateRanges(policy, d, ranges, action) {
   const m = d.acts.length;
   const a = typeof action === "number" ? action : d.acts.indexOf(action);
   if (a < 0 || a >= m) throw new Error(`action ${JSON.stringify(action)} not in ${d.acts.join(",")}`);
-  const P = seatProbs(policy, d.public, d.steps, m);
+  const P = seatProbs(policy, d.public, d.steps, m, d.variant, tierOf(d.tier).k - 1);
   const col = new Float64Array(N);
   for (let i = 0; i < N; i++) col[i] = P[i * m + a];
   return updateRange(ranges, d.seat, col);
@@ -1330,7 +1448,7 @@ export function rangeResponse(policy, s, ranges, tier, seat, action = null, vari
     const ns = apply(s, action);
     if (!ns.done && ns.street === s.street && ns.toAct !== seat && !ns.folded[ns.toAct]) {
       const opp = ns.toAct, d = decisionKey(ns, ranges, tier, variant), m = d.acts.length;
-      const P = seatProbs(policy, d.public, d.steps, m);
+      const P = seatProbs(policy, d.public, d.steps, m, d.variant, tierOf(d.tier).k - 1);
       const kinds = d.acts.map((a) => (a === "f" ? "fold" : a === "k" || a === "c" ? "pass" : "raise"));
       const w = wOf(opp);
       const acc = { weak: { fold: 0, pass: 0, raise: 0, w: 0 }, strong: { fold: 0, pass: 0, raise: 0, w: 0 } };

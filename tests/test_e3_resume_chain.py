@@ -50,7 +50,6 @@ def test_checkpoint_without_chain_or_hash_still_resumes():
     old.iterate(1)
     assert [(c["from_iters"], c["to_iters"]) for c in old.state()["chain"]] == [(2, 3)]
     st = json.loads(json.dumps(m.state()))
-    del st["chain"][0]["rng_sha256"]
     st["chain"][0]["rng_sha256"] = None
     st["rng"]["state"]["state"] += 1
     E3MCCFR.from_state(st)   # no hash to check against

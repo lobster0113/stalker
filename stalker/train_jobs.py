@@ -250,8 +250,63 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "resume_chain": m.resume_chain(),   # #712
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur, lbr_hands),
+            **_e3_model_card(m, lbr_hands), **_e3_visit_quantiles(m),
             **({"lbr_hands": lbr_hands} if eval_of else {}),
             **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
+
+
+def _sha(d: dict) -> str:
+    return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
+
+
+def _trainer_commit() -> str:
+    """The commit that trained/evaluated: CI's GITHUB_SHA, else the checkout's HEAD; never fails the job."""
+    if os.environ.get("GITHUB_SHA"):
+        return os.environ["GITHUB_SHA"]
+    try:
+        import subprocess
+        r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, encoding="utf-8", timeout=10,
+                           cwd=Path(__file__).resolve().parent)
+        return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _e3_model_card(m, lbr_hands: int | None = None) -> dict:
+    """#705: hashes that tell "the policy changed" from "the evaluation changed" (additive fields only).
+    `eval_config` lists what the evaluation read (hands, offsets, field files by sha), `rules` the game."""
+    from referee.e3.field import load_players
+    from stalker.e3 import tp_key as K
+
+    cfg = {"lbr_hands": E3_LBR_HANDS if lbr_hands is None else lbr_hands, "lbr_seed_offset": 10_000,
+           "k": m.k, "n": m.n, "depth": m.depth, "field_hands": E3_FIELD_HANDS, "field_seed_offset": 20_000}
+    if m.n == 6:
+        cfg["field_file_sha256"] = load_players(6)[1]
+    if getattr(m, "player_mix", ()):
+        cfg["by_players"] = {str(n): {"lbr_hands": E3_LBR_HANDS if n == m.n else _by_players_lbr_hands(n),
+                                      "field_hands": E3_BY_PLAYERS_FIELD_HANDS,
+                                      "field_file_sha256": load_players(n)[1]}
+                             for n in sorted(set(m.player_mix))}
+    rules = {"menu": m.menu, "raise_cap": m.raise_cap, "key_variant": m.key_variant,
+             "key_version": K.KEY_VERSIONS.get(m.key_variant),
+             "stacks": m.stacks}
+    return {"eval_config": cfg, "eval_config_sha256": _sha(cfg), "rules_sha256": _sha(rules),
+            "trainer_commit": _trainer_commit()}
+
+
+def _e3_visit_quantiles(m) -> dict:
+    """#711: visit-count quantiles of the table (additive); per player count too for a mixed c1 run."""
+    from stalker.e3.mccfr import key_players, visit_quantiles
+
+    out = {"visit_quantiles": visit_quantiles(m)}
+    if getattr(m, "player_mix", ()):
+        by: dict[int, set] = {}
+        for k in m.visits:
+            n = key_players(k)
+            if n is not None:
+                by.setdefault(n, set()).add(k)
+        out["visit_quantiles_by_players"] = {str(n): visit_quantiles(m, ks) for n, ks in sorted(by.items())}
+    return out
 
 
 def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
@@ -349,6 +404,13 @@ def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
     return {"iters": iters, "hands": NOISE_SIM_HANDS, "rows": rows, "wall_sim_seconds": round(time.monotonic() - t0, 1)}
 
 
+def _review_sched(iters: int, seed: int, out: Path) -> dict:
+    """#600: fixed 1·3·7 vs fixed+long vs Leitner on a simulated learner; `iters` is unused (kept for the CI interface)."""
+    from stalker.service.review_sched import seed_rows
+
+    return {"iters": iters, "rows": seed_rows(seed)}
+
+
 def _vcfr_fixed_point(iters: int, seed: int, out: Path) -> dict:
     """#411: range-policy fixed point arms A-D on two river menus and Leduc, exact best response."""
     from stalker.vcfr.fixed_point import run_seed
@@ -420,6 +482,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-c1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-c1-w4", workers=4, menu="real", raise_cap=None,
                                    ranges="average", avg_rule="own", key_variant="c1", stacks="sampled"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
+        "review-sched": _review_sched,                                                  # #600
         "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -534,6 +597,12 @@ def summarize(job: str, folder: Path) -> dict:
             out["infosets_by_seed"] = [r["infosets"] for r in runs]
         if all("iters_per_s" in r for r in runs):       # #527: per-seed speed so runs can be compared per CPU model
             out["iters_per_s_by_seed"] = [r["iters_per_s"] for r in runs]
+        if all("chunk_iters" in r for r in runs):       # #628: eval-only jobs (chunk_iters=0) checkable without the artifact zip
+            out["chunk_iters_by_seed"] = [r["chunk_iters"] for r in runs]
+        if all("p50" in r.get("visit_quantiles", {}) for r in runs):   # #711
+            out["visit_p50_by_seed"] = [r["visit_quantiles"]["p50"] for r in runs]
+        if all("lbr_hands" in r for r in runs):
+            out["lbr_hands_by_seed"] = [r["lbr_hands"] for r in runs]
         if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
             out["cpu_model_by_seed"] = [r["machine"]["cpu_model"] for r in runs]
         if all(r.get("regret_sha256") for r in runs):    # #447: drift between reruns shows as a changed hash
@@ -588,6 +657,9 @@ def summarize(job: str, folder: Path) -> dict:
         from stalker.vcfr.fixed_point import aggregate, table
         agg = aggregate(runs)
         out.update({"aggregate": agg, "table": table(agg)})
+    if job == "review-sched" and runs:
+        from stalker.service.review_sched import aggregate
+        out.update({"table": aggregate([r["rows"] for r in runs]) if len(runs) > 1 else None})
     if job == "tp-noise-sim" and runs:
         out.update({"iters": runs[0]["iters"], "hands": runs[0]["hands"], "rows_by_seed": [r["rows"] for r in runs]})
     return out

@@ -25,7 +25,9 @@
 //   postflop: aggressor (this seat made the last raise of the previous streets), prevAggLive,
 //             prevBet (the previous street had a bet), betIsCbet (the bet faced is the previous aggressor's
 //             first bet of this street), checkedThisStreet (this seat checked earlier this street),
-//             streetRaises (bets + raises on this street so far)
+//             streetRaises (bets + raises on this street so far), potRaises (preflop raises: 1 single-raised,
+//             2+ three-bet or more), flopPlayers (players who saw the flop); the last two pick the flop cell
+//             (flopCell) and default to single-raised and nOpp + 1 when missing
 //   board: the public board cards; hand: cards (the seat's own two cards), or eq (equity vs one random
 //   hand) for a postflop spot without cards
 
@@ -48,6 +50,8 @@ const T = (nit, weak, tag, lag, fish, station, maniac, pro) => ({ nit, weak, tag
 //     18–24/21–25/30–36/35–45 [BR-WTSD][DC] ± 5 (sweep in the note §9.1);
 //   maniac turn/river c-bet 70→62/60→50 and fold 33→28/35→28 ([가정] all): lifts his WTSD from 20 toward
 //     the [가정] 30–40; it stays near 23 because the test table never calls a maniac down lighter.
+//   pro flop c-bet 60→63 and fold to c-bet 45→38 with the FLOP_CELL levers (#676): fitted to the human pro
+//     cells of §10.1 (heads-up single-raised c-bet 53, fold 44); the note §10.1.3 has the before/after.
 export const MEANS = {
   rfiUTG: T(9, 11, 15, 20, 21, 30, 40, 16),
   rfiHJ: T(11, 13, 19, 25, 25, 36, 45, 20),
@@ -61,10 +65,10 @@ export const MEANS = {
   fourbet: T(1.5, 1, 2.5, 4, 0.5, 0.3, 12, 3),   // % of all hands, the 4-bet range width
   coldcall: T(4, 6, 5, 6, 30, 45, 12, 5),
   bbDefend: T(35, 40, 55, 62, 65, 80, 75, 58),    // vs a BTN open
-  cbetF: T(60, 55, 65, 72, 45, 40, 88, 60),
+  cbetF: T(60, 55, 62, 72, 45, 40, 88, 63),
   cbetT: T(40, 33, 48, 55, 30, 25, 62, 45),
   cbetR: T(30, 25, 38, 45, 25, 20, 50, 35),
-  foldCbF: T(50, 58, 48, 40, 38, 35, 32, 45),
+  foldCbF: T(50, 58, 46, 40, 38, 35, 32, 38),
   foldCbT: T(67, 70, 50, 45, 55, 50, 28, 50),
   foldR: T(76, 76, 57, 50, 60, 70, 28, 55),
   xr: T(4, 3, 7, 11, 3, 2, 16, 8),
@@ -124,6 +128,20 @@ export const TELLS = {
 };
 
 export const MS_MIN = 600, MS_MAX = 3000;
+
+// Flop cells (#676), the same split as stalker/agents/persona_stats.py flop_cell: heads-up when 2 players saw
+// the flop, single-raised when preflop had exactly one raise.
+export function flopCell(playersOnFlop, preflopRaises) {
+  return (playersOnFlop === 2 ? "hu" : "mw") + (preflopRaises === 1 ? "_srp" : "_3bp");
+}
+// Per-type flop levers, mirroring the Python pro levers of #670 (stalker/agents/persona.py PRESETS_V2 pro:
+// cbet_flop_mw_mult, cbet_flop_3bp_mult, fold_cbet_flop_mw). A type listed here replaces the one 0.75^(nOpp−1)
+// multiway decay on the flop with: c-bet = cbetF × (mw ? cbetMw : 1) × (3-bet+ ? cbet3bp : 1), and fold to a
+// multiway flop c-bet = foldCbMw shifted by the instance's foldCbF draw. Targets are the human pro cells of
+// docs/research/2026-10-30-population-stats.md §10.1 (fitted in web/app/test/personas.test.mjs, values §10.1.3).
+// tag (#691) takes the Python tag values of #684 (cbet_flop 0.62, 3bp 1.13, mw 0.68, mw fold 0.62); only the heads-up fold
+// is web-fitted (cbetF/foldCbF tag 62/46; Python 0.40 realizes ~48 there, web ~42). Note §10.1.5.
+export const FLOP_CELL = { pro: { cbetMw: 0.63, cbet3bp: 1.1, foldCbMw: 0.56 }, tag: { cbetMw: 0.68, cbet3bp: 1.13, foldCbMw: 0.62 } };
 
 // Percentiles of equity vs one random hand, deciles 0..100% (measured offline with tpgto.evaluate, 4000
 // random deals x 300 runouts, two runs agree to ±0.02). The river is close to uniform by construction.
@@ -611,6 +629,10 @@ function postflop(pl, sit, rng) {
   }
   return a;
 }
+function flopCellOf(sit) {
+  const po = sit.postflop || {};
+  return flopCell(po.flopPlayers ?? sit.nOpp + 1, po.potRaises ?? 1);
+}
 function postflopBase(pl, sit, rng) {
   const P = pl.p, tl = pl.tells, st = sit.street, po = sit.postflop, cat = sit.cat;
   const s = strengthOf(pl, sit);
@@ -618,7 +640,11 @@ function postflopBase(pl, sit, rng) {
     // Which betting frequency this spot uses (§7.2): c-bet, donk, float, probe.
     let f;
     if (po.aggressor) {
-      f = [0, P.cbetF, P.cbetT, P.cbetR][st] * Math.pow(0.75, sit.nOpp - 1);
+      const fc = FLOP_CELL[pl.type];
+      if (st === 1 && fc) {
+        const cell = flopCellOf(sit);
+        f = P.cbetF * (cell.startsWith("mw") ? fc.cbetMw : 1) * (cell.endsWith("3bp") ? fc.cbet3bp : 1);
+      } else f = [0, P.cbetF, P.cbetT, P.cbetR][st] * Math.pow(0.75, sit.nOpp - 1);
       if (st === 1 && tl.autopilotCbet) return betTo(pl, sit, s, s < 0.5, rng) || { type: "check" };
       if (st === 2 && tl.persist === "giveup") f *= 0.5;
     } else if (po.prevAggLive && po.prevBet) f = sit.ip ? P.float : P.donk;
@@ -646,6 +672,8 @@ function postflopBase(pl, sit, rng) {
   // Facing a bet or raise.
   const betFrac = sit.toCall / Math.max(1, sit.pot - sit.toCall);
   let fold = [0, P.foldCbF, P.foldCbT, P.foldR][st];
+  const fc = FLOP_CELL[pl.type];
+  if (st === 1 && fc && flopCellOf(sit).startsWith("mw")) fold = fc.foldCbMw + P.foldCbF - MEANS.foldCbF[pl.type] / 100;
   if (st >= 2 && tl.persist === "sticky") fold *= 0.75;
   if (st === 2 && tl.persist === "giveup") fold = Math.min(0.9, fold * 1.35);
   fold += 0.25 * (betFrac - 0.6);                          // bigger bets get folded more

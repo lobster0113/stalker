@@ -263,3 +263,142 @@ def test_evaluate_aivat_is_record_only():
     assert stripped == base and "aivat" not in base["configs"][0]
     a = with_aivat["configs"][0]["aivat"]
     assert set(a) == {"bb100", "se", "variance_ratio"} and a["se"] > 0 and a["variance_ratio"] > 0
+
+
+# --- AIVAT chance-node (board reveal) corrections (#597) ---
+
+def _board_value(s, seat):
+    # board-dependent and deterministic: rank sum of the board plus a hole/board hash noise
+    ranks = sum(c % 13 for c in s.board)
+    noise = zlib.crc32(f"{seat}|{s.hole[seat]}|{s.board}".encode()) / 2**32 - 0.5
+    return ranks * 0.3 + noise * 4
+
+
+def test_chance_off_matches_the_593_corrections_and_default_value_has_zero_chance_term():
+    opps = [personas.Persona("tag"), F.uniform]
+    n0, c0 = F.play_deal({}, opps, 9, value=F.committed_value, chance=False)
+    n1, c1 = F.play_deal({}, opps, 9, value=F.committed_value)
+    assert n0.tolist() == n1.tolist() and c0.tolist() == c1.tolist()  # committed_value ignores the board
+    n2, c2 = F.play_deal({}, opps, 9, value=_board_value, chance=False)
+    n3, c3 = F.play_deal({}, opps, 9, value=_board_value)
+    assert n2.tolist() == n3.tolist() and c2.tolist() != c3.tolist()
+
+
+def test_chance_terms_are_unbiased_and_keep_the_action_stream():
+    for opps in ([personas.Persona("tag")], [personas.Persona("tag"), F.uniform]):
+        rows = [F.play_deal({}, opps, 7_000_003 + d, value=_board_value) for d in range(200)]
+        rows_off = [F.play_deal({}, opps, 7_000_003 + d, value=_board_value, chance=False) for d in range(200)]
+        raw = np.array([r[0] for r in rows]).mean(axis=1)
+        assert raw.tolist() == np.array([r[0] for r in rows_off]).mean(axis=1).tolist()
+        chance = np.array([r[1] for r in rows]).mean(axis=1) - np.array([r[1] for r in rows_off]).mean(axis=1)
+        se = chance.std(ddof=1) / len(chance) ** 0.5
+        assert chance.std(ddof=1) > 0 and abs(chance.mean()) < 2 * se
+        cor = np.array([r[1] for r in rows]).mean(axis=1)
+        diff = raw - cor
+        assert abs(diff.mean() - raw.mean()) < 2 * cor.std(ddof=1) / len(cor) ** 0.5
+
+
+def test_allin_runout_is_one_chance_event():
+    # a runout that opens several streets at once must be counted once (same stream index)
+    seen = []
+    orig = F._chance_term
+
+    def spy(s, nxt, seat, value, rng, m):
+        seen.append(len(nxt.board) - len(s.board))
+        return orig(s, nxt, seat, value, rng, m)
+
+    F._chance_term = spy
+    try:
+        for d in range(40):
+            F.play_deal(F.uniform, [F.uniform, F.uniform], d, value=_board_value)
+    finally:
+        F._chance_term = orig
+    assert seen and set(seen) <= {1, 2, 3, 4, 5}
+
+
+def test_main_aivat_flag_adds_the_record_only_key(tmp_path, capsys, monkeypatch):
+    pol = tmp_path / "p.json"
+    pol.write_text("{}", encoding="utf-8")
+    spec = {**_AIVAT_SPEC}
+    monkeypatch.setattr(F, "load_players", lambda n: (spec, None))
+    assert F.main([str(pol), "--hands", "4", "--players", "3"]) == 0
+    plain = json.loads(capsys.readouterr().out)
+    assert F.main([str(pol), "--hands", "4", "--players", "3", "--aivat"]) == 0
+    withv = json.loads(capsys.readouterr().out)
+    assert "aivat" not in plain["configs"][0] and "aivat" in withv["configs"][0]
+    withv["configs"][0].pop("aivat")
+    assert withv == plain
+
+
+# --- board-dependent equity value (#634) ---
+
+def test_equity_value_is_deterministic_and_never_reads_opponent_hole_cards():
+    rng = np.random.default_rng(3)
+    s = G.deal(np.random.default_rng([5, 0]), 3)
+    while not s.done and len(s.board) < 3:
+        s = G.apply(s, "c")  # everyone calls or checks to the flop
+    assert len(s.board) == 3 and not s.folded[0]
+    v = F.equity_value(s, 0)
+    assert v == F.equity_value(s, 0)
+    used = set(s.hole[0]) | set(s.board)
+    others = [c for c in range(52) if c not in used]
+    for _ in range(5):
+        pick = rng.choice(others, size=4, replace=False).tolist()
+        swapped = s._replace(hole=(s.hole[0], tuple(pick[:2]), tuple(pick[2:])))
+        assert F.equity_value(swapped, 0) == v
+
+
+def test_equity_value_folded_and_last_seat_and_live_cases():
+    s = G.deal(np.random.default_rng([8, 0]), 3)
+    pot = sum(s.total)
+    folded = s._replace(folded=(True, False, False))
+    assert F.equity_value(folded, 0) == F.committed_value(folded, 0) == -s.total[0] / G.BB
+    alone = s._replace(folded=(False, True, True))
+    assert F.equity_value(alone, 0) == (pot - s.total[0]) / G.BB
+    eq = float(F._uniform_equity(())[F.combo_index(s.hole[0])])
+    assert 0 < eq < 1 and F.equity_value(s, 0) == pytest.approx((eq ** 2 * pot - s.total[0]) / G.BB)
+
+
+@pytest.mark.slow
+def test_equity_value_gives_nonzero_chance_terms():
+    opps = [personas.Persona("tag")]
+    nonzero = 0
+    for d in range(50):
+        _, c_on = F.play_deal({}, opps, 3_000_017 + d, value=F.equity_value)
+        _, c_off = F.play_deal({}, opps, 3_000_017 + d, value=F.equity_value, chance=False)
+        nonzero += bool(np.any(c_on != c_off))
+    assert nonzero >= 1
+
+
+@pytest.mark.slow
+def test_equity_value_corrections_are_unbiased_two_and_three_handed():
+    for opps in ([personas.Persona("tag")], [personas.Persona("tag"), F.uniform]):
+        raw, cor = _corr(F.equity_value, opps, deals=200, seed=11)
+        assert raw.std(ddof=1) > 0 and cor.std(ddof=1) > 0
+        adj = raw - cor
+        assert abs(adj.mean() - raw.mean()) < 2 * cor.std(ddof=1) / len(cor) ** 0.5
+
+
+def test_main_aivat_equity_picks_the_equity_value_and_bare_flag_keeps_committed(tmp_path, capsys, monkeypatch):
+    pol = tmp_path / "p.json"
+    pol.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(F, "load_players", lambda n: (_AIVAT_SPEC, None))
+    seen = []
+    orig = F.evaluate
+
+    def spy(*a, **kw):
+        seen.append(kw["aivat"])
+        return orig(*a, **kw)
+
+    monkeypatch.setattr(F, "evaluate", spy)
+    assert F.main([str(pol), "--hands", "4", "--players", "3"]) == 0
+    plain = json.loads(capsys.readouterr().out)
+    assert F.main([str(pol), "--hands", "4", "--players", "3", "--aivat"]) == 0
+    bare = json.loads(capsys.readouterr().out)
+    assert F.main([str(pol), "--hands", "4", "--players", "3", "--aivat", "equity"]) == 0
+    eq = json.loads(capsys.readouterr().out)
+    assert seen == [False, F.committed_value, F.equity_value]
+    assert bare == orig({}, 4, spec=_AIVAT_SPEC, k=5, depth="basic", players=3, aivat=True) | {"sha256": None}
+    assert {k: v for k, v in eq.items() if k != "configs"} == {k: v for k, v in plain.items() if k != "configs"}
+    eq["configs"][0].pop("aivat")
+    assert eq == plain
