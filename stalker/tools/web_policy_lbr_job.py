@@ -3,6 +3,7 @@
     python -m stalker.tools.web_policy_lbr_job --policy-run 41813684540 --out /result/web-policy-lbr.json [--workers 32]
     python -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --out /result/web-policy-lbr.json   # what the service serves (#695)
 
+Legacy (pre-c1) pages get no backoff-on cells; the result lists them as `legacy_pages` (#702).
 `--from-pages <dir>` measures the page files `<dir>/mid-<n>.json` of a main checkout (or tarball dir) and records each file's own
 `run_id` as that player count's `policy_run` in the cells of `backoff`, so `e3_web_lbr` compares `fresh` per player count.
 
@@ -45,9 +46,22 @@ def page_runs(pages: Path) -> dict[int, str]:
     return out
 
 
+def legacy_players(pages: Path) -> list[int]:
+    """Player counts whose page file is a pre-c1 table: the backoff reads coarse c1 keys only, and the service looks a legacy
+    table up like backoff-off, so an on cell would add no information (and `measure` refuses it, #702)."""
+    from stalker.tools import web_hit_rate as H
+    out = []
+    for n in PLAYERS:
+        table, doc = H.load_policy(Path(pages) / f"mid-{n}.json")
+        if not H.variant_of(table, doc):
+            out.append(n)
+    return out
+
+
 def plan(policy_run: str, table: dict | None = None, backoffs=(False, True), seeds: int | None = None,
-         runs: dict[int, str] | None = None) -> list[dict]:
-    """One task per (players, seed, backoff): hands from ADR 0020, seeds 1..max(min_seeds of the current strategy, `seeds`)."""
+         runs: dict[int, str] | None = None, legacy=()) -> list[dict]:
+    """One task per (players, seed, backoff): hands from ADR 0020, seeds 1..max(min_seeds of the current strategy, `seeds`).
+    Player counts in `legacy` get backoff-off tasks only."""
     if table is None:
         from referee.e3.thresholds import load_thresholds
         table = load_thresholds()
@@ -56,6 +70,8 @@ def plan(policy_run: str, table: dict | None = None, backoffs=(False, True), see
         spec = table["players"][str(n)]
         for seed in range(1, max(spec["min_seeds"]["lbr"], seeds or 1) + 1):
             for backoff in backoffs:
+                if backoff and n in legacy:
+                    continue
                 tasks.append({"players": n, "seed": seed, "eval_seed": 10_000 + seed, "hands": spec["hands"],
                               "backoff": backoff, "file": f"mid-{n}.json", "policy_run": runs[n] if runs else policy_run})
     return tasks
@@ -112,11 +128,12 @@ def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None =
         pages: Path | None = None) -> dict:
     import tempfile
     runs = page_runs(pages) if pages else None
+    legacy = legacy_players(pages) if pages else []
     if runs:
         src = Path(pages)
         distinct = set(runs.values())
         policy_run = distinct.pop() if len(distinct) == 1 else "mixed"
-    tasks = plan(policy_run, seeds=seeds, runs=runs)
+    tasks = plan(policy_run, seeds=seeds, runs=runs, legacy=legacy)
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(src) if src else Path(tmp)
         if not src:
@@ -130,6 +147,8 @@ def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None =
     rows.sort(key=lambda x: (x["backoff"], x["players"], x["seed"]))
     res = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION, "policy_run": policy_run,
            "thresholds": "referee/e3/lbr_thresholds_v1.json", "rows": rows, "backoff": summarize(rows, per_players_run=bool(runs))}
+    if pages:
+        res["legacy_pages"] = legacy   # these counts have no `on` cell by design (#702)
     res["sha256"] = hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(json.dumps(res, indent=1, sort_keys=True) + "\n", encoding="utf-8")
