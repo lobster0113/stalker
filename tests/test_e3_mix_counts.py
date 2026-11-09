@@ -19,6 +19,7 @@ def _c1(seed=3, **kw):
 def _state_digest(m) -> str:
     st = m.state()
     st.pop("rng")
+    st.pop("chain")   # #712 adds the run history; the table and the older keys are what this pins
     return hashlib.sha256(json.dumps(st, sort_keys=True).encode()).hexdigest()[:16]
 
 

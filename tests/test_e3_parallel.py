@@ -10,7 +10,7 @@ from stalker.e3.mccfr import E3MCCFR
 
 
 def _sha(m: E3MCCFR) -> str:
-    return hashlib.sha256(json.dumps(m.state(), sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps({k: v for k, v in m.state().items() if k != "chain"}, sort_keys=True).encode()).hexdigest()
 
 
 @pytest.fixture(scope="module")

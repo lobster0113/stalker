@@ -11,6 +11,12 @@ from stalker.e3 import parallel
 from stalker.e3.mccfr import E3MCCFR
 
 
+def _nochain(m):
+    """State without the #712 run history, which differs between a resumed and an uninterrupted run."""
+    return {k: v for k, v in m.state().items() if k != "chain"}
+
+
+
 def _tables_equal(a: dict, b: dict) -> bool:
     return a.keys() == b.keys() and all(np.array_equal(a[k], b[k]) for k in a)
 
@@ -70,7 +76,7 @@ def test_own_checkpoint_continues_bit_for_bit():
     assert (st["version"], st["avg_rule"]) == (3, "own")
     part = E3MCCFR.from_state(st, "own")
     part.iterate(3)
-    assert part.state() == whole.state()
+    assert _nochain(part) == _nochain(whole)
 
 
 def test_old_checkpoint_loads_as_legacy_and_rules_never_mix():
@@ -100,14 +106,14 @@ def test_own_rule_with_average_ranges_checkpoints_both():
     assert (st["version"], st["avg_rule"], st["ranges"]) == (3, "own", "average") and st["snap"]
     part = E3MCCFR.from_state(st, "own")
     part.iterate(3)
-    assert part.state() == whole.state()
+    assert _nochain(part) == _nochain(whole)
 
 
 def test_one_worker_is_the_sequential_own_chain():
     a, b = E3MCCFR(3, 3, 3, avg_rule="own"), E3MCCFR(3, 3, 3, avg_rule="own")
     a.iterate(4)
     parallel.iterate(b, 4, workers=1)
-    assert a.state() == b.state()
+    assert _nochain(a) == _nochain(b)
 
 
 def test_workers_accumulate_with_the_models_rule(pool):
@@ -117,7 +123,7 @@ def test_workers_accumulate_with_the_models_rule(pool):
     assert _tables_equal(a.regret, b.regret) and not _tables_equal(dict(a.avg), dict(b.avg))
     c = E3MCCFR(6, 3, 3, avg_rule="own")
     parallel.iterate(c, 4, workers=2, batch=1, pool=pool)
-    assert c.state() == b.state()
+    assert _nochain(c) == _nochain(b)
 
 
 def test_ownavg_job_is_registered_and_existing_jobs_stay_legacy():
@@ -173,7 +179,7 @@ def test_cap_checkpoint_is_version_8_continues_bit_for_bit_and_refuses_other_cap
     assert (st["version"], st["avg_cap"]) == (8, 2.0)
     part = E3MCCFR.from_state(st, "own", avg_cap=2.0)
     part.iterate(3)
-    assert part.state() == whole.state()
+    assert _nochain(part) == _nochain(whole)
     assert E3MCCFR.from_state(st).avg_cap == 2.0
     with pytest.raises(ValueError, match="avg_cap"):
         E3MCCFR.from_state(st, "own", avg_cap=8.0)
@@ -206,7 +212,7 @@ def test_parallel_workers_apply_the_cap(pool):
     assert not _tables_equal(a.avg, b.avg)
     c = E3MCCFR(7, 3, 3, avg_rule="own", avg_cap=1.0)
     parallel.iterate(c, 4, workers=2, batch=1, pool=pool)
-    assert c.state() == b.state()
+    assert _nochain(c) == _nochain(b)
 
 
 def test_cap_jobs_are_registered_resumable_and_differ_from_ownavg_only_in_the_cap():

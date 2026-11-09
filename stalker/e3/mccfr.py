@@ -49,6 +49,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import sys
 import time
 from collections import defaultdict
@@ -105,6 +106,8 @@ class E3MCCFR:
         self.mix_hands = dict.fromkeys(sorted(set(player_mix)), 0)   # #535: hands dealt per player count
         self.mix_visits = dict.fromkeys(self.mix_hands, 0)           # #535: traverser updates per player count
         self.counted_from = 0   # iteration the counts start at (a version 6 checkpoint resumed later has none before)
+        self.chain: list[dict] = []   # #712: earlier run segments of this table (from a resumed checkpoint)
+        self.seg_start = 0            # iteration this process started from
         self.trav_updates = 0   # traverser updates in this process; not saved, only read per hand by iterate
         # average mode: normalized average rows as of iteration `snap_at`; keys not in it use the current strategy
         self.snap: dict[str, np.ndarray] = {}
@@ -231,7 +234,20 @@ class E3MCCFR:
                       **(self._count_state() if self.player_mix else {}))
         if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
             st["key_version"] = K.KEY_VERSIONS[self.key_variant]
+        st["chain"] = self.resume_chain()   # #712: additive, so the version stays (older code ignores it)
         return st
+
+    def rng_sha256(self) -> str:
+        return hashlib.sha256(json.dumps(self.rng.bit_generator.state, sort_keys=True).encode()).hexdigest()
+
+    def resume_chain(self) -> list[dict]:
+        """#712: the runs this table went through, the current one last. Each entry's `rng_sha256` is the RNG state
+        it ended with; `from_state` checks the next run starts from exactly that."""
+        if self.chain and self.iterations == self.seg_start:   # nothing trained since the load: no new segment
+            return [dict(c) for c in self.chain]
+        return [*(dict(c) for c in self.chain),
+                {"run_id": os.environ.get("GITHUB_RUN_ID") or None, "from_iters": self.seg_start,
+                 "to_iters": self.iterations, "rng_sha256": self.rng_sha256()}]
 
     def _count_state(self) -> dict:
         """The #535 counters as checkpoint data (version 7; also the pod summary's `model` block)."""
@@ -303,6 +319,11 @@ class E3MCCFR:
                 st.get("stacks", "uniform"), mix, cap)
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
+        m.chain, m.seg_start = [dict(c) for c in st.get("chain", [])], m.iterations   # old checkpoints: no chain
+        if m.chain and m.chain[-1].get("rng_sha256") not in (None, m.rng_sha256()):
+            raise ValueError("checkpoint RNG state does not match the hash its last run saved (#712): the file was "
+                             "edited or mixed with another run's - resume the checkpoint as that run wrote it, "
+                             "or start a fresh run")
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
         m.avg.update({k: np.array(v, dtype=float) for k, v in st["avg"].items()})
         m.visits.update(st["visits"])

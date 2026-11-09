@@ -22,7 +22,7 @@ def test_pack_round_trips_the_model_state():
     meta = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
             "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state}
     st = P.unpack_state(P.pack(m), meta)
-    assert st == json.loads(json.dumps(m.state()))
+    assert st == {k: v for k, v in json.loads(json.dumps(m.state())).items() if k != "chain"}   # pod packs carry no #712 chain
     back, again = E3MCCFR.from_state(st), E3MCCFR.from_state(m.state())
     back.iterate(2), again.iterate(2)
     assert back.regret.keys() == again.regret.keys()
