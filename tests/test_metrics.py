@@ -160,14 +160,56 @@ def ops_clone(tmp_path):
     return origin, clone
 
 
+def _pages(repo, **run_ids):
+    """Write web page policies `mid-<n>.json` with the given run ids (key `p<n>`)."""
+    d = repo / "web" / "app" / "policy"
+    d.mkdir(parents=True, exist_ok=True)
+    for key, run_id in run_ids.items():
+        (d / f"mid-{key[1:]}.json").write_text(json.dumps({"schema": "stalker.web.policy", "run_id": run_id}),
+                                              encoding="utf-8")
+
+
 def test_e3_web_lbr_copies_the_newest_policy_lbr_result(ops_clone):
     _, clone = ops_clone
+    _pages(clone, p2="p2", p3="p2")
     got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
     assert got["run"] == 200 and got["policy_run"] == "p2"
     assert got["by_players"]["3"]["on"] == {"lbr_bb": 4.5, "lbr_stderr_bb": 0.3, "limit": 6.4, "pass": True}
     assert got["by_players"]["2"]["off"]["lbr_bb"] == 6.8
     assert list(got["by_players"]) == ["2", "3"]
+    assert set(got["by_players"]["2"]) == {"on", "off", "page_run"}
     assert got["all_pass_on"] is True
+    assert got["by_players"]["2"]["page_run"] == "p2" and got["fresh"] is True
+
+
+def test_e3_web_lbr_is_stale_when_one_page_has_another_run(ops_clone):
+    _, clone = ops_clone
+    _pages(clone, p2="p2", p3="older", p6="older")  # 6 is not measured, so it does not count
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["by_players"]["3"]["page_run"] == "older"
+    assert "6" not in got["by_players"]
+    assert got["fresh"] is False
+
+
+def test_e3_web_lbr_is_stale_when_a_page_file_is_missing(ops_clone):
+    _, clone = ops_clone
+    _pages(clone, p2="p2")
+    (clone / "web" / "app" / "policy" / "mid-3.json").write_text("{not json", encoding="utf-8")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["by_players"]["3"]["page_run"] is None and got["fresh"] is False
+    (clone / "web" / "app" / "policy" / "mid-3.json").unlink()
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["by_players"]["3"]["page_run"] is None and got["fresh"] is False
+
+
+def test_e3_web_lbr_page_run_matches_across_str_and_int(ops_clone):
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "250.json").write_text(json.dumps(_lbr_result(41813684540, 4.0)),
+                                                         encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "int policy run")
+    _pages(clone, p2="41813684540", p3="41813684540")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is True
 
 
 def test_e3_web_lbr_fetches_new_results_and_reports_failures(ops_clone):

@@ -6,7 +6,8 @@ in #101; their last values stay in history.jsonl.
 
 `e3_web_lbr` (#683) copies the newest `stalker.web.policy-lbr` cloud result (ADR 0020 per-player LBR,
 limit, pass; backoff on/off) from `ops:cloud/results/<run id>.json` so the service-policy strength axis
-has a history; it is `null` when ops or such a result is missing.
+has a history; it is `null` when ops or such a result is missing. `fresh` (#690) is true only when every
+measured player count's page policy (`web/app/policy/mid-<n>.json` `run_id`) is the measured `policy_run`.
 """
 from __future__ import annotations
 
@@ -155,6 +156,7 @@ def gate_f_e1() -> dict:
 
 
 WEB_LBR_SCHEMA = "stalker.web.policy-lbr"
+WEB_POLICY_DIR = Path("web") / "app" / "policy"
 _RESULT_PATH = re.compile(r"^cloud/results/(\d+)\.json$")
 
 
@@ -162,11 +164,22 @@ def _git(repo: Path, *args: str, timeout: float = 60) -> subprocess.CompletedPro
     return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, encoding="utf-8", timeout=timeout)
 
 
+def _page_run(repo: Path, players: str):
+    """`run_id` of the page policy the service serves for this player count (file read only)."""
+    try:
+        doc = json.loads((repo / WEB_POLICY_DIR / f"mid-{players}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return doc.get("run_id") if isinstance(doc, dict) else None
+
+
 def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:
     """Newest service-policy LBR result from ops, copied as is (no recomputation).
 
     The CI snapshot step runs before any ops worktree exists, so the files are read with `git show`.
-    A failed fetch falls back to whatever `ref` already holds; no ref or no result gives `None`."""
+    A failed fetch falls back to whatever `ref` already holds; no ref or no result gives `None`.
+    `fresh` says whether the measured policy is still the one the pages serve: an old LBR must not
+    read as the current service's trend once a page is re-exported (#690)."""
     try:
         if fetch:
             _git(repo, "fetch", "-q", "origin", "ops")
@@ -189,9 +202,14 @@ def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -
                     by_players.setdefault(str(n), {})[mode] = {
                         k: cell.get(k) for k in ("lbr_bb", "lbr_stderr_bb", "limit", "pass")}
             on = [m["on"]["pass"] for m in by_players.values() if "on" in m]
-            return {"e3_web_lbr": {"run": run, "policy_run": doc.get("policy_run"),
+            policy_run = doc.get("policy_run")
+            for n, m in by_players.items():
+                m["page_run"] = _page_run(repo, n)
+            fresh = bool(by_players) and policy_run is not None and all(
+                m["page_run"] is not None and str(m["page_run"]) == str(policy_run) for m in by_players.values())
+            return {"e3_web_lbr": {"run": run, "policy_run": policy_run,
                                    "by_players": dict(sorted(by_players.items(), key=lambda kv: int(kv[0]))),
-                                   "all_pass_on": bool(on) and all(p is True for p in on)}}
+                                   "all_pass_on": bool(on) and all(p is True for p in on), "fresh": fresh}}
     except (OSError, subprocess.SubprocessError):
         pass
     return {"e3_web_lbr": None}
