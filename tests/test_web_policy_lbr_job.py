@@ -192,3 +192,19 @@ def test_plan_legacy_players_get_off_tasks_only():
     tasks = J.plan("r", legacy=[6])
     assert {t["backoff"] for t in tasks if t["players"] == 6} == {False}
     assert {t["backoff"] for t in tasks if t["players"] == 5} == {False, True}
+
+
+def test_s4long_job_spec_differs_only_in_policy_run_and_stays_under_budget():
+    # #708: the 120k policies #714 re-exported; everything else must match the #669 job so the tables compare.
+    sys.path.insert(0, str(ROOT / "harness/cloud"))
+    import launcher
+    base = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-mid.yaml")
+    s4 = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid-s4long.yaml").read_text(encoding="utf-8"),
+                             "jobs/web-policy-lbr-mid-s4long.yaml")
+    assert "POLICY_RUN=42591543123;" in s4.command
+    assert s4.command == base.command.replace("POLICY_RUN=41813684540;", "POLICY_RUN=42591543123;").replace(
+        "/result/web-policy-lbr-mid.json", "/result/web-policy-lbr-mid-s4long.json")
+    assert s4.result_path == "/result/web-policy-lbr-mid-s4long.json"
+    for f in ("image", "vcpu", "max_minutes", "hourly_usd", "cpu_flavors", "flavor_hourly_usd", "disk_gb"):
+        assert getattr(s4, f) == getattr(base, f), f
+    assert s4.hourly_usd * s4.max_minutes / 60 <= 3.0
