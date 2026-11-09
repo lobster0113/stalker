@@ -249,8 +249,48 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "regret_sha256": m.regret_hash(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur, lbr_hands),
+            **_e3_model_card(m, lbr_hands),
             **({"lbr_hands": lbr_hands} if eval_of else {}),
             **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
+
+
+def _sha(d: dict) -> str:
+    return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
+
+
+def _trainer_commit() -> str:
+    """The commit that trained/evaluated: CI's GITHUB_SHA, else the checkout's HEAD; never fails the job."""
+    if os.environ.get("GITHUB_SHA"):
+        return os.environ["GITHUB_SHA"]
+    try:
+        import subprocess
+        r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, encoding="utf-8", timeout=10,
+                           cwd=Path(__file__).resolve().parent)
+        return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _e3_model_card(m, lbr_hands: int | None = None) -> dict:
+    """#705: hashes that tell "the policy changed" from "the evaluation changed" (additive fields only).
+    `eval_config` lists what the evaluation read (hands, offsets, field files by sha), `rules` the game."""
+    from referee.e3.field import load_players
+    from stalker.e3 import tp_key as K
+
+    cfg = {"lbr_hands": E3_LBR_HANDS if lbr_hands is None else lbr_hands, "lbr_seed_offset": 10_000,
+           "k": m.k, "n": m.n, "depth": m.depth, "field_hands": E3_FIELD_HANDS, "field_seed_offset": 20_000}
+    if m.n == 6:
+        cfg["field_file_sha256"] = load_players(6)[1]
+    if getattr(m, "player_mix", ()):
+        cfg["by_players"] = {str(n): {"lbr_hands": E3_LBR_HANDS if n == m.n else _by_players_lbr_hands(n),
+                                      "field_hands": E3_BY_PLAYERS_FIELD_HANDS,
+                                      "field_file_sha256": load_players(n)[1]}
+                             for n in sorted(set(m.player_mix))}
+    rules = {"menu": m.menu, "raise_cap": m.raise_cap, "key_variant": m.key_variant,
+             "key_version": K.KEY_VERSIONS.get(m.key_variant),
+             "stacks": m.stacks}
+    return {"eval_config": cfg, "eval_config_sha256": _sha(cfg), "rules_sha256": _sha(rules),
+            "trainer_commit": _trainer_commit()}
 
 
 def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
