@@ -264,7 +264,7 @@ def _trainer_commit() -> str:
         return os.environ["GITHUB_SHA"]
     try:
         import subprocess
-        r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10,
+        r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, encoding="utf-8", timeout=10,
                            cwd=Path(__file__).resolve().parent)
         return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else "unknown"
     except Exception:
