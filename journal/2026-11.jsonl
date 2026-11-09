@@ -925,3 +925,4 @@
 {"ts":"2026-11-09T18:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd, reviewer parity); no even PRs to review","friction":""}
 {"ts":"2026-11-09T18:40:27Z","role":"builder-b","outcome":"pr_opened","issue":712,"pr":716,"notes":"E3 체크포인트 resume chain + RNG 이음새 해시, quick/full PASS","friction":"quick/full이 길어(full 약 27분) 120초 자동 백그라운드 전환 때문에 대기 루프를 여러 번 반복; 상태 전체 비교 기존 테스트 6곳이 chain 추가로 깨져 고침"}
 {"ts":"2026-11-09T18:40:55Z","role":"reviewer","outcome":"skipped","issue":712,"pr":716,"notes":"not my parity","friction":""}
+{"ts":"2026-11-09T18:41:22Z","role":"reviewer-b","outcome":"changes","issue":712,"pr":716,"notes":"CHANGES: conflict with main in docs/ARCHITECTURE.md (after #713), no CI checks on head; code and tests look fine","friction":"a PR opened already conflicting gets no CI, so the review only reports the conflict; builder should rebase before opening the PR"}
