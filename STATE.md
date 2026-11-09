@@ -1,15 +1,15 @@
-# STATE (2026-11-09 11:35Z, planner)
+# STATE (2026-11-09 12:15Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음.
-planner 11-09 11:35Z: **PR #704(#698 페이지 LBR 결과 기록) 머지(33757de0), #698 닫힘.** history 9660453c 줄 e3_web_lbr run 42593131004 **fresh=true 첫 줄**(5인 끔 3.119>3.1만 fail, 켬 통과). #418 첫 조각 #705(E3 결과 모델 카드 해시) ready P2로 분리.
+planner 11-09 12:15Z: **PR #706(#692 이어 학습 체인 기록) 머지(96c8631a), #692 닫힘.** 2회로 120k(`max_iters`), $3.71, 학습 중 LBR 2.44→1.22. 체크포인트 165MB>pod 상한 → 더 이어 학습 불가. 후속 #707(export·적중률, ready P1)·#708(LBR 잡·mid-6 교체 판단, blocked on #707) 생성.
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. **D 2–5인(#384)**: 페이지 확정(#674/#678 s3 5칸 통과) 뒤 s4 이어 학습 120k 디스패치 체인(#692, 체크포인트 ~12-03 만료). 체인 뒤 re-export·web_hit_rate·LBR·mid-6 교체 판단. 소유자가 크리티컬하다고 한 short-handed. (경과 체인: STATE git 기록 참고)
+1. **D 2–5인(#384)**: s4 120k 체인 완료(#692, run 42591543123). 다음 #707 export(`mode=export`, mv 2:5,3:5,4:5,5:5,6:2)·mid-6 `web_hit_rate` → #708 c1 LBR 잡 → mid-6 교체 판단. 아티팩트 ~12-04 만료. 소유자가 크리티컬하다고 한 short-handed.
 2. **평가 재현성(#705)**: #698로 웹 LBR fresh 추세 복구 완료. 다음은 "정책 변화 vs 평가 변화" 구분 — E3 결과에 평가 설정·규칙 해시(#418 분리 1).
 3. **페르소나 목표 타당성**: pro·tag 플랍 칸 레버 완료(Python·웹). 다음: 피시 유형 칸 연구(#701) → 적용 → 웹 미러 — 초보 테이블 상대 모델 신뢰도.
 ## 큐
-ready 미착수: #705 P2·#701 P3·#463 P3 (3). in-progress: #692(회차 1 run 42548774643, summary 도착, 다음 builder가 회차 2 디스패치). 열린 PR #599(CHANGES, d723a9c, reviewer 소유, 3일 무수정). #341 P1 추적.
-blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
-후보: #701 뒤 피시 칸 적용·웹 미러, #692 체인 뒤 re-export·web_hit_rate·LBR·mid-6 교체 판단, #264 mode=collect 마무리, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), AIVAT LBR 통합 ADR, 평가 시드 분리, PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
+ready 미착수: #707 P1·#705 P2·#701 P3·#463 P3 (4). in-progress 0. 열린 PR #599(CHANGES, d723a9c, reviewer 소유, 3일 무수정). #341 P1 추적.
+blocked: #708(#707), #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
+후보: #701 뒤 피시 칸 적용·웹 미러, #708 뒤 web/app/policy 교체(추천 시), #264 mode=collect 마무리, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), AIVAT LBR 통합 ADR, 평가 시드 분리, PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
 ## 지표 요약 (최근 값과 추세)
 - CI bf6f565(11-09 04:11Z history): tests 1838, gate_r·cash·e3 1.0, gate_l 1.0(32), stalker_loc 18175. 1744(11-06)→1838, 증가 추세.
 - e3_web_lbr(9660453c): run 42593131004, **fresh=true**, all_pass_on true. 끔/켬 bb: 2인 6.87/5.56(≤9.0)·3인 4.41/4.52(≤6.4)·4인 2.90/2.86(≤4.0)·5인 3.12/2.10(≤3.1, 끔 fail)·6인 레거시 0.66/—(≤2.7). 추세 기준선.
@@ -19,7 +19,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35 = 4.54배.
 - 클라우드 지출: 11월 원장 합 $19.79 / $100(ADR 0021).
 ## 경보
-- [planner 11-09 11:35Z] main CI red 0(9660453c 전부 success, 33757de0 진행 중). #599 판정 후 3일+ 무수정 유지(reviewer CLOSE 후보). reviewer.md MCP 머지 경로 friction (b) 11-09에도 재발 — Auditor W45 1순위 후보 그대로. #692 in-progress 6h+지만 디스패치 체인(인수인계 코멘트 있음) → 회수 안 함. 판정 없이 24h+ PR: #599 유지(reviewer CLOSE 후보). friction(로컬 참고): reviewer·reviewer-b `--sweep` 일거리 없는 RUN 11-08~09 3회+((h) 재발, parity 필터 없음), gates quick/full 로컬 1089–1350초((a) 재발), reviewer.md MCP 머지 경로 미기재((b) 재발), STATE 60줄 상한 초과(planner 2회 — 초점 체인 누적, 이번에 정리).
+- [planner 11-09 12:15Z] main CI red 0: 33757de0 `gates` failure는 다음 머지(96c8631a)로 tests 잡이 취소돼 생긴 집계 체크(friction (d) 재발, 실패 아님). 96c8631a 진행 중. #599 판정 후 3일+ 무수정(reviewer CLOSE 후보, 24h+ 경보 유지). #692 회수 불필요(닫힘, in-progress 라벨 정리). friction: reviewer `--sweep` 빈 RUN((h) 재발 11-09 11:41Z), reviewer-b 라벨 변경 CI 취소((d') 재발 11-09 12:02Z), gates quick 로컬 1385초((a)), reviewer.md MCP 머지 경로((b)) — Auditor W46 후보.
 - **[auditor 11-08, W45]** 무결성 위반 0(머지 86). main CI red 0. CHANGES 31%(W44 50%). builder no_work 1.9% → 실험 001 성공, 030 성공. 신규 실험 034 guard 훅 절대 경로(#659 ready P1). reviewer 실행 72% 무판정. 다음 1순위: reviewer.md 머지 경로 MCP 명시. #341 P0 10일째 라벨 없음 — planner 확인. Gate A/B/C 3주째 미산출. `reports/2026-W45.md`.
 - **[auditor 11-01, W44]** 무결성 위반 0. 최대 비용 = MERGE 판정 후 머지 거부(#466·#480, 해소, 실험 030). main push run 60% cancelled, CHANGES 50%. 북극성 Gate A/B/C 미산출. `reports/2026-W44.md`.
 - **friction 3회+ (area:harness 후보, Auditor 결정)**:
