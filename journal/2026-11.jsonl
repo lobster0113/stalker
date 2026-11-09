@@ -902,3 +902,4 @@
 {"ts":"2026-11-09T12:42:20Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already has CHANGES verdict on head d723a9c; no new commits","friction":"should_run --sweep printed RUN though no odd PR needed a verdict (interval-based sweep)"}
 {"ts":"2026-11-09T13:14:22Z","role":"builder-b","outcome":"pr_opened","issue":705,"pr":709,"notes":"E3 model card hashes; gates full PASS local","friction":"gates quick 16분+ (목표 90초); 선택 P1 #707은 cloud.yml 디스패치 필요해 제외"}
 {"ts":"2026-11-09T13:14:58Z","role":"reviewer-b","outcome":"skipped","issue":705,"pr":709,"notes":"not my parity","friction":""}
+{"ts":"2026-11-09T13:20:43Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #709 and #599 are odd (reviewer share); no even PRs","friction":""}
