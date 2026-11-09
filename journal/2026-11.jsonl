@@ -927,3 +927,4 @@
 {"ts":"2026-11-09T18:40:55Z","role":"reviewer","outcome":"skipped","issue":712,"pr":716,"notes":"not my parity","friction":""}
 {"ts":"2026-11-09T18:41:22Z","role":"reviewer-b","outcome":"changes","issue":712,"pr":716,"notes":"CHANGES: conflict with main in docs/ARCHITECTURE.md (after #713), no CI checks on head; code and tests look fine","friction":"a PR opened already conflicting gets no CI, so the review only reports the conflict; builder should rebase before opening the PR"}
 {"ts":"2026-11-09T19:12:25Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #716,#599 are odd parity; nothing for reviewer-b","friction":""}
+{"ts":"2026-11-09T19:41:57Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #716,#599 are even (reviewer-b parity); no odd PR to judge","friction":""}
