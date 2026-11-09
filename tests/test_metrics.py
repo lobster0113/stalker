@@ -257,3 +257,16 @@ def test_e3_web_lbr_old_result_without_per_player_run_uses_top_level(ops_clone):
     assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False
     _pages(clone, p3="p2")
     assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is True
+
+
+def test_e3_web_lbr_without_on_cell_for_a_legacy_count(ops_clone):
+    """#702: a legacy page has only an off cell; fresh still compares its own run, all_pass_on looks at on cells only."""
+    origin, clone = ops_clone
+    doc = _per_player_result({"2": "A", "3": "B"})
+    del doc["backoff"]["on"]["3"]
+    _ops_with(origin, doc)
+    _pages(clone, p2="A", p3="B")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["fresh"] is True and got["all_pass_on"] is True and "on" not in got["by_players"]["3"]
+    _pages(clone, p3="C")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False

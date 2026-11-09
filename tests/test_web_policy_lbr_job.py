@@ -155,3 +155,40 @@ def test_summarize_records_policy_run_per_cell_only_when_asked():
              "policy_sha256": "x", "policy_run": "A"}]
     assert "policy_run" not in J.summarize(rows)["off"]["2"]
     assert J.summarize(rows, per_players_run=True)["off"]["2"]["policy_run"] == "A"
+
+
+def _real_page(path, n, variant, run_id):
+    """A tiny but loadable page: every equity step of one deal, uniform rows, in the given key layout."""
+    with K.using_variant(variant):
+        s = G.deal(np.random.default_rng(3), n)
+        public = K.public_key(s, s.to_act, "full")
+        table = {K.key(public, int(v)): X.quantize(np.ones(len(G.legal(s))))
+                 for v in np.unique(K.equity_steps(s, s.to_act, K.initial_ranges(n), 5)) if v >= 0}
+    doc = {"schema": "stalker.web.policy", "players": n, "k": 5, "depth": "full", "q": X.Q, "run_id": run_id, "policy": table}
+    if variant:
+        doc["key_variant"] = variant
+    path.write_text(json.dumps(doc), encoding="utf-8")
+
+
+def test_from_pages_with_a_legacy_page_skips_its_backoff_on_cells(tmp_path, monkeypatch):
+    d = tmp_path / "pages"
+    d.mkdir()
+    _real_page(d / "mid-2.json", 2, "c1", "A")
+    _real_page(d / "mid-3.json", 3, "", "B")   # pre-c1 layout, like mid-6 on main (#702)
+    monkeypatch.setattr(J, "PLAYERS", (2, 3))
+    real_plan = J.plan
+    monkeypatch.setattr(J, "plan", lambda run, **kw: [{**t, "hands": 3} for t in real_plan(run, **kw) if t["seed"] == 1])
+    out = tmp_path / "o.json"
+    res = J.run(None, out, workers=1, pages=d)
+    assert res["legacy_pages"] == [3]
+    assert set(res["backoff"]["off"]) == {"2", "3"} and set(res["backoff"]["on"]) == {"2"}
+    assert res["backoff"]["on"]["2"]["policy_run"] == "A" and res["backoff"]["off"]["3"]["policy_run"] == "B"
+    first = out.read_bytes()
+    J.run(None, out, workers=1, pages=d)
+    assert out.read_bytes() == first
+
+
+def test_plan_legacy_players_get_off_tasks_only():
+    tasks = J.plan("r", legacy=[6])
+    assert {t["backoff"] for t in tasks if t["players"] == 6} == {False}
+    assert {t["backoff"] for t in tasks if t["players"] == 5} == {False, True}
