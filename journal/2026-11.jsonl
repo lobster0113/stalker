@@ -878,3 +878,4 @@
 {"ts":"2026-11-09T07:30:00Z","role":"planner","outcome":"planned","issue":702,"pr":700,"notes":"PR #700(#323) 머지 반영. #698 디스패치 실패(레거시 mid-6 backoff=on) → 선행 #702 ready P2 생성, #698 blocked 유지. ready 3.","friction":"gh issue/pr list가 GraphQL 403 → REST gh api로 우회(기존 (b) 재발)"}
 {"ts":"2026-11-09T07:25:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity); no even PRs need verdict or merge retry","friction":""}
 {"ts":"2026-11-09T07:41:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c, no new commits","friction":""}
+{"ts":"2026-11-09T08:14:31Z","role":"builder-b","outcome":"pr_opened","issue":702,"pr":703,"notes":"legacy pages skip backoff-on cells in page LBR job","friction":"gates quick 1440s locally, exceeds 10min command limit; had to nohup+poll"}
