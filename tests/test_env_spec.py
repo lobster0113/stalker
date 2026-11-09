@@ -113,10 +113,18 @@ def test_migrate_decision_ids_and_rejects_unknown_versions():
 
 
 def test_generated_records_carry_the_config_env_id(tmp_path):
-    from stalker.pipeline.generate import generate
+    import numpy as np
+
+    from stalker.agents.random_agent import RandomLegalAgent
+    from stalker.records.store import RecordWriter
+    from stalker.tournament.director import run_game
 
     cfg = load_preset("6max_sng_wta")
-    generate(cfg, 1, 3, tmp_path)
+    write_manifest(tmp_path, RunManifest.create("t", cfg, 3, "random", meta={}))
+    res = run_game(cfg, [RandomLegalAgent(np.random.default_rng(i)) for i in range(cfg.players)],
+                   np.random.default_rng(3), game_id="t-g0")
+    with RecordWriter(tmp_path) as w:
+        w.write(GameRecord.from_result(res, cfg.prize_pool / cfg.players, "t-ep0", S.from_tournament(cfg).env_id))
     ids = {r.ids.env_id if hasattr(r, "ids") else r.env_id for r in iter_records(tmp_path)}
     assert ids == {S.from_tournament(cfg).env_id}
     assert (tmp_path / MANIFEST).exists()

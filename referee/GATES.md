@@ -153,4 +153,4 @@
 
 ## 은퇴한 게이트 (기록 보존)
 2026-10-27 방향 전환(ADR 0008)으로 **Gate A**(ICMizer 지원 스팟 직접 비교), **Gate B**(ICMizer-informed 참조 봇과 전체 토너먼트), **Gate C**(AI-0/1/2 기억 가치)는 성공 정의에서 빠졌다. CI 지표 스냅샷에서는 #101로 빠졌다(마지막 값은 `ops:metrics/history.jsonl`에 보존). 코드(`referee/gate_a/`, `referee/gate_b/`, `referee/agents/reference_bot.py`)는 CLI로 남아 있으며 판정 근거로 쓰지 않는다. ICM 참조기와 참조 봇은 Gate Q의 앵커·페르소나 후보로 재사용할 수 있다. 정의 원문은 git 이력(`64f586c` 이후 `referee/GATES.md`)에 있다.
-- 은퇴 시점 Gate A 명세 값(`referee/gate_a/spec_v1.json`과 일치, 테스트가 확인): δ_ni = 5e-05, δ_min = 0.0001.
+- 은퇴 시점 Gate A 명세 값(코드는 #323에서 제거됨): δ_ni = 5e-05, δ_min = 0.0001.
