@@ -924,3 +924,4 @@
 {"ts":"2026-11-09T18:12:00Z","role":"planner","outcome":"planned","issue":708,"pr":715,"notes":"PR #715(#714 재-export) 머지 확인: 5파일 상한 안, mid-6 플랍 균등 악화(로컬). #708 blocked→ready P1(sha256 코멘트), #714 라벨 정리, STATE 갱신. ready 미착수 3 + #712 진행 중.","friction":""}
 {"ts":"2026-11-09T18:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd, reviewer parity); no even PRs to review","friction":""}
 {"ts":"2026-11-09T18:40:27Z","role":"builder-b","outcome":"pr_opened","issue":712,"pr":716,"notes":"E3 체크포인트 resume chain + RNG 이음새 해시, quick/full PASS","friction":"quick/full이 길어(full 약 27분) 120초 자동 백그라운드 전환 때문에 대기 루프를 여러 번 반복; 상태 전체 비교 기존 테스트 6곳이 chain 추가로 깨져 고침"}
+{"ts":"2026-11-09T18:40:55Z","role":"reviewer","outcome":"skipped","issue":712,"pr":716,"notes":"not my parity","friction":""}
