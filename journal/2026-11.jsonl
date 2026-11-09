@@ -889,3 +889,4 @@
 {"ts":"2026-11-09T09:41:56Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd) already has CHANGES verdict at head d723a9c; no new commits","friction":"should_run --sweep prints RUN even when every open PR is already judged at its head sha"}
 {"ts":"2026-11-09T10:12:11Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's share)","friction":""}
 {"ts":"2026-11-09T10:41:22Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already has CHANGES verdict on head d723a9c; awaiting author fix","friction":""}
+{"ts":"2026-11-09T11:04:23Z","role":"reviewer","outcome":"skipped","issue":698,"pr":704,"notes":"not my parity","friction":""}
