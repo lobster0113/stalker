@@ -888,3 +888,4 @@
 {"ts":"2026-11-09T09:24:17Z","role":"builder-b","outcome":"waiting_ci","issue":698,"pr":null,"notes":"#698 CLAIM, dry run 42593057307 ok, real run 42593131004 dispatched; handover comment left","friction":"gh 없이 MCP만으로 디스패치 가능했으나 pod 완료 대기가 길어 한 실행에 결과 기록까지 불가(이슈가 2회 실행 전제)"}
 {"ts":"2026-11-09T09:41:56Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd) already has CHANGES verdict at head d723a9c; no new commits","friction":"should_run --sweep prints RUN even when every open PR is already judged at its head sha"}
 {"ts":"2026-11-09T10:12:11Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's share)","friction":""}
+{"ts":"2026-11-09T10:41:22Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already has CHANGES verdict on head d723a9c; awaiting author fix","friction":""}
