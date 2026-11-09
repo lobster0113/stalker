@@ -109,6 +109,24 @@ def test_seeds3_job_spec_differs_only_in_seeds_and_stays_under_budget():
     assert s3.hourly_usd * s3.max_minutes / 60 <= 3.0
 
 
+def test_pages_job_spec_differs_from_s3_only_in_source_and_stays_under_budget():
+    sys.path.insert(0, str(ROOT / "harness/cloud"))
+    import launcher
+    s3 = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-mid-s3.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-mid-s3.yaml")
+    pg = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-pages.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-pages.yaml")
+    assert pg.command == s3.command.replace(
+        "POLICY_RUN=41813684540; python3 -m stalker.tools.web_policy_lbr_job --policy-run $POLICY_RUN --workers 32 --seeds 3 "
+        "--out /result/web-policy-lbr-mid-s3.json",
+        "python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 3 "
+        "--out /result/web-policy-lbr-pages.json")
+    assert pg.command != s3.command
+    assert pg.result_path == "/result/web-policy-lbr-pages.json"
+    for f in ("image", "vcpu", "max_minutes", "hourly_usd", "cpu_flavors", "flavor_hourly_usd", "disk_gb"):
+        assert getattr(pg, f) == getattr(s3, f), f
+    assert pg.hourly_usd * pg.max_minutes / 60 <= 3.0
+    assert (ROOT / "web/app/policy").is_dir()   # --from-pages path is relative to the main tarball root
+
+
 def _page_dir(tmp_path, runs):
     d = tmp_path / "pages"
     d.mkdir()
