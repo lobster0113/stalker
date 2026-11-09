@@ -1,0 +1,90 @@
+{
+ "schema_version": 1,
+ "job": "e3-tp-mid-c1-mixn-pod",
+ "thresholds": "lbr_thresholds_v1.json",
+ "thresholds_sha256": "e7f12f267264269666519684d51eebfdf7946f1a98795c0b7fac55a76344549a",
+ "runs": [
+  "41589414839",
+  "41812635702",
+  "41812640240",
+  "42548774643"
+ ],
+ "seeds": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "players": {
+  "2": {
+   "lbr": {
+    "verdict": "pass",
+    "seeds": 3,
+    "mean_lbr_bb": 6.3416,
+    "limit": 9.0
+   },
+   "lbr_average": {
+    "verdict": "pass",
+    "seeds": 3,
+    "mean_lbr_bb": 6.720166666666667,
+    "limit": 8.7
+   }
+  },
+  "3": {
+   "lbr": {
+    "verdict": "pass",
+    "seeds": 3,
+    "mean_lbr_bb": 4.896466666666666,
+    "limit": 6.4
+   },
+   "lbr_average": {
+    "verdict": "pass",
+    "seeds": 3,
+    "mean_lbr_bb": 3.9343000000000004,
+    "limit": 5.2
+   }
+  },
+  "4": {
+   "lbr": {
+    "verdict": "pass",
+    "seeds": 4,
+    "mean_lbr_bb": 2.8912750000000003,
+    "limit": 4.0
+   },
+   "lbr_average": {
+    "verdict": "pass",
+    "seeds": 4,
+    "mean_lbr_bb": 2.748625,
+    "limit": 3.7
+   }
+  },
+  "5": {
+   "lbr": {
+    "verdict": "pass",
+    "seeds": 4,
+    "mean_lbr_bb": 2.20925,
+    "limit": 3.1
+   },
+   "lbr_average": {
+    "verdict": "pass",
+    "seeds": 4,
+    "mean_lbr_bb": 2.0143999999999997,
+    "limit": 3.0
+   }
+  },
+  "6": {
+   "lbr": {
+    "verdict": "pass",
+    "seeds": 4,
+    "mean_lbr_bb": 1.9247750000000001,
+    "limit": 2.7
+   },
+   "lbr_average": {
+    "verdict": "pass",
+    "seeds": 4,
+    "mean_lbr_bb": 1.770975,
+    "limit": 2.7
+   }
+  }
+ }
+}
