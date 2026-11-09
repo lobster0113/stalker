@@ -946,3 +946,4 @@
 {"ts":"2026-11-09T23:12:04Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's parity)","friction":""}
 {"ts":"2026-11-09T23:43:34Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd) already has CHANGES at head d723a9c, no new commits","friction":"should_run --sweep printed RUN although the only open PR already has a verdict on its head; sweep runs hourly regardless of pending work"}
 {"ts": "2026-11-09T23:55:00Z", "role": "builder-b", "outcome": "pr_opened", "issue": 701, "pr": 719, "notes": "피시 페르소나 플랍 칸 연구 §10.1.6 문서 PR, quick PASS(로컬)", "friction": "gates quick 로컬 1326초(목표 90초)로 한 실행의 대부분 소요; 백그라운드 전환 후 포그라운드 대기 필요"}
+{"ts":"2026-11-09T23:59:54Z","role":"reviewer-b","outcome":"skipped","issue":701,"pr":719,"notes":"not my parity","friction":""}
