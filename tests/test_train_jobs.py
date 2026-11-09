@@ -269,7 +269,9 @@ def test_e3_checkpoint_resume_is_bit_identical():
     part.iterate(3)
     part = E3MCCFR.from_state(json.loads(json.dumps(part.state())))
     part.iterate(3)
-    assert part.state() == whole.state()
+    a, b = part.state(), whole.state()
+    assert a.pop("chain") != b.pop("chain")   # #712: the history differs, the table does not
+    assert a == b
 
 
 def test_e3_job_resumes_from_an_earlier_runs_checkpoint(tmp_path, monkeypatch):
@@ -285,6 +287,8 @@ def test_e3_job_resumes_from_an_earlier_runs_checkpoint(tmp_path, monkeypatch):
     assert whole["policy_sha256"] == r["policy_sha256"]  # two chunks = one run of the same length
     s = T.summarize("e3-tp-beginner", tmp_path / "b")
     assert s["runs"] == 1 and s["resumed_from_iters_by_seed"] == [2]
+    assert [(c["from_iters"], c["to_iters"]) for c in r["resume_chain"]] == [(0, 2), (2, 5)]   # #712
+    assert s["resume_chain_runs"] == [None, None]
 
 
 def test_resume_errors_tell_how_to_fix(tmp_path):

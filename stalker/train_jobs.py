@@ -247,6 +247,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "machine": machine(),
             # #447: the table's bits, so two runs that should match (same sha, seed, workers) can be checked
             "regret_sha256": m.regret_hash(),
+            "resume_chain": m.resume_chain(),   # #712
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur, lbr_hands),
             **({"lbr_hands": lbr_hands} if eval_of else {}),
@@ -558,6 +559,8 @@ def summarize(job: str, folder: Path) -> dict:
         out["by_players_shared_keys_by_seed"] = [r["by_players_shared_keys"] for r in runs]
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
+        if runs[0].get("resume_chain"):   # #712
+            out["resume_chain_runs"] = [c["run_id"] for c in runs[0]["resume_chain"]]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set
         out.update({"field_sha256": runs[0]["field"]["sha256"], "field_deals": runs[0]["field"]["deals"],
                     "field_worst_by_seed": [r["field"]["worst"] for r in runs],
