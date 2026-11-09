@@ -1,6 +1,10 @@
 """Cloud job: c1 LBR of the filtered web policy files at ADR 0020's hands and seeds (#661, follow-up 1 of #653).
 
     python -m stalker.tools.web_policy_lbr_job --policy-run 41813684540 --out /result/web-policy-lbr.json [--workers 32]
+    python -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --out /result/web-policy-lbr.json   # what the service serves (#695)
+
+`--from-pages <dir>` measures the page files `<dir>/mid-<n>.json` of a main checkout (or tarball dir) and records each file's own
+`run_id` as that player count's `policy_run` in the cells of `backoff`, so `e3_web_lbr` compares `fresh` per player count.
 
 Reads `cloud/policies/<policy_run>/mid-{2..6}.json` from the `ops` branch tarball (only those members are kept), measures each
 file with `web_policy_lbr.measure` with the page's backoff off and on, at the hand counts and minimum seed counts of
@@ -26,7 +30,23 @@ PLAYERS = (2, 3, 4, 5, 6)
 OPS_TARBALL = "https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/ops"
 
 
-def plan(policy_run: str, table: dict | None = None, backoffs=(False, True), seeds: int | None = None) -> list[dict]:
+def page_runs(pages: Path) -> dict[int, str]:
+    """`run_id` of each page file `mid-<n>.json` (as a string); a missing or run-less file is an error, not a guess."""
+    out = {}
+    for n in PLAYERS:
+        f = Path(pages) / f"mid-{n}.json"
+        try:
+            run_id = json.loads(f.read_text(encoding="utf-8")).get("run_id")
+        except (OSError, ValueError, AttributeError):
+            run_id = None
+        if run_id is None:
+            raise SystemExit(f"{f} has no readable run_id: pass the directory of the pages main serves (web/app/policy)")
+        out[n] = str(run_id)
+    return out
+
+
+def plan(policy_run: str, table: dict | None = None, backoffs=(False, True), seeds: int | None = None,
+         runs: dict[int, str] | None = None) -> list[dict]:
     """One task per (players, seed, backoff): hands from ADR 0020, seeds 1..max(min_seeds of the current strategy, `seeds`)."""
     if table is None:
         from referee.e3.thresholds import load_thresholds
@@ -37,7 +57,7 @@ def plan(policy_run: str, table: dict | None = None, backoffs=(False, True), see
         for seed in range(1, max(spec["min_seeds"]["lbr"], seeds or 1) + 1):
             for backoff in backoffs:
                 tasks.append({"players": n, "seed": seed, "eval_seed": 10_000 + seed, "hands": spec["hands"],
-                              "backoff": backoff, "file": f"mid-{n}.json", "policy_run": policy_run})
+                              "backoff": backoff, "file": f"mid-{n}.json", "policy_run": runs[n] if runs else policy_run})
     return tasks
 
 
@@ -63,7 +83,7 @@ def _one(args):
     return {**task, **{k: r[k] for k in ("lbr_bb", "lbr_stderr_bb", "policy_sha256")}}
 
 
-def summarize(rows: list[dict], table: dict | None = None) -> dict:
+def summarize(rows: list[dict], table: dict | None = None, per_players_run: bool = False) -> dict:
     if table is None:
         from referee.e3.thresholds import load_thresholds
         table = load_thresholds()
@@ -82,13 +102,21 @@ def summarize(rows: list[dict], table: dict | None = None) -> dict:
                              "seeds": sorted(x["seed"] for x in r), "limit": spec["lbr_max"],
                              "policy_sha256": r[0]["policy_sha256"],
                              "pass": (mean <= spec["lbr_max"]) if enough else None}
+            if per_players_run:
+                cells[str(n)]["policy_run"] = r[0]["policy_run"]
         out["on" if backoff else "off"] = cells
     return out
 
 
-def run(policy_run: str, out: Path, workers: int = 1, seeds: int | None = None, src: Path | None = None) -> dict:
+def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None = None, src: Path | None = None,
+        pages: Path | None = None) -> dict:
     import tempfile
-    tasks = plan(policy_run, seeds=seeds)
+    runs = page_runs(pages) if pages else None
+    if runs:
+        src = Path(pages)
+        distinct = set(runs.values())
+        policy_run = distinct.pop() if len(distinct) == 1 else "mixed"
+    tasks = plan(policy_run, seeds=seeds, runs=runs)
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(src) if src else Path(tmp)
         if not src:
@@ -101,7 +129,7 @@ def run(policy_run: str, out: Path, workers: int = 1, seeds: int | None = None, 
             rows = [_one(j) for j in jobs]
     rows.sort(key=lambda x: (x["backoff"], x["players"], x["seed"]))
     res = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION, "policy_run": policy_run,
-           "thresholds": "referee/e3/lbr_thresholds_v1.json", "rows": rows, "backoff": summarize(rows)}
+           "thresholds": "referee/e3/lbr_thresholds_v1.json", "rows": rows, "backoff": summarize(rows, per_players_run=bool(runs))}
     res["sha256"] = hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(json.dumps(res, indent=1, sort_keys=True) + "\n", encoding="utf-8")
@@ -110,13 +138,16 @@ def run(policy_run: str, out: Path, workers: int = 1, seeds: int | None = None, 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--policy-run", required=True, help="ops:cloud/policies/<run> directory name")
+    ap.add_argument("--policy-run", default=None, help="ops:cloud/policies/<run> directory name")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--seeds", type=int, default=None, help="seeds per cell (default: ADR 0020 minimum for the current strategy)")
     ap.add_argument("--src", type=Path, default=None, help="local dir with mid-N.json instead of the ops tarball")
+    ap.add_argument("--from-pages", type=Path, default=None, help="dir with the served mid-N.json pages (web/app/policy); per-player policy_run")
     a = ap.parse_args(argv)
-    run(a.policy_run, a.out, a.workers, a.seeds, a.src)
+    if bool(a.policy_run) == bool(a.from_pages):
+        ap.error("give exactly one of --policy-run and --from-pages")
+    run(a.policy_run, a.out, a.workers, a.seeds, a.src, a.from_pages)
     return 0
 
 

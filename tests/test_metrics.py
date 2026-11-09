@@ -226,3 +226,34 @@ def test_e3_web_lbr_is_null_without_ops(tmp_path):
     _git(tmp_path, "init", "-q")
     assert metrics.e3_web_lbr(repo=tmp_path) == {"e3_web_lbr": None}
     assert metrics.e3_web_lbr(repo=tmp_path / "missing") == {"e3_web_lbr": None}
+
+
+def _per_player_result(runs):
+    doc = _lbr_result("mixed", 4.5)
+    for mode in doc["backoff"].values():
+        for n, cell in mode.items():
+            cell["policy_run"] = runs[n]
+    return doc
+
+
+def _ops_with(origin, doc):
+    (origin / "cloud" / "results" / "500.json").write_text(json.dumps(doc), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "per-player result")
+
+
+def test_e3_web_lbr_fresh_compares_per_player_policy_run(ops_clone):
+    origin, clone = ops_clone
+    _ops_with(origin, _per_player_result({"2": "A", "3": "B"}))
+    _pages(clone, p2="A", p3="B")  # mixed runs, each page equals its own measured run
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is True
+    _pages(clone, p3="C")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False
+
+
+def test_e3_web_lbr_old_result_without_per_player_run_uses_top_level(ops_clone):
+    _, clone = ops_clone
+    _pages(clone, p2="p2", p3="other")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False
+    _pages(clone, p3="p2")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is True
