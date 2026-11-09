@@ -9,11 +9,11 @@
  "strategy": "current",
  "min_visits": 0,
  "min_visits_by_players": {
-  "2": 5,
-  "3": 5,
-  "4": 5,
+  "2": 20,
+  "3": 20,
+  "4": 10,
   "5": 5,
-  "6": 2
+  "6": 5
  },
  "player_mix": [
   2,
@@ -27,12 +27,12 @@
   {
    "file": "mid-2.json",
    "players": 2,
-   "min_visits": 5,
-   "keys": 112912,
-   "keys_dropped": 466723,
-   "bytes": 8438483,
-   "sha256": "e8bda45fe92055dab4a3053cbefa4635723d4721d642a1b0f09288f9bf736bc0",
-   "within_page_budget": false,
+   "min_visits": 20,
+   "keys": 26198,
+   "keys_dropped": 553437,
+   "bytes": 1855568,
+   "sha256": "e77d26fa2e2bda49a8fe51b908a178bdccd2547cd147540bc8e8ba9c85b1673a",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 579635,
     "2": 286791,
@@ -272,17 +272,17 @@
      }
     }
    },
-   "hit_rate_seconds": 24.6
+   "hit_rate_seconds": 30.9
   },
   {
    "file": "mid-3.json",
    "players": 3,
-   "min_visits": 5,
-   "keys": 110908,
-   "keys_dropped": 602621,
-   "bytes": 8031775,
-   "sha256": "42a48c11360d52530a44aa1e174d79364859fb3c87088eedac9741db688e8a1e",
-   "within_page_budget": false,
+   "min_visits": 20,
+   "keys": 24401,
+   "keys_dropped": 689128,
+   "bytes": 1682914,
+   "sha256": "2459088832f8ce1fa418fc8632a040c31a130cd1b220d8ef79b8038b5cc1e36c",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 713529,
     "2": 307967,
@@ -522,17 +522,17 @@
      }
     }
    },
-   "hit_rate_seconds": 37.3
+   "hit_rate_seconds": 46.5
   },
   {
    "file": "mid-4.json",
    "players": 4,
-   "min_visits": 5,
-   "keys": 78299,
-   "keys_dropped": 607977,
-   "bytes": 5414468,
-   "sha256": "7f14ac967c3d91c608a3e5d6dca62776ba5d61bf1271e3c94e1d054d3a395756",
-   "within_page_budget": false,
+   "min_visits": 10,
+   "keys": 33616,
+   "keys_dropped": 652660,
+   "bytes": 2266547,
+   "sha256": "2bc99320fc231ed9f365d4869fccbf14c6fa2c2b2169f137031293a341c7e29c",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 686276,
     "2": 255791,
@@ -772,7 +772,7 @@
      }
     }
    },
-   "hit_rate_seconds": 45.2
+   "hit_rate_seconds": 56.5
   },
   {
    "file": "mid-5.json",
@@ -1022,17 +1022,17 @@
      }
     }
    },
-   "hit_rate_seconds": 28.3
+   "hit_rate_seconds": 35.6
   },
   {
    "file": "mid-6.json",
    "players": 6,
-   "min_visits": 2,
-   "keys": 129210,
-   "keys_dropped": 327114,
-   "bytes": 8688998,
-   "sha256": "6394c1e359e4118a1f5c9f7a99548f5992b98bdccc21114027086aa042fda5d9",
-   "within_page_budget": false,
+   "min_visits": 5,
+   "keys": 30458,
+   "keys_dropped": 425866,
+   "bytes": 1981339,
+   "sha256": "e93b15764a7f5a9264037bd2045cd6006dbeead5419048734eb74a49d93fbaa3",
+   "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 456324,
     "2": 129210,
@@ -1272,12 +1272,12 @@
      }
     }
    },
-   "hit_rate_seconds": 31.3
+   "hit_rate_seconds": 39.2
   }
  ],
  "index": {
   "file": "index.json",
   "bytes": 4394,
-  "sha256": "7885abda35bfe5bda528ab491c0c5a5d4657498a8211c34ce9a433b7f1a32cb2"
+  "sha256": "f0f20ca7f01df495b4fec76f4f7cd97a5d2a11b54179a2bba0a57baa2c28c855"
  }
 }
