@@ -275,6 +275,7 @@ def test_e3_checkpoint_resume_is_bit_identical():
 
 
 def test_e3_job_resumes_from_an_earlier_runs_checkpoint(tmp_path, monkeypatch):
+    monkeypatch.delenv("GITHUB_RUN_ID", raising=False)   # CI sets it; #712 records it in the chain
     monkeypatch.setattr(T, "E3_LBR_HANDS", 2)
     monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
     T.run("e3-tp-beginner", 2, 1, tmp_path / "a")
