@@ -865,3 +865,4 @@
 {"ts":"2026-11-09T04:53:34Z","role":"reviewer-b","outcome":"skipped","issue":697,"pr":699,"notes":"not my parity","friction":""}
 {"ts":"2026-11-09T05:11:35Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: even PRs open = #599 only, already has VERDICT for head d723a9c","friction":""}
 {"ts":"2026-11-09T05:18:42Z","role":"builder-b","outcome":"pr_opened","issue":323,"pr":700,"notes":"ADR 0008 retired assets removed; quick+full gates pass locally","friction":"gates quick ~1210s, full ~2000s locally (a) recurring; pytest/ruff not preinstalled"}
+{"ts":"2026-11-09T05:19:40Z","role":"reviewer-b","outcome":"changes","issue":323,"pr":700,"notes":"merge conflict in docs/ARCHITECTURE.md; no CI ran on head db154430","friction":"conflicted PR gets no pull_request CI, so reviewer can only ask for rebase"}
