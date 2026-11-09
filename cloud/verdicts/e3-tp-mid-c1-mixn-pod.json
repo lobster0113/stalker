@@ -7,7 +7,7 @@
   "41589414839",
   "41812635702",
   "41812640240",
-  "42548774643"
+  "42591543123"
  ],
  "seeds": [
   1,
@@ -20,13 +20,13 @@
    "lbr": {
     "verdict": "pass",
     "seeds": 3,
-    "mean_lbr_bb": 6.3416,
+    "mean_lbr_bb": 6.645133333333334,
     "limit": 9.0
    },
    "lbr_average": {
     "verdict": "pass",
     "seeds": 3,
-    "mean_lbr_bb": 6.720166666666667,
+    "mean_lbr_bb": 6.090633333333333,
     "limit": 8.7
    }
   },
@@ -34,13 +34,13 @@
    "lbr": {
     "verdict": "pass",
     "seeds": 3,
-    "mean_lbr_bb": 4.896466666666666,
+    "mean_lbr_bb": 5.116666666666667,
     "limit": 6.4
    },
    "lbr_average": {
     "verdict": "pass",
     "seeds": 3,
-    "mean_lbr_bb": 3.9343000000000004,
+    "mean_lbr_bb": 3.9187666666666665,
     "limit": 5.2
    }
   },
@@ -48,13 +48,13 @@
    "lbr": {
     "verdict": "pass",
     "seeds": 4,
-    "mean_lbr_bb": 2.8912750000000003,
+    "mean_lbr_bb": 3.0813,
     "limit": 4.0
    },
    "lbr_average": {
     "verdict": "pass",
     "seeds": 4,
-    "mean_lbr_bb": 2.748625,
+    "mean_lbr_bb": 2.74625,
     "limit": 3.7
    }
   },
@@ -62,13 +62,13 @@
    "lbr": {
     "verdict": "pass",
     "seeds": 4,
-    "mean_lbr_bb": 2.20925,
+    "mean_lbr_bb": 2.3252,
     "limit": 3.1
    },
    "lbr_average": {
     "verdict": "pass",
     "seeds": 4,
-    "mean_lbr_bb": 2.0143999999999997,
+    "mean_lbr_bb": 2.14525,
     "limit": 3.0
    }
   },
@@ -76,13 +76,13 @@
    "lbr": {
     "verdict": "pass",
     "seeds": 4,
-    "mean_lbr_bb": 1.9247750000000001,
+    "mean_lbr_bb": 1.7865250000000001,
     "limit": 2.7
    },
    "lbr_average": {
     "verdict": "pass",
     "seeds": 4,
-    "mean_lbr_bb": 1.770975,
+    "mean_lbr_bb": 1.6106,
     "limit": 2.7
    }
   }
