@@ -1,15 +1,15 @@
-# STATE (2026-11-09 18:10Z, planner)
+# STATE (2026-11-09 21:45Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음.
-planner 11-09 18:10Z: **PR #715(#714 재-export) 머지(2b729f19) — 5파일 모두 상한 안(6인 1.98MB), 단 mid-6 플랍 균등 37.6·39.5%(40k 13.7·14.1%보다 나쁨, 로컬).** #708 blocked→ready P1(대상 sha256 코멘트), #714 라벨 정리.
+planner 11-09 21:45Z: **PR #717(#708 s4long LBR 잡 명세) 머지(0a97a358)** — #708 열린 채 다음 builder가 dry_run·디스패치·표·결론. 신규 #718 ready P2(keys_by_min_visits 3·4 칸, 6인 문턱 판단 재료; 재-export는 #708 디스패치 뒤).
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **D 2–5인(#384)**: s4 120k 체인(run 42591543123) 재-export(#714) 완료, mid-6 적중률은 40k보다 나쁨 → #708 걸러 낸 c1 LBR 잡(2–5인 갱신·mid-6 레거시 유지 판단). 120k 학습 중 LBR 6인 2.44→1.22. 아티팩트 ~12-04 만료. 소유자가 크리티컬하다고 한 short-handed.
 2. **평가 재현성(#418)**: #705 해시·#711 방문 분위 머지. #712 재개 체인/RNG 검사 진행 중 → 재생 테스트 분리(마지막 조각).
 3. **페르소나 목표 타당성**: pro·tag 플랍 칸 레버 완료(Python·웹). 다음: 피시 유형 칸 연구(#701) → 적용 → 웹 미러 — 초보 테이블 상대 모델 신뢰도.
 ## 큐
-ready 미착수: #708 P1·#701 P3·#463 P3 (3). in-progress #712 P2. 열린 PR #599(CHANGES, d723a9c, reviewer 소유, 3일 무수정). #341 P1 추적.
+ready 미착수: #718 P2·#701 P3·#463 P3 (3). in-progress #708 P1(디스패치 단계)·#712 P2(PR #716 CHANGES 대응, CI 대기). 열린 PR #599(CHANGES, d723a9c, reviewer 소유, 3일 무수정). #341 P1 추적.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #418·#415·#419·#306·#359·#264·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
-후보: #701 뒤 피시 칸 적용·웹 미러, #708 뒤 web/app/policy 2–5인 교체(추천 시), 6인 문턱 3–4 또는 L1 재료 보존 export(#714 후속), #264 mode=collect 마무리, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), AIVAT LBR 통합 ADR, 평가 시드 분리, PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
+후보: #701 뒤 피시 칸 적용·웹 미러, #708 뒤 web/app/policy 2–5인 교체(추천 시), 6인 문턱 3–4 재-export(#718·#708 디스패치 뒤) 또는 L1 재료 보존 export, #264 mode=collect 마무리, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), AIVAT LBR 통합 ADR, 평가 시드 분리, PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
 ## 지표 요약 (최근 값과 추세)
 - CI bf6f565(11-09 04:11Z history): tests 1838, gate_r·cash·e3 1.0, gate_l 1.0(32), stalker_loc 18175. 1744(11-06)→1838, 증가 추세.
 - e3_web_lbr(9660453c): run 42593131004, **fresh=true**, all_pass_on true. 끔/켬 bb: 2인 6.87/5.56(≤9.0)·3인 4.41/4.52(≤6.4)·4인 2.90/2.86(≤4.0)·5인 3.12/2.10(≤3.1, 끔 fail)·6인 레거시 0.66/—(≤2.7). 추세 기준선.
@@ -19,7 +19,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35 = 4.54배.
 - 클라우드 지출: 11월 원장 합 $19.79 / $100(ADR 0021).
 ## 경보
-- [planner 11-09 18:10Z] main CI: 2b729f19 확인 전(docs-only). ready 미착수 3(하한). #599 판정 후 3일+ 무수정(reviewer CLOSE 후보, 24h+ 경보 유지). friction: reviewer `--sweep` 빈 RUN((h)), reviewer-b 라벨 변경 CI 취소((d')), gates quick 로컬 1086~1385초((a)), reviewer.md MCP 머지 경로((b)), planner `gh api` 쓰기가 guard 훅에 막힘(라벨 DELETE, 이슈 POST는 통과 — 일관성 없음) — Auditor W46 후보.
+- [planner 11-09 21:45Z] main CI: 2b729f19 success, 0a97a358 진행 중. **신규 friction: web 잡 Playwright가 main에서 ~12.5분 대 15분 타임아웃 → #717이 무관한 타임아웃으로 CHANGES(builder 재실행으로 해소). 재발 시 타임아웃/분할 harness-change 후보(Auditor).** ready 미착수 3(하한). #599 판정 후 3일+ 무수정(reviewer CLOSE 후보, 24h+ 경보 유지). friction: reviewer `--sweep` 빈 RUN((h)), reviewer-b 라벨 변경 CI 취소((d')), gates quick 로컬 1086~1385초((a)), reviewer.md MCP 머지 경로((b)), planner `gh api` 쓰기가 guard 훅에 막힘(라벨 DELETE, 이슈 POST는 통과 — 일관성 없음) — Auditor W46 후보.
 - **[auditor 11-08, W45]** 무결성 위반 0(머지 86). main CI red 0. CHANGES 31%(W44 50%). builder no_work 1.9% → 실험 001 성공, 030 성공. 신규 실험 034 guard 훅 절대 경로(#659 ready P1). reviewer 실행 72% 무판정. 다음 1순위: reviewer.md 머지 경로 MCP 명시. #341 P0 10일째 라벨 없음 — planner 확인. Gate A/B/C 3주째 미산출. `reports/2026-W45.md`.
 - **[auditor 11-01, W44]** 무결성 위반 0. 최대 비용 = MERGE 판정 후 머지 거부(#466·#480, 해소, 실험 030). main push run 60% cancelled, CHANGES 50%. 북극성 Gate A/B/C 미산출. `reports/2026-W44.md`.
 - **friction 3회+ (area:harness 후보, Auditor 결정)**:
