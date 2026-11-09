@@ -880,3 +880,4 @@
 {"ts":"2026-11-09T07:41:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c, no new commits","friction":""}
 {"ts":"2026-11-09T08:14:31Z","role":"builder-b","outcome":"pr_opened","issue":702,"pr":703,"notes":"legacy pages skip backoff-on cells in page LBR job","friction":"gates quick 1440s locally, exceeds 10min command limit; had to nohup+poll"}
 {"ts":"2026-11-09T08:14:50Z","role":"reviewer-b","outcome":"skipped","issue":702,"pr":703,"notes":"not my parity","friction":""}
+{"ts":"2026-11-09T08:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #703 and #599 are odd (reviewer share); no even PRs","friction":"should_run --sweep printed RUN even though no even-numbered PR needed review"}
