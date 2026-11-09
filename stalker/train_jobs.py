@@ -249,7 +249,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "regret_sha256": m.regret_hash(),
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur, lbr_hands),
-            **_e3_model_card(m, lbr_hands),
+            **_e3_model_card(m, lbr_hands), **_e3_visit_quantiles(m),
             **({"lbr_hands": lbr_hands} if eval_of else {}),
             **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
 
@@ -291,6 +291,21 @@ def _e3_model_card(m, lbr_hands: int | None = None) -> dict:
              "stacks": m.stacks}
     return {"eval_config": cfg, "eval_config_sha256": _sha(cfg), "rules_sha256": _sha(rules),
             "trainer_commit": _trainer_commit()}
+
+
+def _e3_visit_quantiles(m) -> dict:
+    """#711: visit-count quantiles of the table (additive); per player count too for a mixed c1 run."""
+    from stalker.e3.mccfr import key_players, visit_quantiles
+
+    out = {"visit_quantiles": visit_quantiles(m)}
+    if getattr(m, "player_mix", ()):
+        by: dict[int, set] = {}
+        for k in m.visits:
+            n = key_players(k)
+            if n is not None:
+                by.setdefault(n, set()).add(k)
+        out["visit_quantiles_by_players"] = {str(n): visit_quantiles(m, ks) for n, ks in sorted(by.items())}
+    return out
 
 
 def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
@@ -583,6 +598,8 @@ def summarize(job: str, folder: Path) -> dict:
             out["iters_per_s_by_seed"] = [r["iters_per_s"] for r in runs]
         if all("chunk_iters" in r for r in runs):       # #628: eval-only jobs (chunk_iters=0) checkable without the artifact zip
             out["chunk_iters_by_seed"] = [r["chunk_iters"] for r in runs]
+        if all("p50" in r.get("visit_quantiles", {}) for r in runs):   # #711
+            out["visit_p50_by_seed"] = [r["visit_quantiles"]["p50"] for r in runs]
         if all("lbr_hands" in r for r in runs):
             out["lbr_hands_by_seed"] = [r["lbr_hands"] for r in runs]
         if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
