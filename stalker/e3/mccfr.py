@@ -359,6 +359,18 @@ def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     return out
 
 
+def visit_quantiles(m: E3MCCFR, keys=None) -> dict:
+    """#711: how filled the table is, from the per-key traverser update counts (p10..p90, `lower` so values stay
+    integers). `keys` limits it to a subset (e.g. one player count); no visits gives only {"keys": 0}."""
+    import numpy as np
+    v = [x for k, x in m.visits.items() if keys is None or k in keys]
+    if not v:
+        return {"keys": 0}
+    a = np.asarray(v)
+    out = {f"p{q}": int(np.quantile(a, q / 100, method="lower")) for q in (10, 25, 50, 75, 90)}
+    return {"keys": len(v), "under10": int((a < 10).sum()), **out}
+
+
 def parse_mix(text: str) -> tuple[int, ...]:
     """"2,3,4,5,6" -> (2, 3, 4, 5, 6); "" -> () (every hand n-handed)."""
     try:
