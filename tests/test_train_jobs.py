@@ -418,3 +418,33 @@ def test_review_sched_job_summarizes_paired_seeds(tmp_path):
         T.run("review-sched", 1, sd, tmp_path)
     s = T.summarize("review-sched", tmp_path)
     assert s["runs"] == 3 and {r["exam_day"] for r in s["table"]} == {14, 60}
+
+
+def test_e3_model_card_separates_policy_rules_and_evaluation(tmp_path, monkeypatch):
+    """#705: same config -> same hashes; only the LBR hands change -> only eval hash; GITHUB_SHA is the commit."""
+    import referee.e3.lbr as lbr3
+
+    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n, depth, extra_sizes=False:
+                        {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
+    monkeypatch.setenv("GITHUB_SHA", "a" * 40)
+
+    def run(d):
+        d.mkdir()
+        T.run("e3-tp-beginner", 2, 1, d)
+        return json.loads((d / "e3-tp-beginner-seed1.json").read_text(encoding="utf-8"))
+
+    a, b = run(tmp_path / "a"), run(tmp_path / "b")
+    assert a["eval_config_sha256"] == b["eval_config_sha256"] and a["rules_sha256"] == b["rules_sha256"]
+    assert a["eval_config"]["lbr_hands"] == T.E3_LBR_HANDS and a["trainer_commit"] == "a" * 40
+    monkeypatch.setattr(T, "E3_LBR_HANDS", 3)
+    c = run(tmp_path / "c")
+    assert c["eval_config_sha256"] != a["eval_config_sha256"] and c["rules_sha256"] == a["rules_sha256"]
+
+
+def test_trainer_commit_falls_back_to_git_then_unknown(monkeypatch):
+    monkeypatch.delenv("GITHUB_SHA", raising=False)
+    assert len(T._trainer_commit()) in (40, 7) or T._trainer_commit() == "unknown"
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(OSError("no git")))
+    assert T._trainer_commit() == "unknown"
