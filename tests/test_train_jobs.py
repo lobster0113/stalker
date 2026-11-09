@@ -398,3 +398,57 @@ def test_summary_first_in_rows_read_gz_and_plain_policy(tmp_path):
     (tmp_path / "k-seed1.policy.json").write_text("{}", encoding="utf-8")
     assert find_table(tmp_path, "k-seed1.policy", recursive=True).name == "k-seed1.policy.json"
     assert find_table(tmp_path, "none-seed1.policy", recursive=True) is None
+
+
+def test_summarize_records_chunk_iters_and_lbr_hands_by_seed(tmp_path):
+    for s, h in ((1, 4000), (2, 4000)):
+        (tmp_path / f"e3-x-seed{s}.json").write_text(
+            json.dumps(_e3_seed_json(s, iters_per_s=1.0, chunk_iters=0, lbr_hands=h + s)), encoding="utf-8")
+    out = T.summarize("e3-x", tmp_path)
+    assert out["chunk_iters_by_seed"] == [0, 0] and out["lbr_hands_by_seed"] == [4001, 4002]
+
+
+def test_summarize_omits_chunk_iters_and_lbr_hands_when_any_run_lacks_them(tmp_path):
+    (tmp_path / "e3-x-seed1.json").write_text(
+        json.dumps(_e3_seed_json(1, iters_per_s=1.0, chunk_iters=5, lbr_hands=10)), encoding="utf-8")
+    (tmp_path / "e3-x-seed2.json").write_text(json.dumps(_e3_seed_json(2, iters_per_s=1.0)), encoding="utf-8")
+    out = T.summarize("e3-x", tmp_path)
+    assert "chunk_iters_by_seed" not in out and "lbr_hands_by_seed" not in out
+    assert out["runs"] == 2 and out["lbr_bb_by_seed"] == [1.0, 1.0]
+
+
+def test_review_sched_job_summarizes_paired_seeds(tmp_path):
+    for sd in (1, 2, 3):
+        T.run("review-sched", 1, sd, tmp_path)
+    s = T.summarize("review-sched", tmp_path)
+    assert s["runs"] == 3 and {r["exam_day"] for r in s["table"]} == {14, 60}
+
+
+def test_e3_model_card_separates_policy_rules_and_evaluation(tmp_path, monkeypatch):
+    """#705: same config -> same hashes; only the LBR hands change -> only eval hash; GITHUB_SHA is the commit."""
+    import referee.e3.lbr as lbr3
+
+    monkeypatch.setattr(lbr3, "exploitability_lb", lambda pol, hands, seed, k, n, depth, extra_sizes=False:
+                        {"lbr_bb": 1.0, "hands": hands})
+    monkeypatch.setattr(T, "E3_FIELD_HANDS", 2)
+    monkeypatch.setenv("GITHUB_SHA", "a" * 40)
+
+    def run(d):
+        d.mkdir()
+        T.run("e3-tp-beginner", 2, 1, d)
+        return json.loads((d / "e3-tp-beginner-seed1.json").read_text(encoding="utf-8"))
+
+    a, b = run(tmp_path / "a"), run(tmp_path / "b")
+    assert a["eval_config_sha256"] == b["eval_config_sha256"] and a["rules_sha256"] == b["rules_sha256"]
+    assert a["eval_config"]["lbr_hands"] == T.E3_LBR_HANDS and a["trainer_commit"] == "a" * 40
+    monkeypatch.setattr(T, "E3_LBR_HANDS", 3)
+    c = run(tmp_path / "c")
+    assert c["eval_config_sha256"] != a["eval_config_sha256"] and c["rules_sha256"] == a["rules_sha256"]
+
+
+def test_trainer_commit_falls_back_to_git_then_unknown(monkeypatch):
+    monkeypatch.delenv("GITHUB_SHA", raising=False)
+    assert len(T._trainer_commit()) in (40, 7) or T._trainer_commit() == "unknown"
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(OSError("no git")))
+    assert T._trainer_commit() == "unknown"

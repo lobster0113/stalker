@@ -41,7 +41,7 @@ CLASS_COMBOS = np.array([6.0 if len(c) == 2 else (4.0 if c[2] == "s" else 12.0)
 PRIOR = CLASS_COMBOS / CLASS_COMBOS.sum()
 VALUE_MODELS = ("icm", "chipev")
 # Default per-seat best-response gain bound (fraction of the prize pool). Gate A does not use it:
-# a 0.1% residual is as large as a whole spot's decision value, so referee/gate_a/spec_v1.json
+# a 0.1% residual is as large as a whole spot's decision value, so the retired Gate A spec (ADR 0008)
 # pins a 1e-5 baseline_tol instead (ADR 0007).
 BASELINE_TOL = 1e-3
 

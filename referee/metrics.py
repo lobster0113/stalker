@@ -3,6 +3,11 @@
 Only CI runs this for the record. Product metrics register here through referee-change PRs as
 their evaluators come online. The retired Gate A/B and sufficiency keys (ADR 0008) were dropped
 in #101; their last values stay in history.jsonl.
+
+`e3_web_lbr` (#683) copies the newest `stalker.web.policy-lbr` cloud result (ADR 0020 per-player LBR,
+limit, pass; backoff on/off) from `ops:cloud/results/<run id>.json` so the service-policy strength axis
+has a history; it is `null` when ops or such a result is missing. `fresh` (#690) is true only when every
+measured player count's page policy (`web/app/policy/mid-<n>.json` `run_id`) is the measured `policy_run`.
 """
 from __future__ import annotations
 
@@ -150,11 +155,77 @@ def gate_f_e1() -> dict:
     return out
 
 
+WEB_LBR_SCHEMA = "stalker.web.policy-lbr"
+WEB_POLICY_DIR = Path("web") / "app" / "policy"
+_RESULT_PATH = re.compile(r"^cloud/results/(\d+)\.json$")
+
+
+def _git(repo: Path, *args: str, timeout: float = 60) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, encoding="utf-8", timeout=timeout)
+
+
+def _page_run(repo: Path, players: str):
+    """`run_id` of the page policy the service serves for this player count (file read only)."""
+    try:
+        doc = json.loads((repo / WEB_POLICY_DIR / f"mid-{players}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return doc.get("run_id") if isinstance(doc, dict) else None
+
+
+def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:
+    """Newest service-policy LBR result from ops, copied as is (no recomputation).
+
+    The CI snapshot step runs before any ops worktree exists, so the files are read with `git show`.
+    A failed fetch falls back to whatever `ref` already holds; no ref or no result gives `None`.
+    `fresh` says whether the measured policy is still the one the pages serve: an old LBR must not
+    read as the current service's trend once a page is re-exported (#690)."""
+    try:
+        if fetch:
+            _git(repo, "fetch", "-q", "origin", "ops")
+        ls = _git(repo, "ls-tree", "--name-only", f"{ref}:cloud/results")
+        if ls.returncode != 0:
+            return {"e3_web_lbr": None}
+        runs = sorted((int(m.group(1)) for n in ls.stdout.split()
+                       if (m := _RESULT_PATH.match(f"cloud/results/{n}"))), reverse=True)
+        for run in runs:
+            shown = _git(repo, "show", f"{ref}:cloud/results/{run}.json")
+            try:
+                doc = json.loads(shown.stdout) if shown.returncode == 0 else None
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(doc, dict) or doc.get("schema") != WEB_LBR_SCHEMA:
+                continue
+            by_players: dict = {}
+            measured_run: dict = {}
+            for mode, cells in sorted(doc.get("backoff", {}).items()):
+                for n, cell in cells.items():
+                    by_players.setdefault(str(n), {})[mode] = {
+                        k: cell.get(k) for k in ("lbr_bb", "lbr_stderr_bb", "limit", "pass")}
+                    if cell.get("policy_run") is not None:  # --from-pages results name the run each page file had (#695)
+                        measured_run[str(n)] = cell["policy_run"]
+            on = [m["on"]["pass"] for m in by_players.values() if "on" in m]
+            policy_run = doc.get("policy_run")
+            for n, m in by_players.items():
+                m["page_run"] = _page_run(repo, n)
+            def _want(n):  # per-player measured run when the result has it, else the one top-level run
+                return measured_run.get(n, policy_run) if measured_run else policy_run
+            fresh = bool(by_players) and all(
+                _want(n) is not None and m["page_run"] is not None and str(m["page_run"]) == str(_want(n))
+                for n, m in by_players.items())
+            return {"e3_web_lbr": {"run": run, "policy_run": policy_run,
+                                   "by_players": dict(sorted(by_players.items(), key=lambda kv: int(kv[0]))),
+                                   "all_pass_on": bool(on) and all(p is True for p in on), "fresh": fresh}}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return {"e3_web_lbr": None}
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1):
+    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr):
         t0 = time.monotonic()
         snap.update(part())
         print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)
