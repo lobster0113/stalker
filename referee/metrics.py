@@ -197,16 +197,22 @@ def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -
             if not isinstance(doc, dict) or doc.get("schema") != WEB_LBR_SCHEMA:
                 continue
             by_players: dict = {}
+            measured_run: dict = {}
             for mode, cells in sorted(doc.get("backoff", {}).items()):
                 for n, cell in cells.items():
                     by_players.setdefault(str(n), {})[mode] = {
                         k: cell.get(k) for k in ("lbr_bb", "lbr_stderr_bb", "limit", "pass")}
+                    if cell.get("policy_run") is not None:  # --from-pages results name the run each page file had (#695)
+                        measured_run[str(n)] = cell["policy_run"]
             on = [m["on"]["pass"] for m in by_players.values() if "on" in m]
             policy_run = doc.get("policy_run")
             for n, m in by_players.items():
                 m["page_run"] = _page_run(repo, n)
-            fresh = bool(by_players) and policy_run is not None and all(
-                m["page_run"] is not None and str(m["page_run"]) == str(policy_run) for m in by_players.values())
+            def _want(n):  # per-player measured run when the result has it, else the one top-level run
+                return measured_run.get(n, policy_run) if measured_run else policy_run
+            fresh = bool(by_players) and all(
+                _want(n) is not None and m["page_run"] is not None and str(m["page_run"]) == str(_want(n))
+                for n, m in by_players.items())
             return {"e3_web_lbr": {"run": run, "policy_run": policy_run,
                                    "by_players": dict(sorted(by_players.items(), key=lambda kv: int(kv[0]))),
                                    "all_pass_on": bool(on) and all(p is True for p in on), "fresh": fresh}}

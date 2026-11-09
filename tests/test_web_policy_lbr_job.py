@@ -107,3 +107,33 @@ def test_seeds3_job_spec_differs_only_in_seeds_and_stays_under_budget():
                                              "--workers 32 --seeds 3 --out /result/web-policy-lbr-mid-s3.json")
     assert s3.result_path == "/result/web-policy-lbr-mid-s3.json"
     assert s3.hourly_usd * s3.max_minutes / 60 <= 3.0
+
+
+def _page_dir(tmp_path, runs):
+    d = tmp_path / "pages"
+    d.mkdir()
+    for n, r in runs.items():
+        (d / f"mid-{n}.json").write_text(json.dumps({"run_id": r}), encoding="utf-8")
+    return d
+
+
+def test_plan_from_pages_uses_each_files_run_id(tmp_path):
+    runs = J.page_runs(_page_dir(tmp_path, {2: "A", 3: "A", 4: "A", 5: 7, 6: "B"}))
+    assert runs == {2: "A", 3: "A", 4: "A", 5: "7", 6: "B"}
+    tasks = J.plan("mixed", runs=runs)
+    assert {(t["players"], t["file"], t["policy_run"]) for t in tasks} == {
+        (n, f"mid-{n}.json", runs[n]) for n in J.PLAYERS}
+    assert all(t["policy_run"] == "mixed" for t in J.plan("mixed"))  # old mode keeps the single run
+
+
+def test_page_runs_rejects_a_missing_run_id(tmp_path):
+    d = _page_dir(tmp_path, {2: "A", 3: "A", 4: "A", 5: "A"})
+    with pytest.raises(SystemExit):
+        J.page_runs(d)
+
+
+def test_summarize_records_policy_run_per_cell_only_when_asked():
+    rows = [{"players": 2, "backoff": False, "seed": 1, "lbr_bb": 1.0, "lbr_stderr_bb": 0.1,
+             "policy_sha256": "x", "policy_run": "A"}]
+    assert "policy_run" not in J.summarize(rows)["off"]["2"]
+    assert J.summarize(rows, per_players_run=True)["off"]["2"]["policy_run"] == "A"
