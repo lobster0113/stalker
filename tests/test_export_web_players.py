@@ -85,6 +85,16 @@ def test_export_summary_marks_oversize_files_and_counts_keys_per_visit_floor(tmp
     assert s3["min_visits"] == 3 and all(visits[k] >= 3 for k in json.loads((tmp_path / "mv" / "beginner-4.json").read_text(encoding="utf-8"))["policy"])
 
 
+def test_keys_by_min_visits_has_floors_3_and_4_for_the_six_seat_choice():
+    # #718: #714 named 6-seat floors 3-4 as candidates; the summary must size them without another export
+    visits = {"a": 1, "b": 2, "c": 3, "d": 3, "e": 4, "f": 5}
+    got = W._keys_by_min_visits([*visits, "unseen"], visits)
+    assert list(got) == ["1", "2", "3", "4", "5", "10", "20", "50", "100"]
+    assert (got["1"], got["2"], got["3"], got["4"], got["5"], got["10"]) == (6, 5, 4, 2, 1, 0)
+    counts = list(got.values())
+    assert all(a >= b for a, b in zip(counts, counts[1:]))
+
+
 def test_export_refuses_a_table_without_player_mix(tmp_path):
     m = E3MCCFR(1, 5, 6, "basic")
     m.iterate(2)
