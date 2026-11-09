@@ -194,6 +194,32 @@ test("pro flop cells hit the human pro targets", () => {
   }
   assert.deepEqual(bad, [], `pro: ${bad.join("; ")} — tune FLOP_CELL.pro / MEANS cbetF·foldCbF pro in web/app/personas.js`);
 });
+// ---------------------------------------------------------------- tag flop cells (#691)
+// Human tag cells (note §10.1.4), the same targets as tests/test_persona_v2.py::test_tag_flop_cells_hit_human_targets.
+const TAG_CELLS = { cbet: { hu_srp: 62, hu_3bp: 70, mw_srp: 42 }, fcb: { hu_srp: 48 } };
+test("web tag levers equal the Python tag levers of #684", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../../stalker/agents/persona.py", import.meta.url), "utf8");
+  const m = src.match(/PRESETS_V2\["tag"\] = dataclasses\.replace\([^)]*?cbet_flop=([\d.]+), cbet_flop_3bp_mult=([\d.]+), cbet_flop_mw_mult=([\d.]+),\s*fold_cbet_flop=([\d.]+), fold_cbet_flop_mw=([\d.]+)/);
+  assert.ok(m, "tag lever line not found in stalker/agents/persona.py: update this regex with the Python change");
+  const [cbet, c3, cmw, fold, fmw] = m.slice(1).map(Number);
+  // The web model realizes fewer heads-up folds at the same lever (texture/made-hand structure differs), so foldCbF is
+  // fitted on its own, as pro's multiway values were in #676 (note §10.1.5); Python's 0.40 stays the reference.
+  assert.equal(fold, 0.40);
+  assert.deepEqual([P.MEANS.cbetF.tag / 100, P.FLOP_CELL.tag.cbet3bp, P.FLOP_CELL.tag.cbetMw, P.MEANS.foldCbF.tag / 100, P.FLOP_CELL.tag.foldCbMw],
+    [cbet, c3, cmw, 0.46, fmw]);
+});
+test("tag flop cells hit the human tag targets", () => {
+  const m = measureCells("tag", PRO_CELL_HANDS, 2000, PRO_CELL_SEATS);
+  console.log("tag flop cells (% (opps)): " + CELLS.map(c => `${c} cbet ${m[c].cbet.toFixed(1)} (${m[c].cbOpp}) fold ${m[c].fcb.toFixed(1)} (${m[c].fcbOpp})`).join(" | "));
+  const bad = [];
+  for (const [stat, cells] of Object.entries(TAG_CELLS)) for (const [c, want] of Object.entries(cells)) {
+    const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
+    if (n < CELL_MIN_OPPS) bad.push(`${stat} ${c}: ${n} opportunities < ${CELL_MIN_OPPS}, raise PRO_CELL_HANDS`);
+    else if (!(Math.abs(v - want) <= CELL_TOL)) bad.push(`${stat} ${c} ${v.toFixed(1)} not in ${want} ± ${CELL_TOL}`);
+  }
+  assert.deepEqual(bad, [], `tag: ${bad.join("; ")} — tune FLOP_CELL.tag / MEANS cbetF·foldCbF tag in web/app/personas.js`);
+});
 test("calibration table", () => {
   const keys = ["VPIP", "PFR", "3bet", "F3B", "cbet", "FCB", "WTSD"];
   console.log(["type", ...keys].join("\t"));
