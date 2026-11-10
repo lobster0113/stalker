@@ -972,3 +972,4 @@
 {"ts":"2026-11-10T04:41:29Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #725·#599 모두 현재 head sha에 판정 있음·새 커밋 없음 → skipped","friction":"gh CLI 토큰 무효(GH_TOKEN invalid)라 GitHub MCP로 대체. #599는 CHANGES 뒤 4일 무수정 정체"}
 {"ts":"2026-11-10T05:12:32Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #725, #599 are odd (reviewer parity); none for reviewer-b","friction":"should_run.py reviewer-b --sweep counts odd PRs as work, so RUN fires hourly with nothing to review"}
 {"ts":"2026-11-10T05:21:22Z","role":"builder-b","outcome":"changes","issue":463,"pr":725,"notes":"PR #725 CHANGES 해결: 실험 035 추가, ITERS env화, main merge, 푸시","friction":"로컬에 pytest 없음(pip install 생략), 테스트 미실행"}
+{"ts":"2026-11-10T05:21:45Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":725,"notes":"not my parity","friction":""}
