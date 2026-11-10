@@ -607,6 +607,8 @@ Training Game이 쓰는 웹 페르소나(`web/app/personas.js`)에 Python pro(§
 - **비트 동일 테스트.** `tests/test_persona_v2.py::test_cell_levers_off_replay_is_bit_identical`의 레버 없는 유형 목록에 tag가 있다. 적용 PR은 tag를 목록에서 빼고 다이제스트를 새로 떠야 한다(#569 제약: 다른 유형은 비트 동일 유지). 혼합 테스트는 tag 합계 c-bet·폴드 판정을 건너뛰게 되므로 `len(seen) == 22`가 20이 된다.
 - **웹.** 웹 tag(`web/app/personas.js`)는 #676 pro 칸 테스트의 중립 상대 3석이다. 웹 tag를 바꾸면 그 테스트의 pro 칸 측정도 움직인다. 웹 미러는 Python 적용과 분리한다.
 
+**적용 측정 (#722, 참고용·로컬, CI 아님).** 가드 충돌로 보류: 두 유형 모두 켜면 혼합 테스트의 턴 폴드 오차 .1403(>.14)·한 유형 리버 평균 폴드 .8026(>.80). 한 유형씩만 켜도 실패 — loose_passive만: nit fold_cbet_flop 측정 .614(목표 .55, ±6%p 초과); calling_station만: 좌석별 WTSD 위반(lag .353 대 .28, pro .205 대 .28, nit .270 대 .21). 시드 고정 아래 지형이 비단조라 단일 레버 보정으로 움직이지 않았고, 가드(.14·.80)는 완화하지 않았다. 코드 변경 없음. 후속 제안: (giveup_weak, giveup_turn, probe_turn) 공동 격자를 두 유형 동시에 모든 가드로 돌리는 research 이슈, 또는 혼합 필드 가드 재설계 ADR.
+
 **적용 이슈 초안 (계약 형식).**
 
 ```
