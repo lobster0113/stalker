@@ -310,16 +310,19 @@ def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
     want = {2: "66613749fa23f3fefe7243aeb34648eb964c0476e8fba7491701d5c52a3a3579",
             3: "c78a325925b73ea47c15381c5c355917f38aa99b92826d470b718d81d48578ea",
             4: "3f248f0cd2449a8ffd8310315a99fb4f1d91d283221e91c7e7291576ed0bff5b",
-            5: "0b78519957536a050e453ced988d25c838212413dfd10903245986a8647c2cd4"}
+            # #739: mid-5 is the 120k export (run 42591543123) copied from ops 18409fb6, swapped in on #733's
+            # flop/turn uniform-rate comparison; the 40k file was 0b785199….
+            5: "7484bcd181ec7c2d2fd46534c774671265a6c59fb947a918afc2db137de8e18c"}
+    run_ids = {2: "41813684540", 3: "41813684540", 4: "41813684540", 5: "42591543123"}
     mid = json.loads((pol / "index.json").read_text(encoding="utf-8"))["tiers"]["mid"]
     for n, sha in want.items():
         body = (pol / f"mid-{n}.json").read_bytes()
-        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from ops 5b5f2875; re-copy it"
+        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from its ops source; re-copy it"
         policy = json.loads(body)["policy"]
         assert any(k.startswith("call|") for k in policy), f"mid-{n}.json has no call| keys; re-export after #610"
         e = mid["by_players"][str(n)]
         assert (e["file"], e["players"], e["run_id"], e["key_variant"], e["bytes"]) == (
-            f"mid-{n}.json", n, "41813684540", "c1", len(body))
+            f"mid-{n}.json", n, run_ids[n], "c1", len(body))
         assert len(body) <= 3_145_728, f"mid-{n}.json exceeds the page budget"
     assert mid["by_players"]["2"]["min_visits"] == 5
     assert (mid["run_id"], mid["file"]) == ("40919207457", "mid-6.json") and "key_variant" not in mid
