@@ -1,6 +1,6 @@
 """Joint grid for the fish personas' flop cell levers against the mixed-field guards (#730, follow-up of #722).
 
-Usage: python scripts/persona_cell_grid.py [--points N] [--workers W] [--hands H] [--sample-seed S] [--base-only]
+Usage: python scripts/persona_cell_grid.py [--points N] [--workers W] [--hands H] [--sample-seed S] [--seed-offset K]
            [--grid TYPE:LEVER=v1,v2,...]...
 One JSON line per point: levers, turn/river fold error, per-type river mean, worst seat WTSD deviation, cell
 measurements and `passed`. The guards are the ones of tests/test_persona_v2.py::test_street_style_within_6pp_of_target_in_mixed_field
@@ -37,39 +37,70 @@ TARGETS = {"loose_passive": {"cb_hu_srp": 0.46, "cb_mw_srp": 0.38, "f_hu_srp": 0
 MIN_OPPS = 100  # judged cells need this many pooled opportunities (the mixed field gives station multiway c-bets ~150)
 LEVERS = ("giveup_weak", "giveup_turn", "probe_turn")
 DEFAULT_GRID = {"giveup_weak": (0.6, 0.7), "giveup_turn": (0.3, 0.4, 0.5), "probe_turn": (0.4, 0.5)}
+SEAT_KEYS = ("vpip", "pfr", "wtsd", "cbet_flop", "fold_cbet_flop", "fold_cbet_turn", "fold_river")
+# seed offset k shifts every table's seat and session seeds by k*SEED_STRIDE (> number of tables, so no overlap)
+SEED_STRIDE = 100
 
 
-def evaluate(params: dict, hands: int = 20000) -> dict:
-    """Judge `params` (type -> PersonaParams) like the mixed-field test does; returns the measurements and `passed`."""
-    bad, seen, fold, wtsd_dev = [], set(), {}, 0.0
-    opp = {n: {f"{b}_{c}": 0 for b in ("cb", "f") for c in FLOP_CELLS} for n in CELLS}
+def _seeds(gi: int, seed_offset: int) -> tuple[np.random.SeedSequence, int]:
+    """Table gi's seat SeedSequence and session seed; offset 0 is the mixed-field test's own (SeedSequence(gi), 50+gi)."""
+    return np.random.SeedSequence(gi + SEED_STRIDE * seed_offset), 50 + gi + SEED_STRIDE * seed_offset
+
+
+def measure(params: dict, hands: int = 20000, seed_offset: int = 0) -> dict:
+    """Play the three mixed tables once; returns the per-seat stats and pooled cell counts that `judge` reads."""
+    seats, opp = [], {n: {f"{b}_{c}": 0 for b in ("cb", "f") for c in FLOP_CELLS} for n in CELLS}
     hit = {n: dict(d) for n, d in opp.items()}
     for gi, grp in enumerate(TABLES):
-        ss = np.random.SeedSequence(gi).spawn(6)
-        agents = [PersonaAgent(params[n], np.random.default_rng(s)) for n, s in zip(grp, ss)]
-        for n, st in zip(grp, measure_session(agents, hands, seed=50 + gi)):
-            p = params[n]
-            has_cells = p.cbet_flop_mw_mult is not None  # a cell persona's mixed total is not a target (#670)
-            for key, tgt in () if has_cells else (("cbet_flop", p.cbet_flop), ("fold_cbet_flop", p.fold_cbet_flop)):
-                got = getattr(st, key)
-                seen.add((n, key))
-                if got is None or abs(got - tgt) > TOL:
-                    bad.append(f"{n} {key}")
-            for key in ("vpip", "pfr"):
-                if abs(getattr(st, key) - getattr(p, key)) > FIDELITY_TOL:
-                    bad.append(f"{n} {key}")
-            fold.setdefault(n, []).append((st.fold_cbet_turn, st.fold_river))
-            seen.add((n, "wtsd"))
-            if st.wtsd is None or abs(st.wtsd - WTSD[n]) > TOL:
-                bad.append(f"{n} wtsd")
-            if st.wtsd is not None:
-                wtsd_dev = max(wtsd_dev, abs(st.wtsd - WTSD[n]))
+        ss, session = _seeds(gi, seed_offset)
+        agents = [PersonaAgent(params[n], np.random.default_rng(s)) for n, s in zip(grp, ss.spawn(6))]
+        for n, st in zip(grp, measure_session(agents, hands, seed=session)):
+            seats.append({"type": n, **{k: getattr(st, k) for k in SEAT_KEYS}})
             if n in CELLS:  # pooled over this type's seats, as tests/test_persona_v2.py::_pooled_cells
                 for c, v in st.flop_cells.items():
                     opp[n][f"cb_{c}"] += v.cbet_opps
                     hit[n][f"cb_{c}"] += round((v.cbet or 0) * v.cbet_opps)
                     opp[n][f"f_{c}"] += v.fold_opps
                     hit[n][f"f_{c}"] += round((v.fold_cbet or 0) * v.fold_opps)
+    return {"seats": seats, "opp": opp, "hit": hit}
+
+
+def pool(raws: list[dict]) -> dict:
+    """Seed-mean of several `measure` results: each seat's stats averaged over the seeds (None where every seed has
+    None), cell counts summed. `judge(pool(...))` is the multi-seed mean judgment of the ADR 0023 option (2)."""
+    seats = []
+    for i, s0 in enumerate(raws[0]["seats"]):
+        row = {"type": s0["type"]}
+        for k in SEAT_KEYS:
+            vals = [r["seats"][i][k] for r in raws if r["seats"][i][k] is not None]
+            row[k] = float(np.mean(vals)) if vals else None
+        seats.append(row)
+    opp = {n: {k: sum(r["opp"][n][k] for r in raws) for k in d} for n, d in raws[0]["opp"].items()}
+    hit = {n: {k: sum(r["hit"][n][k] for r in raws) for k in d} for n, d in raws[0]["hit"].items()}
+    return {"seats": seats, "opp": opp, "hit": hit}
+
+
+def judge(params: dict, raw: dict) -> dict:
+    """Apply the mixed-field test's guards to one `measure` (or `pool`) result; returns the measurements and `passed`."""
+    bad, seen, fold, wtsd_dev = [], set(), {}, 0.0
+    for st in raw["seats"]:
+        n, p = st["type"], params[st["type"]]
+        has_cells = p.cbet_flop_mw_mult is not None  # a cell persona's mixed total is not a target (#670)
+        for key, tgt in () if has_cells else (("cbet_flop", p.cbet_flop), ("fold_cbet_flop", p.fold_cbet_flop)):
+            got = st[key]
+            seen.add((n, key))
+            if got is None or abs(got - tgt) > TOL:
+                bad.append(f"{n} {key}")
+        for key in ("vpip", "pfr"):
+            if abs(st[key] - getattr(p, key)) > FIDELITY_TOL:
+                bad.append(f"{n} {key}")
+        fold.setdefault(n, []).append((st["fold_cbet_turn"], st["fold_river"]))
+        seen.add((n, "wtsd"))
+        if st["wtsd"] is None or abs(st["wtsd"] - WTSD[n]) > TOL:
+            bad.append(f"{n} wtsd")
+        if st["wtsd"] is not None:
+            wtsd_dev = max(wtsd_dev, abs(st["wtsd"] - WTSD[n]))
+    opp, hit = raw["opp"], raw["hit"]
     mean = {n: tuple(float(np.mean([f[i] for f in v if f[i] is not None])) for i in (0, 1)) for n, v in fold.items()}
     for i, (street, cap) in enumerate((("turn", TURN_CAP), ("river", RIVER_CAP))):
         if not max(mean[n][i] for n in LOOSE) < min(mean[n][i] for n in TIGHT):
@@ -98,6 +129,11 @@ def evaluate(params: dict, hands: int = 20000) -> dict:
             "wtsd_dev_max": round(wtsd_dev, 4), "cells": cells, "violations": sorted(set(bad)), "passed": not bad}
 
 
+def evaluate(params: dict, hands: int = 20000, seed_offset: int = 0) -> dict:
+    """Judge `params` (type -> PersonaParams) like the mixed-field test does; seed_offset 0 replays the test's seeds."""
+    return judge(params, measure(params, hands, seed_offset))
+
+
 def apply(base: dict, point: dict) -> dict:
     """point: type -> {lever: value}; returns the type -> PersonaParams with the cell levers and the point's levers on."""
     out = dict(base)
@@ -107,9 +143,9 @@ def apply(base: dict, point: dict) -> dict:
 
 
 def _run(args: tuple) -> dict:
-    point, hands = args
-    res = evaluate(apply(PRESETS_V2, point), hands)
-    return {"levers": point, **res}
+    point, hands, seed_offset = args
+    res = evaluate(apply(PRESETS_V2, point), hands, seed_offset)
+    return {"levers": point, "seed_offset": seed_offset, **res}
 
 
 def build_points(grids: dict[str, dict[str, tuple]], n: int, seed: int) -> list[dict]:
@@ -131,6 +167,8 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--hands", type=int, default=20000)
     ap.add_argument("--sample-seed", type=int, default=0)
+    ap.add_argument("--seed-offset", type=int, default=0,
+                    help="shift the tables' seat/session seeds by OFFSET*%d (0 = the mixed-field test's seeds)" % SEED_STRIDE)
     ap.add_argument("--grid", action="append", default=[], metavar="TYPE:LEVER=v1,v2,...",
                     help="override a type's lever values (default: both fish types, %s)" % DEFAULT_GRID)
     a = ap.parse_args()
@@ -143,7 +181,7 @@ def main() -> None:
         grids[t][lever] = tuple(float(x) for x in vals.split(","))
     pts = build_points(grids, a.points, a.sample_seed)
     with ProcessPoolExecutor(a.workers) as ex:
-        for r in ex.map(_run, [(p, a.hands) for p in pts]):
+        for r in ex.map(_run, [(p, a.hands, a.seed_offset) for p in pts]):
             print(json.dumps(r), flush=True)
 
 
