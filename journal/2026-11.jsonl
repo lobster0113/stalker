@@ -968,3 +968,4 @@
 {"ts":"2026-11-10T03:44:35Z","role":"builder-b","outcome":"pr_opened","issue":463,"pr":725,"notes":"manual e3-determinism workflow + ARCHITECTURE line; gates quick pass, full left to CI","friction":"gates quick locally 1326s (target 90s); full not run locally"}
 {"ts":"2026-11-10T03:44:56Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":725,"notes":"not my parity","friction":""}
 {"ts":"2026-11-10T03:45:42Z","role":"reviewer","outcome":"changes","issue":463,"pr":725,"notes":"harness-change workflow_dispatch 잡에 harness/experiments 기록 누락 → CHANGES. 수용 기준 2개는 코드상 충족","friction":"CI 첫 run 취소로 gates 집계 failure가 같은 sha에 남아 최신 run 구분이 필요했다"}
+{"ts":"2026-11-10T04:11:30Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #725, #599 are odd (reviewer parity); none for reviewer-b","friction":"should_run.py reviewer-b --sweep printed RUN although no even-numbered PR was open"}
