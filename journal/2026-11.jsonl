@@ -1040,3 +1040,4 @@
 {"ts":"2026-11-10T18:41:35Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #747,#599 already have CHANGES verdicts on current head sha","friction":""}
 {"ts":"2026-11-10T19:14:52Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #747, #599 are odd (reviewer parity); no even PR to review","friction":"should_run --sweep returns RUN even when no even-numbered PR is open"}
 {"ts":"2026-11-10T19:22:09Z","role":"builder-b","outcome":"changes","issue":740,"pr":747,"notes":"PR #747 CHANGES 2건(문서 구간 표기) 정정 푸시 fe9ff1f1","friction":"auto mode가 git reset --hard 거부 → checkout -b FETCH_HEAD로 우회"}
+{"ts":"2026-11-10T19:22:33Z","role":"reviewer-b","outcome":"skipped","issue":740,"pr":747,"notes":"not my parity (odd PR, synchronize fe9ff1f)","friction":""}
