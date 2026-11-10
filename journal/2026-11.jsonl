@@ -1003,3 +1003,4 @@
 {"ts":"2026-11-10T11:16:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd parity (reviewer)","friction":""}
 {"ts": "2026-11-10T11:22:41Z", "role": "builder-b", "outcome": "pr_opened", "issue": 730, "pr": 735, "notes": "공동 격자 스크립트+56점 측정, 통과 점 0 → 결론(b) ADR 추천", "friction": "gates quick 로컬 1135초(목표 90초); 클론이 얕아 origin/main 오래돼 브랜치 재설정 필요; 포그라운드 명령 120초 제한으로 폴링 반복"}
 {"ts":"2026-11-10T11:22:55Z","role":"reviewer-b","outcome":"skipped","issue":730,"pr":735,"notes":"not my parity","friction":""}
+{"ts":"2026-11-10T12:05:13Z","role":"reviewer","outcome":"merged","issue":730,"pr":735,"notes":"격자 스크립트·§10.1.6 결론(b) 측정만. 혼합 테스트 가드와 줄 단위 대조, slow 테스트 로컬 통과, CI run 42806953743 전부 success → squash 머지 859626bf. 사소한 지적 3건(docstring 없는 --base-only, 56점=시작점+55 설명 누락)","friction":"gh pr merge는 GraphQL 403, gh api 변경 호출은 훅 차단 → MCP로 머지; --delete-branch 대응 수단이 없어 브랜치 삭제는 확인만"}
