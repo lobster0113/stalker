@@ -11,7 +11,7 @@
 `export` loads the table once and writes `<tier>-<n>.json` for every seat count (2-6 by default, each through
 `export_web_policy.policy_doc` with `--players n`) and `index.json`: `--index-base` with those files upserted.
 A file over the page budget (`export_web_policy.MAX_BYTES`) is still written and marked
-`within_page_budget: false`; `keys_by_min_visits` in the summary says how many keys each `--min-visits` keeps,
+`within_page_budget: false`; `keys_by_min_visits` in the summary says how many keys each `--min-visits` in `VISIT_STEPS` keeps,
 so the PR that ships the files can pick a threshold without another download.
 
 `--min-visits-by-players "2:10,3:5"` overrides `--min-visits` per seat count (each file's summary entry says the
@@ -39,7 +39,7 @@ SCHEMA = "stalker.web.policy-export"
 SCHEMA_VERSION = 2   # 2: files[].hit_rate (#617); a v1 summary is the same without it
 HIT_RATE_HANDS = 300   # CLI default: seeded hands per seat count; 0 turns the measurement off
 PLAYERS = (2, 3, 4, 5, 6)
-VISIT_STEPS = (1, 2, 5, 10, 20, 50, 100)
+VISIT_STEPS = (1, 2, 3, 4, 5, 10, 20, 50, 100)
 
 
 def artifact_name(run: str) -> str:
