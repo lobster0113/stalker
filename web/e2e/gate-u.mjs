@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { coarseKey, TIER_K } from "../app/tpgto.js";
+import { createWatchdog, probePages, stallMsFrom } from "./watchdog.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // The page loads the TP-GTO engine and policies with import()/fetch, which file:// blocks: serve web/.
@@ -30,6 +31,11 @@ const failures = [];
 const must = (ok, msg) => { if (!ok) { failures.push(msg); console.error("FAIL: " + msg); } };
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
+// #724: no progress line or section start for GATE_U_STALL_MS → name where it hung and exit 1 before the CI job
+// timeout cancels the run with no output. Progress lines are the existing console.log lines (no extra output).
+const wd = createWatchdog({ stallMs: stallMsFrom(), probe: () => probePages(browser) }).start();
+wd.section("0 setup");
+{ const log = console.log.bind(console); console.log = (...a) => { wd.step(a.join(" ")); log(...a); }; }
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 page.setDefaultTimeout(60_000);
 page.on("pageerror", e => must(false, `page error: ${e.message}`));
@@ -137,6 +143,7 @@ async function inspect(tag, focus, pg = page) {
   must(critical.length === 0, `${tag}: axe critical ${critical.map(v => v.id + "×" + v.nodes.length).join(", ")}`);
 }
 
+wd.section("1");
 // 1. 시작 → 테이블 → 내 차례(Quick: 액션 먼저 → 진행 / 분석 보기 → 비교) → Guided TP 입력 → 제출 → 채점
 await page.goto(url);
 must(await page.locator("#set-play [data-v='quick'][aria-pressed='true']").count() === 1, "시작 화면: 플레이 모드 기본값이 Quick이 아님");
@@ -569,6 +576,7 @@ must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#
 }
 must((await page.textContent("#svc-pill")).includes("모의"), "토너먼트: 학습 정책이 없는데 모의 표시가 없음");
 
+wd.section("2");
 // 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
@@ -669,6 +677,7 @@ await inspect("learn", "#dr-res");
   must(d.res.includes(`${want}점`) && (d.ans < 18 || want <= 48), `학습 에퀴티: 0 입력 점수가 ${want}점이 아님 (정답 ${d.ans})`);
 }
 
+wd.section("3");
 // 3. 복기: 단계(포지션 → 핸드 → 프리플랍 …) → 비교
 await page.click(".tab[data-view='review']");
 await page.waitForSelector("#rv-next");
@@ -745,6 +754,7 @@ await inspect("review", "#rv-body h2");
   await page.evaluate(s => { Object.assign(RV, JSON.parse(s)); renderReview(); window.__hold = false; }, saved);
 }
 
+wd.section("4 #117");
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
 await page.click(".tab[data-view='home']");
 await page.click("#move summary");
@@ -770,6 +780,7 @@ must(await page.evaluate(() => window.STALKER_RECORDS.exportRecords()) === expor
 must(await page.evaluate(() => { renderEqab(); return document.querySelector("#ab-box").innerHTML; }) === abBefore, "기록 옮기기: 왕복 뒤 질문 형태 실험 표가 다름");
 await inspect("home-move", "#move");
 
+wd.section("5 #337");
 // 5. #337 정책을 못 불러올 때: 오류 화면(이유·다시 시도·모의로 계속) → 다시 시도 성공 / 모의로 계속
 {
   const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -804,6 +815,7 @@ await inspect("home-move", "#move");
   await p2.close();
 }
 
+wd.section("6 #360");
 // 6. #360 고수 등급: 상대 5명이 pro-6.json 정책(board.nut 키 포함)을 두고, 한 핸드를 끝까지 치며 모델 비교가 보인다.
 {
   const p3 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -848,6 +860,7 @@ await inspect("home-move", "#move");
   await p3.close();
 }
 
+wd.section("7 #364");
 // 7. #364 핸드 도중 등급 변경: 그 핸드는 중수 키로 끝나고, 다음 핸드부터 상대·질문·비교가 모두 고수 정책이다.
 {
   const p4 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -910,6 +923,7 @@ await inspect("home-move", "#move");
   await p4.close();
 }
 
+wd.section("8 #441");
 // 8. #441 known leaks: a forced AA first-in decision in a cell the probe flagged (mid-6.leaks.json) shows the
 // strong warning instead of a frequency grade, and the home model card names the known preflop leak.
 {
@@ -961,6 +975,7 @@ await inspect("home-move", "#move");
   await p5.close();
 }
 
+wd.section("9 #444");
 // 9. #444 딜 시드: 고정하지 않은 두 로드는 시드가 다르고, ?seed=N은 두 로드 모두 N으로 고정한다.
 {
   const base = url.replace(/&seed=\d+/, "");
@@ -979,6 +994,7 @@ await inspect("home-move", "#move");
   must(Number.isInteger(e) && e !== 0, `딜 시드: 숫자가 아닌 seed에서 무작위 시드로 돌아가지 않음 (${e})`);
 }
 
+wd.section("10 #464");
 // 10. #464 Guided: the game waits on the grading after every decision; every hand the hero played ends with
 // that hand's analysis and waits; plan.pot is a slider; 종료·분석 stops the game and the report counts match.
 {
@@ -1092,6 +1108,7 @@ await inspect("home-move", "#move");
   console.log(`세션 분석: 결정 ${r.dec}회 · 핸드 ${r.hands}개 · 항목 ${r.items}개`);
   await p6.click("#rp-close");
   must((await p6.textContent("#end-game")).includes("분석 다시 보기"), "종료 뒤 헤더 버튼이 '분석 다시 보기'가 아님");
+  wd.section("11 #465");
   // 11. #465 내 게임: every played hand is saved, survives a reload, and the replay steps through the saved
   // action list; a hero decision shows its label and the reasons; a broken record never breaks the page.
   const saved = await p6.evaluate(() => { const d = JSON.parse(localStorage.getItem("stalker.games") || "null"); return { n: d?.games?.reduce((a, g) => a + g.hands.length, 0) ?? 0, played: G.hands.length, an: d?.games?.flatMap(g => g.hands).flatMap(h => h.acts).filter(a => a.an && a.an.p != null).length ?? 0 }; });
@@ -1126,6 +1143,7 @@ await inspect("home-move", "#move");
   await p6.close();
 }
 
+wd.section("7 #397");
 // 7. #397 임시 정책·미학습 표시: (a) 6인 100BB → 임시 배지, (b) 초보 4인(정책 없음, 중수 4인은 #604부터 있음) → 미학습(규칙 봇),
 // (c) placeholder:false 픽스처 → 배지 없음
 {
@@ -1191,6 +1209,7 @@ await inspect("home-move", "#move");
   console.log("임시 정책·미학습 표시 ok");
 }
 
+wd.section("11 #541");
 // 11. #541 (등급, 인원)별 정책: index.json의 tiers.beginner.by_players에 2·4인 픽스처(web/e2e/fixtures, run
 // fixture)를 붙여 내준다. 헤즈업·4인은 AI 결정이 픽스처 행이고 엔진 거울을 켠 채 핸드가 끝까지 가며, 3인(픽스처
 // 없음)은 지금처럼 미학습(규칙 봇)이다. 화면 3종 검사와 콘솔 오류 없음.
@@ -1303,6 +1322,7 @@ await inspect("home-move", "#move");
   console.log("인원별 정책 ok");
 }
 
+wd.section("12 #604");
 // 12. #604 2–5인 중수 = c1 정책(run 41813684540): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
 // 결정이 c1 키로 mid-<n>.json 행을 읽는다(레거시 키로 읽으면 한 번도 맞지 않아 균등 분포가 된다). #608: 포스트플랍도
 // c1+b1 키(`|o…v…k…` 칸)로 읽어 엔진 거울을 켠 채 핸드가 끝난다 — 3인에서 플랍 이상 간 핸드 1개(체크·콜로 진행)의
@@ -1340,6 +1360,7 @@ await inspect("home-move", "#move");
     await pg.close();
   }
   for (const n of [2, 3]) {
+    wd.section(`12 #604 c1 ${n}인`);
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await autoContinue(pg);
     pg.setDefaultTimeout(120_000);
@@ -1379,7 +1400,8 @@ await inspect("home-move", "#move");
     if (!(await mine()).length) {   // the hero opened the action: call or check once so the opponents act
       await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
       await pg.click("#tp-go");
-      await pg.waitForFunction(h => TPG.botLog.some(x => x.hand === h) || G.handNo !== h, h0);
+      await pg.waitForFunction(h => TPG.botLog.some(x => x.hand === h) || G.handNo !== h, h0, { timeout: 60_000 })
+        .catch(() => must(false, `c1 ${n}인: 내 콜·체크 뒤 60초 안에 상대 결정도 다음 핸드도 오지 않음 — 봇 차례 진행·TPG.botLog 확인 (#724)`));
     }
     const log = await mine();
     let hit = 0;
@@ -1449,6 +1471,7 @@ await inspect("home-move", "#move");
       // keep them), so the hero's next postflop decision backs off. Its comparison must say it is a nearby
       // situation's average and must not grade the hero's frequency; the hand table and replay record say so too.
       await pg.evaluate(() => { const pol = TPG.pol["mid-3"]; for (const k of [...pol.keys()]) if (!k.startsWith("call|") && +k.split("|")[2] > 0) pol.delete(k); });
+      wd.section("12 #623 c1 3인 근사");
       let near = null;
       for (let guard = 0; guard < 60 && !near; guard++) {
         const hand = await pg.evaluate(() => G.handNo);
@@ -1486,6 +1509,7 @@ await inspect("home-move", "#move");
   console.log("c1 인원별 중수 정책 ok");
 }
 
+wd.stop();
 await browser.close();
 server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }
