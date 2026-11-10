@@ -1,13 +1,13 @@
-# STATE (2026-11-10 03:55Z, planner)
+# STATE (2026-11-10 05:50Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음.
-planner 11-10 03:55Z: **PR #723(#721) 머지 → #418(RFC-12 모델 카드·재현성) 닫음.** 신규 #724 ready P2(Gate U 정체 감시: #723 web 잡 무출력 타임아웃). #722 blocked 해제(가드 완화 금지, 안 되면 범위 축소 결정). #264 ready P3(문서 PR만). #463은 builder-b 착수.
+planner 11-10 05:50Z: **PR #725(#463) 머지 → e3-determinism workflow_dispatch 추가, 실험 035.** 신규 #727 ready P3(그 워크플로 1회 디스패치·결과 기록). #724는 PR #726 열림(builder). 11-10 03:55Z: #418 닫음, #724 신규, #722 blocked 해제.
 ## 이번 주 초점 (3개 이하, 이유 포함)
 1. **D 2–5인(#384)**: s4 120k 체인(run 42591543123) 재-export(#714) 완료, mid-6 적중률은 40k보다 나쁨 → #708 걸러 낸 c1 LBR 잡(2–5인 갱신·mid-6 레거시 유지 판단). 120k 학습 중 LBR 6인 2.44→1.22. 아티팩트 ~12-04 만료. 소유자가 크리티컬하다고 한 short-handed.
 2. **CI 신뢰성(#724)**: 웹 무관 PR이 Gate U 무출력 정체(15분 타임아웃)로 CHANGES를 받음(#723). 정체 위치를 남기고 플레이크와 회귀를 가른다. #418은 11-10 완료.
 3. **페르소나 목표 타당성**: 피시 칸 레버 #722(가드 충돌 → 공동 격자, 실패 시 타입 축소) → 웹 미러(#722 뒤) — 초보 테이블 상대 모델 신뢰도.
 ## 큐
-ready 미착수: #724 P2·#722 P2(builder-b WIP 브랜치)·#264 P3 (3). in-progress #708 P1(디스패치 단계)·#463 P3(builder-b 11-10 03:22Z). 열린 PR #599(CHANGES, d723a9c, reviewer 소유, 4일 무수정).
+ready 미착수: #722 P2(builder-b CLAIM)·#264 P3·#727 P3 (3). in-progress #708 P1(디스패치 단계)·#724 P2(PR #726). 열린 PR #726(판정 대기)·#599(CHANGES, d723a9c, 4일 무수정).
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #415·#419·#306·#359·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
 후보: #722 뒤 피시 칸 웹 미러, #708 뒤 web/app/policy 2–5인 교체(추천 시), 6인 문턱 3–4 재-export(#718 머지됨, #708 디스패치 뒤) 또는 L1 재료 보존 export, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), AIVAT LBR 통합 ADR, 평가 시드 분리, PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
 ## 지표 요약 (최근 값과 추세)
@@ -19,7 +19,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35 = 4.54배.
 - 클라우드 지출: 11월 원장 합 $19.79 / $100(ADR 0021).
 ## 경보
-- [planner 11-10 03:55Z] main CI: b54353b7 success, e0d17ade 진행 중. **web 잡 타임아웃 재발(PR #723, gate-u 12번 구간 뒤 정체, 재실행 통과)** → #724. web 잡 `timeout-minutes: 15`가 정상 ~12분에 가깝다는 friction(reviewer 02:30Z) → ci.yml 상향은 harness-change, Auditor 후보. #599 CHANGES 1회 뒤 4일 무수정 — CLOSE 규칙에 안 걸려 처리 주체 없음(reviewer 03:40Z friction) → Auditor 후보(무수정 N일 CLOSE 규칙). friction 계속: gates quick 로컬 1063~1326초((a)), MCP 머지 경로((b)), 빈 스윕 RUN((h)), 머지 브랜치 삭제 도구 없음(#105).
+- [planner 11-10 05:50Z] main CI: e0d17ade success, 4329cf2c(#725 머지) 진행 중. **web 잡 타임아웃 재발(PR #723, gate-u 12번 구간 뒤 정체, 재실행 통과)** → #724. web 잡 `timeout-minutes: 15`가 정상 ~12분에 가깝다는 friction(reviewer 02:30Z) → ci.yml 상향은 harness-change, Auditor 후보. #599 CHANGES 1회 뒤 4일 무수정 — CLOSE 규칙에 안 걸려 처리 주체 없음(reviewer 03:40Z friction) → Auditor 후보(무수정 N일 CLOSE 규칙). friction 계속: gates quick 로컬 1063~1326초((a)), MCP 머지 경로((b)), 빈 스윕 RUN((h)), 머지 브랜치 삭제 도구 없음(#105).
 - **[auditor 11-08, W45]** 무결성 위반 0(머지 86). main CI red 0. CHANGES 31%(W44 50%). builder no_work 1.9% → 실험 001 성공, 030 성공. 신규 실험 034 guard 훅 절대 경로(#659 ready P1). reviewer 실행 72% 무판정. 다음 1순위: reviewer.md 머지 경로 MCP 명시. #341 P0 10일째 라벨 없음 — planner 확인. Gate A/B/C 3주째 미산출. `reports/2026-W45.md`.
 - **[auditor 11-01, W44]** 무결성 위반 0. 최대 비용 = MERGE 판정 후 머지 거부(#466·#480, 해소, 실험 030). main push run 60% cancelled, CHANGES 50%. 북극성 Gate A/B/C 미산출. `reports/2026-W44.md`.
 - **friction 3회+ (area:harness 후보, Auditor 결정)**:
