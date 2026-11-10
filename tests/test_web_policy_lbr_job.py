@@ -208,3 +208,35 @@ def test_s4long_job_spec_differs_only_in_policy_run_and_stays_under_budget():
     for f in ("image", "vcpu", "max_minutes", "hourly_usd", "cpu_flavors", "flavor_hourly_usd", "disk_gb"):
         assert getattr(s4, f) == getattr(base, f), f
     assert s4.hourly_usd * s4.max_minutes / 60 <= 3.0
+
+
+def test_evalnoise_job_spec_four_eval_seeds_backoff_off_under_budget():
+    sys.path.insert(0, str(ROOT / "harness/cloud"))
+    import launcher
+    pg = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-pages.yaml").read_text(encoding="utf-8"), "jobs/web-policy-lbr-pages.yaml")
+    en = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-pages-evalnoise.yaml").read_text(encoding="utf-8"),
+                             "jobs/web-policy-lbr-pages-evalnoise.yaml")
+    assert en.command == pg.command.replace("--seeds 3 ", "--seeds 4 --backoff off ").replace(
+        "web-policy-lbr-pages.json", "web-policy-lbr-pages-evalnoise.json")
+    assert en.result_path == "/result/web-policy-lbr-pages-evalnoise.json"
+    for f in ("image", "vcpu", "max_minutes", "hourly_usd", "cpu_flavors", "flavor_hourly_usd", "disk_gb"):
+        assert getattr(en, f) == getattr(pg, f), f
+    assert en.hourly_usd * en.max_minutes / 60 <= 3.0
+
+
+def test_plan_seeds_4_gives_four_distinct_eval_seeds_per_player_count_backoff_off():
+    tasks = J.plan("r1", backoffs=(False,), seeds=4)
+    for n in {t["players"] for t in tasks}:
+        ev = [t["eval_seed"] for t in tasks if t["players"] == n]
+        assert sorted(ev) == [10001, 10002, 10003, 10004]
+    assert {t["backoff"] for t in tasks} == {False}
+
+
+def test_main_backoff_off_runs_no_backoff_on_cells(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(J, "run", lambda *a: seen.setdefault("a", a))
+    J.main(["--from-pages", "p", "--out", "o", "--backoff", "off"])
+    assert seen["a"][-1] == (False,)
+    seen.clear()
+    J.main(["--from-pages", "p", "--out", "o"])
+    assert seen["a"][-1] == (False, True)

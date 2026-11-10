@@ -125,7 +125,7 @@ def summarize(rows: list[dict], table: dict | None = None, per_players_run: bool
 
 
 def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None = None, src: Path | None = None,
-        pages: Path | None = None) -> dict:
+        pages: Path | None = None, backoffs=(False, True)) -> dict:
     import tempfile
     runs = page_runs(pages) if pages else None
     legacy = legacy_players(pages) if pages else []
@@ -133,7 +133,7 @@ def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None =
         src = Path(pages)
         distinct = set(runs.values())
         policy_run = distinct.pop() if len(distinct) == 1 else "mixed"
-    tasks = plan(policy_run, seeds=seeds, runs=runs, legacy=legacy)
+    tasks = plan(policy_run, backoffs=backoffs, seeds=seeds, runs=runs, legacy=legacy)
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(src) if src else Path(tmp)
         if not src:
@@ -163,10 +163,12 @@ def main(argv=None) -> int:
     ap.add_argument("--seeds", type=int, default=None, help="seeds per cell (default: ADR 0020 minimum for the current strategy)")
     ap.add_argument("--src", type=Path, default=None, help="local dir with mid-N.json instead of the ops tarball")
     ap.add_argument("--from-pages", type=Path, default=None, help="dir with the served mid-N.json pages (web/app/policy); per-player policy_run")
+    ap.add_argument("--backoff", choices=("both", "off"), default="both",
+                    help="off: measure only backoff-off cells (eval-noise jobs, #731)")
     a = ap.parse_args(argv)
     if bool(a.policy_run) == bool(a.from_pages):
         ap.error("give exactly one of --policy-run and --from-pages")
-    run(a.policy_run, a.out, a.workers, a.seeds, a.src, a.from_pages)
+    run(a.policy_run, a.out, a.workers, a.seeds, a.src, a.from_pages, (False,) if a.backoff == "off" else (False, True))
     return 0
 
 
