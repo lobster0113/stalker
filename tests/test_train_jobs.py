@@ -445,6 +445,13 @@ def test_e3_model_card_separates_policy_rules_and_evaluation(tmp_path, monkeypat
     monkeypatch.setattr(T, "E3_LBR_HANDS", 3)
     c = run(tmp_path / "c")
     assert c["eval_config_sha256"] != a["eval_config_sha256"] and c["rules_sha256"] == a["rules_sha256"]
+    # #721: the off-menu translation version is in the result and is part of the rules
+    import stalker.e3.translate as TR
+    assert a["translation_version"] == TR.TRANSLATION_VERSION == 1
+    monkeypatch.setattr(TR, "TRANSLATION_VERSION", 2)
+    d = run(tmp_path / "d")
+    assert d["translation_version"] == 2 and d["rules_sha256"] != a["rules_sha256"]
+    assert d["eval_config_sha256"] == c["eval_config_sha256"]
 
 
 def test_trainer_commit_falls_back_to_git_then_unknown(monkeypatch):
