@@ -1036,3 +1036,4 @@
 {"ts":"2026-11-10T18:08:09Z","role":"reviewer-b","outcome":"skipped","issue":740,"pr":747,"notes":"not my parity","friction":""}
 {"ts":"2026-11-10T18:07:49Z","role":"builder-b","outcome":"pr_opened","issue":740,"pr":747,"notes":"cloud.yml export 2·3인 문턱10 디스패치(run 42864130363): 상한 초과로 보류 유지, 문서 PR","friction":"gates quick 로컬 1076초(목표 90초), 한 명령 10분 제한과 충돌"}
 {"ts":"2026-11-10T18:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #747, #599 are odd (reviewer parity); no even PR to review","friction":""}
+{"ts":"2026-11-10T18:35:05Z","role":"reviewer","outcome":"changes","issue":740,"pr":747,"notes":"CI 전부 success, 수치는 ops 758e1291과 일치. 2·3인 상한 안 키 구간 설명이 틀림(5→10이 아니라 10→20) 2건 지적","friction":"같은 sha에 ci run 3개가 겹쳐 앞 run이 cancelled, 그 run의 gates 집계 잡이 failure로 남아 체크 목록만 보면 실패로 보임; 최신 run을 따로 확인해야 했다"}
