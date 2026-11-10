@@ -1009,3 +1009,4 @@
 {"ts":"2026-11-10T12:42:01Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already has VERDICT: CHANGES for head d723a9c; no new commits","friction":"gh pr list fails (GraphQL blocked); used REST gh api"}
 {"ts":"2026-11-10T12:58:58Z","role":"builder-b","outcome":"pr_opened","issue":731,"pr":737,"notes":"evalnoise job PR (--backoff off flag, 4 eval seeds); run 2 = dispatch+doc after merge","friction":"referee.gates quick took >10min on 4-core box (target 90s); foreground waits hit 10min limit"}
 {"ts":"2026-11-10T12:59:24Z","role":"reviewer-b","outcome":"skipped","issue":731,"pr":737,"notes":"not my parity","friction":""}
+{"ts": "2026-11-10T13:06:46Z", "role": "builder", "outcome": "pr_opened", "issue": 733, "pr": 738, "notes": "mid-2..5 적중률 120k 대 40k 로컬 16회 측정; 5인 교체, 2·3인 보류, 4인 보류(경계, 656 턴 1칸); 문서 PR", "friction": "gates quick 로컬 1493초·full tests 1538초(목표 90초); 측정 16회와 gate가 4코어를 나눠 씀"}
