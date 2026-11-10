@@ -997,3 +997,4 @@
 {"ts":"2026-11-10T10:12:17Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd, reviewer share); no even PRs","friction":"should_run --sweep printed RUN though no even-numbered PR needs a verdict"}
 {"ts":"2026-11-10T10:18:15Z","role":"builder","outcome":"pr_opened","issue":708,"pr":732,"notes":"s4long LBR 잡 dry run 42787771824·실제 42787835112 success($0.089); 120k 켬 10칸 pass, mid-6 보류(플랍 균등 미충족, 레거시보다 LBR 높음); 문서 PR","friction":"로컬 origin/main 참조가 낡아(2aaf02b) 첫 브랜치를 옛 커밋에서 만듦 → git fetch origin main 후 재생성; 그 사이 돈 quick이 파일 교체로 1건 실패해 재실행. docs-only인데 quick 1404s+full ~31분 로컬 대기"}
 {"ts":"2026-11-10T10:18:37Z","role":"reviewer","outcome":"skipped","issue":708,"pr":732,"notes":"not my parity","friction":""}
+{"ts":"2026-11-10T10:41:22Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PR #599 already has VERDICT CHANGES at head d723a9c; #732 is reviewer-b parity","friction":""}
