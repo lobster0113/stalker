@@ -26,6 +26,10 @@ import numpy as np
 
 from stalker.e3 import game as G
 
+# #721: bump when split/sample/high_translation_error would read a size differently; it is part of
+# the model card's rules, so a changed reading of off-menu sizes changes `rules_sha256`.
+TRANSLATION_VERSION = 1
+
 
 def pot_fraction(s: G.State, to: int) -> float:
     """x of the mapping: chips above the current bet over the pot after calling."""

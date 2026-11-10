@@ -277,6 +277,7 @@ def _e3_model_card(m, lbr_hands: int | None = None) -> dict:
     `eval_config` lists what the evaluation read (hands, offsets, field files by sha), `rules` the game."""
     from referee.e3.field import load_players
     from stalker.e3 import tp_key as K
+    from stalker.e3.translate import TRANSLATION_VERSION
 
     cfg = {"lbr_hands": E3_LBR_HANDS if lbr_hands is None else lbr_hands, "lbr_seed_offset": 10_000,
            "k": m.k, "n": m.n, "depth": m.depth, "field_hands": E3_FIELD_HANDS, "field_seed_offset": 20_000}
@@ -289,8 +290,9 @@ def _e3_model_card(m, lbr_hands: int | None = None) -> dict:
                              for n in sorted(set(m.player_mix))}
     rules = {"menu": m.menu, "raise_cap": m.raise_cap, "key_variant": m.key_variant,
              "key_version": K.KEY_VERSIONS.get(m.key_variant),
-             "stacks": m.stacks}
+             "stacks": m.stacks, "translation_version": TRANSLATION_VERSION}
     return {"eval_config": cfg, "eval_config_sha256": _sha(cfg), "rules_sha256": _sha(rules),
+            "translation_version": TRANSLATION_VERSION,
             "trainer_commit": _trainer_commit()}
 
 
