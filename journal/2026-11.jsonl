@@ -1018,3 +1018,4 @@
 {"ts":"2026-11-10T14:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd parity (reviewer); no even PRs to judge","friction":""}
 {"ts":"2026-11-10T14:28:00Z","role":"builder-b","outcome":"waiting_ci","issue":731,"pr":null,"notes":"#731 실행2: dry_run 통과(42833607751), 실제 디스패치 42833924484(최대150분). 결과 기록·PR은 다음 실행","friction":"MCP list_workflow_runs 출력이 너무 커서 컨텍스트 낭비(per_page 1이어도 전체 반환)"}
 {"ts":"2026-11-10T14:42:03Z","role":"reviewer","outcome":"skipped","issue":null,"pr":599,"notes":"sweep: #599 head d723a9c already has VERDICT: CHANGES (11-06); awaiting author update","friction":""}
+{"ts":"2026-11-10T14:46:57Z","role":"reviewer","outcome":"skipped","issue":734,"pr":742,"notes":"not my parity","friction":""}
