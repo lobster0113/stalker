@@ -50,6 +50,7 @@ cd web/e2e && npm ci && npx playwright install chromium && npm test
   - 정책 로드 실패: `page.route`로 정책 파일을 막고 오류 화면(이유·다시 시도·모의 정답으로 계속)을 확인하고 스크린샷 `policy-error-*`을 남긴다. 다시 시도해도 막혀 있으면 같은 화면이 나와야 하고, 모의로 계속하면 규칙 봇 테이블이 열려야 한다. 연결이 돌아온 뒤 새 게임을 시작하면 TP-GTO 정책을 불러와야 한다.
 - 내 차례 대기는 테스트 전용 `?speed=30`(속도 배수)으로 줄인다. 기본 진행(1.5초)은 그대로다.
 - 로컬에 Chromium이 이미 있으면 `CHROMIUM_PATH=/path/to/chrome npm test`.
+- 정체 감시(#724, `e2e/watchdog.mjs`): 진행 줄(`console.log`)이나 구간 시작(`wd.section`) 없이 `GATE_U_STALL_MS`(기본 240000ms) 동안 멈추면 `Gate U stalled in <구간> after <초>s; last step: <마지막 진행 줄>`과 열린 페이지별 `G.handNo`·`G.paused`·`G.log.length`를 출력하고 exit 1로 끝난다(CI 잡 타임아웃 전에 위치를 남긴다). 단위 검사는 `node --test web/app/test/watchdog.test.mjs`.
 - #364 등급 변경: 중수로 시작 → 핸드 도중 시작 화면에서 고수로 변경 → 안내(`[data-tier-next]`)가 보이고 그 핸드는 테이블·AI 결정 모두 mid(`mid-6.json` 행과 대조), 다음 핸드부터 AI 결정이 `pro-6.json` 행이고 내 차례의 질문 등급·모델 비교·헤더·좌석 태그가 고수다(스크린샷 `train-tier-next-laptop`).
 - #386 실전 사이즈: 메뉴 밖 금액 결정에서 기록된 분할이 엔진 `splitBet`과 같고, 해석 라벨이 분할 안이며 같은 시드로 다시 읽어도 같고, 엔진 기록이 그 라벨이고, 비교 화면의 내 선택 빈도가 분할 가중 점수이며 분할 문구가 보인다. 다음 기회에 단축 칩 금액이 엔진 `sizeMenu(s, "real", null)`과 같고 `MENU_COL`이 모든 라벨을 덮으며, 더보기를 펴서(스크린샷 `train-sizes-real-*`) v1 메뉴에 없는 실전 사이즈를 누르면 v1 라벨로 읽힌다.
 - #440 폰 결정 화면: 390×844에서 카드 줄의 내 카드·보드(보드 장수만큼)·팟·콜·직전 액션과 액션 버튼이 화면 안에서 가려지지 않는지 `elementFromPoint`로 확인한다(스크린샷 `train-decision-phone`, 플랍 이후 결정이 있으면 `train-decision-board-phone`). 그래버를 위로 끌면 다 펼치고, 아래로 두 번 끌면 접히며, 접힌 상태에서는 테이블의 내 카드가 가려지지 않는다(`train-decision-collapsed-phone`). 노트북 폭에는 카드 줄이 없다.
