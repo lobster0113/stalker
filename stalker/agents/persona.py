@@ -131,13 +131,6 @@ PRESETS_V2["pro"] = dataclasses.replace(PRESETS_V2["pro"], cbet_flop=0.545, cbet
 PRESETS_V2["tag"] = dataclasses.replace(PRESETS_V2["tag"], cbet_flop=0.62, cbet_flop_3bp_mult=1.13, cbet_flop_mw_mult=0.68,
                                         fold_cbet_flop=0.40, fold_cbet_flop_mw=0.62)
 
-# #722: the two fish types get cells too (note §10.1.6: LP c-bet heads-up 46, 3-bet+ 50, multiway 38, fold heads-up 36, multiway 44;
-# station 40 / 42 / 34, fold 25 / 30). [assumption] start values from the note; kept only if the cell tests and the mixed-table guards hold.
-PRESETS_V2["loose_passive"] = dataclasses.replace(PRESETS_V2["loose_passive"], cbet_flop=0.46, cbet_flop_mw_mult=0.83,
-                                                  cbet_flop_3bp_mult=1.09, fold_cbet_flop=0.34, fold_cbet_flop_mw=0.44)
-PRESETS_V2["calling_station"] = dataclasses.replace(PRESETS_V2["calling_station"], cbet_flop=0.40, cbet_flop_mw_mult=0.82,
-                                                    cbet_flop_3bp_mult=1.05, fold_cbet_flop=0.22, fold_cbet_flop_mw=0.28)  # 0.23 -> 0.22: best of a ~30-point grid on fold/giveup_turn (mixed-table error .14002)
-
 
 def persona_params(name: str) -> PersonaParams:
     if name not in PRESETS:
