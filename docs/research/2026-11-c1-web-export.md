@@ -1044,6 +1044,6 @@ PYTHONHASHSEED=0 python -m stalker.tools.web_hit_rate <파일> --hands 2000 --se
 - 한계: 턴 결정 127–399개, 리버 21–80개라 턴·리버 비교는 오차가 크다. 시드 둘뿐이다. 적중의 질(#654·#666: 비-`call|` 근사 행이 균등보다 크게 낫지 않음)은 이 표에 잡히지 않는다.
 
 ## 후속 (#733 제안, 이 PR 범위 밖)
-1. **mid-5 교체** (`area:service`·`area:ai`): `ops:cloud/policies/42591543123/mid-5.json`(sha256 `7484bcd1…`, 3,060,099B — 상한 3,145,728B의 97.3%, 여유 85,629B)을 `web/app/policy/mid-5.json`으로 반입, `index.json`의 mid-5 항목(sha256·bytes·iterations 120,000·run_id·lbr) 갱신, 파일이 4.1배 커지므로(751,737B → 3,060,099B) Gate U 성능 한도(로드 시간·메모리) 확인, 정책 sha를 고정한 테스트 갱신. 아티팩트 만료(~12-04)와 무관하게 ops 파일로 할 수 있다.
+1. **(완료, #739 · PR #745) mid-5 교체** (`area:service`·`area:ai`): `ops:cloud/policies/42591543123/mid-5.json`(sha256 `7484bcd1…`, 3,060,099B — 상한 3,145,728B의 97.3%, 여유 85,629B)을 `web/app/policy/mid-5.json`으로 반입, `index.json`의 mid-5 항목(sha256·bytes·iterations 120,000·run_id·lbr) 갱신, 파일이 4.1배 커지므로(751,737B → 3,060,099B) Gate U 성능 한도(로드 시간·메모리) 확인, 정책 sha를 고정한 테스트 갱신. 아티팩트 만료(~12-04)와 무관하게 ops 파일로 할 수 있다.
 2. **mid-2·3 재-export 후보**: 같은 run 42591543123을 2·3인 문턱 10으로 다시 export해 바이트(상한 안인지)와 같은 명령의 균등 비율을 다시 잰다. 아티팩트 만료(~12-04) 전에만 가능하다.
 3. **mid-4 재측정 후보**: 턴 표본을 늘려(예: `--hands 6000` 또는 시드 4개) 시드 656 턴 위반이 잡음인지 가린다. 잡음이면 4인도 교체 후보.
