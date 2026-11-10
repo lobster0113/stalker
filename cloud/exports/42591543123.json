@@ -13,7 +13,7 @@
   "3": 20,
   "4": 10,
   "5": 5,
-  "6": 5
+  "6": 4
  },
  "player_mix": [
   2,
@@ -36,6 +36,8 @@
    "keys_by_min_visits": {
     "1": 579635,
     "2": 286791,
+    "3": 189765,
+    "4": 141611,
     "5": 112912,
     "10": 55293,
     "20": 26198,
@@ -272,7 +274,7 @@
      }
     }
    },
-   "hit_rate_seconds": 30.9
+   "hit_rate_seconds": 24.7
   },
   {
    "file": "mid-3.json",
@@ -286,6 +288,8 @@
    "keys_by_min_visits": {
     "1": 713529,
     "2": 307967,
+    "3": 193740,
+    "4": 141193,
     "5": 110908,
     "10": 52264,
     "20": 24401,
@@ -522,7 +526,7 @@
      }
     }
    },
-   "hit_rate_seconds": 46.5
+   "hit_rate_seconds": 37.0
   },
   {
    "file": "mid-4.json",
@@ -536,6 +540,8 @@
    "keys_by_min_visits": {
     "1": 686276,
     "2": 255791,
+    "3": 148885,
+    "4": 103131,
     "5": 78299,
     "10": 33616,
     "20": 14450,
@@ -772,7 +778,7 @@
      }
     }
    },
-   "hit_rate_seconds": 56.5
+   "hit_rate_seconds": 44.6
   },
   {
    "file": "mid-5.json",
@@ -786,6 +792,8 @@
    "keys_by_min_visits": {
     "1": 558807,
     "2": 177111,
+    "3": 95346,
+    "4": 63060,
     "5": 46281,
     "10": 18236,
     "20": 7313,
@@ -1022,20 +1030,22 @@
      }
     }
    },
-   "hit_rate_seconds": 35.6
+   "hit_rate_seconds": 28.0
   },
   {
    "file": "mid-6.json",
    "players": 6,
-   "min_visits": 5,
-   "keys": 30458,
-   "keys_dropped": 425866,
-   "bytes": 1981339,
-   "sha256": "e93b15764a7f5a9264037bd2045cd6006dbeead5419048734eb74a49d93fbaa3",
+   "min_visits": 4,
+   "keys": 42365,
+   "keys_dropped": 413959,
+   "bytes": 2774325,
+   "sha256": "3bc6ccdee7206a2a2840fefdbde64acf5861a8256feb1d7a054604ba5cd861f7",
    "within_page_budget": true,
    "keys_by_min_visits": {
     "1": 456324,
     "2": 129210,
+    "3": 65908,
+    "4": 42365,
     "5": 30458,
     "10": 11622,
     "20": 4725,
@@ -1272,12 +1282,12 @@
      }
     }
    },
-   "hit_rate_seconds": 39.2
+   "hit_rate_seconds": 31.0
   }
  ],
  "index": {
   "file": "index.json",
   "bytes": 4394,
-  "sha256": "f0f20ca7f01df495b4fec76f4f7cd97a5d2a11b54179a2bba0a57baa2c28c855"
+  "sha256": "0fa36336ab238aa738772c6048eebb49d4a20a993aabc8b897994b8632bd2f8e"
  }
 }

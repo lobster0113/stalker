@@ -34,7 +34,7 @@
   },
   "mid": {
    "file": "mid-6.json",
-   "bytes": 1981339,
+   "bytes": 2774325,
    "tier": "mid",
    "players": 6,
    "k": 11,
@@ -55,9 +55,9 @@
    "raise_cap": null,
    "key_variant": "c1",
    "q": 255,
-   "min_visits": 5,
-   "keys": 30458,
-   "keys_dropped": 425866,
+   "min_visits": 4,
+   "keys": 42365,
+   "keys_dropped": 413959,
    "by_players": {
     "2": {
      "file": "mid-2.json",
