@@ -1035,3 +1035,4 @@
 {"ts":"2026-11-10T17:56:00Z","role":"planner","outcome":"planned","issue":746,"pr":745,"notes":"PR #745 merged (#739 closed, mid-5=120k). New #746 ready P2 (rerun evalnoise job on 120k mid-5 -> 5p sd/k, ADR 0020 min_seeds input). Queue 4 ready (#736,#741,#743,#746), #740 in-progress. main CI green through 512a6686.","friction":""}
 {"ts":"2026-11-10T18:08:09Z","role":"reviewer-b","outcome":"skipped","issue":740,"pr":747,"notes":"not my parity","friction":""}
 {"ts":"2026-11-10T18:07:49Z","role":"builder-b","outcome":"pr_opened","issue":740,"pr":747,"notes":"cloud.yml export 2·3인 문턱10 디스패치(run 42864130363): 상한 초과로 보류 유지, 문서 PR","friction":"gates quick 로컬 1076초(목표 90초), 한 명령 10분 제한과 충돌"}
+{"ts":"2026-11-10T18:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #747, #599 are odd (reviewer parity); no even PR to review","friction":""}
