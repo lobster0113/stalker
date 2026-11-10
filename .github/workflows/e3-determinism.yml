@@ -1,0 +1,39 @@
+name: e3-determinism
+
+# Manual only (#463): the 2x10^4-iteration cross-setting comparison is too slow for push/PR CI.
+# Trigger: `gh workflow run e3-determinism.yml` or MCP `actions_run_trigger` (workflow_id e3-determinism.yml, ref main).
+on:
+  workflow_dispatch:
+    inputs:
+      iters:
+        description: "iterations per setting"
+        default: "20000"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # explicit shell turns on pipefail, so `tool | tee` still fails the step
+
+jobs:
+  determinism:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev]" -q
+      - name: compare regret hashes across numeric settings
+        # The tool exits 1 when any setting's fingerprint differs from the default's (equal: false).
+        run: |
+          python -m stalker.tools.e3_determinism --tier mid --iters "${{ inputs.iters }}" --seed 2 --workers 4 --no-numba-off | tee e3-determinism.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e3-determinism
+          path: e3-determinism.json
+          if-no-files-found: ignore
