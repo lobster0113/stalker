@@ -220,6 +220,45 @@ test("tag flop cells hit the human tag targets", () => {
   }
   assert.deepEqual(bad, [], `tag: ${bad.join("; ")} — tune FLOP_CELL.tag / MEANS cbetF·foldCbF tag in web/app/personas.js`);
 });
+// ---------------------------------------------------------------- fish flop cells (#760)
+// [가정] low-stakes fish cells (note §10.1.6), the same targets as
+// tests/test_persona_v2.py::test_fish_flop_cells_hit_lowstakes_targets. Web fish = Python loose_passive, station = calling_station.
+const FISH_CELLS = {
+  fish: { cbet: { hu_srp: 46, hu_3bp: 50, mw_srp: 38 }, fcb: { hu_srp: 36, mw_srp: 44 } },
+  station: { cbet: { hu_srp: 40, hu_3bp: 42, mw_srp: 34 }, fcb: { hu_srp: 25, mw_srp: 30 } },
+};
+// Python (#751) → web: the web value differs only where the note §10.1.6 「웹 미러」 says it is web-fitted.
+const FISH_PY = { fish: "loose_passive", station: "calling_station" };
+const FISH_WEB = {   // [Python value, web value] for cbet_flop_mw_mult·cbet_flop_3bp_mult·fold_cbet_flop_mw
+  fish: { cbetMw: [0.83, 1.1], cbet3bp: [1.09, 0.68], foldCbMw: [0.44, 0.44] },
+  station: { cbetMw: [0.82, 1.5], cbet3bp: [1.05, 0.82], foldCbMw: [0.28, 0.24] },
+};
+test("web fish levers track the Python loose_passive/calling_station levers of #751", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../../stalker/agents/persona.py", import.meta.url), "utf8");
+  for (const [type, py] of Object.entries(FISH_PY)) {
+    const m = src.match(new RegExp(`PRESETS_V2\\["${py}"\\] = dataclasses\\.replace\\(PRESETS_V2\\["${py}"\\],\\s*cbet_flop=[\\d.]+, cbet_flop_mw_mult=([\\d.]+),\\s*cbet_flop_3bp_mult=([\\d.]+), fold_cbet_flop=[\\d.]+, fold_cbet_flop_mw=([\\d.]+)`));
+    assert.ok(m, `${py} lever line not found in stalker/agents/persona.py: update this regex with the Python change`);
+    const want = FISH_WEB[type];
+    assert.deepEqual(m.slice(1).map(Number), [want.cbetMw[0], want.cbet3bp[0], want.foldCbMw[0]],
+      `${py} levers changed in Python: refit FLOP_CELL.${type} in web/app/personas.js and update FISH_WEB + note §10.1.6`);
+    assert.deepEqual(P.FLOP_CELL[type], { cbetMw: want.cbetMw[1], cbet3bp: want.cbet3bp[1], foldCbMw: want.foldCbMw[1] },
+      `FLOP_CELL.${type} differs from the web-fitted values in FISH_WEB (note §10.1.6 「웹 미러」)`);
+  }
+});
+for (const type of Object.keys(FISH_CELLS)) {
+  test(`${type} flop cells hit the low-stakes fish targets`, () => {
+    const m = measureCells(type, PRO_CELL_HANDS, 2000, PRO_CELL_SEATS);
+    console.log(`${type} flop cells (% (opps)): ` + CELLS.map(c => `${c} cbet ${m[c].cbet.toFixed(1)} (${m[c].cbOpp}) fold ${m[c].fcb.toFixed(1)} (${m[c].fcbOpp})`).join(" | "));
+    const bad = [];
+    for (const [stat, cells] of Object.entries(FISH_CELLS[type])) for (const [c, want] of Object.entries(cells)) {
+      const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
+      if (n < CELL_MIN_OPPS) bad.push(`${stat} ${c}: ${n} opportunities < ${CELL_MIN_OPPS}, raise PRO_CELL_HANDS`);
+      else if (!(Math.abs(v - want) <= CELL_TOL)) bad.push(`${stat} ${c} ${v.toFixed(1)} not in ${want} ± ${CELL_TOL}`);
+    }
+    assert.deepEqual(bad, [], `${type}: ${bad.join("; ")} — tune FLOP_CELL.${type} / MEANS cbetF·foldCbF ${type} in web/app/personas.js`);
+  });
+}
 test("calibration table", () => {
   const keys = ["VPIP", "PFR", "3bet", "F3B", "cbet", "FCB", "WTSD"];
   console.log(["type", ...keys].join("\t"));

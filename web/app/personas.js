@@ -52,6 +52,8 @@ const T = (nit, weak, tag, lag, fish, station, maniac, pro) => ({ nit, weak, tag
 //     the [가정] 30–40; it stays near 23 because the test table never calls a maniac down lighter.
 //   pro flop c-bet 60→63 and fold to c-bet 45→38 with the FLOP_CELL levers (#676): fitted to the human pro
 //     cells of §10.1 (heads-up single-raised c-bet 53, fold 44); the note §10.1.3 has the before/after.
+//   fish/station flop c-bet 45→41/40→31 and fish fold to c-bet 38→44 with FLOP_CELL (#760): fitted to the
+//     [가정] low-stakes fish cells of §10.1.6 (heads-up single-raised c-bet 46/40, fold 36/25).
 export const MEANS = {
   rfiUTG: T(9, 11, 15, 20, 21, 30, 40, 16),
   rfiHJ: T(11, 13, 19, 25, 25, 36, 45, 20),
@@ -65,10 +67,10 @@ export const MEANS = {
   fourbet: T(1.5, 1, 2.5, 4, 0.5, 0.3, 12, 3),   // % of all hands, the 4-bet range width
   coldcall: T(4, 6, 5, 6, 30, 45, 12, 5),
   bbDefend: T(35, 40, 55, 62, 65, 80, 75, 58),    // vs a BTN open
-  cbetF: T(60, 55, 62, 72, 45, 40, 88, 63),
+  cbetF: T(60, 55, 62, 72, 41, 31, 88, 63),
   cbetT: T(40, 33, 48, 55, 30, 25, 62, 45),
   cbetR: T(30, 25, 38, 45, 25, 20, 50, 35),
-  foldCbF: T(50, 58, 46, 40, 38, 35, 32, 38),
+  foldCbF: T(50, 58, 46, 40, 44, 35, 32, 38),
   foldCbT: T(67, 70, 50, 45, 55, 50, 28, 50),
   foldR: T(76, 76, 57, 50, 60, 70, 28, 55),
   xr: T(4, 3, 7, 11, 3, 2, 16, 8),
@@ -141,7 +143,13 @@ export function flopCell(playersOnFlop, preflopRaises) {
 // docs/research/2026-10-30-population-stats.md §10.1 (fitted in web/app/test/personas.test.mjs, values §10.1.3).
 // tag (#691) takes the Python tag values of #684 (cbet_flop 0.62, 3bp 1.13, mw 0.68, mw fold 0.62); only the heads-up fold
 // is web-fitted (cbetF/foldCbF tag 62/46; Python 0.40 realizes ~48 there, web ~42). Note §10.1.5.
-export const FLOP_CELL = { pro: { cbetMw: 0.63, cbet3bp: 1.1, foldCbMw: 0.56 }, tag: { cbetMw: 0.68, cbet3bp: 1.13, foldCbMw: 0.62 } };
+// fish/station (#760) mirror Python loose_passive/calling_station (#751): only fish's multiway fold 0.44 carries over as is.
+// The web model's fish c-bet by made hands, so the same multipliers overshoot heads-up 3-bet+ (~71/59 vs 50/42) and
+// undershoot multiway (station ~26 vs 34): cbet3bp/cbetMw are web-fitted, as pro's were in #676. Note §10.1.6 「웹 미러」.
+export const FLOP_CELL = {
+  pro: { cbetMw: 0.63, cbet3bp: 1.1, foldCbMw: 0.56 }, tag: { cbetMw: 0.68, cbet3bp: 1.13, foldCbMw: 0.62 },
+  fish: { cbetMw: 1.1, cbet3bp: 0.68, foldCbMw: 0.44 }, station: { cbetMw: 1.5, cbet3bp: 0.82, foldCbMw: 0.24 },
+};
 
 // Percentiles of equity vs one random hand, deciles 0..100% (measured offline with tpgto.evaluate, 4000
 // random deals x 300 runouts, two runs agree to ±0.02). The river is close to uniform by construction.
