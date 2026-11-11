@@ -399,7 +399,7 @@
      }
     }
    },
-   "hit_rate_seconds": 47.2
+   "hit_rate_seconds": 79.3
   },
   {
    "file": "mid-3.json",
@@ -776,7 +776,7 @@
      }
     }
    },
-   "hit_rate_seconds": 72.9
+   "hit_rate_seconds": 120.9
   },
   {
    "file": "mid-4.json",
@@ -1153,7 +1153,7 @@
      }
     }
    },
-   "hit_rate_seconds": 76.0
+   "hit_rate_seconds": 126.0
   },
   {
    "file": "mid-5.json",
@@ -1530,7 +1530,7 @@
      }
     }
    },
-   "hit_rate_seconds": 50.3
+   "hit_rate_seconds": 82.6
   },
   {
    "file": "mid-6.json",
@@ -1907,7 +1907,7 @@
      }
     }
    },
-   "hit_rate_seconds": 54.4
+   "hit_rate_seconds": 88.1
   }
  ],
  "index": {
