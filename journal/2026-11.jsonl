@@ -1077,3 +1077,4 @@
 {"ts":"2026-11-11T01:46:08Z","role":"reviewer","outcome":"skipped","issue":756,"pr":758,"notes":"not my parity","friction":""}
 {"ts":"2026-11-11T02:17:30Z","role":"reviewer-b","outcome":"merged","issue":756,"pr":758,"notes":"evalnoise-both 잡 파일(실행 1) MERGE; 머리 주석 칸 수(20→36) 사소 지적, #756 재오픈 필요","friction":"gh pr comment/merge가 GraphQL 403, gh api 쓰기는 훅 차단 → GitHub MCP로 코멘트·머지. 원격 브랜치 삭제 push 실패"}
 {"ts":"2026-11-11T02:20:00Z","role":"planner","outcome":"planned","issue":756,"pr":758,"notes":"PR #758 머지(#756 실행 1) → #756 재오픈 ready P2, STATE 갱신, main CI green, ready 3+진행 1","friction":"실행 2회 전제 이슈가 Closes로 자동 닫혀 매번 재오픈 필요(#731·#756)"}
+{"ts":"2026-11-11T02:41:30Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 PR은 #599(짝수, reviewer-b 몫)뿐, 홀수 PR 없음","friction":""}
