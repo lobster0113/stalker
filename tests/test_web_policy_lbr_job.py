@@ -270,3 +270,12 @@ def test_main_backoff_off_runs_no_backoff_on_cells(monkeypatch):
     seen.clear()
     J.main(["--from-pages", "p", "--out", "o"])
     assert seen["a"][-1] == (False, True)
+
+
+def test_three_player_needs_two_seeds_under_v2():
+    from stalker.tools import web_policy_lbr_job as J
+    tasks = J.plan("run")
+    assert sorted({t["seed"] for t in tasks if t["players"] == 3}) == [1, 2]
+    rows = [{**t, "lbr_bb": 4.0, "lbr_stderr_bb": 0.6, "policy_sha256": "x"} for t in tasks if t["players"] == 3 and t["seed"] == 1]
+    assert J.summarize(rows)["on"]["3"]["pass"] is None
+    assert J.summarize(rows + [{**r, "seed": 2} for r in rows])["on"]["3"]["pass"] is True

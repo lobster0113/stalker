@@ -16,8 +16,11 @@ import re
 import sys
 from pathlib import Path
 
-THRESHOLDS = Path(__file__).with_name("lbr_thresholds_v1.json")
-THRESHOLDS_SHA256 = "e7f12f267264269666519684d51eebfdf7946f1a98795c0b7fac55a76344549a"
+# v1 (ADR 0020, bytes frozen) is kept as the history; v2 (ADR 0024) only raises players.3.min_seeds.lbr 1 -> 2.
+THRESHOLDS_V1 = Path(__file__).with_name("lbr_thresholds_v1.json")
+THRESHOLDS_V1_SHA256 = "e7f12f267264269666519684d51eebfdf7946f1a98795c0b7fac55a76344549a"
+THRESHOLDS = Path(__file__).with_name("lbr_thresholds_v2.json")
+THRESHOLDS_SHA256 = "1302d641f13f52338beed81765ecb11dcb12a0b0e166c51f0c03545c53d67275"
 KINDS = ("lbr", "lbr_average")
 VERDICT_SCHEMA = 1
 RESULT_NAME = re.compile(r"([0-9]+)(?:\.summary)?\.json")

@@ -9,7 +9,7 @@ Legacy (pre-c1) pages get no backoff-on cells; the result lists them as `legacy_
 
 Reads `cloud/policies/<policy_run>/mid-{2..6}.json` from the `ops` branch tarball (only those members are kept), measures each
 file with `web_policy_lbr.measure` with the page's backoff off and on, at the hand counts and minimum seed counts of
-`referee/e3/lbr_thresholds_v1.json` (read-only), evaluation seed `10000+seed` as in `train_jobs`. The result has no timings, so
+`referee/e3/lbr_thresholds_v2.json` (read-only), evaluation seed `10000+seed` as in `train_jobs`. The result has no timings, so
 the same inputs give the same bytes. The pass is record-only (the page keeps the policy either way; a person reads it).
 The result deliberately has no `by_players` key: the launcher would take that as a training summary and overwrite a verdict.
 """
@@ -146,7 +146,7 @@ def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None =
             rows = [_one(j) for j in jobs]
     rows.sort(key=lambda x: (x["backoff"], x["players"], x["seed"]))
     res = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION, "policy_run": policy_run,
-           "thresholds": "referee/e3/lbr_thresholds_v1.json", "rows": rows, "backoff": summarize(rows, per_players_run=bool(runs))}
+           "thresholds": "referee/e3/lbr_thresholds_v2.json", "rows": rows, "backoff": summarize(rows, per_players_run=bool(runs))}
     if pages:
         res["legacy_pages"] = legacy   # these counts have no `on` cell by design (#702)
     res["sha256"] = hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
