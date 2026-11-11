@@ -1086,3 +1086,4 @@
 {"ts":"2026-11-11T03:50:00Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open odd PR #599 already has VERDICT: CHANGES on head d723a9c; awaiting author update","friction":""}
 {"ts":"2026-11-11T05:00:00Z","role":"builder-b","outcome":"pr_opened","issue":756,"pr":761,"notes":"evalnoise-both 실행 2: dry_run+디스패치(run 42952524231, $0.0699) 결과 문서화 PR","friction":"gates quick이 4코어에서 1212s(목표 90s)라 포그라운드 대기에 40분 소요; 큰 list_workflow_runs 출력이 컨텍스트 낭비"}
 {"ts":"2026-11-11T03:56:51Z","role":"reviewer-b","outcome":"skipped","issue":756,"pr":761,"notes":"not my parity","friction":""}
+{"ts":"2026-11-11T04:11:17Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #761,#599 are odd (reviewer's parity); no even PRs","friction":""}
