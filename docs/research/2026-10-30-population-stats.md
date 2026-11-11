@@ -764,7 +764,7 @@ web/app/personas.js에 FLOP_CELL.loose_passive·calling_station을 넣어 Python
 |---|---|---|
 | `cbetF` (헤즈업 c-bet) | 45→**41** (Python 0.46) | 40→**31** (Python 0.40) |
 | `cbetMw` | **1.1** (Python 0.83) | **1.5** (Python 0.82) |
-| `cbet3bp` | **0.68** (Python 1.09) | **0.82** (Python 1.05) |
+| `cbet3bp` | 0.68→**0.78** (Python 1.09, #773) | 0.82→**0.92** (Python 1.05, #773) |
 | `foldCbF` (헤즈업 폴드) | 38→**44** (Python 0.34) | 35 그대로 (Python 0.23) |
 | `foldCbMw` | **0.44** (= Python) | **0.24** (Python 0.28) |
 
@@ -837,6 +837,8 @@ Python은 레버 곱을 거의 그대로 실현한다(loose_passive 0.46×1.09 =
 **결론.** **구조 정렬은 추천하지 않는다. 웹 별도 보정(지금 방식)을 유지한다.** 웹의 차이는 버그가 아니라 설계다. 벳이 강도 문턱에서 나와야 사이즈·타이밍 텔(`tellShift`, `thinkMs`)과 `madeOnly`·페어 콜 같은 인스턴스 습관이 핸드 강도와 연결된다. 이것은 Training Game에서 학습자가 읽어야 할 신호다. Python 페르소나는 LBR·혼합 필드 평가용 상대라서 레버 = 실현값인 단순 동전이 맞다. 정렬하는 쪽마다 비용이 크다.
 - **웹을 Python처럼(강도 무관 동전) 바꾸면** c-bet 빈도에서 텔·습관이 사라진다. 그러면 웹 pro·tag·fish·station 칸 테스트 전부와 phase 1b WTSD 보정(파일 머리 주석 44–50행)을 다시 맞춰야 한다.
 - **Python을 웹처럼 바꾸면** ADR 0023 혼합 필드 가드(4시드 평균), `test_cell_levers_off_replay_is_bit_identical` 다이제스트, #730·#751 격자로 고른 보정 레버가 모두 무효가 된다. 다시 맞추기는 #730이 보여 준 비단조 지형에서 해야 한다.
+
+**적용 (#773, 참고용·로컬, CI 아님).** 후보를 적용했다: `rangeShift`가 3-bet 팟(프리플랍 레이즈 2회) 어그레서에게 `threebet`, 4-bet 이상이면 `fourbet` 폭을 쓴다(싱글 팟·콜러는 그대로, 단위 테스트로 확인). 헤즈업 3-bet+ 칸이 fish 50 목표에서 43.4로 내려가 `cbet3bp`를 fish 0.68→**0.78**, station 0.82→**0.92**로 올렸고(둘 다 1에 가까워짐) 칸 목표 테스트가 모두 통과한다(fish 45.0·station 46.6, pro·tag도 통과). 아래는 적용 전 후보 기술이다.
 
 대신 차이를 줄이는 작은 구조 수정 하나만 후보로 남긴다. 3-bet 팟 어그레서의 `rangeShift` 폭을 3-bet 범위로 바꾸는 것이다(위 표 −3~6%p). 이 수정은 pro·tag 3-bet+ 칸(tag 66.1→63.2)도 움직여 웹 `cbet3bp` 재보정이 필요하다. 반면 이득은 배수가 1에 조금 가까워지는 것뿐이라 우선순위가 낮다. 웹 미러 테스트(`web fish levers track the Python …`)는 지금처럼 "Python 값 + 웹 보정값" 쌍을 대조하는 방식이 이 결론과 맞다. 레버가 같다고 실현값이 같지 않으므로 칸 목표 테스트가 판정 근거다.
 
