@@ -12,6 +12,11 @@ file with `web_policy_lbr.measure` with the page's backoff off and on, at the ha
 `referee/e3/lbr_thresholds_v2.json` (read-only), evaluation seed `10000+seed` as in `train_jobs`. The result has no timings, so
 the same inputs give the same bytes. The pass is record-only (the page keeps the policy either way; a person reads it).
 The result deliberately has no `by_players` key: the launcher would take that as a training summary and overwrite a verdict.
+
+Schema 2 (#781): each row and cell also records the AIVAT-style corrected LBR (`aivat_lbr_bb`, `aivat_stderr_bb`,
+`referee.e3.lbr.lbr_hands`) with `aivat_samples` board completions per value estimate (default 8: per-hand cost about 1.1x,
+docs/research/2026-11-lbr-variance-reduction.md). Record only: `pass` still reads `lbr_bb`. `--aivat-samples 0` writes the
+schema-1 rows. Readers of schema 1 keep working: the new keys are extra, and `summarize` of schema-1 rows has no aivat keys.
 """
 from __future__ import annotations
 
@@ -26,7 +31,8 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 SCHEMA = "stalker.web.policy-lbr"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: aivat_lbr_bb / aivat_stderr_bb columns (#781)
+AIVAT_SAMPLES = 8
 PLAYERS = (2, 3, 4, 5, 6)
 OPS_TARBALL = "https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/ops"
 
@@ -95,8 +101,10 @@ def fetch(policy_run: str, dest: Path, tarball: bytes | None = None) -> None:
 def _one(args):
     from stalker.tools.web_policy_lbr import measure
     task, d = args
-    r = measure(Path(d) / task["file"], task["players"], task["hands"], task["eval_seed"], task["backoff"])
-    return {**task, **{k: r[k] for k in ("lbr_bb", "lbr_stderr_bb", "policy_sha256")}}
+    r = measure(Path(d) / task["file"], task["players"], task["hands"], task["eval_seed"], task["backoff"],
+                aivat_samples=task.get("aivat_samples", 0))
+    keys = ("lbr_bb", "lbr_stderr_bb", "policy_sha256", "aivat_lbr_bb", "aivat_stderr_bb")
+    return {**task, **{k: r[k] for k in keys if k in r}}
 
 
 def summarize(rows: list[dict], table: dict | None = None, per_players_run: bool = False) -> dict:
@@ -120,12 +128,15 @@ def summarize(rows: list[dict], table: dict | None = None, per_players_run: bool
                              "pass": (mean <= spec["lbr_max"]) if enough else None}
             if per_players_run:
                 cells[str(n)]["policy_run"] = r[0]["policy_run"]
+            if all("aivat_lbr_bb" in x for x in r):   # schema-1 rows have none: the cell stays as it was
+                cells[str(n)]["aivat_lbr_bb"] = round(sum(x["aivat_lbr_bb"] for x in r) / len(r), 4)
+                cells[str(n)]["aivat_stderr_bb"] = round((sum(x["aivat_stderr_bb"] ** 2 for x in r) ** 0.5) / len(r), 4)
         out["on" if backoff else "off"] = cells
     return out
 
 
 def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None = None, src: Path | None = None,
-        pages: Path | None = None, backoffs=(False, True)) -> dict:
+        pages: Path | None = None, backoffs=(False, True), aivat_samples: int = AIVAT_SAMPLES) -> dict:
     import tempfile
     runs = page_runs(pages) if pages else None
     legacy = legacy_players(pages) if pages else []
@@ -134,6 +145,8 @@ def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None =
         distinct = set(runs.values())
         policy_run = distinct.pop() if len(distinct) == 1 else "mixed"
     tasks = plan(policy_run, backoffs=backoffs, seeds=seeds, runs=runs, legacy=legacy)
+    if aivat_samples > 0:
+        tasks = [{**t, "aivat_samples": aivat_samples} for t in tasks]
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(src) if src else Path(tmp)
         if not src:
@@ -145,8 +158,10 @@ def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None =
         else:
             rows = [_one(j) for j in jobs]
     rows.sort(key=lambda x: (x["backoff"], x["players"], x["seed"]))
-    res = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION, "policy_run": policy_run,
+    res = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION if aivat_samples > 0 else 1, "policy_run": policy_run,
            "thresholds": "referee/e3/lbr_thresholds_v2.json", "rows": rows, "backoff": summarize(rows, per_players_run=bool(runs))}
+    if aivat_samples > 0:
+        res["aivat_samples"] = aivat_samples
     if pages:
         res["legacy_pages"] = legacy   # these counts have no `on` cell by design (#702)
     res["sha256"] = hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
@@ -165,10 +180,13 @@ def main(argv=None) -> int:
     ap.add_argument("--from-pages", type=Path, default=None, help="dir with the served mid-N.json pages (web/app/policy); per-player policy_run")
     ap.add_argument("--backoff", choices=("both", "off"), default="both",
                     help="off: measure only backoff-off cells (eval-noise jobs, #731)")
+    ap.add_argument("--aivat-samples", type=int, default=AIVAT_SAMPLES,
+                    help="board completions per AIVAT value estimate (record-only corrected column, #781); 0 = schema-1 rows")
     a = ap.parse_args(argv)
     if bool(a.policy_run) == bool(a.from_pages):
         ap.error("give exactly one of --policy-run and --from-pages")
-    run(a.policy_run, a.out, a.workers, a.seeds, a.src, a.from_pages, (False,) if a.backoff == "off" else (False, True))
+    run(a.policy_run, a.out, a.workers, a.seeds, a.src, a.from_pages, (False,) if a.backoff == "off" else (False, True),
+        a.aivat_samples)
     return 0
 
 

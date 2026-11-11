@@ -266,10 +266,10 @@ def test_main_backoff_off_runs_no_backoff_on_cells(monkeypatch):
     seen = {}
     monkeypatch.setattr(J, "run", lambda *a: seen.setdefault("a", a))
     J.main(["--from-pages", "p", "--out", "o", "--backoff", "off"])
-    assert seen["a"][-1] == (False,)
+    assert seen["a"][-2:] == ((False,), J.AIVAT_SAMPLES)   # the AIVAT column is on by default (#781)
     seen.clear()
-    J.main(["--from-pages", "p", "--out", "o"])
-    assert seen["a"][-1] == (False, True)
+    J.main(["--from-pages", "p", "--out", "o", "--aivat-samples", "0"])
+    assert seen["a"][-2:] == ((False, True), 0)
 
 
 def test_three_player_needs_two_seeds_under_v2():
@@ -279,3 +279,44 @@ def test_three_player_needs_two_seeds_under_v2():
     rows = [{**t, "lbr_bb": 4.0, "lbr_stderr_bb": 0.6, "policy_sha256": "x"} for t in tasks if t["players"] == 3 and t["seed"] == 1]
     assert J.summarize(rows)["on"]["3"]["pass"] is None
     assert J.summarize(rows + [{**r, "seed": 2} for r in rows])["on"]["3"]["pass"] is True
+
+
+def _v1_rows():
+    return [{"players": 2, "seed": s, "backoff": False, "lbr_bb": v, "lbr_stderr_bb": 1.0, "policy_sha256": "x"}
+            for s, v in ((1, 6.0), (2, 8.0))]
+
+
+def test_summarize_adds_aivat_cells_only_for_schema2_rows():
+    v1 = J.summarize(_v1_rows())
+    assert "aivat_lbr_bb" not in v1["off"]["2"]   # a schema-1 result reads back unchanged
+    v2 = [{**r, "aivat_lbr_bb": a, "aivat_stderr_bb": 0.5} for r, a in zip(_v1_rows(), (5.0, 6.0))]
+    s = J.summarize(v2)
+    c = s["off"]["2"]
+    assert {k: c[k] for k in v1["off"]["2"]} == v1["off"]["2"]   # record only: lbr_bb, pass, ... do not move
+    assert (c["aivat_lbr_bb"], c["aivat_stderr_bb"]) == (5.5, round(0.5 * 2 ** 0.5 / 2, 4))
+    mixed = J.summarize([v2[0], _v1_rows()[1]])
+    assert "aivat_lbr_bb" not in mixed["off"]["2"]   # no half-measured mean
+
+
+def test_run_records_aivat_columns_and_schema_2(tmp_path, monkeypatch):
+    s = G.deal(np.random.default_rng(3), 2)
+    rng = K.initial_ranges(2)
+    public = K.public_key(s, s.to_act, "full")
+    table = {K.key(public, int(v)): X.quantize(np.ones(len(G.legal(s))))
+             for v in np.unique(K.equity_steps(s, s.to_act, rng, 5)) if v >= 0}
+    doc = {"schema": "stalker.web.policy", "players": 2, "k": 5, "depth": "full", "q": X.Q, "policy": table}
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "mid-2.json").write_text(json.dumps(doc), encoding="utf-8")
+    monkeypatch.setattr(J, "PLAYERS", (2,))
+    monkeypatch.setattr(J, "plan", lambda run, **kw: [
+        {"players": 2, "seed": 1, "eval_seed": 10001, "hands": 3, "backoff": False, "file": "mid-2.json", "policy_run": run}])
+    v2 = J.run("r1", tmp_path / "v2.json", src=src, aivat_samples=4)
+    v1 = J.run("r1", tmp_path / "v1.json", src=src, aivat_samples=0)
+    assert (v2["schema_version"], v2["aivat_samples"], v1["schema_version"]) == (2, 4, 1) and "aivat_samples" not in v1
+    row = v2["rows"][0]
+    assert {"aivat_lbr_bb", "aivat_stderr_bb"} <= set(row) and "aivat_lbr_bb" not in v1["rows"][0]
+    assert {k: row[k] for k in ("lbr_bb", "lbr_stderr_bb", "policy_sha256")} == \
+        {k: v1["rows"][0][k] for k in ("lbr_bb", "lbr_stderr_bb", "policy_sha256")}
+    assert v2["backoff"]["off"]["2"]["aivat_lbr_bb"] == row["aivat_lbr_bb"]
+    assert J.SCHEMA_VERSION == 2 and J.AIVAT_SAMPLES == 8
