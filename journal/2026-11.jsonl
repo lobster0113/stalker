@@ -1065,3 +1065,4 @@
 {"ts":"2026-11-10T23:41:13Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #755 #599 already have CHANGES verdicts at head sha","friction":""}
 {"ts":"2026-11-11T00:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #755, #599 are odd (reviewer); no even PR to review","friction":""}
 {"ts":"2026-11-11T00:30:55Z","role":"builder-b","outcome":"waiting_ci","issue":753,"pr":755,"notes":"PR #755 CHANGES 해결: Gate U 4인 테이블 검사·README 정정 푸시(129d4891), CI 대기","friction":"로컬 Gate U 9분 안에 안 끝나 CI에 의존"}
+{"ts":"2026-11-11T00:31:23Z","role":"reviewer-b","outcome":"skipped","issue":753,"pr":755,"notes":"not my parity","friction":""}
