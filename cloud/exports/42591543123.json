@@ -1,6 +1,6 @@
 {
  "schema": "stalker.web.policy-export",
- "schema_version": 2,
+ "schema_version": 3,
  "export_run": "42591543123",
  "artifact": "web-policy-42591543123",
  "job": "e3-tp-mid-c1-mixn-pod",
@@ -50,6 +50,50 @@
     "name": "station1",
     "bb100": -283.04,
     "ci95_low": -490.69
+   },
+   "l1_rows_bytes": {
+    "l1_keys_before": 57352,
+    "l1_keys_file": 8298,
+    "file_bytes": 2575833,
+    "max_bytes": 3145728,
+    "encodings": {
+     "all": {
+      "bytes": 4097737,
+      "gzip_bytes": 613432,
+      "rows": 57352,
+      "l1_keys": 57352,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 6673570,
+      "within_page_budget": false
+     },
+     "missing_only": {
+      "bytes": 3549158,
+      "gzip_bytes": 530056,
+      "rows": 49054,
+      "l1_keys": 57352,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 6124991,
+      "within_page_budget": false
+     },
+     "grouped_eq": {
+      "bytes": 1551782,
+      "gzip_bytes": 414431,
+      "rows": 49054,
+      "l1_keys": 57352,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 4127615,
+      "within_page_budget": false
+     },
+     "grouped_top_fit": {
+      "bytes": 569879,
+      "gzip_bytes": 168631,
+      "rows": 18868,
+      "l1_keys": 27166,
+      "l1_keys_ratio": 0.4737,
+      "total_bytes": 3145712,
+      "within_page_budget": true
+     }
+    }
    },
    "hit_rate": {
     "schema": "stalker.web.hit-rate",
@@ -399,7 +443,7 @@
      }
     }
    },
-   "hit_rate_seconds": 79.3
+   "hit_rate_seconds": 46.6
   },
   {
    "file": "mid-3.json",
@@ -427,6 +471,50 @@
     "name": "maniac2",
     "bb100": -757.08,
     "ci95_low": -1013.01
+   },
+   "l1_rows_bytes": {
+    "l1_keys_before": 97298,
+    "l1_keys_file": 8165,
+    "file_bytes": 2331802,
+    "max_bytes": 3145728,
+    "encodings": {
+     "all": {
+      "bytes": 6804879,
+      "gzip_bytes": 994458,
+      "rows": 97298,
+      "l1_keys": 97298,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 9136681,
+      "within_page_budget": false
+     },
+     "missing_only": {
+      "bytes": 6282356,
+      "gzip_bytes": 915452,
+      "rows": 89133,
+      "l1_keys": 97298,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 8614158,
+      "within_page_budget": false
+     },
+     "grouped_eq": {
+      "bytes": 2873712,
+      "gzip_bytes": 719786,
+      "rows": 89133,
+      "l1_keys": 97298,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 5205514,
+      "within_page_budget": false
+     },
+     "grouped_top_fit": {
+      "bytes": 813923,
+      "gzip_bytes": 242882,
+      "rows": 28859,
+      "l1_keys": 37024,
+      "l1_keys_ratio": 0.3805,
+      "total_bytes": 3145725,
+      "within_page_budget": true
+     }
+    }
    },
    "hit_rate": {
     "schema": "stalker.web.hit-rate",
@@ -776,7 +864,7 @@
      }
     }
    },
-   "hit_rate_seconds": 120.9
+   "hit_rate_seconds": 70.0
   },
   {
    "file": "mid-4.json",
@@ -804,6 +892,50 @@
     "name": "mixed_styles",
     "bb100": -999.32,
     "ci95_low": -1235.35
+   },
+   "l1_rows_bytes": {
+    "l1_keys_before": 115075,
+    "l1_keys_file": 9458,
+    "file_bytes": 2266547,
+    "max_bytes": 3145728,
+    "encodings": {
+     "all": {
+      "bytes": 7887880,
+      "gzip_bytes": 1128774,
+      "rows": 115075,
+      "l1_keys": 115075,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 10154427,
+      "within_page_budget": false
+     },
+     "missing_only": {
+      "bytes": 7305661,
+      "gzip_bytes": 1041597,
+      "rows": 105617,
+      "l1_keys": 115075,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 9572208,
+      "within_page_budget": false
+     },
+     "grouped_eq": {
+      "bytes": 3443134,
+      "gzip_bytes": 823044,
+      "rows": 105617,
+      "l1_keys": 115075,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 5709681,
+      "within_page_budget": false
+     },
+     "grouped_top_fit": {
+      "bytes": 879155,
+      "gzip_bytes": 261941,
+      "rows": 32124,
+      "l1_keys": 41582,
+      "l1_keys_ratio": 0.3613,
+      "total_bytes": 3145702,
+      "within_page_budget": true
+     }
+    }
    },
    "hit_rate": {
     "schema": "stalker.web.hit-rate",
@@ -1153,7 +1285,7 @@
      }
     }
    },
-   "hit_rate_seconds": 126.0
+   "hit_rate_seconds": 73.0
   },
   {
    "file": "mid-5.json",
@@ -1181,6 +1313,50 @@
     "name": "station4",
     "bb100": -1451.3,
     "ci95_low": -1767.89
+   },
+   "l1_rows_bytes": {
+    "l1_keys_before": 109798,
+    "l1_keys_file": 12734,
+    "file_bytes": 3060099,
+    "max_bytes": 3145728,
+    "encodings": {
+     "all": {
+      "bytes": 7384770,
+      "gzip_bytes": 1026851,
+      "rows": 109798,
+      "l1_keys": 109798,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 10444869,
+      "within_page_budget": false
+     },
+     "missing_only": {
+      "bytes": 6616103,
+      "gzip_bytes": 912041,
+      "rows": 97064,
+      "l1_keys": 109798,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 9676202,
+      "within_page_budget": false
+     },
+     "grouped_eq": {
+      "bytes": 3250982,
+      "gzip_bytes": 726610,
+      "rows": 97064,
+      "l1_keys": 109798,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 6311081,
+      "within_page_budget": false
+     },
+     "grouped_top_fit": {
+      "bytes": 85620,
+      "gzip_bytes": 24496,
+      "rows": 3576,
+      "l1_keys": 16310,
+      "l1_keys_ratio": 0.1485,
+      "total_bytes": 3145719,
+      "within_page_budget": true
+     }
+    }
    },
    "hit_rate": {
     "schema": "stalker.web.hit-rate",
@@ -1530,7 +1706,7 @@
      }
     }
    },
-   "hit_rate_seconds": 82.6
+   "hit_rate_seconds": 48.1
   },
   {
    "file": "mid-6.json",
@@ -1558,6 +1734,50 @@
     "name": "station5",
     "bb100": -1453.15,
     "ci95_low": -1689.88
+   },
+   "l1_rows_bytes": {
+    "l1_keys_before": 100270,
+    "l1_keys_file": 12481,
+    "file_bytes": 2774325,
+    "max_bytes": 3145728,
+    "encodings": {
+     "all": {
+      "bytes": 6604960,
+      "gzip_bytes": 888706,
+      "rows": 100270,
+      "l1_keys": 100270,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 9379285,
+      "within_page_budget": false
+     },
+     "missing_only": {
+      "bytes": 5866440,
+      "gzip_bytes": 780909,
+      "rows": 87789,
+      "l1_keys": 100270,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 8640765,
+      "within_page_budget": false
+     },
+     "grouped_eq": {
+      "bytes": 2944574,
+      "gzip_bytes": 622737,
+      "rows": 87789,
+      "l1_keys": 100270,
+      "l1_keys_ratio": 1.0,
+      "total_bytes": 5718899,
+      "within_page_budget": false
+     },
+     "grouped_top_fit": {
+      "bytes": 371377,
+      "gzip_bytes": 105450,
+      "rows": 15165,
+      "l1_keys": 27646,
+      "l1_keys_ratio": 0.2757,
+      "total_bytes": 3145702,
+      "within_page_budget": true
+     }
+    }
    },
    "hit_rate": {
     "schema": "stalker.web.hit-rate",
@@ -1907,7 +2127,7 @@
      }
     }
    },
-   "hit_rate_seconds": 88.1
+   "hit_rate_seconds": 49.8
   }
  ],
  "index": {
