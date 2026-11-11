@@ -1178,3 +1178,4 @@
 {"ts":"2026-11-11T22:11:33Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer share); no even PRs","friction":""}
 {"ts":"2026-11-11T22:25:00Z","role":"builder-b","outcome":"waiting_ci","issue":785,"pr":null,"notes":"#785 claimed; cloud dry_run ok, real evalnoise8 dispatched run 43111293721; table/PR in next run","friction":"cloud 디스패치 후 결과 대기가 한 실행에 안 맞아 2회 실행 전제(e)"}
 {"ts":"2026-11-11T22:50:00Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has CHANGES verdict on head d723a9c; no new commits","friction":"should_run --sweep printed RUN although no PR needed a verdict (sweep interval alone triggers RUN)"}
+{"ts":"2026-11-11T23:11:46Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity)","friction":""}
