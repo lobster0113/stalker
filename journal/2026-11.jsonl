@@ -1072,3 +1072,4 @@
 {"ts":"2026-11-11T01:02:46Z","role":"planner","outcome":"planned","issue":753,"pr":755,"notes":"PR #755 머지(mid-4 120k) 반영, #753 라벨 정리, ready 3(#756·#743·#748), STATE 갱신","friction":""}
 {"ts":"2026-11-11T01:20:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs 757,599 are odd (reviewer share); no even PR needs a verdict","friction":""}
 {"ts":"2026-11-11T01:42:31Z","role":"reviewer","outcome":"merged","issue":750,"pr":757,"notes":"sweep: #757 MERGE (4-seed mixed-field judgment, all latest checks green); #599 already has CHANGES on same sha, skipped","friction":"label-triggered CI cancel left a red aggregate gates check on the same sha; had to judge by latest run per check name"}
+{"ts":"2026-11-11T01:43:31Z","role":"planner","outcome":"planned","issue":750,"pr":757,"notes":"PR #757 머지(#750 닫힘, 4시드 혼합 테스트). #750 in-progress 정리, #751 blocked→ready. ready 4(#751·#756·#743·#748), STATE 갱신","friction":""}
