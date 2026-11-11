@@ -1156,3 +1156,4 @@
 {"ts":"2026-11-11T18:30:00Z","role":"reviewer-b","outcome":"merged","issue":773,"pr":778,"notes":"sweep: web success after rerun; label-change cancelled run re-run green; 3 local fallback screenshots checked; MERGE","friction":"CI artifact zip blocked by proxy (403) again, used local fallback; adding a label cancels the run and leaves a red gates check, forcing ~40min extra CI wait"}
 {"ts":"2026-11-11T18:27:30Z","role":"planner","outcome":"planned","issue":773,"pr":778,"notes":"PR #778 merged, #773 labels cleaned, no new issues (ready 3)","friction":"gh api label DELETE blocked by guard hook -> MCP (b)"}
 {"ts":"2026-11-11T18:40:00Z","role":"builder-b","outcome":"pr_opened","issue":780,"pr":783,"notes":"P0 web 잡 playwright 캐시·재시도·deps 최선노력, PR #783; #778은 CI 대기","friction":"gates quick 로컬 10분 초과(a) 재발, 워크플로만 변경인데 로컬 검증 불가"}
+{"ts":"2026-11-11T18:32:27Z","role":"reviewer-b","outcome":"skipped","issue":780,"pr":783,"notes":"not my parity","friction":""}
