@@ -4,7 +4,7 @@ Usage: python scripts/persona_cell_grid.py [--points N] [--workers W] [--hands H
            [--grid TYPE:LEVER=v1,v2,...]...
 One JSON line per point: levers, turn/river fold error, per-type river mean, worst seat WTSD deviation, cell
 measurements and `passed`. The guards are the ones of tests/test_persona_v2.py::test_street_style_within_6pp_of_target_in_mixed_field
-(same three 6-max tables, seeds and hands); their values are constants here and must not be loosened to make a point pass.
+(same three 6-max tables, seed rule and hands; the test judges `pool` of offsets 0..3, ADR 0023); their values are constants here and must not be loosened to make a point pass.
 """
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ def judge(params: dict, raw: dict) -> dict:
 
 
 def evaluate(params: dict, hands: int = 20000, seed_offset: int = 0) -> dict:
-    """Judge `params` (type -> PersonaParams) like the mixed-field test does; seed_offset 0 replays the test's seeds."""
+    """Judge `params` (type -> PersonaParams) on one seed set; the mixed-field test pools offsets 0..3 (ADR 0023)."""
     return judge(params, measure(params, hands, seed_offset))
 
 

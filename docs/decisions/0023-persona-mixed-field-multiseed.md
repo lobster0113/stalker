@@ -1,6 +1,7 @@
 # ADR 0023: 페르소나 혼합 필드 가드를 시드 4개 평균으로 판정
 
 - 상태: 제안 → 이 PR 머지로 채택 (Builder 추천안으로 진행, `harness/PROTOCOL.md` §9)
+- 테스트 적용: #750 (`tests/test_persona_v2.py` 혼합 테스트가 오프셋 0..3 좌석 평균으로 판정, slow. 대조: `tests/test_persona_cell_grid.py`)
 - 이슈: #736 (#730 결론 (b) 추천 (ii) 후속). 이 PR은 측정 도구(`scripts/persona_cell_grid.py` `--seed-offset`·`measure`·`pool`·`judge`)와 문서만 바꾼다. `tests/test_persona_v2.py` 판정 변경은 후속 이슈에서.
 - **수치는 모두 로컬 참고용**(CI 수치 아님). 표와 재현 방법은 `docs/research/2026-10-30-population-stats.md` §10.1.6 끝 「시드 잡음 (#736)」.
 

@@ -7,6 +7,7 @@ import pytest
 
 from stalker.agents.persona import PRESETS_V2, PersonaAgent
 from stalker.agents.persona_stats import measure_session
+from tests.test_persona_v2 import MIXED_OFFSETS, SEAT_KEYS, _mixed_field_judgment, _mixed_seats
 
 _spec = importlib.util.spec_from_file_location("persona_cell_grid", pathlib.Path(__file__).parents[1] / "scripts/persona_cell_grid.py")
 grid = importlib.util.module_from_spec(_spec)
@@ -30,18 +31,22 @@ def test_build_points_keeps_start_and_caps_count():
 
 @pytest.mark.slow
 def test_current_presets_pass_with_the_same_errors_as_the_test():
-    res = grid.evaluate(PRESETS_V2)
+    # ADR 0023: the script's judge(pool(4 seed sets)) and the test's own 4-set seat mean must agree on the same raws
+    raws = [grid.measure(PRESETS_V2, seed_offset=k) for k in MIXED_OFFSETS]
+    res = grid.judge(PRESETS_V2, grid.pool(raws))
     assert res["passed"], res["violations"]
-    fold = {}
-    for gi, grp in enumerate(grid.TABLES):
-        ss = np.random.SeedSequence(gi).spawn(6)
-        agents = [PersonaAgent(PRESETS_V2[n], np.random.default_rng(s)) for n, s in zip(grp, ss)]
-        for n, st in zip(grp, measure_session(agents, 20000, seed=50 + gi)):
-            fold.setdefault(n, []).append((st.fold_cbet_turn, st.fold_river))
-    mean = {n: [np.mean([f[i] for f in v if f[i] is not None]) for i in (0, 1)] for n, v in fold.items()}
-    for i, key in enumerate(("turn_err", "river_err")):
-        want = np.mean([abs(mean[n][i] - getattr(PRESETS_V2[n], ("fold_cbet_turn", "fold_river")[i])) for n in grid.TYPES])
-        assert res[key] == pytest.approx(want, abs=5e-5)
+    runs = [[(s["type"], {k: s[k] for k in SEAT_KEYS}) for s in r["seats"]] for r in raws]
+    bad, _, _, err, river = _mixed_field_judgment(runs)
+    assert not bad, bad
+    assert (res["turn_err"], res["river_err"]) == (pytest.approx(err, abs=5e-5), pytest.approx(river, abs=5e-5))
+
+
+def test_test_seed_sets_replay_the_script_offsets():
+    # the test's _mixed_seats(k) and the script's measure(seed_offset=k) play the same hands, so the slow check above
+    # can feed one measurement to both judgments
+    for k in MIXED_OFFSETS:
+        want = [(n, st["wtsd"], st["vpip"], st["fold_river"]) for n, st in _mixed_seats(k, 300)]
+        assert [(s["type"], s["wtsd"], s["vpip"], s["fold_river"]) for s in grid.measure(PRESETS_V2, 300, seed_offset=k)["seats"]] == want, k
 
 
 def _test_seeds_replay(hands):
