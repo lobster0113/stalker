@@ -33,6 +33,7 @@
 - 예상 비용: cpu5c 32 vCPU $1.2/h × 약 40~90분 ≈ $1~2, 최악 $3.00(`max_minutes: 150`). 결과: `ops:cloud/results/<run id>.json`의 `backoff.on|off.<n>`(`lbr_bb`·`lbr_stderr_bb`·`limit`·`pass`).
 - `web-policy-lbr-pages.yaml`(#697): `-s3`와 같되 정책 run 하나 대신 main의 서비스 페이지 `web/app/policy/mid-{2..6}.json`을 그대로(`--from-pages`, 시드 1~3) 잰다. 칸마다 그 파일의 `run_id`가 `policy_run`으로 남아 `e3_web_lbr`의 인원별 `fresh` 판정에 쓰인다(#695). 레거시(c1 아님) 페이지 인원은 backoff=on 칸을 만들지 않고 결과 `legacy_pages`에 적힌다(#702). 최악 $3.00.
 - `web-policy-lbr-mid-s4long.yaml`(#708): `web-policy-lbr-mid.yaml`과 같되 `POLICY_RUN=42591543123`(120k, #714 재-export)과 결과 파일 이름만 다르다. 최악 $3.00.
+- `web-policy-lbr-pages-evalnoise-both.yaml`(#756): `web-policy-lbr-pages-evalnoise.yaml`과 같되 `--backoff both`(켬·끔 모두)라 서비스가 쓰는 켬 칸의 평가 시드 4개 sd·최소 k를 잰다(레거시 6인은 켬 칸 없음). 결과 파일 이름만 다르다. 최악 $3.00.
 
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
