@@ -1,0 +1,15 @@
+# #762 (#756 follow-up): same as web-policy-lbr-pages-evalnoise-both but --seeds 8 (eval seeds 10001-10008), so the sd and
+# minimum k of #756 (4 seeds: 3-handed on k=2, 4-handed 120k off k=5) are re-estimated from 8 seeds. 5 player counts x 8 seeds = 40
+# off cells + 32 on cells (legacy mid-6 has no on cell) over 32 workers; #756 took 3.74 min, so ~8 min expected.
+# Worst case = hourly_usd * max_minutes / 60 = 1.2 * 150 / 60 = $3.00 (expected ~$0.2). Result: ops:cloud/results/<run id>.json
+name: web-policy-lbr-pages-evalnoise8
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 8 --backoff both --out /result/web-policy-lbr-pages-evalnoise8.json
+cpu_flavors: [cpu5c, cpu3c]
+flavor_hourly_usd: [1.2, 1.0]
+vcpu: 32
+disk_gb: 10
+max_minutes: 150
+hourly_usd: 1.2
+est_cost_usd: 1.0
+result_path: /result/web-policy-lbr-pages-evalnoise8.json

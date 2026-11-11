@@ -239,6 +239,21 @@ def test_evalnoise_both_job_spec_same_as_evalnoise_but_backoff_both_under_budget
     assert both.hourly_usd * both.max_minutes / 60 <= 3.0
 
 
+def test_evalnoise8_job_spec_same_as_evalnoise_both_but_eight_seeds_under_budget():
+    sys.path.insert(0, str(ROOT / "harness/cloud"))
+    import launcher
+    both = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-pages-evalnoise-both.yaml").read_text(encoding="utf-8"),
+                               "jobs/web-policy-lbr-pages-evalnoise-both.yaml")
+    e8 = launcher.parse_spec((ROOT / "jobs/web-policy-lbr-pages-evalnoise8.yaml").read_text(encoding="utf-8"),
+                             "jobs/web-policy-lbr-pages-evalnoise8.yaml")
+    assert e8.command == both.command.replace("--seeds 4", "--seeds 8").replace(
+        "evalnoise-both.json", "evalnoise8.json")
+    assert e8.result_path == "/result/web-policy-lbr-pages-evalnoise8.json"
+    for f in ("image", "vcpu", "max_minutes", "hourly_usd", "cpu_flavors", "flavor_hourly_usd", "disk_gb"):
+        assert getattr(e8, f) == getattr(both, f), f
+    assert e8.hourly_usd * e8.max_minutes / 60 <= 3.0
+
+
 def test_plan_seeds_4_gives_four_distinct_eval_seeds_per_player_count_backoff_off():
     tasks = J.plan("r1", backoffs=(False,), seeds=4)
     for n in {t["players"] for t in tasks}:
