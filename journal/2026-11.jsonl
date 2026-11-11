@@ -1106,3 +1106,4 @@
 {"ts":"2026-11-11T07:09:14Z","role":"reviewer-b","outcome":"skipped","issue":743,"pr":765,"notes":"not my parity","friction":""}
 {"ts":"2026-11-11T07:15:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs 765,599 are odd (reviewer share); no even PRs","friction":"should_run --sweep printed RUN though no even-numbered PR is open (parity not applied in work check?)"}
 {"ts":"2026-11-11T07:40:59Z","role":"reviewer","outcome":"merged","issue":743,"pr":765,"notes":"#743 run 1 (coarse_policy + coarse_from_full) merged; CI all green; run 2 note: seeds 620/656 via CLI","friction":"superseded cancelled CI run leaves a failed gates check on the same sha; must pick latest run per name"}
+{"ts":"2026-11-11T07:42:17Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only odd PR #599 already has CHANGES verdict at head d723a9c; awaiting builder fixes","friction":""}
