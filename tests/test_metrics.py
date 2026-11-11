@@ -280,3 +280,26 @@ def test_e3_web_lbr_single_seed_three_player_cell_is_not_a_pass(ops_clone):
     got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
     assert got["run"] == 500 and got["by_players"]["3"]["on"]["pass"] is None
     assert got["all_pass_on"] is False and got["fresh"] is True
+
+
+def test_e3_web_lbr_reads_a_schema2_result_like_schema1(tmp_path):
+    """#781: schema 2 adds aivat_* cell keys; the metric copies the same four keys, so the verdict view is unchanged."""
+    out = {}
+    for ver in (1, 2):
+        origin = tmp_path / f"o{ver}"
+        (origin / "cloud" / "results").mkdir(parents=True)
+        _git(origin, "init", "-q", "-b", "ops")
+        doc = _lbr_result("p2", 4.5)
+        if ver == 2:
+            doc["schema_version"], doc["aivat_samples"] = 2, 8
+            for cells in doc["backoff"].values():
+                for c in cells.values():
+                    c.update(aivat_lbr_bb=c["lbr_bb"] - 1, aivat_stderr_bb=0.1)
+        (origin / "cloud" / "results" / "200.json").write_text(json.dumps(doc), encoding="utf-8")
+        _git(origin, "add", "-A")
+        _git(origin, "commit", "-qm", "ops")
+        clone = tmp_path / f"c{ver}"
+        _git(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
+        _pages(clone, p2="p2", p3="p2")
+        out[ver] = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert out[1] == out[2] and out[2]["all_pass_on"] is True
