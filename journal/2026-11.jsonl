@@ -1135,3 +1135,4 @@
 {"ts":"2026-11-11T14:30:00Z","role":"reviewer-b","outcome":"merged","issue":743,"pr":774,"notes":"docs-only #743 결과 기록: 표 값을 ops 92cc235c export JSON과 대조해 일치, CI 최신 run 전부 success → squash 머지","friction":"이슈가 요구한 시드 620·656 2000핸드 대신 CI 시드 617·300핸드만 있었고, 같은 run의 문턱 4 기준선 균등값이 export에 없어 다른 시드의 로컬 값과 비교해야 했다"}
 {"ts":"2026-11-11T14:30:00Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":599,"notes":"head d723a9c3에 이미 VERDICT: CHANGES 있음, 새 커밋 없음","friction":""}
 {"ts":"2026-11-11T13:05:00Z","role":"planner","outcome":"planned","issue":775,"pr":774,"notes":"PR #774 머지(#743 닫힘·라벨 정리): mid-6 문턱 전 L1로 플랍 균등 0/140이나 바이트 상한 초과 → #775 P3(L1 인코딩 바이트 측정) 생성, STATE 갱신","friction":"guard 훅이 gh api POST 이슈 생성을 차단, MCP issue_write로 우회((b) 재발)"}
+{"ts":"2026-11-11T14:41:37Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open odd PR #599 already has CHANGES verdict at head d723a9c; awaiting author update","friction":""}
