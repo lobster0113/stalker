@@ -1343,14 +1343,14 @@ wd.section("12 #604");
     const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
     return rows.length ? Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length) : null;
   };   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
-  // 2·4인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
-  // c1policy.test.mjs checks that their first preflop c1 keys hit mid-<n>.json. 5인 plays a hand below (#739).
+  // 2인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
+  // c1policy.test.mjs checks that its first preflop c1 keys hit mid-<n>.json. 3·4·5인 play a hand below (#739, #753).
   {
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     pg.setDefaultTimeout(60_000);
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
-    for (const n of [2, 4]) {
+    for (const n of [2]) {
       await pg.selectOption("#c-seats", String(n));
       const row = () => [...document.querySelectorAll("#model-status .ms")].map(e => e.textContent).find(t => t.startsWith("중수")) || "";
       await pg.waitForFunction(r => new Function(`return (${r})()`)().includes("run "), row.toString()).catch(() => {});
@@ -1360,7 +1360,7 @@ wd.section("12 #604");
     }
     await pg.close();
   }
-  for (const n of [2, 3, 5]) {
+  for (const n of [2, 3, 4, 5]) {
     const C1_RUN = C1_RUNS[n];
     wd.section(`12 #604 c1 ${n}인`);
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -1376,13 +1376,13 @@ wd.section("12 #604");
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
     // #739: the 3 MB 5인 file is fetched only after the 5인 mid table is chosen, so the first screen does not pay for it.
-    if (n === 5) must(!polReqs.includes("mid-5"), `c1 5인: 첫 화면이 테이블 선택 전에 mid-5.json을 받음 (${polReqs.join(",")}) — 지연 로드 확인 (#739)`);
+    if (n === 4 || n === 5) must(!polReqs.includes(`mid-${n}`), `c1 ${n}인: 첫 화면이 테이블 선택 전에 mid-${n}.json을 받음 (${polReqs.join(",")}) — 지연 로드 확인 (#739, #753)`);
     await pg.selectOption("#c-seats", String(n));
     const loadT0 = Date.now();
     await pg.click("#set-tier [data-v='mid']");
     await pg.waitForFunction(k => TPG.pol[k], `mid-${n}`, { timeout: 120_000 });
     const loadMs = Date.now() - loadT0;
-    if (n === 2 || n === 5) {   // #640·#739: the two ~3 MB c1 files load and build their coarse tables inside the budgets
+    if (n === 2 || n === 4 || n === 5) {   // #640·#739·#753: the ~3 MB c1 files load and build their coarse tables inside the budgets
       const cms = await pg.evaluate(k => TPG.coarseMs?.[k], `mid-${n}`);
       must(loadMs < C1_LOAD_MS, `c1 ${n}인: mid-${n} 로드 ${loadMs}ms ≥ ${C1_LOAD_MS}ms — 파일 크기·파싱 확인 (#640)`);
       must(Number.isFinite(cms) && cms < C1_COARSE_MS, `c1 ${n}인: 거친 표 생성 ${cms}ms (예산 ${C1_COARSE_MS}ms) (#640)`);
