@@ -115,30 +115,30 @@
     },
     "4": {
      "file": "mid-4.json",
-     "bytes": 1391548,
+     "bytes": 2266547,
      "tier": "mid",
      "players": 4,
      "k": 11,
      "depth": "full",
-     "iterations": 40000,
-     "run_id": "41813684540",
-     "sha": "1fc0b959a7339aa564a258ae48d819bf413dc143",
-     "lbr_bb": 1.6727,
-     "lbr_stderr_bb": 0.5904,
+     "iterations": 120000,
+     "run_id": "42591543123",
+     "sha": "9660453c545a0910efb6dd9315cf85cdbe031a71",
+     "lbr_bb": 2.718,
+     "lbr_stderr_bb": 0.6318,
      "field_worst": {
-      "name": "maniac3",
-      "bb100": -881.72,
-      "ci95_low": -1169.63
+      "name": "mixed_styles",
+      "bb100": -999.32,
+      "ci95_low": -1235.35
      },
      "job": "e3-tp-mid-c1-mixn-pod",
      "strategy": "current",
      "menu": "real",
      "raise_cap": null,
+     "key_variant": "c1",
      "q": 255,
-     "min_visits": 5,
-     "keys": 20934,
-     "keys_dropped": 252670,
-     "key_variant": "c1"
+     "min_visits": 10,
+     "keys": 33616,
+     "keys_dropped": 652660
     },
     "5": {
      "file": "mid-5.json",

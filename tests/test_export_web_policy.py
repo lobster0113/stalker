@@ -309,11 +309,13 @@ def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
     # #640: mid-2 is the min_visits=5 re-export, copied from ops 81aa9424 (#631); the old mv=10 file was a4287c01….
     want = {2: "66613749fa23f3fefe7243aeb34648eb964c0476e8fba7491701d5c52a3a3579",
             3: "c78a325925b73ea47c15381c5c355917f38aa99b92826d470b718d81d48578ea",
-            4: "3f248f0cd2449a8ffd8310315a99fb4f1d91d283221e91c7e7291576ed0bff5b",
+            4: "2bc99320fc231ed9f365d4869fccbf14c6fa2c2b2169f137031293a341c7e29c",
+            # #753: mid-4 is the 120k export (run 42591543123) copied from ops 18409fb6, swapped in on #741's
+            # 4-seed flop/turn uniform-rate remeasure (intervals overlap, preflop exact higher); the 40k file was 3f248f0c….
             # #739: mid-5 is the 120k export (run 42591543123) copied from ops 18409fb6, swapped in on #733's
             # flop/turn uniform-rate comparison; the 40k file was 0b785199….
             5: "7484bcd181ec7c2d2fd46534c774671265a6c59fb947a918afc2db137de8e18c"}
-    run_ids = {2: "41813684540", 3: "41813684540", 4: "41813684540", 5: "42591543123"}
+    run_ids = {2: "41813684540", 3: "41813684540", 4: "42591543123", 5: "42591543123"}
     mid = json.loads((pol / "index.json").read_text(encoding="utf-8"))["tiers"]["mid"]
     for n, sha in want.items():
         body = (pol / f"mid-{n}.json").read_bytes()
