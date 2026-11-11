@@ -562,3 +562,26 @@ def test_fidelity_off_is_byte_identical_and_needs_play_backoff(tmp_path, capsys)
         H.main([str(p), "--fidelity"])
     with pytest.raises(ValueError):
         H.measure({}, N3, K, DEPTH, 1, 5, fidelity=True)
+
+
+# --- #743: backoff tables from a table other than the exact one ---
+
+def test_coarse_policy_none_or_same_table_is_byte_identical():
+    key = _first_key()
+    pol = {key: [0.5, 0.5]}
+    kw = dict(play_backoff=True, l4_neighbor=True)
+    base = H.measure(pol, N3, K, DEPTH, 3, 5, **kw)
+    assert json.dumps(H.measure(pol, N3, K, DEPTH, 3, 5, coarse_policy=None, **kw)) == json.dumps(base)
+    assert json.dumps(H.measure(pol, N3, K, DEPTH, 3, 5, coarse_policy=pol, **kw)) == json.dumps(base)
+
+
+def test_a_key_only_in_coarse_policy_is_found_at_l1_not_exact():
+    key = _first_key()
+    for m in range(2, 7):   # the first decision's menu size is the engine's; try each row length
+        r = H.measure({}, N3, K, DEPTH, 1, 5, backoff=True, coarse_policy={key: [1.0 / m] * m})
+        bb = r["by_backoff"]
+        if sum(c["L1"] for c in bb["by_street"].values()):
+            break
+    assert sum(c["L1"] for c in bb["by_street"].values()) >= 1
+    assert sum(c["exact"] for c in bb["by_street"].values()) == 0
+    assert bb["keys"]["exact"] == 0 and bb["keys"]["L1"] >= 1
