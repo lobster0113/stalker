@@ -210,7 +210,7 @@ def test_hit_rate_is_recorded_per_file_monotone_deterministic_and_can_be_turned_
     for x in (a, b):   # wall-clock seconds are the one field that may differ between runs
         assert all(f.pop("hit_rate_seconds") >= 0 for f in x["files"])
     assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
-    assert a["schema_version"] == 2
+    assert a["schema_version"] == 3
     for f in a["files"]:
         hr = f["hit_rate"]
         assert list(hr["by_min_visits"]) == ["0", "1", "2", "5", "10"] and hr["players"] == f["players"]
@@ -257,3 +257,57 @@ def test_coarse_from_full_is_recorded_only_with_a_threshold_and_is_deterministic
     for f in a["files"]:
         c = f["hit_rate"]["by_min_visits"]["coarse_from_full"]
         assert c["min_visits"] == 2 and c["by_backoff"]["levels"][-1] == "uniform"
+
+
+def _key(pos, stack, step, actions="fc"):
+    return f"{pos}|n2|0|1|1|0|2|0|tc0|{stack}|u10|hb|{actions}|e{step}"
+
+
+def test_l1_rows_bytes_matches_hand_counted_bodies_per_encoding():
+    # #775: L1 drops the stack field, so the two BB e0 keys share an L1 row; mean (.75, .25) quantizes to [191, 64]
+    before = {_key("BB", "s4:4", 0): [0.5, 0.5], _key("BB", "s6:6", 0): [1.0, 0.0],
+              _key("BB", "s4:4", 1): [0.0, 1.0], _key("SB", "s4:4", 3): [0.2, 0.8],
+              _key("SB", "s1:1", 3): [0.0, 1.0, 0.0]}   # same L1 key as the SB row above, another row length
+    visits = {_key("BB", "s4:4", 0): 10, _key("BB", "s6:6", 0): 1, _key("BB", "s4:4", 1): 1, _key("SB", "s4:4", 3): 5}
+    kept = {k: r for k, r in before.items() if visits.get(k, 0) >= 5}
+    bb0, bb1, sb3 = (_key(p, "s*", e) for p, e in (("BB", 0), ("BB", 1), ("SB", 3)))
+    all_body = f'{{"{bb0}":[191,64],"{bb1}":[0,255],"{sb3}":[[51,204],[0,255,0]]}}'
+    missing_body = f'{{"{bb1}":[0,255],"{sb3}":[0,255,0]}}'
+    bbg, sbg = _key("BB", "s*", "*"), _key("SB", "s*", "*")
+    grouped_body = f'{{"{bbg}":{{"1":[0,255]}},"{sbg}":{{"3":[0,255,0]}}}}'
+    r = W.l1_rows_bytes(before, kept, visits, 100, 10_000)
+    assert (r["l1_keys_before"], r["l1_keys_file"]) == (3, 2)
+    e = r["encodings"]
+    assert list(e) == list(W.L1_ENCODINGS)
+    assert [e[x]["bytes"] for x in ("all", "missing_only", "grouped_eq")] == [len(all_body), len(missing_body), len(grouped_body)]
+    assert [e[x]["rows"] for x in ("all", "missing_only", "grouped_eq")] == [4, 2, 2]
+    assert all(e[x]["l1_keys"] == 3 and e[x]["l1_keys_ratio"] == 1.0 for x in ("all", "missing_only", "grouped_eq"))
+    assert e["all"]["total_bytes"] == 100 + len(all_body) and e["all"]["within_page_budget"] is True
+    assert e["grouped_top_fit"] == e["grouped_eq"]   # room for every group
+    assert e["all"]["gzip_bytes"] == len(W.gzip.compress(all_body.encode(), mtime=0))
+    # BB's group carries visits 1 (its missing e1 key), SB's 0: with room for one group only BB's is kept
+    one = len(f'{{"{bbg}":{{"1":[0,255]}}}}')
+    t = W.l1_rows_bytes(before, kept, visits, 100, 100 + one + 1)["encodings"]["grouped_top_fit"]
+    assert (t["bytes"], t["rows"], t["l1_keys"], t["l1_keys_ratio"]) == (one, 1, 3, 1.0)
+    # SB e3 is still an L1 key the page has (its 2-row from kept), so the ratio only counts keys, not lengths
+    none = W.l1_rows_bytes(before, kept, visits, 100, 100 + one)["encodings"]["grouped_top_fit"]
+    assert (none["bytes"], none["rows"], none["l1_keys"], none["l1_keys_ratio"]) == (2, 0, 2, 0.6667)
+
+
+def test_l1_rows_bytes_is_recorded_only_with_a_threshold_and_v2_summaries_still_read(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    st = m.state()
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", players=(2, 3))
+    assert all("l1_rows_bytes" not in f for f in z["files"])
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", players=(2, 3), min_visits=2)
+    for f in a["files"]:
+        r = f["l1_rows_bytes"]
+        assert r["file_bytes"] == f["bytes"] and r["l1_keys_file"] <= r["l1_keys_before"]
+        e = r["encodings"]
+        assert e["missing_only"]["bytes"] <= e["all"]["bytes"] and e["grouped_top_fit"]["rows"] <= e["grouped_eq"]["rows"]
+    v2 = json.loads(json.dumps(a))
+    v2["schema_version"] = 2
+    for f in v2["files"]:
+        f.pop("l1_rows_bytes")
+    assert W.policies_for_ops(v2, tmp_path / "a", None) == W.policies_for_ops(a, tmp_path / "a", None)
