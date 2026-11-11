@@ -239,3 +239,21 @@ def test_v1_summary_without_hit_rate_still_feeds_policies_for_ops(tmp_path):
 
 def test_cli_default_hit_rate_hands_is_on(tmp_path):
     assert W.HIT_RATE_HANDS > 0
+
+
+@pytest.mark.slow
+def test_coarse_from_full_is_recorded_only_with_a_threshold_and_is_deterministic(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    st = m.state()
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", players=(2, 3), hit_rate_hands=2, min_visits=2)
+    b = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "b", players=(2, 3), hit_rate_hands=2, min_visits=2)
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", players=(2, 3), hit_rate_hands=2)
+    assert all("coarse_from_full" not in f["hit_rate"]["by_min_visits"] for f in z["files"])
+    for x in (a, b):
+        for f in x["files"]:
+            f.pop("hit_rate_seconds")
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    for f in a["files"]:
+        c = f["hit_rate"]["by_min_visits"]["coarse_from_full"]
+        assert c["min_visits"] == 2 and c["by_backoff"]["levels"][-1] == "uniform"

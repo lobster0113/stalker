@@ -226,9 +226,10 @@ def _row(policy: dict, key: str, m: int):
 def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, seed: int,
             visits: dict | None = None, min_visits=MIN_VISITS, backoff: bool = False,
             rules: dict | None = None, variant: str = "c1", play_backoff: bool = False,
-            miss_report: int = 0, l4_neighbor: bool = False, fidelity: bool = False) -> dict:
+            miss_report: int = 0, l4_neighbor: bool = False, fidelity: bool = False,
+            coarse_policy: dict | None = None) -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `fidelity`: the play-weighted leave-one-out quality of the backoff rows (module doc; needs `play_backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`). `l4_neighbor`: the L4 equity-neighbor level (module doc; implies `backoff`)."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `fidelity`: the play-weighted leave-one-out quality of the backoff rows (module doc; needs `play_backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`). `l4_neighbor`: the L4 equity-neighbor level (module doc; implies `backoff`). `coarse_policy`: build the backoff tables (L1-L3) from this table instead of `policy`; exact lookups stay on `policy` (#743: a table from before the visit threshold keeps L1 material the threshold erased). None = `policy`."""
     if miss_report and not play_backoff:
         raise ValueError("miss_report needs play_backoff (#638)")
     if fidelity and not play_backoff:
@@ -244,7 +245,7 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
     kinds = {"call": _cell(), "other": _cell()}
     cand = {str(v): {"street": {str(st): _cell() for st in range(4)}, "call": _cell(), "other": _cell()}
             for v in min_visits} if visits is not None else {}
-    tables = coarse_tables(policy) if backoff else []
+    tables = coarse_tables(policy if coarse_policy is None else coarse_policy) if backoff else []
     names = ("exact", *LEVELS, *(("L4",) if l4_neighbor else ()), "uniform")
     b_street = {str(st): _bcell(l4_neighbor) for st in range(4)}
     b_kind = {"call": _bcell(l4_neighbor), "other": _bcell(l4_neighbor)}
@@ -359,6 +360,8 @@ def main(argv=None) -> int:
                     help="after L3, try the L3 rows one equity step either side (L4, #648); implies --backoff")
     ap.add_argument("--fidelity", action="store_true",
                     help="play-weighted leave-one-out quality of the backoff rows at exact hits; needs --play-backoff (#666)")
+    ap.add_argument("--coarse-policy", type=Path, metavar="FILE",
+                    help="build the backoff tables (L1-L3) from this policy file; exact lookups stay on the main file (#743)")
     ap.add_argument("--variant", choices=("auto", "c1", "legacy"), default="auto",
                     help="key layout; auto = the file's key_variant, else read off its first key (#620)")
     ap.add_argument("--pod-result", type=Path, help="the training result holding the visit counts (min_visits table)")
@@ -381,9 +384,10 @@ def main(argv=None) -> int:
 
         st, _ = X.load_pod_result(a.pod_result)
         visits = dict(X.load_model(st).visits)
+    coarse = load_policy(a.coarse_policy)[0] if a.coarse_policy else None
     res = measure(policy, doc["players"], doc["k"], doc["depth"], a.hands, a.seed, visits, backoff=a.backoff,
                   play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant, miss_report=a.miss_report,
-                  l4_neighbor=a.l4_neighbor, fidelity=a.fidelity)
+                  l4_neighbor=a.l4_neighbor, fidelity=a.fidelity, coarse_policy=coarse)
     json.dump({**res, "variant": variant or "legacy", "file": a.policy.name}, sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0

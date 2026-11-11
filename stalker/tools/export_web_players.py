@@ -116,6 +116,15 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
             # the page's own menu/cap: the engine default (v1, cap 3) misreads a real-menu table as ~0% hit (#618)
             files[-1]["hit_rate"] = H.measure(X.keep_players(full, n), n, doc["k"], doc["depth"],
                                               hit_rate_hands, 611 + n, visits, rules=H.rules_of(doc))
+            if mv > 0:
+                # #743: play the file's own table (visits >= mv) with the backoff tables built from the table before
+                # the threshold, to see what keeping L1 material apart from the threshold would buy.
+                before = X.keep_players(full, n)
+                kept = {k: r for k, r in before.items() if visits.get(k, 0) >= mv}
+                cff = H.measure(kept, n, doc["k"], doc["depth"], hit_rate_hands, 611 + n, rules=H.rules_of(doc),
+                                play_backoff=True, l4_neighbor=True, coarse_policy=before)
+                files[-1]["hit_rate"].setdefault("by_min_visits", {})["coarse_from_full"] = {
+                    "min_visits": mv, "by_backoff": cff["by_backoff"]}
             files[-1]["hit_rate_seconds"] = round(time.monotonic() - t0, 1)   # timing only: breaks byte-equality, see test
         print(f"{name}: {doc['keys']} keys, {len(body)} bytes")
     X.write_index(out_dir / "index.json", idx)
