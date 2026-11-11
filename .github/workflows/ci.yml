@@ -93,7 +93,7 @@ jobs:
   web:
     # Gate U: demo E2E + 3-viewport screenshots + axe (#99). Commands: web/README.md.
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -106,8 +106,30 @@ jobs:
       - run: node --test web/app/test/*.test.mjs
       - run: npm ci
         working-directory: web/e2e
-      - run: npx playwright install --with-deps chromium
+      # #780: apt DNS outages (security.ubuntu.com) failed every web job. Cache the browser build so a hit
+      # skips the download, and retry the install; system libs ship with ubuntu-latest, so install-deps is best-effort.
+      - id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/e2e/package-lock.json') }}
+      - name: playwright install (retry)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         working-directory: web/e2e
+        run: |
+          for i in 1 2 3; do
+            npx playwright install chromium && break
+            [ "$i" = 3 ] && exit 1
+            sleep $((i * 20))
+          done
+      - name: playwright system deps (best effort)
+        working-directory: web/e2e
+        run: |
+          for i in 1 2 3; do
+            timeout 120 npx playwright install-deps chromium && exit 0
+            sleep $((i * 10))
+          done
+          echo "::warning::playwright install-deps failed; relying on runner system libs"
       - run: npm test
         working-directory: web/e2e
         env:
