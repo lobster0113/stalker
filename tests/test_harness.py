@@ -157,7 +157,7 @@ def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     web = ci.split("\n  web:\n", 1)[1].split("\n\n", 1)[0]
     minutes = int(re.search(r"timeout-minutes: (\d+)", web).group(1))
-    assert minutes <= 15
+    assert minutes <= 25  # normal run ~12 min + install retries (#780)
     assert "npm test" in web and "playwright install" in web
     assert "name: web-screenshots" in web and "if: always()" in web
     script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text(encoding="utf-8")
