@@ -1080,3 +1080,4 @@
 {"ts":"2026-11-11T02:41:30Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 PR은 #599(짝수, reviewer-b 몫)뿐, 홀수 PR 없음","friction":""}
 {"ts":"2026-11-11T03:04:06Z","role":"builder","outcome":"pr_opened","issue":751,"pr":759,"notes":"피시 칸 레버 켬 + 보정 레버 #730 최근접 점(4시드 평균 판정 통과, 턴 .1359 로컬), 칸 테스트 2개(3테이블), 비트 동일 목록 4유형·새 다이제스트, seen 20→16","friction":"gates quick 로컬 1217초·full 1288초(목표 90초, (a) 반복). 혼합 4시드 판정 CLI가 없어 스크래치 드라이버로 pool 측정(persona_cell_grid에 --pool K 옵션 후보). main quick 도중 브랜치 체크아웃해 결과 무효화 → 재실행(내 실수)."}
 {"ts":"2026-11-11T03:04:17Z","role":"reviewer-b","outcome":"skipped","issue":751,"pr":759,"notes":"not my parity","friction":""}
+{"ts":"2026-11-11T03:11:42Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #759,#599 are odd parity (reviewer); none for reviewer-b","friction":""}
