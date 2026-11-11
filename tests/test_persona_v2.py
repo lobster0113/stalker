@@ -111,7 +111,8 @@ def _mixed_field_judgment(runs, params=PRESETS_V2):
 def test_street_style_within_6pp_of_target_in_mixed_field():
     # ADR 0023: one seed set's turn error sd (~.007) is the size of the margin to .14, so judge the 4-set seat mean
     bad, seen, mean, err, river = _mixed_field_judgment([_mixed_seats(k) for k in MIXED_OFFSETS])
-    assert len(seen) == 20 and not bad, bad
+    # #751: the four cell-lever types (tag, pro, loose_passive, calling_station) drop their mixed totals: 8 wtsd + 2x4
+    assert len(seen) == 16 and not bad, bad
     # giveup_weak overrides fold_cbet_turn/fold_river (docs/research/2026-11-persona-wtsd-sweep.md): the measured folds
     # sit above their targets, so only guard what the servers rely on: loose types fold clearly less than tight ones, no
     # type folds almost always (reviewer #531: calling_station must not fold to 61% of turn c-bets above the tight group)
@@ -151,11 +152,12 @@ def _core(stats):
 
 def test_cell_levers_off_replay_is_bit_identical():
     # #670 under #569's constraint: types without the levers replay exactly as before them. The digest was taken on main
-    # 4720829 (before #670) with the same call; the levers and their bookkeeping never draw from the rng.
-    names = ["nit", "weak_tight", "lag", "maniac", "calling_station", "loose_passive"]
+    # 6d09079 (before #751 put the fish types on cells; six seats from the four lever-free types) with the same call; the
+    # levers and their bookkeeping never draw from the rng.
+    names = ["nit", "weak_tight", "lag", "maniac", "nit", "weak_tight"]
     assert all(getattr(PRESETS_V2[n], k) is None for n in names for k in _CELL_LEVERS)
     st = measure_session([PersonaAgent(PRESETS_V2[n], np.random.default_rng(i)) for i, n in enumerate(names)], 400, seed=9)
-    assert hashlib.sha256(repr(_core(st)).encode()).hexdigest()[:16] == "145e60ae4b33df9c"
+    assert hashlib.sha256(repr(_core(st)).encode()).hexdigest()[:16] == "2341add5af92d439"
 
     # neutral lever values move no threshold, so the replay equals the levers-off one; real values change play
     def run(**kw):
@@ -198,6 +200,28 @@ def test_tag_flop_cells_hit_human_targets():
     assert all(opp[k] >= 150 for k in targets), opp
     assert all(abs(got[k] - t) <= 0.06 for k, t in targets.items()), (got, opp)
     p = PRESETS_V2["tag"]
+    assert all(abs(x.vpip - p.vpip) <= 0.05 and abs(x.pfr - p.pfr) <= 0.05 for x in seats), seats
+
+
+# #751: the fish types' cell targets (note §10.1.6, [assumption]). Two seats of the type at each of three tables: the
+# fish rarely raise preflop, so a third table lifts station's heads-up 3-bet+ c-bets above 150 with room (local: 473).
+FISH_CELL_TARGETS = {
+    "loose_passive": {"cb_hu_srp": 0.46, "cb_hu_3bp": 0.50, "cb_mw_srp": 0.38, "f_hu_srp": 0.36, "f_mw_srp": 0.44},
+    "calling_station": {"cb_hu_srp": 0.40, "cb_hu_3bp": 0.42, "cb_mw_srp": 0.34, "f_hu_srp": 0.25, "f_mw_srp": 0.30},
+}
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("persona", list(FISH_CELL_TARGETS))
+def test_fish_flop_cells_hit_lowstakes_targets(persona):
+    tables = [(persona, "maniac", persona, "nit", "lag", "weak_tight"),
+              (persona, "tag", persona, "pro", "lag", "maniac"),
+              (persona, "lag", persona, "tag", "nit", "maniac")]
+    got, opp, seats = _pooled_cells(persona, tables)
+    targets = FISH_CELL_TARGETS[persona]
+    assert all(opp[k] >= 150 for k in targets), opp
+    assert all(abs(got[k] - t) <= 0.06 for k, t in targets.items()), (got, opp)
+    p = PRESETS_V2[persona]
     assert all(abs(x.vpip - p.vpip) <= 0.05 and abs(x.pfr - p.pfr) <= 0.05 for x in seats), seats
 
 

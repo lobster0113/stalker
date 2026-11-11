@@ -756,6 +756,8 @@ web/app/personas.js에 FLOP_CELL.loose_passive·calling_station을 넣어 Python
 
 해석: 레버 없는 현재 프리셋도 오프셋 0에서만 통과한다. 지금 테스트는 시드 하나에 맞춰진 값이고, 턴 오차의 시드 sd(.006–.007)가 가드 .14와 현재 값 사이 거리와 같은 크기다. #730 결론 (b)의 "통과 점 0개"는 레버 효과만이 아니라 이 잡음 때문이기도 하다. 판정 설계는 ADR 0023(추천: 시드 4개 좌석 평균, 같은 가드)에서 정했다. 재현: CLI(`--seed-offset K`)는 격자 점(칸 레버 켬)만 재므로, 레버 없는 프리셋과 4개 평균은 모듈을 직접 부른다 — `g.judge(P, g.pool([g.measure(P, 20000, k) for k in range(4)]))`(`g` = `scripts/persona_cell_grid.py` 모듈, `P` = `PRESETS_V2` 또는 `g.apply(PRESETS_V2, 점)`), 4개 순차 약 2–3분.
 
+**적용 (#751, 측정은 로컬·참고용, CI 아님).** 칸 레버(§10.1.6 시작값)와 #730 최근접 보정 레버(loose_passive `giveup_weak/giveup_turn/probe_turn` 0.6/0.3/0.4 | calling_station 0.7/0.3/0.4)를 `PRESETS_V2`에 넣었다. 혼합 테스트 4시드 좌석 평균 판정(ADR 0023): 턴 .1359(현재 프리셋 .1381보다 나쁘지 않음)·리버 .1627·좌석 WTSD 편차 최대 .0577, 통과(시드별 2/4). 같은 판정으로 이웃 6점(한 유형·한 레버씩: LP `giveup_turn` .25·`probe_turn` .5·`giveup_weak` .7, station `giveup_turn` .25·`probe_turn` .5·`giveup_weak` .68)을 쟀더니 LP `giveup_turn` .25만 통과(턴 .1345·WTSD 편차 .0586 — 턴 여유는 크지만 WTSD 여유 .0014로 더 작음), 나머지 5점은 nit·calling_station WTSD 또는 턴 오차에서 실패 → 출발점 채택. 혼합 테이블 4시드 합산 칸(%·기회): LP 46.1 (4209)·51.5 (1384)·37.2 (1681)·폴드 36.7 (8130)·46.5 (12945), station 42.1 (2027)·41.4 (879)·34.4 (639)·폴드 25.4 (17586)·30.3 (15018) — 모두 목표 ±6 안. 칸 테스트 `tests/test_persona_v2.py::test_fish_flop_cells_hit_lowstakes_targets`(유형 2석 × 테이블 3개, 25,000핸드, `_pooled_cells`): 최대 편차 LP 2.7%p·station 3.9%p(헤즈업·3-bet+ 45.9 대 42, 기회 473), 판정 칸 최소 기회 473. 테이블 2개 구성에서는 station 헤즈업·3-bet+ 기회가 281–319이고 한 구성은 47.6(여유 .4%p)이어서 3개로 늘렸다. CI 결과: PR CI `gates (tests)` — run id는 PR 본문.
+
 ## 출처
 
 모든 접근일 2026-10-30(따로 적은 것 제외). "날짜"는 게시일(없으면 추정 근거).

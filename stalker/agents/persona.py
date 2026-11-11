@@ -113,8 +113,8 @@ PRESETS_V2: dict[str, PersonaParams] = {
 # test's WTSD and turn/river fold bounds.
 _WTSD_LEVERS = {
     "nit": (0.8, 1.0, 1.0, 1.0, None), "weak_tight": (0.5, 0.8, 1.0, 0.7, None), "tag": (0.0, 0.7, 1.0, 0.7, None),
-    "lag": (0.02, 0.7, 0.8, 0.68, None), "loose_passive": (0.15, 0.5, 0.7, 0.4, None),
-    "calling_station": (0.1, 0.4, 0.68, 0.25, None), "maniac": (0.2, 0.85, 0.65, 0.25, None), "pro": (0.0, 0.3, 1.0, 0.6, None),
+    "lag": (0.02, 0.7, 0.8, 0.68, None), "loose_passive": (0.15, 0.4, 0.6, 0.3, None),
+    "calling_station": (0.1, 0.4, 0.7, 0.3, None), "maniac": (0.2, 0.85, 0.65, 0.25, None), "pro": (0.0, 0.3, 1.0, 0.6, None),
 }
 PRESETS_V2 = {k: dataclasses.replace(v, donk_flop=_WTSD_LEVERS[k][0], probe_turn=_WTSD_LEVERS[k][1],
                                      giveup_weak=_WTSD_LEVERS[k][2], giveup_turn=_WTSD_LEVERS[k][3],
@@ -130,6 +130,14 @@ PRESETS_V2["pro"] = dataclasses.replace(PRESETS_V2["pro"], cbet_flop=0.545, cbet
 # c-bet heads-up single-raised 48, multiway 68). [assumption] start values from the note; start values hold all five cells within 6pp on seeded sessions, so no grid; probe/giveup unchanged (mixed-table WTSD guard passes).
 PRESETS_V2["tag"] = dataclasses.replace(PRESETS_V2["tag"], cbet_flop=0.62, cbet_flop_3bp_mult=1.13, cbet_flop_mw_mult=0.68,
                                         fold_cbet_flop=0.40, fold_cbet_flop_mw=0.62)
+# #751: the fish types' cells (note §10.1.6, [assumption] half of tag's cell ratios: loose_passive heads-up single-raised 46,
+# heads-up 3-bet+ 50, multiway single-raised 38, fold heads-up 36, multiway 44; calling_station 40·42·34, fold 25·30). With the
+# cells on, their probe_turn/giveup_weak/giveup_turn above moved (loose_passive 0.5/0.7/0.4 -> 0.4/0.6/0.3, calling_station
+# giveup 0.68/0.25 -> 0.7/0.3): #730's nearest point, which passes the mixed test's four-seed mean judgment (ADR 0023).
+PRESETS_V2["loose_passive"] = dataclasses.replace(PRESETS_V2["loose_passive"], cbet_flop=0.46, cbet_flop_mw_mult=0.83,
+                                                  cbet_flop_3bp_mult=1.09, fold_cbet_flop=0.34, fold_cbet_flop_mw=0.44)
+PRESETS_V2["calling_station"] = dataclasses.replace(PRESETS_V2["calling_station"], cbet_flop=0.40, cbet_flop_mw_mult=0.82,
+                                                    cbet_flop_3bp_mult=1.05, fold_cbet_flop=0.23, fold_cbet_flop_mw=0.28)
 
 
 def persona_params(name: str) -> PersonaParams:
