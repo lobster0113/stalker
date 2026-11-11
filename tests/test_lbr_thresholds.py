@@ -26,7 +26,26 @@ def test_pinned_and_matches_adr_table():
     for n, cur, avg, hands, mc, ma in rows:
         spec = table[n]
         assert (spec["lbr_max"], spec["lbr_average_max"], spec["hands"]) == (float(cur), float(avg), int(hands))
-        assert spec["min_seeds"] == {"lbr": int(mc), "lbr_average": int(ma)}
+        # ADR 0024 raised only the 3-player lbr seeds (v2); every other cell is still the ADR 0020 table
+        want_lbr = 2 if n == "3" else int(mc)
+        assert spec["min_seeds"] == {"lbr": want_lbr, "lbr_average": int(ma)}
+
+
+def test_v1_frozen_and_v2_differs_only_in_three_player_min_seeds():
+    raw = T.THRESHOLDS_V1.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == T.THRESHOLDS_V1_SHA256
+    v1, v2 = json.loads(raw), T.load_thresholds()
+    assert v1["players"]["3"]["min_seeds"]["lbr"] == 1 and v2["players"]["3"]["min_seeds"]["lbr"] == 2
+    v1["players"]["3"]["min_seeds"]["lbr"] = 2
+    for doc in (v1, v2):
+        doc.pop("adr"), doc.pop("note")
+    assert v1 == v2
+
+
+def test_three_player_single_seed_is_insufficient():
+    r = T.judge([summ(1, 3, 2000, 4.0)])
+    assert r["3"]["lbr"]["verdict"] == "insufficient" and r["3"]["lbr"]["seeds"] == 1
+    assert T.judge([summ(1, 3, 2000, 4.0), summ(2, 3, 2000, 4.0)])["3"]["lbr"]["verdict"] == "pass"
 
 
 def test_synthetic_cases():

@@ -139,7 +139,7 @@ def _lbr_result(run_policy, lbr_on_3, pass_on_3=True):
     return {"schema": "stalker.web.policy-lbr", "schema_version": 1, "policy_run": run_policy,
             "backoff": {"on": {"2": cell(5.5, 9.0, True), "3": cell(lbr_on_3, 6.4, pass_on_3)},
                         "off": {"2": cell(6.8, 9.0, True), "3": cell(4.4, 6.4, True)}},
-            "rows": [], "thresholds": "referee/e3/lbr_thresholds_v1.json"}
+            "rows": [], "thresholds": "referee/e3/lbr_thresholds_v2.json"}
 
 
 @pytest.fixture
@@ -270,3 +270,13 @@ def test_e3_web_lbr_without_on_cell_for_a_legacy_count(ops_clone):
     assert got["fresh"] is True and got["all_pass_on"] is True and "on" not in got["by_players"]["3"]
     _pages(clone, p3="C")
     assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False
+
+
+def test_e3_web_lbr_single_seed_three_player_cell_is_not_a_pass(ops_clone):
+    # ADR 0024: 3 players need 2 seeds, so a 1-seed result carries pass=None -> all_pass_on False, metric intact
+    origin, clone = ops_clone
+    _pages(clone, p2="p9", p3="p9")
+    _ops_with(origin, _lbr_result("p9", 4.5, None))
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 500 and got["by_players"]["3"]["on"]["pass"] is None
+    assert got["all_pass_on"] is False and got["fresh"] is True
