@@ -39,7 +39,8 @@ class WebPolicy:
         return H._row(self.table, key, m)
 
 
-def measure(path: Path, players: int, hands: int, seed: int, backoff: bool = False, l4: bool = False) -> dict:
+def measure(path: Path, players: int, hands: int, seed: int, backoff: bool = False, l4: bool = False,
+            aivat_samples: int = 0) -> dict:
     from referee.e3.lbr import exploitability_lb
 
     raw = Path(path).read_bytes()
@@ -52,10 +53,11 @@ def measure(path: Path, players: int, hands: int, seed: int, backoff: bool = Fal
     pol = WebPolicy(table, doc["k"], backoff, l4)
     rules = H.rules_of(doc)
     with G.rules(rules["menu"], rules["raise_cap"]), K.using_variant(variant):
-        lb = exploitability_lb(pol, hands, seed=seed, k=doc["k"], n=players, depth=doc["depth"])
+        lb = exploitability_lb(pol, hands, seed=seed, k=doc["k"], n=players, depth=doc["depth"], aivat_samples=aivat_samples)
     return {"lbr_bb": lb["lbr_bb"], "lbr_stderr_bb": lb["stderr_bb"], "by_seat": lb["by_seat"], "hands": hands,
             "seed": seed, "players": players, "policy_sha256": hashlib.sha256(raw).hexdigest(),
-            "backoff": bool(backoff or l4), "l4_neighbor": bool(l4)}
+            "backoff": bool(backoff or l4), "l4_neighbor": bool(l4),
+            **{k: lb[k] for k in ("aivat_lbr_bb", "aivat_stderr_bb") if k in lb}}
 
 
 def main(argv=None) -> int:

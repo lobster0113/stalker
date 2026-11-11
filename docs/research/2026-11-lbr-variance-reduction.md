@@ -77,5 +77,5 @@ python scripts/lbr_variance.py --policy web/app/policy/mid-2.json --players 2 --
 순서: (1) referee-change로 `referee/e3/lbr.py`에 보정 열을 **기록만** 추가(기존 열·판정 불변), (2) CI evalnoise8 잡을 2–6인에 돌려 보정 열 sd·편향을 CI 수치로 확인, (3) 그 수치로 ADR(새 `lbr_thresholds_v3.json`: 보정 열 기준 선과 `min_seeds`) — 이 PR은 합격선·`min_seeds`를 바꾸지 않는다. 공통 카드 시퀀스는 정책 비교에 이미 쓰이고(같은 평가 시드), 층화·핸드 수 늘리기는 AIVAT보다 효율이 낮아 보류.
 
 ## 후속 (PR "후속"에 제안, 이 PR 범위 밖)
-1. **referee-change**: `referee/e3/lbr.py:lbr`·`exploitability_lb`에 AIVAT식 보정 열(`aivat_lbr_bb`·`aivat_stderr_bb`) 기록 추가, `stalker/tools/web_policy_lbr_job.py` 결과에 같은 열(`SCHEMA_VERSION` 2, v1 읽기 호환). 기존 `lbr_bb`·판정은 그대로. 수용 기준: 기존 열 바이트 동일 테스트, 보정 항 평균 0 테스트(작은 게임), evalnoise8 잡(2–6인)으로 CI sd 표.
+1. (#781에서 반영: 심판 `lbr_hands`·`aivat_samples`, 잡 schema 2 기본 `--aivat-samples 8`.) **referee-change**: `referee/e3/lbr.py:lbr`·`exploitability_lb`에 AIVAT식 보정 열(`aivat_lbr_bb`·`aivat_stderr_bb`) 기록 추가, `stalker/tools/web_policy_lbr_job.py` 결과에 같은 열(`SCHEMA_VERSION` 2, v1 읽기 호환). 기존 `lbr_bb`·판정은 그대로. 수용 기준: 기존 열 바이트 동일 테스트, 보정 항 평균 0 테스트(작은 게임), evalnoise8 잡(2–6인)으로 CI sd 표.
 2. **ADR(위 1의 CI 수치 뒤)**: 보정 열로 판정을 옮길지, `lbr_thresholds_v3.json`의 선·`min_seeds`.
