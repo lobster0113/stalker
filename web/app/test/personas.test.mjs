@@ -230,8 +230,8 @@ const FISH_CELLS = {
 // Python (#751) → web: the web value differs only where the note §10.1.6 「웹 미러」 says it is web-fitted.
 const FISH_PY = { fish: "loose_passive", station: "calling_station" };
 const FISH_WEB = {   // [Python value, web value] for cbet_flop_mw_mult·cbet_flop_3bp_mult·fold_cbet_flop_mw
-  fish: { cbetMw: [0.83, 1.1], cbet3bp: [1.09, 0.68], foldCbMw: [0.44, 0.44] },
-  station: { cbetMw: [0.82, 1.5], cbet3bp: [1.05, 0.82], foldCbMw: [0.28, 0.24] },
+  fish: { cbetMw: [0.83, 1.1], cbet3bp: [1.09, 0.78], foldCbMw: [0.44, 0.44] },
+  station: { cbetMw: [0.82, 1.5], cbet3bp: [1.05, 0.92], foldCbMw: [0.28, 0.24] },
 };
 test("web fish levers track the Python loose_passive/calling_station levers of #751", async () => {
   const { readFileSync } = await import("node:fs");
@@ -471,5 +471,20 @@ test("13x13 BTN open ranges (report)", () => {
     // At the type's mean widths, so the picture shows the type's shape rather than one draw's looseness.
     const pl = P.createPlayer(type, rng, { p: { rfiBTN: P.MEANS.rfiBTN[type] / 100, limp: P.MEANS.limp[type] / 100 } });
     console.log(`${type} BTN open (R raise, L limp; lower case = part of the class), width ${(pl.p.rfiBTN * 100).toFixed(0)}%\n${P.gridOf(P.openLadder(pl, "BTN"), "rl")}`);
+  }
+});
+
+// ---------------------------------------------------------------- 3-bet+ pot aggressor range (#773)
+test("rangeShift: 3-bet+ pot aggressor uses the 3-bet/4-bet width, single-raised and caller paths are unchanged", () => {
+  const rng = P.mulberry32(773);
+  for (const type of ["pro", "fish", "station"]) {
+    const pl = P.createPlayer(type, rng);
+    for (const street of [1, 2, 3]) for (const facing of [false, true]) {
+      const srp = P.rangeShift(pl, street, facing, true, 1);
+      assert.equal(P.rangeShift(pl, street, facing, true), srp, `${type}: missing potRaises must mean single-raised`);
+      // Narrower range → the same hand ranks lower inside it → larger shift (weaker strength).
+      assert.ok(P.rangeShift(pl, street, facing, true, 2) > srp, `${type} street ${street}: 3-bet pot aggressor not weaker`);
+      for (const pr of [1, 2, 3]) assert.equal(P.rangeShift(pl, street, facing, false, pr), P.rangeShift(pl, street, facing, false, 1), `${type}: caller path changed`);
+    }
   }
 });

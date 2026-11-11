@@ -148,7 +148,7 @@ export function flopCell(playersOnFlop, preflopRaises) {
 // undershoot multiway (station ~26 vs 34): cbet3bp/cbetMw are web-fitted, as pro's were in #676. Note §10.1.6 「웹 미러」.
 export const FLOP_CELL = {
   pro: { cbetMw: 0.63, cbet3bp: 1.1, foldCbMw: 0.56 }, tag: { cbetMw: 0.68, cbet3bp: 1.13, foldCbMw: 0.62 },
-  fish: { cbetMw: 1.1, cbet3bp: 0.68, foldCbMw: 0.44 }, station: { cbetMw: 1.5, cbet3bp: 0.82, foldCbMw: 0.24 },
+  fish: { cbetMw: 1.1, cbet3bp: 0.78, foldCbMw: 0.44 }, station: { cbetMw: 1.5, cbet3bp: 0.92, foldCbMw: 0.24 },
 };
 
 // Percentiles of equity vs one random hand, deciles 0..100% (measured offline with tpgto.evaluate, 4000
@@ -475,9 +475,11 @@ function Phi(z) { const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2); cons
 // offline with tpgto.evaluate; SURVIVOR is the extra lift of having continued on earlier streets ([가정],
 // fitted so the calibration test lands fold-to-c-bet and WTSD in the note's ranges).
 const CHAIN = [1, 0.31, 0.31 * 0.82, 0.31 * 0.82 * 0.78], SURVIVOR = [0, 0, 0.4, 0.5];
-function rangeShift(pl, street, facing, aggressor) {
-  // The preflop raiser holds its raising range (premiums only for a fish); a caller its whole VPIP.
-  const w = clip(aggressor ? pl.p.rfiCO * (1 - pl.p.limp) : pl.p.rfiCO + pl.p.coldcall, 0.03, 0.9), c = invPhi(1 - w);
+export function rangeShift(pl, street, facing, aggressor, potRaises = 1) {
+  // The preflop raiser holds its raising range (premiums only for a fish); a caller its whole VPIP. In a 3-bet+ pot the
+  // aggressor got there by 3-betting (4-betting), a far narrower range than an open, so its strength was inflated (#773).
+  const open = pl.p.rfiCO * (1 - pl.p.limp), aggW = potRaises >= 3 ? pl.p.fourbet : potRaises === 2 ? pl.p.threebet : open;
+  const w = clip(aggressor ? aggW : pl.p.rfiCO + pl.p.coldcall, 0.03, 0.9), c = invPhi(1 - w);
   const m = Math.exp(-c * c / 2) / Math.sqrt(2 * Math.PI) / w;   // E[z | top-w]
   return CHAIN[street] * m + (facing ? SURVIVOR[street] : 0);
 }
@@ -504,7 +506,7 @@ export function catPercentile(street, cat) {
 // Beating k opponents at once ≈ beating each, so a percentile becomes q^k multiway.
 function strengthOf(pl, sit) {
   const q = sit.cat ? catPercentile(sit.street, sit.cat) : eqToQ(sit.street, sit.hand.eq);
-  const z = invPhi(q) - rangeShift(pl, sit.street, sit.toCall > 0, !!sit.postflop?.aggressor);
+  const z = invPhi(q) - rangeShift(pl, sit.street, sit.toCall > 0, !!sit.postflop?.aggressor, sit.postflop?.potRaises ?? 1);
   return Math.pow(Phi(z), Math.max(1, sit.nOpp));
 }
 
