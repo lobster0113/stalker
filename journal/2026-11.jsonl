@@ -1118,3 +1118,4 @@
 {"ts":"2026-11-11T10:12:09Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd (reviewer parity); nothing for reviewer-b","friction":"should_run --sweep printed RUN with no even-numbered PR open"}
 {"ts":"2026-11-11T10:41:40Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES on head d723a9c; no new commits, skipped","friction":""}
 {"ts":"2026-11-11T10:53:54Z","role":"builder-b","outcome":"pr_opened","issue":768,"pr":771,"notes":"ADR 0024 + lbr_thresholds_v2 (3인 min_seeds.lbr 1→2), gates full PASS","friction":"gates full 로컬 ~25분, 타깃 pytest가 test_metrics 일부에서 백그라운드 장시간 대기(전체 gates tests 1146s)"}
+{"ts":"2026-11-11T10:54:20Z","role":"reviewer-b","outcome":"skipped","issue":768,"pr":771,"notes":"not my parity","friction":""}
