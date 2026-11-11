@@ -21,11 +21,16 @@ listing only them (entries already in `--index-base` stay as they are); `cloud.y
 `--hit-rate-hands N` (default 300, 0 = off) plays N seeded hands per seat count with the table before any `min_visits`
 filter and puts `hit_rate` (`stalker.tools.web_hit_rate.measure`: by street, `call|` or not, and `by_min_visits`
 0/1/2/5/10) into each file's summary entry, so CI tells a low hit rate from the filter apart from missing training coverage (#617).
+
+A file with a `min_visits` threshold also gets `l1_rows_bytes` (#775): how many bytes the L1 backoff
+rows of the table before the threshold would add to the file under a few candidate encodings, measured only (the
+file and the page are unchanged).
 """
 from __future__ import annotations
 
 import argparse
 import copy
+import gzip
 import hashlib
 import json
 import sys
@@ -36,7 +41,7 @@ from stalker.tools import export_web_policy as X
 from stalker.tools import web_hit_rate as H
 
 SCHEMA = "stalker.web.policy-export"
-SCHEMA_VERSION = 2   # 2: files[].hit_rate (#617); a v1 summary is the same without it
+SCHEMA_VERSION = 3   # 3: files[].l1_rows_bytes (#775); 2: files[].hit_rate (#617); older summaries lack them
 HIT_RATE_HANDS = 300   # CLI default: seeded hands per seat count; 0 turns the measurement off
 PLAYERS = (2, 3, 4, 5, 6)
 VISIT_STEPS = (1, 2, 3, 4, 5, 10, 20, 50, 100)
@@ -59,6 +64,100 @@ def check_artifact(listing: dict, run: str) -> dict:
 
 def _keys_by_min_visits(keys, visits: dict) -> dict:
     return {str(v): sum(1 for k in keys if visits.get(k, 0) >= v) for v in VISIT_STEPS}
+
+
+L1_ENCODINGS = ("all", "missing_only", "grouped_eq", "grouped_top_fit")
+
+
+def _l1_rows(policy: dict) -> dict:
+    """L1 key -> {row length -> quantized mean row} (`web_hit_rate.coarse_tables` level 1, then `quantize`)."""
+    import numpy as np
+
+    acc: dict = {}
+    for k, row in policy.items():
+        c = acc.setdefault(H.coarse_key(k, 1), {}).setdefault(len(row), [np.zeros(len(row)), 0])
+        c[0] += row
+        c[1] += 1
+    return {ck: {m: X.quantize(tot / n) for m, (tot, n) in sorted(by_m.items())} for ck, by_m in sorted(acc.items())}
+
+
+def _flat(rows: dict) -> dict:
+    """{L1 key: row} (one row length, the common case) or {L1 key: [rows by length]}."""
+    return {ck: (next(iter(by_m.values())) if len(by_m) == 1 else list(by_m.values())) for ck, by_m in rows.items()}
+
+
+def _grouped(rows: dict) -> dict:
+    """{L1 key with its equity field `e*`: {step: row or [rows]}}: keys that differ only in the equity step share
+    the rest of the key string once."""
+    out: dict = {}
+    for ck, v in _flat(rows).items():
+        out.setdefault(_group_of(ck), {})[_eq_field(ck)[1:]] = v
+    return out
+
+
+def _eq_at(parts: list) -> int:
+    return max(i for i, f in enumerate(parts) if H._EQ.fullmatch(f))   # the hand's equity step (`coarse_key`)
+
+
+def _eq_field(ck: str) -> str:
+    parts = ck.split("|")
+    return parts[_eq_at(parts)]
+
+
+def _group_of(ck: str) -> str:
+    parts = ck.split("|")
+    parts[_eq_at(parts)] = "e*"
+    return "|".join(parts)
+
+
+def _size(obj) -> tuple[int, int]:
+    body = json.dumps(obj, separators=(",", ":")).encode()
+    return len(body), len(gzip.compress(body, mtime=0))
+
+
+def l1_rows_bytes(before: dict, kept: dict, visits: dict, file_bytes: int, max_bytes: int = X.MAX_BYTES) -> dict:
+    """Bytes the L1 backoff rows built from `before` (the table before the `min_visits` threshold) would add to a file
+    holding `kept`, per candidate encoding (#775). Rows are `quantize`d means, one per (L1 key, row length); each body
+    is compact JSON (`bytes`) and its gzip (`gzip_bytes`, mtime 0). `rows` = (L1 key, length) pairs shipped,
+    `l1_keys` = L1 keys the page would then have (shipped or built from `kept` as today), `l1_keys_ratio` = that over
+    `l1_keys_before` (all L1 keys of `before`).
+
+    - `all`: every L1 row as `{L1 key: row}` (`[rows]` when a key has several lengths).
+    - `missing_only`: as `all` without the (key, length) pairs the page already builds from `kept`.
+    - `grouped_eq`: the `missing_only` rows as `{key with e*: {equity step: row}}`.
+    - `grouped_top_fit`: `grouped_eq` groups taken whole, by summed `visits` of their `before` keys (ties: key
+      order), each one that still fits `max_bytes - file_bytes - 1` (the comma of one more field); none if no room.
+    """
+    full = _l1_rows(before)
+    have = {ck: set(by_m) for ck, by_m in _l1_rows(kept).items()}
+    missing = {ck: d for ck, d in ((ck, {m: r for m, r in by_m.items() if m not in have.get(ck, ())})
+                                   for ck, by_m in full.items()) if d}
+    n_before = len(full)
+
+    def entry(rows: dict, body) -> dict:
+        b, g = _size(body)
+        n = len(set(rows) | set(have))
+        return {"bytes": b, "gzip_bytes": g, "rows": sum(len(d) for d in rows.values()), "l1_keys": n,
+                "l1_keys_ratio": round(n / n_before, 4) if n_before else 0.0, "total_bytes": file_bytes + b,
+                "within_page_budget": file_bytes + b <= max_bytes}
+
+    groups = _grouped(missing)
+    weight: dict = {}
+    for k in before:
+        ck = H.coarse_key(k, 1)
+        if ck in missing:
+            g = _group_of(ck)
+            weight[g] = weight.get(g, 0) + visits.get(k, 0)
+    room, fit, size = max_bytes - file_bytes - 1, {}, 2   # "{}"
+    for g in sorted(groups, key=lambda g: (-weight.get(g, 0), g)):
+        add = len(json.dumps({g: groups[g]}, separators=(",", ":")).encode()) - 2 + (1 if fit else 0)
+        if size + add > room:
+            continue
+        fit[g], size = groups[g], size + add
+    fit_rows = {ck: d for ck, d in missing.items() if _group_of(ck) in fit}
+    return {"l1_keys_before": n_before, "l1_keys_file": len(have), "file_bytes": file_bytes, "max_bytes": max_bytes,
+            "encodings": {"all": entry(full, _flat(full)), "missing_only": entry(missing, _flat(missing)),
+                          "grouped_eq": entry(missing, groups), "grouped_top_fit": entry(fit_rows, fit)}}
 
 
 def parse_min_visits_by_players(spec: str, mix) -> dict:
@@ -111,6 +210,10 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
                       "within_page_budget": len(body) <= max_bytes,
                       "keys_by_min_visits": _keys_by_min_visits(X.keep_players(full, n), visits),
                       "lbr_bb": doc["lbr_bb"], "lbr_stderr_bb": doc["lbr_stderr_bb"], "field_worst": doc["field_worst"]})
+        if mv > 0:
+            before = X.keep_players(full, n)
+            files[-1]["l1_rows_bytes"] = l1_rows_bytes(
+                before, {k: r for k, r in before.items() if visits.get(k, 0) >= mv}, visits, len(body), max_bytes)
         if hit_rate_hands > 0:
             t0 = time.monotonic()
             # the page's own menu/cap: the engine default (v1, cap 3) misreads a real-menu table as ~0% hit (#618)
