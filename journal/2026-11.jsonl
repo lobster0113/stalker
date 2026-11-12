@@ -1259,3 +1259,4 @@
 {"ts":"2026-11-12T14:17:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd parity (reviewer)","friction":""}
 {"ts":"2026-11-12T14:34:09Z","role":"builder-b","outcome":"pr_opened","issue":808,"pr":812,"notes":"12 slowest tests marked slow; quick PASS 561s local; full left to CI","friction":"first quick run hit 120s tool timeout when backgrounded in a pipe; quick still ~9min locally; full not run locally (CI)"}
 {"ts":"2026-11-12T14:34:39Z","role":"reviewer","outcome":"skipped","issue":808,"pr":812,"notes":"not my parity","friction":""}
+{"ts":"2026-11-12T14:41:51Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no unjudged odd PR; #599 already CHANGES at head d723a9c, #812 even (reviewer-b)","friction":""}
