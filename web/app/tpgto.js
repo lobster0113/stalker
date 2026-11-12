@@ -58,6 +58,8 @@
 //   seatProbs(policy, public, steps, m, variant = "", top = Infinity) -> per-combo rows (Float64Array(1326*m),
 //       row-major), same backoff; top = the tier's top equity step (TIER_K - 1) bounds L4's neighbors.
 //   backoffRow(policy, key, m, variant = "", top = Infinity) -> {row, from}: the lookup both use.
+//   setL1Rows(policy, l1Rows, q = 1): a c1 file's `l1_rows` (#803) join L1 where the table builds no row of that
+//       (L1 key, length) — web_hit_rate.measure's `l1_extra` (#804). Call before the first coarseTables(policy).
 //   updateRange(ranges, seat, probsColumn) -> low level, as tp_key.update_range.
 //   equityStepOf(s, seat, ranges, tier) -> the actor's step (with board.nut encoded for pro).
 //   equitySteps(s, seat, ranges, k), publicKey(s, seat, depth), key(public, step), myStep(...)
@@ -1194,7 +1196,38 @@ export function coarseKey(k, level) {
  * Per backoff level, coarse key -> Map(row length -> mean of the table's rows with that coarse key). Rows of a
  * different length never merge. Built once per policy object (cached) — the page warms it on load (tpgLoad).
  */
-const COARSE = new WeakMap();
+const COARSE = new WeakMap(), L1_EXTRA = new WeakMap();
+
+/**
+ * The policy file's `l1_rows` (#803 `grouped_top_fit`: {L1 key with its equity field `e*`: {step: row or [rows]}},
+ * 0..q integers) as L1 key -> Map(row length -> probabilities). `e*` is the key's last equity field (coarseKey).
+ */
+export function l1Extra(l1Rows, q = 1) {
+  const out = new Map();
+  for (const [g, bySteps] of Object.entries(l1Rows || {})) {
+    const parts = g.split("|"), at = parts.lastIndexOf("e*");
+    if (at < 0 || parts.some((f, i) => i > at && RE_EQ.test(f))) throw new Error(`l1_rows: ${JSON.stringify(g)} has no last equity field e*; re-export the policy (#803)`);
+    for (const [step, v] of Object.entries(bySteps)) {
+      if (!/^\d+$/.test(step)) throw new Error(`l1_rows ${JSON.stringify(g)}: equity step ${JSON.stringify(step)} is not a number`);
+      const ck = parts.slice(0, at).concat(`e${step}`, parts.slice(at + 1)).join("|");
+      const rows = Array.isArray(v[0]) ? v : [v];
+      let byM = out.get(ck);
+      if (!byM) out.set(ck, (byM = new Map()));
+      for (const r of rows) byM.set(r.length, Float64Array.from(r, (x) => x / q));
+    }
+  }
+  return out;
+}
+
+/**
+ * Ship a file's `l1_rows` beside its decoded table: coarseTables then adds each row to L1 where the table builds no
+ * row of that (L1 key, length) — web_hit_rate.measure's `l1_extra`. Call before the first coarseTables(policy).
+ */
+export function setL1Rows(policy, l1Rows, q = 1) {
+  L1_EXTRA.set(policy, l1Extra(l1Rows, q));
+  COARSE.delete(policy);
+}
+
 export function coarseTables(policy) {
   if (!policy || typeof policy !== "object") return [];
   let t = COARSE.get(policy);
@@ -1221,6 +1254,11 @@ export function coarseTables(policy) {
     }
     return out;
   });
+  for (const [ck, byM] of L1_EXTRA.get(policy) || []) {   // the file's rows lose to rows the table builds
+    let o = t[0].get(ck);
+    if (!o) t[0].set(ck, (o = new Map()));
+    for (const [m, r] of byM) if (!o.has(m)) o.set(m, r);
+  }
   COARSE.set(policy, t);
   return t;
 }

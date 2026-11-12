@@ -275,3 +275,40 @@ test("backoff L4 (#652): a key whose L3 key misses reads the mean of the L3 rows
   const after = T.updateRanges(pol, r, post.ranges, m - 1);
   assert.ok(after[d.seat].some((w, i) => w > 0 && d.steps[i] >= 0));
 });
+
+test("l1_rows (#804): a file's L1 row answers at L1 only where the table builds no row of that (L1 key, length)", () => {
+  const key = "BB|n3|1|1|0|2|0|3|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0", l1 = T.coarseKey(key, 1);
+  const group = l1.replace(/\|e5(?=\||$)/, "|e*"), q = 255;
+  assert.ok(group.includes("|e*"), l1);
+  // Steps 5 and 6 in the file: step 5 holds rows of length 3 and 2 (a [rows] value), step 6 one row.
+  const l1Rows = { [group]: { 5: [[255, 0, 0], [0, 255]], 6: [0, 0, 255] } };
+  const pol = new Map([["BTN|n3|1|1|0|2|0|3|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0", Float64Array.of(0, 1, 0)]]);
+  T.setL1Rows(pol, l1Rows, q);
+  assert.deepEqual(T.backoffRow(pol, key, 3, "c1").row, Float64Array.of(1, 0, 0));
+  assert.equal(T.backoffRow(pol, key, 3, "c1").from, "L1");
+  assert.deepEqual(Array.from(T.backoffRow(pol, key, 2, "c1").row), [0, 1]);
+  const k6 = key.replace("|e5|", "|e6|");
+  assert.deepEqual(Array.from(T.backoffRow(pol, k6, 3, "c1").row), [0, 0, 1]);
+  assert.equal(T.backoffRow(pol, k6, 3, "c1").from, "L1");
+  // The table's own L1 row of the same (key, length) wins; another length still comes from the file.
+  const sib = key.replace(/\|o[^|]*$/, "|o9v9k9"), own = new Map([[sib, Float64Array.of(0.2, 0.3, 0.5)]]);
+  T.setL1Rows(own, l1Rows, q);
+  assert.deepEqual(T.backoffRow(own, key, 3, "c1"), { row: Float64Array.of(0.2, 0.3, 0.5), from: "L1" });
+  assert.deepEqual(Array.from(T.backoffRow(own, key, 2, "c1").row), [0, 1]);
+  // Only L1 gets the rows (as web_hit_rate's l1_extra): another public fact shares the L2 key but not the L1 one.
+  const empty = new Map(), other = key.replace("|u10|", "|u5|");
+  T.setL1Rows(empty, l1Rows, q);
+  assert.equal(T.coarseKey(other, 2), T.coarseKey(key, 2));
+  assert.notEqual(T.coarseKey(other, 1), l1);
+  assert.equal(T.backoffRow(empty, key, 3, "c1").from, "L1");
+  assert.equal(T.backoffRow(empty, other, 3, "c1").from, false);
+  // Exact rows still win, legacy keys never back off, and setL1Rows after a first build rebuilds.
+  assert.equal(T.backoffRow(pol, "BTN|n3|1|1|0|2|0|3|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0", 3, "c1").from, "exact");
+  assert.equal(T.backoffRow(pol, key, 3, "").from, false);
+  const late = new Map(pol);
+  T.coarseTables(late);
+  assert.equal(T.backoffRow(late, k6, 3, "c1").from, false);
+  T.setL1Rows(late, l1Rows, q);
+  assert.equal(T.backoffRow(late, k6, 3, "c1").from, "L1");
+  assert.throws(() => T.l1Extra({ "BB|n3|e5": { 1: [1] } }), /e\*/);
+});
