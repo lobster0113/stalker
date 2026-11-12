@@ -8,13 +8,15 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from referee.e3.thresholds import load_thresholds
+from referee.e3.thresholds import TABLES, load_thresholds
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
 from stalker.tools import export_web_policy as X
 from stalker.tools import web_policy_lbr_job as J
 
 ROOT = Path(__file__).parents[1]
+V2 = load_thresholds(*TABLES["v2"])
+V3 = load_thresholds(*TABLES["v3"])
 
 
 def test_plan_matches_adr_0020_table():
@@ -23,7 +25,7 @@ def test_plan_matches_adr_0020_table():
     for t in tasks:
         by.setdefault(t["players"], []).append(t)
     assert {n: {t["hands"] for t in v} for n, v in by.items()} == {2: {2000}, 3: {2000}, 4: {600}, 5: {600}, 6: {1000}}
-    table = load_thresholds()["players"]
+    table = V3["players"]
     for n, v in by.items():
         seeds = sorted({t["seed"] for t in v})
         assert seeds == list(range(1, table[str(n)]["min_seeds"]["lbr"] + 1))
@@ -56,14 +58,14 @@ def test_summarize_mean_se_and_pass():
     rows = [{"players": 4, "seed": s, "backoff": False, "lbr_bb": v, "lbr_stderr_bb": 3.0, "policy_sha256": "x"}
             for s, v in ((1, 3.0), (2, 5.5))]
     rows += [{"players": 2, "seed": 1, "backoff": True, "lbr_bb": 9.5, "lbr_stderr_bb": 1.0, "policy_sha256": "y"}]
-    s = J.summarize(rows)
+    s = J.summarize(rows, V2)
     c = s["off"]["4"]
-    assert (c["lbr_bb"], c["limit"], c["pass"], c["seeds"]) == (4.25, 4.0, False, [1, 2])
+    assert (c["lbr_bb"], c["limit"], c["pass"], c["seeds"], c["judged_on"]) == (4.25, 4.0, False, [1, 2], "lbr_bb")
     assert abs(c["lbr_stderr_bb"] - 2.1213) < 1e-3
     assert s["on"]["2"]["pass"] is False and "4" not in s["on"]
     rows[0]["lbr_bb"] = 1.0
-    assert J.summarize(rows)["off"]["4"]["pass"] is True
-    assert J.summarize(rows[:1])["off"]["4"]["pass"] is None   # one seed of two: not enough to judge
+    assert J.summarize(rows, V2)["off"]["4"]["pass"] is True
+    assert J.summarize(rows[:1], V2)["off"]["4"]["pass"] is None   # one seed of two: not enough to judge
 
 
 def test_run_end_to_end_is_byte_identical(tmp_path, monkeypatch):
@@ -264,21 +266,21 @@ def test_plan_seeds_4_gives_four_distinct_eval_seeds_per_player_count_backoff_of
 
 def test_main_backoff_off_runs_no_backoff_on_cells(monkeypatch):
     seen = {}
-    monkeypatch.setattr(J, "run", lambda *a: seen.setdefault("a", a))
+    monkeypatch.setattr(J, "run", lambda *a, **kw: seen.setdefault("a", a))
     J.main(["--from-pages", "p", "--out", "o", "--backoff", "off"])
     assert seen["a"][-2:] == ((False,), J.AIVAT_SAMPLES)   # the AIVAT column is on by default (#781)
     seen.clear()
-    J.main(["--from-pages", "p", "--out", "o", "--aivat-samples", "0"])
+    J.main(["--from-pages", "p", "--out", "o", "--aivat-samples", "0", "--thresholds", "v2"])
     assert seen["a"][-2:] == ((False, True), 0)
 
 
 def test_three_player_needs_two_seeds_under_v2():
     from stalker.tools import web_policy_lbr_job as J
-    tasks = J.plan("run")
+    tasks = J.plan("run", V2)
     assert sorted({t["seed"] for t in tasks if t["players"] == 3}) == [1, 2]
     rows = [{**t, "lbr_bb": 4.0, "lbr_stderr_bb": 0.6, "policy_sha256": "x"} for t in tasks if t["players"] == 3 and t["seed"] == 1]
-    assert J.summarize(rows)["on"]["3"]["pass"] is None
-    assert J.summarize(rows + [{**r, "seed": 2} for r in rows])["on"]["3"]["pass"] is True
+    assert J.summarize(rows, V2)["on"]["3"]["pass"] is None
+    assert J.summarize(rows + [{**r, "seed": 2} for r in rows], V2)["on"]["3"]["pass"] is True
 
 
 def _v1_rows():
@@ -287,14 +289,14 @@ def _v1_rows():
 
 
 def test_summarize_adds_aivat_cells_only_for_schema2_rows():
-    v1 = J.summarize(_v1_rows())
-    assert "aivat_lbr_bb" not in v1["off"]["2"]   # a schema-1 result reads back unchanged
+    v1 = J.summarize(_v1_rows(), V2)
+    assert "aivat_lbr_bb" not in v1["off"]["2"]   # a schema-1 result reads back unchanged under v2
     v2 = [{**r, "aivat_lbr_bb": a, "aivat_stderr_bb": 0.5} for r, a in zip(_v1_rows(), (5.0, 6.0))]
-    s = J.summarize(v2)
+    s = J.summarize(v2, V2)
     c = s["off"]["2"]
-    assert {k: c[k] for k in v1["off"]["2"]} == v1["off"]["2"]   # record only: lbr_bb, pass, ... do not move
+    assert {k: c[k] for k in v1["off"]["2"]} == v1["off"]["2"]   # v2 table: lbr_bb, pass, ... do not move
     assert (c["aivat_lbr_bb"], c["aivat_stderr_bb"]) == (5.5, round(0.5 * 2 ** 0.5 / 2, 4))
-    mixed = J.summarize([v2[0], _v1_rows()[1]])
+    mixed = J.summarize([v2[0], _v1_rows()[1]], V2)
     assert "aivat_lbr_bb" not in mixed["off"]["2"]   # no half-measured mean
 
 
@@ -312,7 +314,7 @@ def test_run_records_aivat_columns_and_schema_2(tmp_path, monkeypatch):
     monkeypatch.setattr(J, "plan", lambda run, **kw: [
         {"players": 2, "seed": 1, "eval_seed": 10001, "hands": 3, "backoff": False, "file": "mid-2.json", "policy_run": run}])
     v2 = J.run("r1", tmp_path / "v2.json", src=src, aivat_samples=4)
-    v1 = J.run("r1", tmp_path / "v1.json", src=src, aivat_samples=0)
+    v1 = J.run("r1", tmp_path / "v1.json", src=src, aivat_samples=0, thresholds="v2")
     assert (v2["schema_version"], v2["aivat_samples"], v1["schema_version"]) == (2, 4, 1) and "aivat_samples" not in v1
     row = v2["rows"][0]
     assert {"aivat_lbr_bb", "aivat_stderr_bb"} <= set(row) and "aivat_lbr_bb" not in v1["rows"][0]
@@ -320,3 +322,55 @@ def test_run_records_aivat_columns_and_schema_2(tmp_path, monkeypatch):
         {k: v1["rows"][0][k] for k in ("lbr_bb", "lbr_stderr_bb", "policy_sha256")}
     assert v2["backoff"]["off"]["2"]["aivat_lbr_bb"] == row["aivat_lbr_bb"]
     assert J.SCHEMA_VERSION == 2 and J.AIVAT_SAMPLES == 8
+
+
+# #798: the job reads table v3 (ADR 0025): one seed per cell, pass on the AIVAT-corrected column.
+
+def test_plan_v3_default_one_seed_per_cell_and_seeds_n_gives_1_to_n():
+    tasks = J.plan("r1")
+    assert {(t["players"], t["backoff"]): t["seed"] for t in tasks} == {(n, b): 1 for n in J.PLAYERS for b in (False, True)}
+    assert len(tasks) == 2 * len(J.PLAYERS)
+    assert {t["seed"] for t in J.plan("r1", seeds=3)} == {1, 2, 3}
+    assert all(V3["players"][str(n)]["min_seeds"]["lbr"] == 1 for n in J.PLAYERS)
+
+
+def test_summarize_v3_service_cells_of_run_43111293721_all_pass_on_the_aivat_column():
+    doc = json.loads((ROOT / "tests/fixtures/web_policy_lbr_43111293721.json").read_text(encoding="utf-8"))
+    # the fixture keeps the judged keys only; se and sha are not read by the verdict
+    rows = [{"lbr_stderr_bb": 0.0, "aivat_stderr_bb": 0.0, "policy_sha256": "x", **r} for r in doc["rows"]]
+    s = J.summarize(rows)
+    service = {**{str(n): s["on"][str(n)] for n in (2, 3, 4, 5)}, "6": s["off"]["6"]}   # 6p is a legacy page
+    assert doc["legacy_pages"] == [6] and "6" not in s["on"]
+    for n, c in service.items():
+        assert (c["pass"], c["judged_on"]) == (True, "aivat_lbr_bb"), n
+        assert "lbr_bb" in c and "lbr_stderr_bb" in c
+    assert [round(service[str(n)]["aivat_lbr_bb"], 3) for n in (2, 3, 4, 5, 6)] == [5.781, 4.677, 2.646, 1.95, 0.766]   # ADR 0025
+
+
+def test_summarize_v3_without_the_aivat_column_is_an_error_not_a_verdict():
+    s = J.summarize(_v1_rows())
+    c = s["off"]["2"]
+    assert c["pass"] is None and c["error"] == "aivat_lbr_bb missing; rerun with --aivat-samples 8"
+    assert "judged_on" not in c and c["lbr_bb"] == 7.0 and "lbr_stderr_bb" in c
+    # judged on the corrected column, not lbr_bb: 7.0 would pass the 2p line 9.0 either way, so lift lbr_bb over it
+    rows = [{**r, "lbr_bb": 10.0, "aivat_lbr_bb": 5.0, "aivat_stderr_bb": 0.5} for r in _v1_rows()]
+    c = J.summarize(rows)["off"]["2"]
+    assert (c["pass"], c["judged_on"], c["lbr_bb"]) == (True, "aivat_lbr_bb", 10.0)
+    assert J.summarize(rows, V2)["off"]["2"]["pass"] is False
+
+
+def test_run_v3_with_aivat_samples_0_is_refused_before_measuring(tmp_path, monkeypatch):
+    monkeypatch.setattr(J, "plan", lambda *a, **kw: pytest.fail("measured before refusing"))
+    with pytest.raises(ValueError, match="--aivat-samples 8"):
+        J.run("r1", tmp_path / "o.json", src=tmp_path, aivat_samples=0)
+    assert not (tmp_path / "o.json").exists()
+    with pytest.raises(SystemExit):
+        J.main(["--policy-run", "r1", "--out", str(tmp_path / "o.json"), "--src", str(tmp_path), "--aivat-samples", "0"])
+
+
+def test_run_result_names_the_v3_table(tmp_path, monkeypatch):
+    monkeypatch.setattr(J, "plan", lambda run, **kw: [])
+    monkeypatch.setattr(J, "fetch", lambda *a: None)
+    res = J.run("r1", tmp_path / "o.json")
+    assert res["thresholds"] == "referee/e3/lbr_thresholds_v3.json"
+    assert J.run("r1", tmp_path / "p.json", thresholds="v2")["thresholds"] == "referee/e3/lbr_thresholds_v2.json"

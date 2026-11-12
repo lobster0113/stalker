@@ -9,14 +9,18 @@ Legacy (pre-c1) pages get no backoff-on cells; the result lists them as `legacy_
 
 Reads `cloud/policies/<policy_run>/mid-{2..6}.json` from the `ops` branch tarball (only those members are kept), measures each
 file with `web_policy_lbr.measure` with the page's backoff off and on, at the hand counts and minimum seed counts of
-`referee/e3/lbr_thresholds_v2.json` (read-only), evaluation seed `10000+seed` as in `train_jobs`. The result has no timings, so
+`referee/e3/lbr_thresholds_v3.json` (read-only, sha-pinned; ADR 0025, #798), evaluation seed `10000+seed` as in `train_jobs`. The result has no timings, so
 the same inputs give the same bytes. The pass is record-only (the page keeps the policy either way; a person reads it).
 The result deliberately has no `by_players` key: the launcher would take that as a training summary and overwrite a verdict.
 
 Schema 2 (#781): each row and cell also records the AIVAT-style corrected LBR (`aivat_lbr_bb`, `aivat_stderr_bb`,
 `referee.e3.lbr.lbr_hands`) with `aivat_samples` board completions per value estimate (default 8: per-hand cost about 1.1x,
-docs/research/2026-11-lbr-variance-reduction.md). Record only: `pass` still reads `lbr_bb`. `--aivat-samples 0` writes the
-schema-1 rows. Readers of schema 1 keep working: the new keys are extra, and `summarize` of schema-1 rows has no aivat keys.
+docs/research/2026-11-lbr-variance-reduction.md). Readers of schema 1 keep working: the new keys are extra, and `summarize`
+of schema-1 rows has no aivat keys.
+
+Table v3 (default, #798): one seed per cell (`min_seeds.lbr` 1), and a cell's `pass` reads the table's `column`
+(`aivat_lbr_bb`), recorded as the cell's `judged_on`; a cell without that column gets `pass: null` and an `error`.
+So v3 needs the AIVAT column: `--aivat-samples 0` is refused before measuring unless `--thresholds v2` (old column `lbr_bb`).
 """
 from __future__ import annotations
 
@@ -33,6 +37,7 @@ from pathlib import Path
 SCHEMA = "stalker.web.policy-lbr"
 SCHEMA_VERSION = 2   # 2: aivat_lbr_bb / aivat_stderr_bb columns (#781)
 AIVAT_SAMPLES = 8
+THRESHOLDS = "v3"   # referee.e3.thresholds.TABLES key (ADR 0025)
 PLAYERS = (2, 3, 4, 5, 6)
 OPS_TARBALL = "https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/ops"
 
@@ -64,13 +69,27 @@ def legacy_players(pages: Path) -> list[int]:
     return out
 
 
+def _table(name: str = THRESHOLDS) -> dict:
+    from referee.e3.thresholds import TABLES, load_thresholds
+    return load_thresholds(*TABLES[name])
+
+
+def check_table(thresholds: str, aivat_samples: int) -> dict:
+    """The pinned table; a table judged on the corrected column refuses a run that would not measure it (hours for nothing)."""
+    table = _table(thresholds)
+    column = table.get("column", "lbr_bb")
+    if aivat_samples <= 0 and column != "lbr_bb":
+        raise ValueError(f"table {thresholds} judges {column}, which --aivat-samples 0 does not measure: "
+                         "use --aivat-samples 8, or --thresholds v2 to judge the old lbr_bb column")
+    return table
+
+
 def plan(policy_run: str, table: dict | None = None, backoffs=(False, True), seeds: int | None = None,
          runs: dict[int, str] | None = None, legacy=()) -> list[dict]:
     """One task per (players, seed, backoff): hands from ADR 0020, seeds 1..max(min_seeds of the current strategy, `seeds`).
     Player counts in `legacy` get backoff-off tasks only."""
     if table is None:
-        from referee.e3.thresholds import load_thresholds
-        table = load_thresholds()
+        table = _table()
     tasks = []
     for n in PLAYERS:
         spec = table["players"][str(n)]
@@ -109,8 +128,8 @@ def _one(args):
 
 def summarize(rows: list[dict], table: dict | None = None, per_players_run: bool = False) -> dict:
     if table is None:
-        from referee.e3.thresholds import load_thresholds
-        table = load_thresholds()
+        table = _table()
+    column = table.get("column")
     out = {}
     for backoff in (False, True):
         cells = {}
@@ -125,7 +144,14 @@ def summarize(rows: list[dict], table: dict | None = None, per_players_run: bool
             cells[str(n)] = {"lbr_bb": round(mean, 4), "lbr_stderr_bb": round(se, 4), "hands": spec["hands"],
                              "seeds": sorted(x["seed"] for x in r), "limit": spec["lbr_max"],
                              "policy_sha256": r[0]["policy_sha256"],
-                             "pass": (mean <= spec["lbr_max"]) if enough else None}
+                             "pass": (mean <= spec["lbr_max"]) if enough else None, "judged_on": "lbr_bb"}
+            if column and column != "lbr_bb":
+                if all(column in x for x in r):
+                    judged = sum(x[column] for x in r) / len(r)
+                    cells[str(n)].update({"pass": (judged <= spec["lbr_max"]) if enough else None, "judged_on": column})
+                else:   # say so instead of judging on another estimator (ADR 0025 decision 4)
+                    del cells[str(n)]["judged_on"]
+                    cells[str(n)].update({"pass": None, "error": f"{column} missing; rerun with --aivat-samples 8"})
             if per_players_run:
                 cells[str(n)]["policy_run"] = r[0]["policy_run"]
             if all("aivat_lbr_bb" in x for x in r):   # schema-1 rows have none: the cell stays as it was
@@ -136,15 +162,19 @@ def summarize(rows: list[dict], table: dict | None = None, per_players_run: bool
 
 
 def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None = None, src: Path | None = None,
-        pages: Path | None = None, backoffs=(False, True), aivat_samples: int = AIVAT_SAMPLES) -> dict:
+        pages: Path | None = None, backoffs=(False, True), aivat_samples: int = AIVAT_SAMPLES,
+        thresholds: str = THRESHOLDS) -> dict:
     import tempfile
+
+    from referee.e3.thresholds import TABLES
+    table = check_table(thresholds, aivat_samples)
     runs = page_runs(pages) if pages else None
     legacy = legacy_players(pages) if pages else []
     if runs:
         src = Path(pages)
         distinct = set(runs.values())
         policy_run = distinct.pop() if len(distinct) == 1 else "mixed"
-    tasks = plan(policy_run, backoffs=backoffs, seeds=seeds, runs=runs, legacy=legacy)
+    tasks = plan(policy_run, table=table, backoffs=backoffs, seeds=seeds, runs=runs, legacy=legacy)
     if aivat_samples > 0:
         tasks = [{**t, "aivat_samples": aivat_samples} for t in tasks]
     with tempfile.TemporaryDirectory() as tmp:
@@ -159,7 +189,8 @@ def run(policy_run: str | None, out: Path, workers: int = 1, seeds: int | None =
             rows = [_one(j) for j in jobs]
     rows.sort(key=lambda x: (x["backoff"], x["players"], x["seed"]))
     res = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION if aivat_samples > 0 else 1, "policy_run": policy_run,
-           "thresholds": "referee/e3/lbr_thresholds_v2.json", "rows": rows, "backoff": summarize(rows, per_players_run=bool(runs))}
+           "thresholds": f"referee/e3/{TABLES[thresholds][0].name}", "rows": rows,
+           "backoff": summarize(rows, table, per_players_run=bool(runs))}
     if aivat_samples > 0:
         res["aivat_samples"] = aivat_samples
     if pages:
@@ -181,12 +212,18 @@ def main(argv=None) -> int:
     ap.add_argument("--backoff", choices=("both", "off"), default="both",
                     help="off: measure only backoff-off cells (eval-noise jobs, #731)")
     ap.add_argument("--aivat-samples", type=int, default=AIVAT_SAMPLES,
-                    help="board completions per AIVAT value estimate (record-only corrected column, #781); 0 = schema-1 rows")
+                    help="board completions per AIVAT value estimate (corrected column, #781); 0 = schema-1 rows (needs --thresholds v2)")
+    ap.add_argument("--thresholds", choices=("v2", "v3"), default=THRESHOLDS,
+                    help="pinned table for seeds and pass (default v3: aivat_lbr_bb, one seed; ADR 0025)")
     a = ap.parse_args(argv)
     if bool(a.policy_run) == bool(a.from_pages):
         ap.error("give exactly one of --policy-run and --from-pages")
+    try:
+        check_table(a.thresholds, a.aivat_samples)
+    except ValueError as e:
+        ap.error(str(e))
     run(a.policy_run, a.out, a.workers, a.seeds, a.src, a.from_pages, (False,) if a.backoff == "off" else (False, True),
-        a.aivat_samples)
+        a.aivat_samples, thresholds=a.thresholds)
     return 0
 
 
