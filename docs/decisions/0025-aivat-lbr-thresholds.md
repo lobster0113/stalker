@@ -49,7 +49,8 @@
 
 ## 결과
 - run 43111293721 결과를 v3로 판정하면 서비스 칸 2–6인 모두 pass(보정 평균 5.781·4.677·2.646·1.950·0.766, 시드 8). `tests/test_lbr_thresholds.py`가 이 결과(판정 키만 남긴 고정 파일 `tests/fixtures/web_policy_lbr_43111293721.json`)로 고정한다.
-- 웹 잡(`web_policy_lbr_job.plan`)의 시드 수와 결과의 `pass`는 지금도 v2(기존 열)를 읽는다. 잡 변경은 이 ADR 범위 밖이며, 잡의 `min_seeds`를 v3로 낮추는 것과 런처가 웹 결과의 v3 판정을 `ops:cloud/verdicts/`에 남기는 것(하네스 경로)은 후속이다.
+- 이 ADR 머지 시점에 웹 잡(`web_policy_lbr_job.plan`)의 시드 수와 결과의 `pass`는 v2(기존 열)를 읽었다. 잡 변경은 이 ADR 범위 밖이었고, 런처가 웹 결과의 v3 판정을 `ops:cloud/verdicts/`에 남기는 것(하네스 경로)은 후속이다.
+- 후속 완료(#798): 웹 잡의 기본 표가 v3다 — 칸마다 시드 1개, 칸 `pass`는 `aivat_lbr_bb`(칸의 `judged_on`), 보정 열 없는 칸은 `pass: null`+`error`, v3에서 `--aivat-samples 0`은 측정 전에 거부(`--thresholds v2`로 기존 열 판정 가능).
 
 ## 되돌리는 조건
 다음 중 하나면 v3 판정을 멈추고(`--thresholds v2`로 판정) 새 측정 뒤 새 버전 파일로 정한다.
