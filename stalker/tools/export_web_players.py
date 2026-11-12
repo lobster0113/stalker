@@ -25,6 +25,12 @@ filter and puts `hit_rate` (`stalker.tools.web_hit_rate.measure`: by street, `ca
 A file with a `min_visits` threshold also gets `l1_rows_bytes` (#775): how many bytes the L1 backoff
 rows of the table before the threshold would add to the file under a few candidate encodings, measured only (the
 file and the page are unchanged).
+
+`hit_rate.by_min_visits` also carries two cells that play the file's own table (visits >= `min_visits`) with
+different backoff material: `coarse_from_full` (#743) builds every backoff level (L1-L3) from the table before the
+threshold; `coarse_top_fit` (#790) builds L1 from the file plus the `grouped_top_fit` rows that fit the page cap
+(`_top_fit`, the selection `l1_rows_bytes` reports) and L2+ from the file alone, as the page would. So even with a cap
+generous enough for every L1 row the two differ by definition (L2+); only their L1 material is the same.
 """
 from __future__ import annotations
 
@@ -41,7 +47,7 @@ from stalker.tools import export_web_policy as X
 from stalker.tools import web_hit_rate as H
 
 SCHEMA = "stalker.web.policy-export"
-SCHEMA_VERSION = 3   # 3: files[].l1_rows_bytes (#775); 2: files[].hit_rate (#617); older summaries lack them
+SCHEMA_VERSION = 3   # (#790 adds only a hit_rate.by_min_visits cell, no bump: readers ignore unknown cells) 3: files[].l1_rows_bytes (#775); 2: files[].hit_rate (#617); older summaries lack them
 HIT_RATE_HANDS = 300   # CLI default: seeded hands per seat count; 0 turns the measurement off
 PLAYERS = (2, 3, 4, 5, 6)
 VISIT_STEPS = (1, 2, 3, 4, 5, 10, 20, 50, 100)
@@ -115,6 +121,31 @@ def _size(obj) -> tuple[int, int]:
     return len(body), len(gzip.compress(body, mtime=0))
 
 
+def _top_fit(before: dict, kept: dict, visits: dict, file_bytes: int, max_bytes: int, full: dict | None = None):
+    """The `grouped_top_fit` selection, the one place it is computed (#775, #790): returns `(missing, groups, fit,
+    fit_rows)` = the L1 rows the page cannot build from `kept`, those grouped by `e*`, the groups that fit, and the
+    rows inside them. See `l1_rows_bytes` for the rule."""
+    full = _l1_rows(before) if full is None else full
+    have = {ck: set(by_m) for ck, by_m in _l1_rows(kept).items()}
+    missing = {ck: d for ck, d in ((ck, {m: r for m, r in by_m.items() if m not in have.get(ck, ())})
+                                   for ck, by_m in full.items()) if d}
+    groups = _grouped(missing)
+    weight: dict = {}
+    for k in before:
+        ck = H.coarse_key(k, 1)
+        if ck in missing:
+            g = _group_of(ck)
+            weight[g] = weight.get(g, 0) + visits.get(k, 0)
+    room, fit, size = max_bytes - file_bytes - 1, {}, 2   # "{}"
+    for g in sorted(groups, key=lambda g: (-weight.get(g, 0), g)):
+        add = len(json.dumps({g: groups[g]}, separators=(",", ":")).encode()) - 2 + (1 if fit else 0)
+        if size + add > room:
+            continue
+        fit[g], size = groups[g], size + add
+    fit_rows = {ck: d for ck, d in missing.items() if _group_of(ck) in fit}
+    return missing, groups, fit, fit_rows
+
+
 def l1_rows_bytes(before: dict, kept: dict, visits: dict, file_bytes: int, max_bytes: int = X.MAX_BYTES) -> dict:
     """Bytes the L1 backoff rows built from `before` (the table before the `min_visits` threshold) would add to a file
     holding `kept`, per candidate encoding (#775). Rows are `quantize`d means, one per (L1 key, row length); each body
@@ -130,8 +161,7 @@ def l1_rows_bytes(before: dict, kept: dict, visits: dict, file_bytes: int, max_b
     """
     full = _l1_rows(before)
     have = {ck: set(by_m) for ck, by_m in _l1_rows(kept).items()}
-    missing = {ck: d for ck, d in ((ck, {m: r for m, r in by_m.items() if m not in have.get(ck, ())})
-                                   for ck, by_m in full.items()) if d}
+    missing, groups, fit, fit_rows = _top_fit(before, kept, visits, file_bytes, max_bytes, full=full)
     n_before = len(full)
 
     def entry(rows: dict, body) -> dict:
@@ -141,20 +171,6 @@ def l1_rows_bytes(before: dict, kept: dict, visits: dict, file_bytes: int, max_b
                 "l1_keys_ratio": round(n / n_before, 4) if n_before else 0.0, "total_bytes": file_bytes + b,
                 "within_page_budget": file_bytes + b <= max_bytes}
 
-    groups = _grouped(missing)
-    weight: dict = {}
-    for k in before:
-        ck = H.coarse_key(k, 1)
-        if ck in missing:
-            g = _group_of(ck)
-            weight[g] = weight.get(g, 0) + visits.get(k, 0)
-    room, fit, size = max_bytes - file_bytes - 1, {}, 2   # "{}"
-    for g in sorted(groups, key=lambda g: (-weight.get(g, 0), g)):
-        add = len(json.dumps({g: groups[g]}, separators=(",", ":")).encode()) - 2 + (1 if fit else 0)
-        if size + add > room:
-            continue
-        fit[g], size = groups[g], size + add
-    fit_rows = {ck: d for ck, d in missing.items() if _group_of(ck) in fit}
     return {"l1_keys_before": n_before, "l1_keys_file": len(have), "file_bytes": file_bytes, "max_bytes": max_bytes,
             "encodings": {"all": entry(full, _flat(full)), "missing_only": entry(missing, _flat(missing)),
                           "grouped_eq": entry(missing, groups), "grouped_top_fit": entry(fit_rows, fit)}}
@@ -228,6 +244,14 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
                                 play_backoff=True, l4_neighbor=True, coarse_policy=before)
                 files[-1]["hit_rate"].setdefault("by_min_visits", {})["coarse_from_full"] = {
                     "min_visits": mv, "by_backoff": cff["by_backoff"]}
+                # #790: the same, but L1 = what the page builds from the file + the `grouped_top_fit` rows that fit
+                # (`_top_fit`, the selection `l1_rows_bytes` reports); L2+ from the file alone, as the page does.
+                fit_rows = _top_fit(before, kept, visits, len(body), max_bytes)[3]
+                ctf = H.measure(kept, n, doc["k"], doc["depth"], hit_rate_hands, 611 + n, rules=H.rules_of(doc),
+                                play_backoff=True, l4_neighbor=True, l1_extra=fit_rows)
+                files[-1]["hit_rate"]["by_min_visits"]["coarse_top_fit"] = {
+                    "min_visits": mv, "l1_rows": sum(len(d) for d in fit_rows.values()),
+                    "by_backoff": ctf["by_backoff"]}
             files[-1]["hit_rate_seconds"] = round(time.monotonic() - t0, 1)   # timing only: breaks byte-equality, see test
         print(f"{name}: {doc['keys']} keys, {len(body)} bytes")
     X.write_index(out_dir / "index.json", idx)

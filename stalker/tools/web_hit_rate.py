@@ -227,9 +227,9 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
             visits: dict | None = None, min_visits=MIN_VISITS, backoff: bool = False,
             rules: dict | None = None, variant: str = "c1", play_backoff: bool = False,
             miss_report: int = 0, l4_neighbor: bool = False, fidelity: bool = False,
-            coarse_policy: dict | None = None) -> dict:
+            coarse_policy: dict | None = None, l1_extra: dict | None = None) -> dict:
     """Play `hands` seeded hands; the table's row (uniform when absent) drives every seat, as the page does.
-    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `fidelity`: the play-weighted leave-one-out quality of the backoff rows (module doc; needs `play_backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`). `l4_neighbor`: the L4 equity-neighbor level (module doc; implies `backoff`). `coarse_policy`: build the backoff tables (L1-L3) from this table instead of `policy`; exact lookups stay on `policy` (#743: a table from before the visit threshold keeps L1 material the threshold erased). None = `policy`."""
+    `rules`: `rules_of` the file (default v1, cap 3). `variant`: the key layout, "c1" or "" for a legacy table (#620; the page's `decisionKey` variant). `backoff`: also count the first level (module doc) whose coarse table has the actor's row (`by_backoff`). `play_backoff`: act by `backoff_row` instead of uniform on a miss (module doc; implies `backoff`). `fidelity`: the play-weighted leave-one-out quality of the backoff rows (module doc; needs `play_backoff`). `miss_report`: the top-N last-level miss breakdown (module doc; needs `play_backoff`). `l4_neighbor`: the L4 equity-neighbor level (module doc; implies `backoff`). `coarse_policy`: build the backoff tables (L1-L3) from this table instead of `policy`; exact lookups stay on `policy` (#743: a table from before the visit threshold keeps L1 material the threshold erased). None = `policy`. `l1_extra`: {L1 key: {row length: row}} added to the first backoff level where the table has no row of that (key, length) (#790: rows a page would ship beside the file)."""
     if miss_report and not play_backoff:
         raise ValueError("miss_report needs play_backoff (#638)")
     if fidelity and not play_backoff:
@@ -246,6 +246,10 @@ def measure(policy: dict, players: int, tier_k: int, depth: str, hands: int, see
     cand = {str(v): {"street": {str(st): _cell() for st in range(4)}, "call": _cell(), "other": _cell()}
             for v in min_visits} if visits is not None else {}
     tables = coarse_tables(policy if coarse_policy is None else coarse_policy) if backoff else []
+    if tables:
+        for ck, by_m in (l1_extra or {}).items():
+            for m, row in by_m.items():
+                tables[0].setdefault(ck, {}).setdefault(m, row)
     names = ("exact", *LEVELS, *(("L4",) if l4_neighbor else ()), "uniform")
     b_street = {str(st): _bcell(l4_neighbor) for st in range(4)}
     b_kind = {"call": _bcell(l4_neighbor), "other": _bcell(l4_neighbor)}

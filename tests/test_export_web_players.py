@@ -311,3 +311,57 @@ def test_l1_rows_bytes_is_recorded_only_with_a_threshold_and_v2_summaries_still_
     for f in v2["files"]:
         f.pop("l1_rows_bytes")
     assert W.policies_for_ops(v2, tmp_path / "a", None) == W.policies_for_ops(a, tmp_path / "a", None)
+
+
+def test_top_fit_selection_is_the_one_l1_rows_bytes_reports():
+    # #790: the hit-rate cell and the byte report must pick the same rows (one function)
+    before = {_key("BB", "s4:4", 0): [0.5, 0.5], _key("BB", "s4:4", 1): [0.0, 1.0], _key("SB", "s4:4", 3): [0.2, 0.8]}
+    visits = {_key("BB", "s4:4", 0): 10, _key("BB", "s4:4", 1): 1, _key("SB", "s4:4", 3): 5}
+    kept = {k: r for k, r in before.items() if visits[k] >= 5}
+    for room in (10_000, 130, 100):
+        fit_rows = W._top_fit(before, kept, visits, 100, room)[3]
+        r = W.l1_rows_bytes(before, kept, visits, 100, room)["encodings"]["grouped_top_fit"]
+        assert r["rows"] == sum(len(d) for d in fit_rows.values())
+        assert r["l1_keys"] == len(set(fit_rows) | set(W._l1_rows(kept)))
+    assert W._top_fit(before, kept, visits, 100, 100)[3] == {}   # no room: no rows
+
+
+@pytest.mark.slow
+def test_coarse_top_fit_cell_with_no_room_equals_the_file_alone_and_is_deterministic(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    st = m.state()
+    kw = dict(players=(2,), hit_rate_hands=2, min_visits=2)
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", **kw)
+    b = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "b", **kw)
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", max_bytes=1, **kw)   # no room for any row
+    for x in (a, b, z):
+        for f in x["files"]:
+            f.pop("hit_rate_seconds")
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    c = a["files"][0]["hit_rate"]["by_min_visits"]["coarse_top_fit"]
+    assert c["min_visits"] == 2 and c["by_backoff"]["levels"][-1] == "uniform"
+    zc = z["files"][0]["hit_rate"]["by_min_visits"]["coarse_top_fit"]
+    assert zc["l1_rows"] == 0
+    # no room = the file's own table alone: the same hands played without `l1_extra` give the same by_backoff
+    doc = json.loads((tmp_path / "z" / z["files"][0]["file"]).read_bytes())
+    before = W.X.keep_players(W.X.load_model(st).current_policy(), 2)
+    visits = dict(W.X.load_model(st).visits)
+    kept = {k: r for k, r in before.items() if visits.get(k, 0) >= 2}
+    alone = W.H.measure(kept, 2, doc["k"], doc["depth"], 2, 611 + 2, rules=W.H.rules_of(doc),
+                      play_backoff=True, l4_neighbor=True)
+    assert json.dumps(zc["by_backoff"], sort_keys=True) == json.dumps(alone["by_backoff"], sort_keys=True)
+
+
+def test_top_fit_with_room_for_everything_restores_every_l1_row_the_threshold_erased():
+    # #790: with a generous cap the file's L1 rows plus the shipped rows cover the pre-threshold L1 (key, length) set,
+    # which is what `coarse_from_full` builds from. Row values may differ (quantize); L2+ differ by definition.
+    before = {_key("BB", "s4:4", 0): [0.5, 0.5], _key("BB", "s6:6", 0): [1.0, 0.0], _key("BB", "s4:4", 1): [0.0, 1.0],
+              _key("SB", "s4:4", 3): [0.2, 0.8], _key("SB", "s1:1", 3): [0.0, 1.0, 0.0]}
+    visits = {_key("BB", "s4:4", 0): 10, _key("BB", "s6:6", 0): 1, _key("BB", "s4:4", 1): 1, _key("SB", "s4:4", 3): 5}
+    kept = {k: r for k, r in before.items() if visits.get(k, 0) >= 5}
+    fit_rows = W._top_fit(before, kept, visits, 100, 10_000)[3]
+    have = {(ck, m) for ck, by_m in W._l1_rows(kept).items() for m in by_m}
+    shipped = {(ck, m) for ck, by_m in fit_rows.items() for m in by_m}
+    want = {(ck, m) for ck, by_m in W._l1_rows(before).items() for m in by_m}
+    assert have | shipped == want and shipped and not have & shipped
