@@ -96,8 +96,9 @@ def test_coarse_key_and_coarse_tables_match_python(node):
 _NODE_ROW = """
 import * as T from %s;
 let src = ""; process.stdin.on("data", (c) => (src += c)); process.stdin.on("end", () => {
-  const { queries, table } = JSON.parse(src);
+  const { queries, table, l1_rows, q } = JSON.parse(src);
   const pol = new Map(Object.entries(table).map(([k, r]) => [k, Float64Array.from(r)]));
+  if (l1_rows) T.setL1Rows(pol, l1_rows, q);
   process.stdout.write(JSON.stringify(queries.map(([k, m, top]) => {
     const { row, from } = T.backoffRow(pol, k, m, "c1", top);
     return { row: row ? Array.from(row) : null, from };
@@ -107,18 +108,32 @@ let src = ""; process.stdin.on("data", (c) => (src += c)); process.stdin.on("end
 _NAMES = ("exact", *H.LEVELS, "L4", False)
 
 
-def _js_rows(node, queries, table):
+def _js_rows(node, queries, table, l1_rows=None, q=1):
     r = subprocess.run([node, "--input-type=module", "-e", _NODE_ROW % json.dumps(TPGTO)],
-                       input=json.dumps({"queries": queries, "table": table}),
+                       input=json.dumps({"queries": queries, "table": table, "l1_rows": l1_rows, "q": q}),
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert r.returncode == 0, r.stderr[-3000:]
     return json.loads(r.stdout)
 
 
-def _assert_same(node, queries, table):
-    """JS backoffRow == Python backoff_row(l4=top) on every query: same level, same row to 6 decimals."""
+def _l1_extra(l1_rows: dict, q: int) -> dict:
+    """A policy file's `l1_rows` ({L1 key with `e*`: {step: row or [rows]}}, 0..q) as `measure`'s `l1_extra`."""
+    out: dict = {}
+    for g, by_step in l1_rows.items():
+        for step, v in by_step.items():
+            for row in (v if isinstance(v[0], list) else [v]):
+                out.setdefault(_at(g.replace("|e*", "|e0"), int(step)), {})[len(row)] = [x / q for x in row]
+    return out
+
+
+def _assert_same(node, queries, table, l1_rows=None, q=1):
+    """JS backoffRow == Python backoff_row(l4=top) on every query: same level, same row to 6 decimals. With
+    `l1_rows`, Python adds them to L1 as `measure(l1_extra=...)` does (#804)."""
     tables = H.coarse_tables(table)
-    js = _js_rows(node, queries, table)
+    for ck, by_m in _l1_extra(l1_rows or {}, q).items():   # web_hit_rate.measure: the table's rows win
+        for m, row in by_m.items():
+            tables[0].setdefault(ck, {}).setdefault(m, row)
+    js = _js_rows(node, queries, table, l1_rows, q)
     seen = []
     for (k, m, top), j in zip(queries, js):
         row, level = H.backoff_row(table, tables, k, m, top)
@@ -172,3 +187,26 @@ def test_backoff_row_with_l4_matches_python_on_mid3(node):
     queries += [[k, len(policy[k]), K.TIER_K["mid"] - 1] for k in keys if k.startswith("call|")][:50]
     seen = _assert_same(node, queries, table)
     assert {"L4", False} <= set(seen), f"levels reached: {sorted(map(str, set(seen)))}"
+
+
+def test_l1_rows_backoff_matches_python(node):
+    """#804: a file's `l1_rows` fill L1 only where the table builds no row of that (L1 key, length), on both sides;
+    without the field the same queries give the old levels."""
+    mid = K.TIER_K["mid"] - 1
+    base = "BB|n3|1|1|0|2|0|3|tc0|s4:4|u10|hn|go|ka|e5|o1v1k0"
+    group = H.coarse_key(base, 1).replace("|e5", "|e*")
+    table = {_at(base, 3).replace("|o1v1k0", "|o2v2k2"): [0.1, 0.2, 0.7],   # L1 of e3 from the table: wins at m=3
+             base.replace("|u10|", "|u5|"): [0.3, 0.3, 0.4],                # L2 of every u10 key
+             "call|1|2|3|fc|e4": [0.5, 0.5]}
+    l1_rows = {group: {"3": [[255, 0, 0], [0, 255]],   # m=3 loses to the table's row, m=2 is the file's
+                       "5": [0, 255, 0],
+                       "7": [[51, 102, 102]]}}           # a one-row [rows] value
+    queries = [[base, 3, mid], [_at(base, 3), 3, mid], [_at(base, 3), 2, mid], [_at(base, 7), 3, mid],
+               [_at(base, 6), 3, mid], [_at(base, 5), 2, mid], [base.replace("BB|", "BTN|", 1), 3, mid],
+               [_at(base, 5).replace("|u10|", "|u5|"), 3, mid], ["call|1|2|3|fc|e4", 2, mid]]
+    seen = _assert_same(node, queries, table, l1_rows, 255)
+    assert seen == ["L1", "L1", "L1", "L1", "L4", False, False, "exact", "exact"], seen
+    js = _js_rows(node, queries, table, l1_rows, 255)
+    assert js[0]["row"] == [0.0, 1.0, 0.0] and js[1]["row"] == [0.1, 0.2, 0.7] and js[2]["row"] == [0.0, 1.0]
+    assert np.allclose(js[3]["row"], [0.2, 0.4, 0.4])
+    assert _assert_same(node, queries, table) == ["L2", "L1", False, False, "L4", False, False, "exact", "exact"]

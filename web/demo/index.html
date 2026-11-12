@@ -2177,6 +2177,7 @@ function tpgLoad(tier, n = 6) {
         const q = doc.q || 255, pol = new Map();
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
         // c1 tables back off on a miss (ADR 0022, #623): build the coarse tables here, not on the first AI decision.
+        if (doc.l1_rows) TPG.mod.setL1Rows(pol, doc.l1_rows, q);   // L1 rows the visit threshold erased (#803, #804)
         if (m.key_variant === "c1") { const t0 = performance.now(); TPG.mod.coarseTables(pol); TPG.coarseMs = { ...(TPG.coarseMs || {}), [pk]: Math.round(performance.now() - t0) }; }
         TPG.pol[pk] = pol;
       }
