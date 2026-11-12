@@ -287,7 +287,7 @@ def test_l1_rows_bytes_matches_hand_counted_bodies_per_encoding():
     assert e["all"]["gzip_bytes"] == len(W.gzip.compress(all_body.encode(), mtime=0))
     # BB's group carries visits 1 (its missing e1 key), SB's 0: with room for one group only BB's is kept
     one = len(f'{{"{bbg}":{{"1":[0,255]}}}}')
-    t = W.l1_rows_bytes(before, kept, visits, 100, 100 + one + 1)["encodings"]["grouped_top_fit"]
+    t = W.l1_rows_bytes(before, kept, visits, 100, 100 + one + 1 + len(W.L1_FIELD) + 3)["encodings"]["grouped_top_fit"]
     assert (t["bytes"], t["rows"], t["l1_keys"], t["l1_keys_ratio"]) == (one, 1, 3, 1.0)
     # SB e3 is still an L1 key the page has (its 2-row from kept), so the ratio only counts keys, not lengths
     none = W.l1_rows_bytes(before, kept, visits, 100, 100 + one)["encodings"]["grouped_top_fit"]
@@ -303,7 +303,10 @@ def test_l1_rows_bytes_is_recorded_only_with_a_threshold_and_v2_summaries_still_
     a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", players=(2, 3), min_visits=2)
     for f in a["files"]:
         r = f["l1_rows_bytes"]
-        assert r["file_bytes"] == f["bytes"] and r["l1_keys_file"] <= r["l1_keys_before"]
+        # `file_bytes` = the file without `l1_rows` (#803); with the field it is that + `"l1_rows":` + the grouped rows
+        top = r["encodings"]["grouped_top_fit"]["bytes"]
+        assert f["bytes"] == r["file_bytes"] + (len(W.L1_FIELD) + 4 + top if top > 2 else 0)
+        assert r["l1_keys_file"] <= r["l1_keys_before"]
         e = r["encodings"]
         assert e["missing_only"]["bytes"] <= e["all"]["bytes"] and e["grouped_top_fit"]["rows"] <= e["grouped_eq"]["rows"]
     v2 = json.loads(json.dumps(a))
@@ -365,3 +368,62 @@ def test_top_fit_with_room_for_everything_restores_every_l1_row_the_threshold_er
     shipped = {(ck, m) for ck, by_m in fit_rows.items() for m in by_m}
     want = {(ck, m) for ck, by_m in W._l1_rows(before).items() for m in by_m}
     assert have | shipped == want and shipped and not have & shipped
+
+
+def _l1_model():
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    return m.state()
+
+
+@pytest.mark.slow
+def test_l1_rows_field_is_the_top_fit_selection_within_the_cap_and_only_with_room_and_a_threshold(tmp_path):
+    # #803: the policy file carries `_top_fit`'s groups as `l1_rows`; its compact JSON never pushes the file over the cap
+    st = _l1_model()
+    kw = dict(players=(2,), hit_rate_hands=0)
+    big = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "big", min_visits=2, **kw)
+    f = big["files"][0]
+    doc = json.loads((tmp_path / "big" / f["file"]).read_bytes())
+    assert doc["l1_rows"] and f["bytes"] <= big["max_bytes"]
+    enc = f["l1_rows_bytes"]["encodings"]["grouped_top_fit"]
+    assert enc["bytes"] == len(json.dumps(doc["l1_rows"], separators=(",", ":")).encode())
+    assert enc["rows"] == sum(len(by_eq) for by_eq in doc["l1_rows"].values())
+    index = json.loads((tmp_path / "big" / "index.json").read_text())
+    assert "l1_rows" not in json.dumps(index)   # the model list says nothing about the rows
+    # the cap bites at the byte: exactly this file fits, one byte less must drop a group yet stay inside
+    for cap in (f["bytes"], f["bytes"] - 1):
+        r = W.export_all_players(st, {"job": "j"}, "7", tmp_path / f"c{cap}", min_visits=2, max_bytes=cap, **kw)
+        got = (tmp_path / f"c{cap}" / r["files"][0]["file"]).read_bytes()
+        assert len(got) <= cap or "l1_rows" not in json.loads(got)
+        assert r["files"][0]["bytes"] == len(got)
+    assert len(json.loads((tmp_path / f"c{f['bytes'] - 1}" / f["file"]).read_bytes()).get("l1_rows", {})) < len(doc["l1_rows"])
+    # no room, or no threshold: no field
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", min_visits=2, max_bytes=1, **kw)
+    n = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "n", min_visits=0, **kw)
+    for out, r in (("z", z), ("n", n)):
+        assert "l1_rows" not in json.loads((tmp_path / out / r["files"][0]["file"]).read_bytes())
+
+
+@pytest.mark.slow
+def test_hit_rate_tool_reads_the_files_l1_rows_like_the_export_summary(tmp_path):
+    # #803: `web_hit_rate` on the written file == the summary's `coarse_top_fit` cell; a file without the field is unchanged
+    st = _l1_model()
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2,), hit_rate_hands=2, min_visits=2)
+    f = s["files"][0]
+    policy, doc = W.H.load_policy(tmp_path / f["file"])
+    extra = W.H.l1_extra_of(doc)
+    assert extra
+    cell = f["hit_rate"]["by_min_visits"]["coarse_top_fit"]
+    kw = dict(rules=W.H.rules_of(doc), play_backoff=True, l4_neighbor=True)
+    got = W.H.measure(policy, 2, doc["k"], doc["depth"], 2, 611 + 2, l1_extra=extra, **kw)
+    assert json.dumps(got["by_backoff"], sort_keys=True) == json.dumps(cell["by_backoff"], sort_keys=True)
+    assert cell["l1_rows"] == sum(len(d) for d in extra.values())
+    assert W.H.l1_extra_of({k: v for k, v in doc.items() if k != "l1_rows"}) == {}
+
+
+def test_l1_extra_of_inverts_the_grouped_encoding_and_a_v1_file_has_no_rows():
+    rows = {_key("BB", "s4:4", 0): {2: [128, 127]}, _key("BB", "s4:4", 1): {2: [0, 255], 3: [255, 0, 0]},
+            _key("SB", "s1:1", 3): {3: [0, 255, 0]}}
+    doc = {"schema_version": 2, "l1_rows": W._grouped(rows)}
+    assert W.H.l1_extra_of(doc) == rows
+    assert W.H.l1_extra_of({"schema_version": 1, "q": 255, "policy": {}}) == {}   # pre-#803 files read as before

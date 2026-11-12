@@ -35,7 +35,7 @@ import numpy as np
 from stalker.jsonio import read_json
 
 SCHEMA = "stalker.web.policy"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: optional `l1_rows` (#803); a v1 file is the same without it
 INDEX_SCHEMA = "stalker.web.policy-index"
 INDEX_SCHEMA_VERSION = 1
 Q = 255
@@ -66,7 +66,7 @@ def export(policy: dict[str, list[float]], meta: dict, visits: dict[str, int] | 
 
 def index_entry(doc: dict, file: str, nbytes: int) -> dict:
     """What the page's model list says about one policy file: everything but the table itself."""
-    return {"file": file, "bytes": nbytes, **{k: v for k, v in doc.items() if k not in ("schema", "schema_version", "policy")}}
+    return {"file": file, "bytes": nbytes, **{k: v for k, v in doc.items() if k not in ("schema", "schema_version", "policy", "l1_rows")}}
 
 
 def upsert_index(index: dict | None, entry: dict) -> dict:

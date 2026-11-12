@@ -205,6 +205,20 @@ def load_policy(path: Path) -> tuple[dict, dict]:
     return {k: [x / q for x in row] for k, row in doc["policy"].items()}, doc
 
 
+def l1_extra_of(doc: dict) -> dict:
+    """The file's optional `l1_rows` (#803: `export_web_players._top_fit` groups) as `measure`'s `l1_extra`:
+    {L1 key: {row length: row}}. A file without the field gives {} (the page then builds L1 from the file alone)."""
+    out: dict = {}
+    for group, by_eq in (doc.get("l1_rows") or {}).items():
+        parts = group.split("|")
+        at = parts.index("e*")   # the one equity field `_group_of` wildcarded
+        for step, v in by_eq.items():
+            ck = "|".join([*parts[:at], "e" + step, *parts[at + 1:]])
+            rows = v if v and isinstance(v[0], list) else [v]
+            out[ck] = {len(r): r for r in rows}
+    return out
+
+
 def rules_of(doc: dict) -> dict:
     """The deal rules a policy file was trained on, read as `tpgto.js menuOf`: v1 with cap 3 when unsaid."""
     return {"menu": doc.get("menu") or "v1", "raise_cap": doc.get("raise_cap", G.RAISE_CAP)}
@@ -391,7 +405,8 @@ def main(argv=None) -> int:
     coarse = load_policy(a.coarse_policy)[0] if a.coarse_policy else None
     res = measure(policy, doc["players"], doc["k"], doc["depth"], a.hands, a.seed, visits, backoff=a.backoff,
                   play_backoff=a.play_backoff, rules=rules_of(doc), variant=variant, miss_report=a.miss_report,
-                  l4_neighbor=a.l4_neighbor, fidelity=a.fidelity, coarse_policy=coarse)
+                  l4_neighbor=a.l4_neighbor, fidelity=a.fidelity, coarse_policy=coarse,
+                  l1_extra=l1_extra_of(doc) or None)
     json.dump({**res, "variant": variant or "legacy", "file": a.policy.name}, sys.stdout, indent=1)
     sys.stdout.write("\n")
     return 0
