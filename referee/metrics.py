@@ -8,6 +8,7 @@ in #101; their last values stay in history.jsonl.
 limit, pass; backoff on/off) from `ops:cloud/results/<run id>.json` so the service-policy strength axis
 has a history; it is `null` when ops or such a result is missing. `fresh` (#690) is true only when every
 measured player count's page policy (`web/app/policy/mid-<n>.json` `run_id`) is the measured `policy_run`.
+Its `v3` / `all_pass_v3` (#797) judge the result's service cells with the ADR 0025 table (`aivat_lbr_bb`).
 """
 from __future__ import annotations
 
@@ -173,6 +174,23 @@ def _page_run(repo: Path, players: str):
     return doc.get("run_id") if isinstance(doc, dict) else None
 
 
+def _web_lbr_v3(doc: dict):
+    """ADR 0025 v3 verdicts (service cells, current LBR) of a web result, and their roll-up.
+    Results without the AIVAT column (schema 1) give an error note and None, never a failed snapshot."""
+    from referee.e3 import thresholds as th
+    path, pinned = th.TABLES["v3"]
+    try:
+        judged = th.judge(th.from_web_result(doc), th.load_thresholds(path, pinned))
+    except (th.ThresholdError, KeyError, TypeError, ValueError) as e:
+        return {"error": str(e)}, None
+    v3 = {n: {k: (round(r[k], 3) if k == "mean" and r[k] is not None else r[k])
+              for k in ("verdict", "mean", "limit", "seeds")} for n, kinds in judged.items()
+          for r in [kinds["lbr"]]}
+    verdicts = [r["verdict"] for r in v3.values()]
+    all_pass = True if verdicts and all(v == "pass" for v in verdicts) else (False if "fail" in verdicts else None)
+    return v3, all_pass
+
+
 def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:
     """Newest service-policy LBR result from ops, copied as is (no recomputation).
 
@@ -202,6 +220,7 @@ def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -
                 for n, cell in cells.items():
                     by_players.setdefault(str(n), {})[mode] = {
                         k: cell.get(k) for k in ("lbr_bb", "lbr_stderr_bb", "limit", "pass")}
+                    by_players[str(n)][mode].update({k: cell[k] for k in ("aivat_lbr_bb", "aivat_stderr_bb") if k in cell})
                     if cell.get("policy_run") is not None:  # --from-pages results name the run each page file had (#695)
                         measured_run[str(n)] = cell["policy_run"]
             on = [m["on"]["pass"] for m in by_players.values() if "on" in m]
@@ -213,9 +232,11 @@ def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -
             fresh = bool(by_players) and all(
                 _want(n) is not None and m["page_run"] is not None and str(m["page_run"]) == str(_want(n))
                 for n, m in by_players.items())
+            v3, all_pass_v3 = _web_lbr_v3(doc)
             return {"e3_web_lbr": {"run": run, "policy_run": policy_run,
                                    "by_players": dict(sorted(by_players.items(), key=lambda kv: int(kv[0]))),
-                                   "all_pass_on": bool(on) and all(p is True for p in on), "fresh": fresh}}
+                                   "all_pass_on": bool(on) and all(p is True for p in on), "fresh": fresh,
+                                   "v3": v3, "all_pass_v3": all_pass_v3}}
     except (OSError, subprocess.SubprocessError):
         pass
     return {"e3_web_lbr": None}
