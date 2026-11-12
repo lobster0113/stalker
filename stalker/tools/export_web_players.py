@@ -121,6 +121,9 @@ def _size(obj) -> tuple[int, int]:
     return len(body), len(gzip.compress(body, mtime=0))
 
 
+L1_FIELD = "l1_rows"   # the policy file's optional field holding the `_top_fit` rows (#803)
+
+
 def _top_fit(before: dict, kept: dict, visits: dict, file_bytes: int, max_bytes: int, full: dict | None = None):
     """The `grouped_top_fit` selection, the one place it is computed (#775, #790): returns `(missing, groups, fit,
     fit_rows)` = the L1 rows the page cannot build from `kept`, those grouped by `e*`, the groups that fit, and the
@@ -136,7 +139,7 @@ def _top_fit(before: dict, kept: dict, visits: dict, file_bytes: int, max_bytes:
         if ck in missing:
             g = _group_of(ck)
             weight[g] = weight.get(g, 0) + visits.get(k, 0)
-    room, fit, size = max_bytes - file_bytes - 1, {}, 2   # "{}"
+    room, fit, size = max_bytes - file_bytes - 1 - len(L1_FIELD) - 3, {}, 2   # "{}"; the field name + colon + comma it is written under (#803)
     for g in sorted(groups, key=lambda g: (-weight.get(g, 0), g)):
         add = len(json.dumps({g: groups[g]}, separators=(",", ":")).encode()) - 2 + (1 if fit else 0)
         if size + add > room:
@@ -218,6 +221,14 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
             raise SystemExit(f"run {run} is tier {doc['tier']!r}, not {tier!r}: pass tier={doc['tier']} "
                              "or pick a run of that tier")
         body = json.dumps(doc, separators=(",", ":")).encode()
+        base_bytes = len(body)   # without the L1 field: the selection's room is measured from it
+        if mv > 0:
+            before = X.keep_players(full, n)
+            kept = {k: r for k, r in before.items() if visits.get(k, 0) >= mv}
+            fit = _top_fit(before, kept, visits, base_bytes, max_bytes)[2]
+            if fit:
+                doc[L1_FIELD] = fit
+                body = json.dumps(doc, separators=(",", ":")).encode()
         name = f"{doc['tier']}-{n}.json"
         (out_dir / name).write_bytes(body)
         idx = X.upsert_index(idx, X.index_entry(doc, name, len(body)))
@@ -227,9 +238,8 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
                       "keys_by_min_visits": _keys_by_min_visits(X.keep_players(full, n), visits),
                       "lbr_bb": doc["lbr_bb"], "lbr_stderr_bb": doc["lbr_stderr_bb"], "field_worst": doc["field_worst"]})
         if mv > 0:
-            before = X.keep_players(full, n)
             files[-1]["l1_rows_bytes"] = l1_rows_bytes(
-                before, {k: r for k, r in before.items() if visits.get(k, 0) >= mv}, visits, len(body), max_bytes)
+                before, kept, visits, base_bytes, max_bytes)
         if hit_rate_hands > 0:
             t0 = time.monotonic()
             # the page's own menu/cap: the engine default (v1, cap 3) misreads a real-menu table as ~0% hit (#618)
@@ -238,15 +248,13 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
             if mv > 0:
                 # #743: play the file's own table (visits >= mv) with the backoff tables built from the table before
                 # the threshold, to see what keeping L1 material apart from the threshold would buy.
-                before = X.keep_players(full, n)
-                kept = {k: r for k, r in before.items() if visits.get(k, 0) >= mv}
                 cff = H.measure(kept, n, doc["k"], doc["depth"], hit_rate_hands, 611 + n, rules=H.rules_of(doc),
                                 play_backoff=True, l4_neighbor=True, coarse_policy=before)
                 files[-1]["hit_rate"].setdefault("by_min_visits", {})["coarse_from_full"] = {
                     "min_visits": mv, "by_backoff": cff["by_backoff"]}
                 # #790: the same, but L1 = what the page builds from the file + the `grouped_top_fit` rows that fit
                 # (`_top_fit`, the selection `l1_rows_bytes` reports); L2+ from the file alone, as the page does.
-                fit_rows = _top_fit(before, kept, visits, len(body), max_bytes)[3]
+                fit_rows = _top_fit(before, kept, visits, base_bytes, max_bytes)[3]
                 ctf = H.measure(kept, n, doc["k"], doc["depth"], hit_rate_hands, 611 + n, rules=H.rules_of(doc),
                                 play_backoff=True, l4_neighbor=True, l1_extra=fit_rows)
                 files[-1]["hit_rate"]["by_min_visits"]["coarse_top_fit"] = {
