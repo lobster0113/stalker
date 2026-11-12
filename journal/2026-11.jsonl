@@ -1230,3 +1230,4 @@
 {"ts":"2026-11-12T07:41:58Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has CHANGES at head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-12T08:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer); no even PRs to review","friction":""}
 {"ts":"2026-11-12T08:33:40Z","role":"reviewer-b","outcome":"skipped","issue":790,"pr":801,"notes":"not my parity (odd PR #801 -> reviewer)","friction":""}
+{"ts":"2026-11-12T08:55:00Z","role":"builder","outcome":"pr_opened","issue":790,"pr":801,"notes":"#790 실행 2: cloud export 43180061270 → coarse_top_fit 플랍 균등 6인 14/143(Wilson 상한 15.8%, 기준 16% 경계 → (a)+재측정 조건), 2인 0/130, 3인 7/203 문서 기록","friction":"로컬 gates full의 tests 단계 1140초, quick도 300초 안에 안 끝남 — #800 대상. PR 라벨 부착으로 첫 CI run이 cancelled(#105). 로컬 ops worktree의 origin/ops가 낡아 journal push 첫 시도 충돌."}
