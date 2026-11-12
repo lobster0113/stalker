@@ -1,5 +1,6 @@
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -283,7 +284,7 @@ def test_e3_web_lbr_single_seed_three_player_cell_is_not_a_pass(ops_clone):
 
 
 def test_e3_web_lbr_reads_a_schema2_result_like_schema1(tmp_path):
-    """#781: schema 2 adds aivat_* cell keys; the metric copies the same four keys, so the verdict view is unchanged."""
+    """#781: schema 2 adds aivat_* cell keys; the four verdict keys and all_pass_on are unchanged (#797 copies aivat_* on top)."""
     out = {}
     for ver in (1, 2):
         origin = tmp_path / f"o{ver}"
@@ -302,4 +303,44 @@ def test_e3_web_lbr_reads_a_schema2_result_like_schema1(tmp_path):
         _git(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
         _pages(clone, p2="p2", p3="p2")
         out[ver] = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
-    assert out[1] == out[2] and out[2]["all_pass_on"] is True
+    strip = lambda d: {n: {m: {k: v for k, v in c.items() if not k.startswith("aivat_")} if isinstance(c, dict) else c
+                           for m, c in cells.items()} for n, cells in d["by_players"].items()}
+    assert strip(out[1]) == strip(out[2]) and out[2]["all_pass_on"] is True
+    assert out[2]["by_players"]["2"]["on"]["aivat_lbr_bb"] == 4.5
+
+
+def test_e3_web_lbr_copies_aivat_columns_when_present(ops_clone):
+    origin, clone = ops_clone
+    doc = _lbr_result("p5", 4.0)
+    doc["backoff"]["on"]["3"].update(aivat_lbr_bb=3.9, aivat_stderr_bb=0.1)
+    _ops_with(origin, doc)
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["by_players"]
+    assert got["3"]["on"]["aivat_lbr_bb"] == 3.9 and got["3"]["on"]["aivat_stderr_bb"] == 0.1
+    assert "aivat_lbr_bb" not in got["2"]["on"]
+
+
+def test_e3_web_lbr_v3_judges_the_fixture(ops_clone):
+    origin, clone = ops_clone
+    fixture = Path(__file__).parent / "fixtures" / "web_policy_lbr_43111293721.json"
+    _ops_with(origin, json.loads(fixture.read_text(encoding="utf-8")))
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert {n: r["verdict"] for n, r in got["v3"].items()} == dict.fromkeys("23456", "pass")
+    assert [got["v3"][n]["mean"] for n in "23456"] == [5.781, 4.677, 2.646, 1.950, 0.766]
+    assert got["all_pass_v3"] is True
+
+
+def test_e3_web_lbr_v3_error_for_schema_1_keeps_the_rest(ops_clone):
+    origin, clone = ops_clone
+    doc = _lbr_result("p6", 4.0)
+    doc["rows"] = [{"players": 3, "backoff": True, "seed": 1, "hands": 2000, "lbr_bb": 4.0}]
+    _ops_with(origin, doc)
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert "aivat_lbr_bb" in got["v3"]["error"] and got["all_pass_v3"] is None
+    assert got["run"] == 500 and got["all_pass_on"] is True
+
+
+def test_all_pass_v3_rolls_up_fail_and_insufficient():
+    row = lambda n, a: {"players": n, "backoff": True, "seed": 1, "hands": 2000, "lbr_bb": a, "aivat_lbr_bb": a}
+    base = {"schema": "stalker.web.policy-lbr", "legacy_pages": []}
+    fail = metrics._web_lbr_v3({**base, "rows": [row(2, 99.0)]})
+    assert fail[0]["2"]["verdict"] == "fail" and fail[1] is False
