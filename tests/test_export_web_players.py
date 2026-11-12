@@ -132,6 +132,7 @@ def test_min_visits_by_players_parses_and_rejects_with_the_fix():
             W.parse_min_visits_by_players(bad, FIVE)
 
 
+@pytest.mark.slow
 def test_per_player_min_visits_is_applied_and_recorded_per_file(tmp_path):
     m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 4, 6))
     m.iterate(40)
@@ -172,6 +173,7 @@ def test_policies_for_ops_keeps_only_files_within_the_page_budget(tmp_path):
     assert all(f["within_page_budget"] is False for f in s0["files"])
 
 
+@pytest.mark.slow
 def test_cli_policies_out_index_lists_only_uploaded_files_of_this_run(tmp_path, monkeypatch):
     """The real path: one non-empty --index-base feeds both the full index and the ops copy (#596 review)."""
     m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 4, 6))
@@ -218,6 +220,7 @@ def test_hit_rate_is_recorded_per_file_monotone_deterministic_and_can_be_turned_
         assert hits == sorted(hits, reverse=True)   # a higher floor never finds more keys
 
 
+@pytest.mark.slow
 def test_hit_rate_is_measured_with_the_files_own_menu_and_cap(tmp_path, monkeypatch):
     # a real-menu table measured with the engine default (v1, cap 3) reads ~0% off-`call|` (#618, #617 review)
     m = E3MCCFR(1, 5, 6, "basic", menu="real", raise_cap=None, key_variant="c1", player_mix=(2, 3))

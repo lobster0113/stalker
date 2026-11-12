@@ -58,6 +58,7 @@ def test_size_cap_and_pruning(tmp_path):
     assert all(m.visits[k] >= 3 for k in doc["policy"])
 
 
+@pytest.mark.slow
 def test_average_strategy_and_pod_result_input(tmp_path):
     # #355: export the average strategy, straight from a pod training result
     from stalker.tools import pod_train as P
