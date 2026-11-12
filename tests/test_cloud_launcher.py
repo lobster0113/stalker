@@ -1187,6 +1187,11 @@ def test_cloud_workflow_export_mode(tmp_path):
     assert '--summary-out "ops/cloud/exports/$EXPORT_RUN.json"' in run and "--index-base web/app/policy/index.json" in run
     assert "--policies-out \"ops/cloud/policies/$EXPORT_RUN\"" in run and '--min-visits-by-players "$EXPORT_MIN_VISITS_BY_PLAYERS"' in run
     assert "export_min_visits_by_players must look like" in wf   # regex-checked like the other inputs (#596)
+    for n in ("hands", "seeds"):   # optional hit-rate inputs: validated, passed only when set (#815)
+        assert f"export_hit_rate_{n}:" in wf and f"EXPORT_HIT_RATE_{n.upper()}: ${{{{ inputs.export_hit_rate_{n} }}}}" in wf
+        assert f"export_hit_rate_{n} must be empty or a positive whole number" in wf
+        assert f'[[ -n "$EXPORT_HIT_RATE_{n.upper()}" ]] && extra+=(--hit-rate-{n} "$EXPORT_HIT_RATE_{n.upper()}")' in run
+    assert '"${extra[@]}"' in run
     assert "git " not in run   # never commits to main or web/app/policy/
     assert "name: web-policy-${{ env.EXPORT_RUN }}" in wf[idx[3]:idx[4]]
     # the pod, terminate, upload-result and ledger-writing launcher calls are all run-only
