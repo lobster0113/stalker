@@ -1,6 +1,6 @@
 """Quality gates. `python -m referee.gates quick|full [--part tests|checks]`.
 
-G0 (quick): byte-compile + fast tests.
+G0 (quick): byte-compile + fast tests (parallel like full when pytest-xdist is installed).
 G1 (full):  all tests incl. slow/property tests + registered determinism checks.
 G2 (full):  registered strength evaluations, when available.
 Output policy: one progress line per step on stderr (`[gate] tests ok 312s`) so a long run is
@@ -8,6 +8,7 @@ visibly alive, a one-line summary on stdout, and short actionable text on failur
 """
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 import time
@@ -54,9 +55,21 @@ def _run(name: str, argv: list[str]) -> bool:
     return False
 
 
+def _quick_argv(has_xdist: bool) -> list[str]:
+    # Serial quick took 500-1700s locally (#800); spreading it like full is the cheap win (#811).
+    # Under xdist `-x` still means maxfail=1: the controller stops scheduling after the first failure.
+    # Without the plugin `-n` is an unknown flag, so fall back to serial instead of failing the gate.
+    argv = [PY, "-m", "pytest", "-q", "-x", "-m", "not slow", "--no-header", "-p", "no:cacheprovider"]
+    return argv + FULL_TEST_WORKERS if has_xdist else argv
+
+
 def quick() -> bool:
     ok = _run("compile", [PY, "-m", "compileall", "-q", "stalker", "referee", "harness"])
-    ok &= _run("tests", [PY, "-m", "pytest", "-q", "-x", "-m", "not slow", "--no-header", "-p", "no:cacheprovider"])
+    has_xdist = importlib.util.find_spec("xdist") is not None
+    if not has_xdist:
+        print('[gate] pytest-xdist missing, quick tests run serially: python -m pip install -e ".[dev]"',
+              file=sys.stderr, flush=True)
+    ok &= _run("tests", _quick_argv(has_xdist))
     return ok
 
 

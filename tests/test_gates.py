@@ -51,3 +51,49 @@ def test_cli_arguments_fail_with_a_short_hint():
                       (["gates", "quick", "--part", "tests"], "full only"), (["gates", "slow"], "unknown mode")):
         with pytest.raises(SystemExit, match=msg):
             gates._parse(argv)
+
+
+def test_quick_runs_fast_tests_across_workers_and_stops_at_first_failure(monkeypatch):
+    calls = []
+    monkeypatch.setattr(gates, "_run", lambda name, argv: calls.append((name, argv)) or True)
+    assert gates.quick()
+    argv = dict(calls)["tests"]
+    assert argv[argv.index("-m", 3) + 1] == "not slow"
+    assert "-x" in argv
+    assert argv[-len(gates.FULL_TEST_WORKERS):] == gates.FULL_TEST_WORKERS
+
+
+def test_quick_falls_back_to_serial_without_xdist():
+    serial = gates._quick_argv(has_xdist=False)
+    assert "-n" not in serial and "--dist" not in serial
+    assert serial[serial.index("-m", 3) + 1] == "not slow" and "-x" in serial
+    assert gates._quick_argv(has_xdist=True) == serial + gates.FULL_TEST_WORKERS
+
+
+def test_quick_uses_serial_argv_when_xdist_is_not_importable(monkeypatch):
+    calls = []
+    monkeypatch.setattr(gates, "_run", lambda name, argv: calls.append((name, argv)) or True)
+    real = importlib.util.find_spec
+    monkeypatch.setattr(gates.importlib.util, "find_spec", lambda n, *a: None if n == "xdist" else real(n, *a))
+    assert gates.quick()
+    assert dict(calls)["tests"] == gates._quick_argv(has_xdist=False)
+
+
+def test_xdist_maxfail_stops_after_first_failure(tmp_path):
+    # Evidence for keeping `-x` under xdist (#811): after the first failure the controller stops scheduling, so the
+    # third test never runs (tests already running on other workers still finish). xdist exits 2 (interrupted), not 1.
+    import subprocess
+
+    import pytest
+
+    if not importlib.util.find_spec("xdist"):
+        pytest.skip("pytest-xdist not installed")
+    (tmp_path / "test_x.py").write_text(
+        "import time\n"
+        "def test_a():\n    assert False\n"
+        "def test_b():\n    time.sleep(1)\n    assert False\n"
+        "def test_c():\n    time.sleep(1)\n    assert False\n", encoding="utf-8")
+    r = subprocess.run([gates.PY, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", "-n", "2", "--dist", "worksteal",
+                        str(tmp_path)], capture_output=True, text=True, encoding="utf-8", cwd=tmp_path)
+    assert r.returncode != 0
+    assert "stopping after 1 failures" in r.stdout and "3 failed" not in r.stdout, r.stdout
