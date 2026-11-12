@@ -34,7 +34,7 @@
   },
   "mid": {
    "file": "mid-6.json",
-   "bytes": 2774325,
+   "bytes": 3145713,
    "tier": "mid",
    "players": 6,
    "k": 11,
@@ -61,7 +61,7 @@
    "by_players": {
     "2": {
      "file": "mid-2.json",
-     "bytes": 2575833,
+     "bytes": 3145723,
      "tier": "mid",
      "players": 2,
      "k": 11,
@@ -88,7 +88,7 @@
     },
     "3": {
      "file": "mid-3.json",
-     "bytes": 2331802,
+     "bytes": 3145705,
      "tier": "mid",
      "players": 3,
      "k": 11,
@@ -115,7 +115,7 @@
     },
     "4": {
      "file": "mid-4.json",
-     "bytes": 2266547,
+     "bytes": 3145713,
      "tier": "mid",
      "players": 4,
      "k": 11,
@@ -142,7 +142,7 @@
     },
     "5": {
      "file": "mid-5.json",
-     "bytes": 3060099,
+     "bytes": 3145696,
      "tier": "mid",
      "players": 5,
      "k": 11,
