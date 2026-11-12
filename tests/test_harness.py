@@ -450,3 +450,10 @@ def test_reviewer_sweep_runs_early_for_a_pending_merge_retry():
 def test_reviewer_doc_defines_merge_retry_rule():
     text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
     assert "MERGE-RETRY failed" in text and "NEEDS_HUMAN" in text
+
+
+def test_reviewer_doc_merges_via_mcp_merge_pull_request():
+    text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
+    assert "merge_pull_request" in text, (
+        "reviewer.md §2 MERGE must name MCP `merge_pull_request` as the primary merge path "
+        "(gh pr merge 403s in cloud routines); restore that sentence (#795)")

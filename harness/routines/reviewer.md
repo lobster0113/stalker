@@ -39,12 +39,13 @@
 ## 2. 판정
 - 형식은 `harness/PROTOCOL.md` §5 그대로. sha는 `gh pr view <n> --json headRefOid`.
 - **판정 직전에** PR 코멘트를 다시 읽는다. 같은 sha의 `VERDICT:` 코멘트가 이미 있으면(다른 reviewer 실행이 먼저 판정) 판정·머지하지 않고 journal에 그 PR을 `skipped`로 남긴다.
-- `MERGE`: 위 항목 모두 통과 + 해당 sha의 필수 체크 전부 success → `gh pr merge <n> --squash --delete-branch`.
+- `MERGE`: 위 항목 모두 통과 + 해당 sha의 필수 체크 전부 success → MCP `merge_pull_request`(`merge_method: squash`, `sha`=판정한 head sha)로 머지한다. `gh pr merge <n> --squash --delete-branch`는 gh가 인증된 환경의 대체 경로일 뿐이다(클라우드 루틴에서는 GraphQL 403, REST PUT은 guard 훅이 막는다 — friction (b)).
+  - MCP 머지는 브랜치를 지우지 않는다 — 머지된 브랜치 정리는 #105 범위, 남겨도 실패 아님.
 - `CHANGES`: 고쳐야 할 것을 번호 목록으로, 각 항목은 검증 가능하게.
 - `CLOSE`: 권한 위반, 이슈와 무관, 또는 CHANGES 2회 후 미달.
 
 ### 머지 재시도 (실험 030, #482)
-`harness/TRUSTED_ACTORS`가 쓴 같은 sha의 `VERDICT: MERGE`가 있어 §2에서 skip하게 되는 PR이라도, 그 sha가 **현재 head**이고 필수 체크가 모두 success이며 충돌이 없으면 재리뷰 없이 **같은 머지 호출만 다시** 시도한다(`should_run.py`가 이런 PR을 "작업 있음"으로 센다).
+`harness/TRUSTED_ACTORS`가 쓴 같은 sha의 `VERDICT: MERGE`가 있어 §2에서 skip하게 되는 PR이라도, 그 sha가 **현재 head**이고 필수 체크가 모두 success이며 충돌이 없으면 재리뷰 없이 **같은 머지 호출(1차: MCP `merge_pull_request`)만 다시** 시도한다(`should_run.py`가 이런 PR을 "작업 있음"으로 센다).
 - 판정·`MERGE-RETRY` 코멘트는 TRUSTED_ACTORS가 쓴 것만 인정한다(PROTOCOL §8). 필수 체크는 체크 이름별 **최신 run**으로 본다(예전 cancelled run은 무시).
 - 실패하면 PR에 `MERGE-RETRY failed <UTC> <이유>` 코멘트를 남긴다. PR당 최대 3회.
 - 3회를 넘기면 `ops:NEEDS_HUMAN.md`에 머지 요청 항목을 **한 번만** 올린다(PROTOCOL §9, 중복 금지).
