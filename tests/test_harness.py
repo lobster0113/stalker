@@ -90,7 +90,7 @@ def test_schedule_covers_all_routines():
     assert roles == {cfg["instructions"] for cfg in sched.values()}
 
 
-def _run_pytest(tmp_path, body, require_torch):
+def _run_pytest(tmp_path, body, require_torch, require_numba=False):
     import os
     import shutil
     import subprocess
@@ -98,9 +98,11 @@ def _run_pytest(tmp_path, body, require_torch):
 
     shutil.copy(ROOT / "tests" / "conftest.py", tmp_path / "conftest.py")
     (tmp_path / "test_case.py").write_text(body, encoding="utf-8")
-    env = {k: v for k, v in os.environ.items() if k != "STALKER_REQUIRE_TORCH"}
+    env = {k: v for k, v in os.environ.items() if k not in ("STALKER_REQUIRE_TORCH", "STALKER_REQUIRE_NUMBA")}
     if require_torch:
         env["STALKER_REQUIRE_TORCH"] = "1"
+    if require_numba:
+        env["STALKER_REQUIRE_NUMBA"] = "1"
     return subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(tmp_path)],
         cwd=tmp_path, env=env, capture_output=True, text=True, encoding="utf-8",
@@ -151,6 +153,29 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "part: [tests, checks]" in parts
     gates = "\n".join(jobs["gates"])  # the required check: fails unless every part succeeded
     assert "needs: gates-part" in gates and "if: always()" in gates and '!= "success"' in gates
+
+
+def test_require_numba_fails_skips_of_numba_marked_tests_only(tmp_path):
+    marked = 'import pytest\n\n@pytest.mark.numba\ndef test_x():\n    pytest.importorskip("numba_missing_for_test")\n'
+    r = _run_pytest(tmp_path, marked, require_torch=False)
+    assert r.returncode == 0 and "1 skipped" in r.stdout
+    r = _run_pytest(tmp_path, marked, require_torch=False, require_numba=True)
+    assert r.returncode in FAILED and "STALKER_REQUIRE_NUMBA" in r.stdout
+    unmarked = 'import pytest\n\ndef test_x():\n    pytest.skip("numba not installed")\n'
+    r = _run_pytest(tmp_path, unmarked, require_torch=False, require_numba=True)
+    assert r.returncode == 0 and "1 skipped" in r.stdout
+
+
+def test_ci_numba_job_runs_marked_tests_with_fast_extra_and_short_timeout():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    job = ci.split("\n  numba:\n", 1)[1].split("\n\n", 1)[0]
+    assert int(re.search(r"timeout-minutes: (\d+)", job).group(1)) <= 15
+    assert '".[dev,fast]"' in job and "import numba" in job
+    assert 'STALKER_REQUIRE_NUMBA: "1"' in job and "pytest -m numba" in job
+    parts = ci.split("\n  gates-part:\n", 1)[1].split("\n\n", 1)[0]
+    assert '".[dev]"' in parts and "fast]" not in parts  # gates time stays as is (#786)
+    toml = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"numba:' in toml  # the marker is the one list of numba-path tests
 
 
 def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
