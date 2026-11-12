@@ -146,3 +146,112 @@ def test_real_mixn_c1_verdict_record_passes(tmp_path):
     for n in ("2", "3", "4", "5", "6"):
         for kind in T.KINDS:
             assert rec["players"][n][kind]["verdict"] == "pass", (n, kind)
+
+
+# --- ADR 0025: lbr_thresholds_v3.json judges the AIVAT-corrected column of web policy LBR results ---
+WEB_FIX = Path(__file__).parent / "fixtures" / "web_policy_lbr_43111293721.json"
+ADR25 = Path(__file__).parents[1] / "docs/decisions/0025-aivat-lbr-thresholds.md"
+
+
+def v3():
+    return T.load_thresholds(*T.TABLES["v3"])
+
+
+def test_every_table_pinned_and_v3_differs_from_v2_only_in_column_and_min_seeds():
+    for path, pin in T.TABLES.values():
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == pin, path.name
+    old, new = T.load_thresholds(), v3()
+    assert "column" not in old and new["column"] == "aivat_lbr_bb"
+    for n, spec in old["players"].items():
+        got = new["players"][n]
+        assert {k: got[k] for k in ("lbr_max", "lbr_average_max", "hands")} == \
+               {k: spec[k] for k in ("lbr_max", "lbr_average_max", "hands")}
+        assert got["min_seeds"] == {"lbr": 1, "lbr_average": spec["min_seeds"]["lbr_average"]}
+    assert "lbr_thresholds_v3.json" in ADR25.read_text(encoding="utf-8")
+
+
+def test_edited_table_is_refused(tmp_path):
+    f = tmp_path / "lbr_thresholds_v3.json"
+    f.write_bytes(T.THRESHOLDS_V3.read_bytes().replace(b"9.0", b"9.5"))
+    with pytest.raises(T.ThresholdError, match="sha256"):
+        T.load_thresholds(f, T.THRESHOLDS_V3_SHA256)
+
+
+def aiv(seed, n, hands, raw, corrected):
+    s = summ(seed, n, hands, raw)
+    s["by_players"][str(n)]["lbr"]["aivat_lbr_bb"] = corrected
+    return s
+
+
+def test_v3_judges_the_corrected_column():
+    # (a) raw 2.8 would fail the 6p line 2.7; the corrected 2.6 passes, and one seed is enough under v3
+    r = T.judge([aiv(1, 6, 1000, 2.8, 2.6)], v3())
+    assert r["6"]["lbr"] == {"verdict": "pass", "mean": 2.6, "limit": 2.7, "seeds": 1}
+    assert T.judge([aiv(1, 6, 1000, 2.6, 2.8)], v3())["6"]["lbr"]["verdict"] == "fail"
+    # (c) the same summaries under v2 read lbr_bb as before
+    for s in ([aiv(1, 6, 1000, 2.8, 2.6), aiv(2, 6, 1000, 2.8, 2.6)], [summ(1, 2, 2000, 7.1)]):
+        plain = [json.loads(json.dumps(x)) for x in s]
+        for x in plain:
+            for cell in x["by_players"].values():
+                cell["lbr"].pop("aivat_lbr_bb", None)
+        assert T.judge(s, T.load_thresholds()) == T.judge(plain) == T.judge(s)
+    assert T.judge([aiv(1, 6, 1000, 2.8, 2.6), aiv(2, 6, 1000, 2.8, 2.6)])["6"]["lbr"]["verdict"] == "fail"
+
+
+def test_v3_without_the_corrected_column_says_how_to_fix():
+    # (b) a schema-1 cell at the judged hand count is an input error, not a quiet `insufficient`
+    with pytest.raises(T.ThresholdError, match="--aivat-samples 8"):
+        T.judge([summ(1, 2, 2000, 7.1)], v3())
+    # a cell at another hand count is not judged, so it needs no column
+    assert T.judge([summ(1, 2, 600, 7.1)], v3())["2"]["lbr"]["verdict"] == "insufficient"
+
+
+def test_record_stays_record_only_on_v2(tmp_path):
+    d = write_results(tmp_path / "results", [("1", summ(1, 2, 2000, 7.1))])
+    rec = T.record("j", d, tmp_path / "verdicts", log=lambda _m: None)
+    assert rec["thresholds"] == "lbr_thresholds_v2.json" and rec["players"]["2"]["lbr"]["verdict"] == "pass"
+
+
+def web_doc(rows, legacy=()):
+    return {"schema": T.WEB_SCHEMA, "schema_version": 2, "legacy_pages": list(legacy), "rows": rows}
+
+
+def row(n, seed, backoff, raw, corrected=None, hands=2000):
+    r = {"players": n, "seed": seed, "backoff": backoff, "hands": hands, "lbr_bb": raw}
+    return r if corrected is None else {**r, "aivat_lbr_bb": corrected}
+
+
+def test_from_web_result_takes_service_cells():
+    doc = web_doc([row(2, 1, True, 6.0, 5.0), row(2, 1, False, 9.9, 9.9),
+                   row(6, 1, False, 0.8, 0.7, 1000), row(2, 2, True, 6.2, 5.2)], legacy=[6])
+    s = T.from_web_result(doc)
+    assert s == [{"seed": 1, "by_players": {"2": {"lbr": {"hands": 2000, "lbr_bb": 6.0, "aivat_lbr_bb": 5.0}},
+                                           "6": {"lbr": {"hands": 1000, "lbr_bb": 0.8, "aivat_lbr_bb": 0.7}}}},
+                 {"seed": 2, "by_players": {"2": {"lbr": {"hands": 2000, "lbr_bb": 6.2, "aivat_lbr_bb": 5.2}}}}]
+    r = T.judge(s, v3())
+    assert r["2"]["lbr"]["mean"] == pytest.approx(5.1) and r["6"]["lbr"]["verdict"] == "pass"
+    with pytest.raises(T.ThresholdError, match="no service rows"):
+        T.from_web_result(web_doc([row(2, 1, False, 6.0)]))
+    with pytest.raises(T.ThresholdError, match="not a"):
+        T.from_web_result({"rows": []})
+
+
+def test_ci_run_43111293721_passes_v3_on_every_service_cell(capsys):
+    assert T.main(["--json", str(WEB_FIX)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["thresholds"] == "lbr_thresholds_v3.json" and out["column"] == "aivat_lbr_bb"
+    means = {"2": 5.781, "3": 4.677, "4": 2.646, "5": 1.950, "6": 0.766}   # research doc, 「CI 측정」 (on; 6p legacy off)
+    for n, m in means.items():
+        cell = out["players"][n]["lbr"]
+        assert cell["verdict"] == "pass" and cell["seeds"] == 8 and cell["mean_lbr_bb"] == pytest.approx(m, abs=6e-4)
+        assert out["players"][n]["lbr_average"]["verdict"] == "insufficient"   # the web job measures current LBR only
+    assert T.main(["--thresholds", "v2", str(WEB_FIX)]) == 0
+    assert "1.547" in capsys.readouterr().out   # 5p on, raw column
+
+
+def test_cli_refuses_mixed_inputs_and_v3_on_job(tmp_path, capsys):
+    f = tmp_path / "s.json"
+    f.write_text(json.dumps(summ(1, 2, 2000, 7.1)), encoding="utf-8")
+    assert T.main([str(WEB_FIX), str(f)]) == 2 and "mix" in capsys.readouterr().err
+    assert T.main(["--thresholds", "v3", "--job", "j", "--results-dir", str(tmp_path)]) == 2
+    assert T.main(["--thresholds", "v3", str(f)]) == 2 and "--aivat-samples 8" in capsys.readouterr().err
