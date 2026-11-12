@@ -25,6 +25,12 @@ filter and puts `hit_rate` (`stalker.tools.web_hit_rate.measure`: by street, `ca
 A file with a `min_visits` threshold also gets `l1_rows_bytes` (#775): how many bytes the L1 backoff
 rows of the table before the threshold would add to the file under a few candidate encodings, measured only (the
 file and the page are unchanged).
+
+`hit_rate.by_min_visits` also carries two cells that play the file's own table (visits >= `min_visits`) with
+different backoff material: `coarse_from_full` (#743) builds every backoff level (L1-L3) from the table before the
+threshold; `coarse_top_fit` (#790) builds L1 from the file plus the `grouped_top_fit` rows that fit the page cap
+(`_top_fit`, the selection `l1_rows_bytes` reports) and L2+ from the file alone, as the page would. So even with a cap
+generous enough for every L1 row the two differ by definition (L2+); only their L1 material is the same.
 """
 from __future__ import annotations
 
