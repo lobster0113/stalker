@@ -144,6 +144,12 @@ def test_backoff_counts_are_deterministic_and_off_is_the_old_output():
         assert c["decisions"] == off["by_street"][st]["decisions"]
         assert c["exact"] == off["by_street"][st]["hits"]
         assert c["exact"] + c["L1"] + c["L2"] + c["L3"] + c["uniform"] == c["decisions"]
+    # #819: every by_backoff cell carries the Wilson interval of its uniform share, null at 0 decisions
+    cells = [*bb["by_street"].values(), *bb["by_kind"].values()]
+    assert any(c["decisions"] == 0 for c in cells) and any(c["decisions"] > 0 for c in cells)
+    for c in cells:
+        assert c["uniform_ci95"] == H.uniform_ci95(c)
+        assert (c["uniform_ci95"] is None) == (c["decisions"] == 0)
 
 
 # --- #620: legacy (pre-c1) key tables ---

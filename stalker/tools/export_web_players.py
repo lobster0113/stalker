@@ -25,6 +25,8 @@ filter and puts `hit_rate` (`stalker.tools.web_hit_rate.measure`: by street, `ca
 every count of `hit_rate` (and of its `coarse_from_full`/`coarse_top_fit` cells) over them, rates recomputed from the
 sums, so a seat count with few decisions on a street can get a bigger sample from one export (#814, for #805). With
 S > 1 `hit_rate.seeds` says S (`seed` stays the first seed, `hands` the hands per seed); S = 1 leaves the summary as before.
+Every `by_backoff` cell carries `uniform_ci95` (`web_hit_rate.uniform_ci95`, #819: 95% Wilson interval of the uniform
+share, 0..1); with S > 1 it is computed again from the summed `uniform`/`decisions`.
 
 A file with a `min_visits` threshold also gets `l1_rows_bytes` (#775): how many bytes the L1 backoff
 rows of the table before the threshold would add to the file under a few candidate encodings, measured only (the
@@ -51,7 +53,7 @@ from stalker.tools import export_web_policy as X
 from stalker.tools import web_hit_rate as H
 
 SCHEMA = "stalker.web.policy-export"
-SCHEMA_VERSION = 3   # (#790 adds a hit_rate.by_min_visits cell, #814 hit_rate.seeds; no bump: readers ignore unknown fields) 3: files[].l1_rows_bytes (#775); 2: files[].hit_rate (#617); older summaries lack them
+SCHEMA_VERSION = 3   # (#790 adds a hit_rate.by_min_visits cell, #814 hit_rate.seeds, #819 by_backoff uniform_ci95; no bump: readers ignore unknown fields) 3: files[].l1_rows_bytes (#775); 2: files[].hit_rate (#617); older summaries lack them
 HIT_RATE_HANDS = 300   # CLI default: seeded hands per seat count; 0 turns the measurement off
 HIT_RATE_SEED = 611   # seed of seat count n, seed i: HIT_RATE_SEED + n + HIT_RATE_SEED_STEP * i (#814)
 HIT_RATE_SEED_STEP = 1000
@@ -226,19 +228,23 @@ def _hit_rate(full: dict, kept, before, fit_rows, visits: dict, n: int, doc: dic
 # Not counts: the same for every seed (table sizes, labels, inputs), so the sum keeps the first seed's value.
 _NOT_COUNTS = {"schema", "schema_version", "players", "hands", "seed", "play", "l4_neighbor", "levels", "keys",
                "min_visits", "l1_rows"}
+# Derived from the counts: dropped from the sum and recomputed from the summed counts by `_with_rates`.
+_DERIVED = {"rate", "uniform_ci95"}
 
 
 def _sum_counts(runs: list):
     a = runs[0]
     if isinstance(a, dict):
-        return {k: (v if k in _NOT_COUNTS else _sum_counts([r[k] for r in runs])) for k, v in a.items() if k != "rate"}
+        return {k: (v if k in _NOT_COUNTS else _sum_counts([r[k] for r in runs])) for k, v in a.items()
+                if k not in _DERIVED}
     if isinstance(a, int) and not isinstance(a, bool):
         return sum(runs)
     return a
 
 
 def _with_rates(c):
-    """`web_hit_rate._rate`/`_brate` again, on summed counts (any cell with `decisions`)."""
+    """`web_hit_rate._rate`/`_brate` again, on summed counts (any cell with `decisions`); `uniform_ci95` from the
+    summed counts, never a merge of the per-seed intervals (#819)."""
     if not isinstance(c, dict):
         return c
     out = {k: _with_rates(v) for k, v in c.items()}
@@ -249,6 +255,8 @@ def _with_rates(c):
         else:
             names = [k for k in out if k != "decisions"]
             out["rate"] = {k: (out[k] / d if d else None) for k in names}
+            if "uniform" in out:
+                out["uniform_ci95"] = H.uniform_ci95(out)
     return out
 
 
