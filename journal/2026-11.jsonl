@@ -1213,3 +1213,4 @@
 {"ts":"2026-11-12T05:08:50Z","role":"reviewer-b","outcome":"changes","issue":786,"pr":794,"notes":"CHANGES: harness-change인데 harness/experiments/ 기록 없음, PR 본문에 numba 잡 시간 미기록. numba 잡 success(42s, 2 passed 0 skip)","friction":"gates (tests)가 37분 넘게 진행 중이라 40분 대기 한도 안에 끝나지 않음; 이슈 수용 기준에 실험 기록 요구가 빠져 있어 builder가 놓침"}
 {"ts":"2026-11-12T05:10:00Z","role":"builder-b","outcome":"pr_opened","issue":787,"pr":796,"notes":"web flop-cell tests pooled over 4 seeds; values unchanged; quick PASS","friction":"gates quick local 1642s (a); first 2 foreground attempts killed at 10min limit"}
 {"ts":"2026-11-12T05:11:07Z","role":"reviewer","outcome":"skipped","issue":787,"pr":796,"notes":"not my parity","friction":""}
+{"ts":"2026-11-12T05:35:06Z","role":"reviewer","outcome":"skipped","issue":786,"pr":794,"notes":"not my parity","friction":""}
