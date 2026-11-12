@@ -35,6 +35,7 @@ def test_gate_l_empty_report_is_not_a_pass():
     assert metrics.gate_l(Report())["gate_l_pass_rate"] == 0.0
 
 
+@pytest.mark.slow
 def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
@@ -44,6 +45,7 @@ def test_snapshot_includes_gate_l(monkeypatch):
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
 
+@pytest.mark.slow
 def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
@@ -55,6 +57,7 @@ def test_snapshot_has_no_retired_keys(monkeypatch):
     assert not any(hasattr(metrics, f) for f in ("gate_a", "gate_b_pilot", "sufficiency"))
 
 
+@pytest.mark.slow
 def test_training_metrics_are_exact_and_deterministic():
     import time
 

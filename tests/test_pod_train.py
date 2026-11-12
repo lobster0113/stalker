@@ -29,6 +29,7 @@ def test_pack_round_trips_the_model_state():
     assert all(np.array_equal(back.regret[k], again.regret[k]) for k in back.regret)
 
 
+@pytest.mark.slow
 def test_run_writes_a_checked_result_and_unpacks_to_the_ci_layout(tmp_path):
     r = P.run("beginner", 3, 2, minutes=0.001, seed=1, batch=1)
     assert r["iters"] >= 2 and r["checkpoint"]["dtype"] == "float64"
@@ -46,6 +47,7 @@ def test_run_writes_a_checked_result_and_unpacks_to_the_ci_layout(tmp_path):
     assert json.loads(pol.read_text(encoding="utf-8"))["current"]
 
 
+@pytest.mark.slow
 def test_oversized_model_falls_back_to_float32_then_summary_only():
     r = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=1, budget=64 * 1024 + 1)
     assert r["checkpoint"] is None and "float32" in r["checkpoint_note"]
