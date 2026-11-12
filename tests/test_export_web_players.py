@@ -430,3 +430,81 @@ def test_l1_extra_of_inverts_the_grouped_encoding_and_a_v1_file_has_no_rows():
     doc = {"schema_version": 2, "l1_rows": W._grouped(rows)}
     assert W.H.l1_extra_of(doc) == rows
     assert W.H.l1_extra_of({"schema_version": 1, "q": 255, "policy": {}}) == {}   # pre-#803 files read as before
+
+
+def _small_table():
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    return m.state()
+
+
+def _no_seconds(s):
+    for f in s["files"]:
+        f.pop("hit_rate_seconds")
+    return s
+
+
+def _counts(c, path=""):
+    """Every `decisions`/`hits`/level count in a hit_rate entry, by path."""
+    out = {}
+    for k, v in c.items():
+        if k in (*W._NOT_COUNTS, "seeds"):
+            continue
+        if isinstance(v, dict):
+            out.update(_counts(v, f"{path}/{k}"))
+        elif isinstance(v, int) and not isinstance(v, bool):
+            out[f"{path}/{k}"] = v
+    return out
+
+
+def test_hit_rate_seeds_sum_the_counts_of_each_seed_and_recompute_the_rates(tmp_path, monkeypatch):
+    # #814: N=2 == the N=1 runs at seeds 611+n and 1611+n, cell by cell, incl. coarse_from_full/coarse_top_fit
+    st = _small_table()
+    kw = dict(players=(2,), hit_rate_hands=2, min_visits=2)
+    two = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path / "two", hit_rate_seeds=2, **kw))
+    one = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path / "one", **kw))
+    monkeypatch.setattr(W, "HIT_RATE_SEED", W.HIT_RATE_SEED + W.HIT_RATE_SEED_STEP)
+    nxt = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path / "nxt", **kw))
+    h2, h1, hn = (x["files"][0]["hit_rate"] for x in (two, one, nxt))
+    assert h2["seeds"] == 2 and "seeds" not in h1 and h1["seed"] == 611 + 2 and hn["seed"] == 1611 + 2
+    assert set(h2["by_min_visits"]) >= {"coarse_from_full", "coarse_top_fit"}
+    c2, c1, cn = _counts(h2), _counts(h1), _counts(hn)
+    assert c2.keys() == c1.keys() and any(k.endswith("/decisions") for k in c2)
+    assert c2 == {k: c1[k] + cn[k] for k in c2}
+    st0 = h2["by_street"]["0"]
+    assert st0["decisions"] > 0 and st0["rate"] == st0["hits"] / st0["decisions"]
+    b = h2["by_min_visits"]["coarse_top_fit"]["by_backoff"]["by_kind"]["other"]
+    assert b["rate"]["uniform"] == (b["uniform"] / b["decisions"] if b["decisions"] else None)
+    # the rest of the summary does not depend on the seeds
+    for x in (two, one):
+        for f in x["files"]:
+            f.pop("hit_rate")
+    assert json.dumps(two, sort_keys=True) == json.dumps(one, sort_keys=True)
+
+
+def test_one_hit_rate_seed_is_the_single_seed_measurement_unchanged(tmp_path):
+    st = _small_table()
+    s = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2,), hit_rate_hands=2))
+    doc = json.loads((tmp_path / s["files"][0]["file"]).read_bytes())
+    m = W.X.load_model(st)
+    alone = W.H.measure(W.X.keep_players(m.current_policy(), 2), 2, doc["k"], doc["depth"], 2, 611 + 2,
+                        dict(m.visits), rules=W.H.rules_of(doc))
+    assert json.dumps(s["files"][0]["hit_rate"]) == json.dumps(alone)
+
+
+def test_hit_rate_seeds_below_one_fail_with_the_fix(tmp_path):
+    with pytest.raises(SystemExit, match="--hit-rate-seeds must be >= 1"):
+        W.export_all_players(_small_table(), {"job": "j"}, "7", tmp_path, players=(2,), hit_rate_seeds=0)
+
+
+def test_cli_hit_rate_seeds_flag_reaches_the_export(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    pod = _pod_result(tmp_path, m)
+    args = ["export", "--pod-result", str(pod), "--run", "7", "--players", "2", "--hit-rate-hands", "1",
+            "--out-dir", str(tmp_path / "out"), "--summary-out", str(tmp_path / "s.json")]
+    with pytest.raises(SystemExit, match="--hit-rate-seeds must be >= 1"):
+        W.main(args + ["--hit-rate-seeds", "0"])
+    assert W.main(args + ["--hit-rate-seeds", "2"]) == 0
+    s = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
+    assert s["files"][0]["hit_rate"]["seeds"] == 2

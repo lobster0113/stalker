@@ -21,6 +21,10 @@ listing only them (entries already in `--index-base` stay as they are); `cloud.y
 `--hit-rate-hands N` (default 300, 0 = off) plays N seeded hands per seat count with the table before any `min_visits`
 filter and puts `hit_rate` (`stalker.tools.web_hit_rate.measure`: by street, `call|` or not, and `by_min_visits`
 0/1/2/5/10) into each file's summary entry, so CI tells a low hit rate from the filter apart from missing training coverage (#617).
+`--hit-rate-seeds S` (default 1) plays those hands under each of S seeds (seed i = 611 + n + 1000*i) and sums
+every count of `hit_rate` (and of its `coarse_from_full`/`coarse_top_fit` cells) over them, rates recomputed from the
+sums, so a seat count with few decisions on a street can get a bigger sample from one export (#814, for #805). With
+S > 1 `hit_rate.seeds` says S (`seed` stays the first seed, `hands` the hands per seed); S = 1 leaves the summary as before.
 
 A file with a `min_visits` threshold also gets `l1_rows_bytes` (#775): how many bytes the L1 backoff
 rows of the table before the threshold would add to the file under a few candidate encodings, measured only (the
@@ -47,8 +51,10 @@ from stalker.tools import export_web_policy as X
 from stalker.tools import web_hit_rate as H
 
 SCHEMA = "stalker.web.policy-export"
-SCHEMA_VERSION = 3   # (#790 adds only a hit_rate.by_min_visits cell, no bump: readers ignore unknown cells) 3: files[].l1_rows_bytes (#775); 2: files[].hit_rate (#617); older summaries lack them
+SCHEMA_VERSION = 3   # (#790 adds a hit_rate.by_min_visits cell, #814 hit_rate.seeds; no bump: readers ignore unknown fields) 3: files[].l1_rows_bytes (#775); 2: files[].hit_rate (#617); older summaries lack them
 HIT_RATE_HANDS = 300   # CLI default: seeded hands per seat count; 0 turns the measurement off
+HIT_RATE_SEED = 611   # seed of seat count n, seed i: HIT_RATE_SEED + n + HIT_RATE_SEED_STEP * i (#814)
+HIT_RATE_SEED_STEP = 1000
 PLAYERS = (2, 3, 4, 5, 6)
 VISIT_STEPS = (1, 2, 3, 4, 5, 10, 20, 50, 100)
 
@@ -196,13 +202,74 @@ def parse_min_visits_by_players(spec: str, mix) -> dict:
     return out
 
 
+def _hit_rate(full: dict, kept, before, fit_rows, visits: dict, n: int, doc: dict, mv: int, hands: int,
+              seed: int) -> dict:
+    """One seed's `hit_rate` entry (module doc): the table before the threshold, plus the two backoff cells when
+    the file has a threshold."""
+    # the page's own menu/cap: the engine default (v1, cap 3) misreads a real-menu table as ~0% hit (#618)
+    hr = H.measure(X.keep_players(full, n), n, doc["k"], doc["depth"], hands, seed, visits, rules=H.rules_of(doc))
+    if mv > 0:
+        # #743: play the file's own table (visits >= mv) with the backoff tables built from the table before
+        # the threshold, to see what keeping L1 material apart from the threshold would buy.
+        cff = H.measure(kept, n, doc["k"], doc["depth"], hands, seed, rules=H.rules_of(doc),
+                        play_backoff=True, l4_neighbor=True, coarse_policy=before)
+        hr.setdefault("by_min_visits", {})["coarse_from_full"] = {"min_visits": mv, "by_backoff": cff["by_backoff"]}
+        # #790: the same, but L1 = what the page builds from the file + the `grouped_top_fit` rows that fit
+        # (`_top_fit`, the selection `l1_rows_bytes` reports); L2+ from the file alone, as the page does.
+        ctf = H.measure(kept, n, doc["k"], doc["depth"], hands, seed, rules=H.rules_of(doc),
+                        play_backoff=True, l4_neighbor=True, l1_extra=fit_rows)
+        hr["by_min_visits"]["coarse_top_fit"] = {
+            "min_visits": mv, "l1_rows": sum(len(d) for d in fit_rows.values()), "by_backoff": ctf["by_backoff"]}
+    return hr
+
+
+# Not counts: the same for every seed (table sizes, labels, inputs), so the sum keeps the first seed's value.
+_NOT_COUNTS = {"schema", "schema_version", "players", "hands", "seed", "play", "l4_neighbor", "levels", "keys",
+               "min_visits", "l1_rows"}
+
+
+def _sum_counts(runs: list):
+    a = runs[0]
+    if isinstance(a, dict):
+        return {k: (v if k in _NOT_COUNTS else _sum_counts([r[k] for r in runs])) for k, v in a.items() if k != "rate"}
+    if isinstance(a, int) and not isinstance(a, bool):
+        return sum(runs)
+    return a
+
+
+def _with_rates(c):
+    """`web_hit_rate._rate`/`_brate` again, on summed counts (any cell with `decisions`)."""
+    if not isinstance(c, dict):
+        return c
+    out = {k: _with_rates(v) for k, v in c.items()}
+    if "decisions" in out:
+        d = out["decisions"]
+        if "hits" in out:
+            out["rate"] = out["hits"] / d if d else None
+        else:
+            names = [k for k in out if k != "decisions"]
+            out["rate"] = {k: (out[k] / d if d else None) for k in names}
+    return out
+
+
+def _sum_hit_rates(runs: list) -> dict:
+    """Several seeds' `_hit_rate` entries -> one: counts summed, rates from the sums, `seeds` = how many (#814)."""
+    out = _with_rates(_sum_counts(runs))
+    out["seeds"] = len(runs)
+    return out
+
+
 def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: str = "",
                        index_base: dict | None = None, players=PLAYERS, strategy: str = "current",
                        min_visits: int = 0, sha: str = "", max_bytes: int = X.MAX_BYTES,
-                       min_visits_by_players: dict | None = None, hit_rate_hands: int = 0) -> dict:
+                       min_visits_by_players: dict | None = None, hit_rate_hands: int = 0,
+                       hit_rate_seeds: int = 1) -> dict:
     """Write `<tier>-<n>.json` per seat count and `index.json` into out_dir; return the export summary.
     `hit_rate_hands` > 0 adds `hit_rate` to each file's entry: how often the page would find the actor's key in
-    the table before the `min_visits` filter, per `min_visits` candidate (#617; seed 611+n, so same input, same JSON)."""
+    the table before the `min_visits` filter, per `min_visits` candidate (#617; seed 611+n, so same input, same JSON).
+    `hit_rate_seeds` > 1 sums the counts over that many seeds (module doc, #814)."""
+    if hit_rate_seeds < 1:
+        raise SystemExit(f"--hit-rate-seeds must be >= 1, got {hit_rate_seeds}; pass 1 for one seed per seat count")
     if not st.get("player_mix"):
         raise SystemExit(f"run {run}: this table has no player_mix ({st.get('n')}-handed only); "
                          "export it whole with `python -m stalker.tools.export_web_policy --pod-result` instead")
@@ -242,24 +309,11 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
                 before, kept, visits, base_bytes, max_bytes)
         if hit_rate_hands > 0:
             t0 = time.monotonic()
-            # the page's own menu/cap: the engine default (v1, cap 3) misreads a real-menu table as ~0% hit (#618)
-            files[-1]["hit_rate"] = H.measure(X.keep_players(full, n), n, doc["k"], doc["depth"],
-                                              hit_rate_hands, 611 + n, visits, rules=H.rules_of(doc))
-            if mv > 0:
-                # #743: play the file's own table (visits >= mv) with the backoff tables built from the table before
-                # the threshold, to see what keeping L1 material apart from the threshold would buy.
-                cff = H.measure(kept, n, doc["k"], doc["depth"], hit_rate_hands, 611 + n, rules=H.rules_of(doc),
-                                play_backoff=True, l4_neighbor=True, coarse_policy=before)
-                files[-1]["hit_rate"].setdefault("by_min_visits", {})["coarse_from_full"] = {
-                    "min_visits": mv, "by_backoff": cff["by_backoff"]}
-                # #790: the same, but L1 = what the page builds from the file + the `grouped_top_fit` rows that fit
-                # (`_top_fit`, the selection `l1_rows_bytes` reports); L2+ from the file alone, as the page does.
-                fit_rows = _top_fit(before, kept, visits, base_bytes, max_bytes)[3]
-                ctf = H.measure(kept, n, doc["k"], doc["depth"], hit_rate_hands, 611 + n, rules=H.rules_of(doc),
-                                play_backoff=True, l4_neighbor=True, l1_extra=fit_rows)
-                files[-1]["hit_rate"]["by_min_visits"]["coarse_top_fit"] = {
-                    "min_visits": mv, "l1_rows": sum(len(d) for d in fit_rows.values()),
-                    "by_backoff": ctf["by_backoff"]}
+            fit_rows = _top_fit(before, kept, visits, base_bytes, max_bytes)[3] if mv > 0 else None
+            runs = [_hit_rate(full, kept if mv > 0 else None, before if mv > 0 else None, fit_rows, visits, n, doc,
+                              mv, hit_rate_hands, HIT_RATE_SEED + n + HIT_RATE_SEED_STEP * i)
+                    for i in range(hit_rate_seeds)]
+            files[-1]["hit_rate"] = runs[0] if len(runs) == 1 else _sum_hit_rates(runs)
             files[-1]["hit_rate_seconds"] = round(time.monotonic() - t0, 1)   # timing only: breaks byte-equality, see test
         print(f"{name}: {doc['keys']} keys, {len(body)} bytes")
     X.write_index(out_dir / "index.json", idx)
@@ -305,6 +359,8 @@ def main(argv=None) -> int:
                    help="per-seat-count --min-visits; other counts use --min-visits")
     e.add_argument("--hit-rate-hands", type=int, default=HIT_RATE_HANDS,
                    help="seeded hands per seat count for the table hit-rate in the summary (0 = off)")
+    e.add_argument("--hit-rate-seeds", type=int, default=1,
+                   help="seeds per seat count for the hit rate, counts summed (seed i = 611 + n + 1000*i)")
     e.add_argument("--policies-out", type=Path,
                    help="also copy the files within the page budget (+ an index of them) here (ops:cloud/policies/<run>/)")
     e.add_argument("--index-base", type=Path, help="the model list to upsert into (web/app/policy/index.json)")
@@ -326,7 +382,8 @@ def main(argv=None) -> int:
     players = tuple(int(p) for p in a.players.split(",") if p.strip())
     by_n = parse_min_visits_by_players(a.min_visits_by_players, st.get("player_mix"))
     out = export_all_players(st, summary, a.run, a.out_dir, a.tier, base, players, a.strategy, a.min_visits,
-                             min_visits_by_players=by_n, hit_rate_hands=a.hit_rate_hands)
+                             min_visits_by_players=by_n, hit_rate_hands=a.hit_rate_hands,
+                             hit_rate_seeds=a.hit_rate_seeds)
     if a.policies_out:
         kept = policies_for_ops(out, a.out_dir, base)
         for name, body in kept.items():
