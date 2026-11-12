@@ -76,7 +76,7 @@ quick은 이 두 단계뿐이다. 시간의 사실상 전부가 tests다. setup/
 ## 단축안 (절감은 로컬 참고값)
 | 안 | 내용 | 예상 절감 | 바꿀 파일 | 권한 라벨 |
 |---|---|---|---|---|
-| A | 표 1 상위 ~12개(각 30초 이상, 합계 약 847초)에 `@pytest.mark.slow` 부착. full(G1)은 slow를 포함하므로 검증 범위는 유지, quick에서만 빠진다 | ≈ -850초 (1717→≈870) | `tests/test_export_web_players.py`, `test_pod_train.py`, `test_export_web_policy.py`, `test_e3_seat_probs.py`, `test_web_personas.py`, `test_persona.py`, `test_metrics.py` | 없음 (`tests/`는 보호 경로 아님 — `referee/PROTECTED_PATHS` 확인 필요) |
+| A | 표 1 상위 ~12개(각 30초 이상, 합계 약 847초)에 `@pytest.mark.slow` 부착. full(G1)은 slow를 포함하므로 검증 범위는 유지, quick에서만 빠진다 | ≈ -850초 (1717→≈870) | `tests/test_export_web_players.py`, `test_pod_train.py`, `test_export_web_policy.py`, `test_e3_seat_probs.py`, `test_web_personas.py`, `test_persona.py`, `test_metrics.py` | 없음 (`tests/`는 `referee/PROTECTED_PATHS`에 없음, 확인함) |
 | B | 파일 A와 더해 상위 15개 파일의 무거운 테스트 전부(약 2~30초대)까지 slow 처리 | ≈ -1,250초 (→≈450) | 위 + `test_e3_mix_counts.py`, `test_train_jobs.py`, `test_web_hit_rate.py`, `test_info_contract.py` 등 | 없음 |
 | C | quick의 pytest에 `-n auto --dist worksteal`(full과 동일) 추가. 4코어 기준 이론상 1/3~1/4, 단일 거대 테스트(230초)가 하한 | ≈ -1,100~1,200초 (→≈500~600, 거대 테스트에 묶임) | `referee/gates.py` | `referee-change` (보호 경로) |
 | D | 무거운 테스트의 입력 축소(예: 훈련 반복 수·손 수 감소, 큰 픽스처를 세션 범위로 공유). 거대 테스트 1~5번이 같은 export/훈련 산출물을 각자 다시 만드는지 확인 필요 | 후보 1~5번만 해도 최대 ≈ -400~500초 | 각 테스트와 `tests/conftest.py` | 없음. 단 테스트가 보증하는 동작을 약화하면 안 됨 |
