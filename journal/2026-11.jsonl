@@ -1283,3 +1283,4 @@
 {"ts":"2026-11-12T19:24:07Z","role":"reviewer","outcome":"skipped","issue":815,"pr":818,"notes":"not my parity","friction":""}
 {"ts":"2026-11-12T19:39:09Z","role":"builder","outcome":"pr_opened","issue":819,"pr":820,"notes":"by_backoff uniform_ci95 (Wilson 95%) in web_hit_rate + recomputed on seed sums; shared stalker/tools/wilson.py also used by phh_stats","friction":"gates full took ~28min locally (tests 1350s); waited in 9-min foreground chunks as instructed"}
 {"ts":"2026-11-12T19:39:20Z","role":"reviewer","outcome":"skipped","issue":819,"pr":820,"notes":"not my parity","friction":""}
+{"ts":"2026-11-12T19:41:27Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has VERDICT for head d723a9c; #818/#820 are reviewer-b parity","friction":"should_run --sweep printed RUN although no odd-parity PR needed a verdict"}
