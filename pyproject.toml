@@ -23,4 +23,7 @@ referee = ["anchors/data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: long-running tests (excluded from quick gate)"]
+markers = [
+    "slow: long-running tests (excluded from quick gate)",
+    "numba: numba-path tests; the CI numba job runs exactly these with numba installed (#786)",
+]

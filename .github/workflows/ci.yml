@@ -90,6 +90,32 @@ jobs:
           STALKER_REQUIRE_TORCH: "1"
         run: python -m pytest -rs --no-header -p no:cacheprovider tests/test_rl_*.py
 
+  numba:
+    # gates installs [dev] only, so numba-path tests skip there; this job runs the `numba`-marked
+    # tests for real (#786). Not a required check: a failure only shows on the PR.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e ".[dev,fast]" -q
+      - name: numba importable
+        run: python -c "import numba; print('numba', numba.__version__)"
+      # The marker is the one list; collecting only its files keeps unrelated module skips (torch) out of
+      # the count, so the run must end with 0 skips.
+      - name: numba tests (any skip fails)
+        shell: bash
+        env:
+          STALKER_REQUIRE_NUMBA: "1"
+        run: |
+          files=$(python -m pytest -m numba --co -q -p no:cacheprovider | grep '::' | cut -d: -f1 | sort -u || true)
+          if [ -z "$files" ]; then echo "no numba-marked tests collected; fix: keep @pytest.mark.numba on them"; exit 1; fi
+          python -m pytest -m numba -rs --no-header -p no:cacheprovider $files | tee numba.log
+          if grep -q skipped numba.log; then echo "numba job must have 0 skips (see SKIPPED lines above)"; exit 1; fi
+
   web:
     # Gate U: demo E2E + 3-viewport screenshots + axe (#99). Commands: web/README.md.
     runs-on: ubuntu-latest
