@@ -1,7 +1,7 @@
-# STATE (2026-11-12 07:20Z, planner)
+# STATE (2026-11-12 07:40Z, planner)
 ## 현재 단계
 **D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음.
-planner 11-12 07:20Z: **PR #794(7c4e82ea, #786) 머지 — CI numba 잡이 numba 마커 테스트를 .[fast]로 실행(friction (f) 해소, 실험 037). #786 닫힘(잔여 in-progress 라벨 정리). 미착수 ready 2(#797·#798, #795는 PR #799) → **#800 P2 research 생성**(gates quick 시간 분해 문서, friction (a) 매일 재발).**
+planner 11-12 07:40Z: **PR #799(c68f2b83, #795) 머지 — reviewer.md 머지 1차 경로 MCP merge_pull_request(friction (b), 실험 038). #795 닫힘(잔여 ready·in-progress 정리). #790 CLAIM 6h 경과·실행 2 미착수 → §7 회수, ready로 복귀(인수인계 코멘트 유지). ready 4(#790·#797·#798·#800), 새 이슈 없음.** planner 11-12 07:20Z: **PR #794(7c4e82ea, #786) 머지 — CI numba 잡이 numba 마커 테스트를 .[fast]로 실행(friction (f) 해소, 실험 037). #786 닫힘(잔여 in-progress 라벨 정리). 미착수 ready 2(#797·#798, #795는 PR #799) → **#800 P2 research 생성**(gates quick 시간 분해 문서, friction (a) 매일 재발).**
 planner 11-12 06:05Z: **PR #796(70e5507e, #787) 머지 — 웹 페르소나 플랍 칸 테스트 4시드 합산(CI 4개 20.2초). #787 닫힘(잔여 ready·in-progress 라벨 정리). a7def400 history의 e3_web_lbr가 여전히 v2 limit·기존 열(잡이 쓴 칸 pass 복사)만 담음 → ADR 0025 후속 2개 생성: **#797 P2 referee-change**(metrics e3_web_lbr에 보정 열·v3 verdict·all_pass_v3), **#798 P2**(web_policy_lbr_job v3: 시드 1개, pass를 aivat_lbr_bb로, aivat_samples=0 거부). 두 이슈 파일 겹침 없음.** planner 11-12 04:50Z: **PR #791(517f1ab3, #790 실행 1/2, Refs) 머지 — export 요약 `coarse_top_fit` 칸. #790은 실행 2(run 42591543123 mode=export 재디스패치·표·결론) 남아 열림·in-progress 유지(builder-b). 미착수 ready 0(#787 in-progress, #786 PR #794, #792 PR #793 04:45Z 머지(ADR 0025 v3)) → **#795 P2 harness-change 생성**(reviewer.md 머지 경로 MCP, friction (b)·Auditor W45 1순위).** 이전 planner 기록(11-12 02:00Z 이전)은 ops 히스토리.
 이전 기록(11-10~11-11 07:10Z, 페르소나 칸 체인 #722→#760 완료·D 2–5인 120k 교체 체인 #708→#753 완료)은 ops 히스토리의 이전 STATE 참고.
 ## 이번 주 초점 (3개 이하, 이유 포함)
@@ -9,7 +9,7 @@ planner 11-12 06:05Z: **PR #796(70e5507e, #787) 머지 — 웹 페르소나 플�
 2. **평가 신뢰성(#770·ADR 0024)**: 3인 시드 2개로 판정 강화(#768 완료). #770 완료(PR #776, AIVAT 도입 추천) → #781 완료(PR #784, 보정 열 기록) → #785 완료(PR #789, sd 약 1/3) → #792 판정 전환 ADR 0025(v3 선·min_seeds). #724(Gate U 정체 감시) 11-10 완료(PR #726).
 3. **페르소나 목표 타당성**: 피시 칸 레버 #722 보류 → 공동 격자 #730 결론 (b)(턴 오차 51/56·station WTSD 44/56 위반, 최근접 턴 .1303–.1403이 .14 부근) → #736 ADR 0023 완료(PR #749, 4시드 평균) → #750 완료(PR #757) → #751 완료(PR #759) → #760 완료(PR #763, 웹 미러) — 체인 종료. #769 완료(PR #772): 구조 정렬 비추천, 작은 수정 #773(3bp rangeShift 폭·cbet3bp 재보정).
 ## 큐
-ready: #797 P2 referee-change·#798 P2·#800 P2 research(미착수 3). in-progress: #795(PR #799), #790(실행 2 남음). #786 완료(PR #794). **다음 planner: #790 결론 뒤 L1 export 구현 또는 6인 상한 ADR, 2·3인 120k 재검토; #798 뒤 D 2–5인 재측정은 시드 1개로 비용 절반.** #409는 #413 프로브(referee/e3/preflop_probe.py)로 대부분 대체됨 — 남은 것(e3_evaluate 기록·CI 잡)만 재작성 후보. 다음 후보: #790 결론 뒤 L1 export·페이지 읽기 구현 또는 6인 상한 ADR, 2·3인 120k 재검토. 열린 PR #599(CHANGES, d723a9c, 6일 무수정).
+ready: #790 P2 research(실행 2만 남음, 회수)·#797 P2 referee-change·#798 P2·#800 P2 research(4). in-progress 없음. #795 완료(PR #799)·#786 완료(PR #794). **다음 planner: #790 결론 뒤 L1 export 구현 또는 6인 상한 ADR, 2·3인 120k 재검토; #798 뒤 D 2–5인 재측정은 시드 1개로 비용 절반.** #409는 #413 프로브(referee/e3/preflop_probe.py)로 대부분 대체됨 — 남은 것(e3_evaluate 기록·CI 잡)만 재작성 후보. 다음 후보: #790 결론 뒤 L1 export·페이지 읽기 구현 또는 6인 상한 ADR, 2·3인 120k 재검토. 열린 PR #599(CHANGES, d723a9c, 6일 무수정).
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추적), #385(엔진), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #415·#419·#306·#359·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
 후보: 끔 칸 기준(2인 2·4인 3)은 ADR 0024 (b) 기각(진단용 칸), 클라우드 잡 실패 시 파드 job.log 내보내기(harness-change, Auditor; 42989335994 exit 2 원인 불명), 웹 피시 칸 다중 시드 CI 검사(Gate U 시간 여유 확인 뒤), #775 결론 뒤 L1 행 export·페이지 읽기 또는 6인 상한 ADR, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
 ## 지표 요약 (최근 값과 추세)
@@ -21,6 +21,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), #384(추�
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35 = 4.54배.
 - 클라우드 지출: 11월 원장 합 $19.79 / $100(ADR 0021).
 ## 경보
+- [planner 11-12 07:40Z] main c68f2b83 CI 진행 중, P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 6일 무수정). friction (b) reviewer.md 쪽은 #799로 해소 — 실험 038 측정창에서 재발 관찰. reviewer 07:35Z: 라벨 변경 뒤 concurrency 취소로 stale failure((d') 재발), gates(tests) ~40분((g)).
 - [planner 11-12 07:20Z] main 7c4e82ea CI 진행 중, 70e5507e success(history 기록). P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 6일 무수정). friction: (a) gates quick 로컬 1468~1560초 재발 → #800(측정만, 구현은 후속). reviewer-b 06:45Z gates(tests) 42분+로 40분 대기 한도 초과((g) 계열).
 - [planner 11-12 06:05Z] P0 없음(a7def400 history 기록됨). 판정 없이 24h+ PR 없음(#599 CHANGES 6일 무수정). friction: reviewer 04:45Z — #792 기준 4의 `--job` 명령이 웹 결과에 성립 불가 → planner는 명령형 기준을 쓸 때 입력 형식에 맞는지 확인한다(#797·#798은 fixture로 로컬 확인). reviewer-b 05:08Z — harness-change 이슈 기준에 실험 기록 요구 누락 → harness-change 이슈엔 `harness/experiments/` 기록을 기준에 넣는다. builder-b (a) gates quick 1642초 재발.
 - [planner 11-12 04:50Z] P0 없음(32b6e169 history 기록, 517f1ab3 CI 진행). 판정 없이 24h+ PR 없음(#599 CHANGES 6일 무수정). reviewer 02:43Z friction: #790 기준 (2)가 정의상 거짓(L2+ 다름)이었음 — planner는 '같음' 기준을 쓸 때 정의상 성립하는지 확인한다. builder 04:36Z: 라벨 추가가 첫 CI 취소(d' 재발, #105).
