@@ -475,6 +475,14 @@ def test_hit_rate_seeds_sum_the_counts_of_each_seed_and_recompute_the_rates(tmp_
     assert st0["decisions"] > 0 and st0["rate"] == st0["hits"] / st0["decisions"]
     b = h2["by_min_visits"]["coarse_top_fit"]["by_backoff"]["by_kind"]["other"]
     assert b["rate"]["uniform"] == (b["uniform"] / b["decisions"] if b["decisions"] else None)
+    # #819: the interval comes from the summed counts, not from the per-seed intervals
+    for h in (h2, h1, hn):
+        for cell in ("coarse_from_full", "coarse_top_fit"):
+            for c in h["by_min_visits"][cell]["by_backoff"]["by_street"].values():
+                assert c["uniform_ci95"] == W.H.uniform_ci95(c)
+    b1, bn = (h["by_min_visits"]["coarse_top_fit"]["by_backoff"]["by_kind"]["other"] for h in (h1, hn))
+    assert b["uniform"] == b1["uniform"] + bn["uniform"] and b["decisions"] == b1["decisions"] + bn["decisions"]
+    assert b["decisions"] > 0 and b["uniform_ci95"] == W.H.uniform_ci95(b)
     # the rest of the summary does not depend on the seeds
     for x in (two, one):
         for f in x["files"]:

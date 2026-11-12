@@ -39,6 +39,10 @@ counts as often. Output `"fidelity"`: street (0..3) -> level (L1..L3, L4, unifor
 `uniform_tv_mean`, `argmax_agree`, `uniform_argmax_agree` (uniform counts 1/m; ties go to the smallest index). The play is
 unchanged; the output is schema_version 6 and, without the flag, the one without it, byte for byte.
 
+Every `by_backoff.by_street`/`by_kind` cell also carries `uniform_ci95` (#819): the 95% Wilson interval `[lo, hi]` of
+its `uniform / decisions` share (fractions 0..1, six decimals, `null` at 0 decisions; `wilson.wilson95`), the upper
+bound the uniform-share verdicts (#733, #805) are judged by, so they read it from the CI output.
+
     L1  drop the b1 hand items (`o<outs>v<vuln>k<block>`) and the stack depths (`s<mine>:<opps>` -> `s*`)
     L2  L1, and the public facts (`u<before><after>`, `h`, `g`) and the SPR step -> `*`; a `call|` key drops only
         its opponent count (it has no b1, stack or fact items)
@@ -67,10 +71,12 @@ import numpy as np
 from stalker.e2.eq_view import N
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
+from stalker.tools.wilson import wilson95
 
 SCHEMA = "stalker.web.hit-rate"
 SCHEMA_VERSION = 2   # 2: optional by_backoff (#618); a v1 output is the same without it. 3 = play_backoff (#635),
                      # 4 = 3 + miss_report (#638), 5 = l4_neighbor (#648), 6 = fidelity (#666); each is the previous output plus one block
+# by_backoff cells' uniform_ci95 (#819) adds no version: readers ignore unknown fields and no reader keys on its absence
 MIN_VISITS = (0, 1, 2, 5, 10)
 LEVELS = ("L1", "L2", "L3")
 _EQ = re.compile(r"e\d+")
@@ -192,10 +198,16 @@ def _bcell(l4: bool = False) -> dict:
     return {"decisions": 0, "exact": 0, **{name: 0 for name in LEVELS}, **({"L4": 0} if l4 else {}), "uniform": 0}
 
 
+def uniform_ci95(c: dict) -> list[float] | None:
+    """95% Wilson interval of `uniform / decisions` (0..1, six decimals; None at 0 decisions) — the bound #733/#805 judge by (#819)."""
+    ci = wilson95(c["uniform"], c["decisions"])
+    return None if ci is None else [round(ci[0], 6), round(ci[1], 6)]
+
+
 def _brate(c: dict) -> dict:
     n = c["decisions"]
     names = ("exact", *LEVELS, *(("L4",) if "L4" in c else ()), "uniform")
-    return {**c, "rate": {k: (c[k] / n if n else None) for k in names}}
+    return {**c, "rate": {k: (c[k] / n if n else None) for k in names}, "uniform_ci95": uniform_ci95(c)}
 
 
 def load_policy(path: Path) -> tuple[dict, dict]:

@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 
 from referee.gate_r.phh import load_sample
 from stalker.agents.persona_stats import CELLS, flop_cell
+from stalker.tools.wilson import wilson95
 
 BOT = "Pluribus"
 _KEYS = ("hands", "vpip", "pfr", "tb_opp", "tb", "bets", "calls", "flop", "wtsd", "showdowns",
@@ -162,15 +162,9 @@ def rates(c: dict[str, int]) -> dict[str, float | None]:
 
 
 def _wilson(a: int, b: int) -> list[float] | None:
-    """95% Wilson interval in percent; behaves at small b and rates near 0/100."""
-    if not b:
-        return None
-    z = 1.959964
-    p = a / b
-    d = 1 + z * z / b
-    mid = (p + z * z / (2 * b)) / d
-    half = z * math.sqrt(p * (1 - p) / b + z * z / (4 * b * b)) / d
-    return [round(100 * (mid - half), 1), round(100 * (mid + half), 1)]
+    """95% Wilson interval in percent (`wilson.wilson95`); behaves at small b and rates near 0/100."""
+    ci = wilson95(a, b)
+    return None if ci is None else [round(100 * ci[0], 1), round(100 * ci[1], 1)]
 
 
 def cell_rates(c: dict[str, int]) -> dict[str, dict]:
