@@ -585,3 +585,21 @@ def test_a_key_only_in_coarse_policy_is_found_at_l1_not_exact():
     assert sum(c["L1"] for c in bb["by_street"].values()) >= 1
     assert sum(c["exact"] for c in bb["by_street"].values()) == 0
     assert bb["keys"]["exact"] == 0 and bb["keys"]["L1"] >= 1
+
+
+def test_l1_extra_rows_are_found_at_l1_and_empty_or_none_changes_nothing():
+    # #790: rows shipped beside the file feed level 1 only; exact lookups stay on the policy
+    key = _first_key()
+    pol = {key: [0.5, 0.5]}
+    kw = dict(play_backoff=True, l4_neighbor=True)
+    base = json.dumps(H.measure(pol, N3, K, DEPTH, 3, 5, **kw))
+    assert json.dumps(H.measure(pol, N3, K, DEPTH, 3, 5, l1_extra=None, **kw)) == base
+    assert json.dumps(H.measure(pol, N3, K, DEPTH, 3, 5, l1_extra={}, **kw)) == base
+    ck = H.coarse_key(key, 1)
+    for m in range(2, 7):
+        r = H.measure({}, N3, K, DEPTH, 1, 5, backoff=True, l1_extra={ck: {m: [1.0 / m] * m}})
+        bb = r["by_backoff"]
+        if sum(c["L1"] for c in bb["by_street"].values()):
+            break
+    assert sum(c["L1"] for c in bb["by_street"].values()) >= 1
+    assert sum(c["exact"] for c in bb["by_street"].values()) == 0
