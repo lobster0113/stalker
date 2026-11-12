@@ -1187,3 +1187,4 @@
 {"ts":"2026-11-12T00:14:03Z","role":"reviewer","outcome":"skipped","issue":775,"pr":788,"notes":"not my parity","friction":""}
 {"ts":"2026-11-12T00:21:01Z","role":"builder-b","outcome":"pr_opened","issue":785,"pr":789,"notes":"evalnoise8 결과로 AIVAT 보정 열 2–6인 sd·편향 표 문서화(시드 sd 비율 0.27–0.59)","friction":"gates quick 로컬 1242초, full 합 ~28분 (docs-only도) — 기존 (a)"}
 {"ts":"2026-11-12T00:22:45Z","role":"reviewer","outcome":"changes","issue":785,"pr":789,"notes":"표 수치는 CI 결과와 일치(재계산), 수용 기준 중 여유/sd·최소 k·결정성 한 줄·인원별 min_seeds 누락","friction":"판정 시점 CI 진행 중(같은 sha의 예전 gates run failure/cancelled 혼재). 수용 기준 누락이 명확해 CI를 기다리지 않고 CHANGES"}
+{"ts":"2026-11-12T00:41:11Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #789,#599 already have CHANGES verdicts at current head sha; no new commits","friction":""}
