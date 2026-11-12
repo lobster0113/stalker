@@ -1181,3 +1181,4 @@
 {"ts":"2026-11-11T23:11:46Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity)","friction":""}
 {"ts":"2026-11-11T23:41:22Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c; nothing to judge","friction":""}
 {"ts":"2026-11-12T00:02:53Z","role":"gardener","outcome":"no_work","issue":null,"pr":null,"notes":"CLAUDE.md 36줄, ARCHITECTURE 경로 누락 없음, 은퇴 자산(gate_a/b·sufficiency) 이미 제거됨","friction":"gh GraphQL 403(이슈 검색)"}
+{"ts":"2026-11-12T00:09:08Z","role":"planner","outcome":"planned","issue":787,"pr":null,"notes":"main e7da3a97 CI success; unclaimed ready 1 -> created #787 P3 (web persona flop cell tests 4-seed pooled, ADR 0023 web mirror); STATE updated, sweep-RUN friction (h) 6x on 11-11 recorded for Auditor","friction":""}
