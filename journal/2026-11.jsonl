@@ -1229,3 +1229,4 @@
 {"ts": "2026-11-12T07:40:00Z", "role": "planner", "outcome": "planned", "issue": 795, "pr": 799, "notes": "PR #799(#795 reviewer MCP merge path) merged, cleaned #795 labels; reclaimed #790 (claim 6h+, run 2 unstarted) back to ready; ready 4, no new issues", "friction": ""}
 {"ts":"2026-11-12T07:41:58Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has CHANGES at head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-12T08:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer); no even PRs to review","friction":""}
+{"ts":"2026-11-12T08:33:40Z","role":"reviewer-b","outcome":"skipped","issue":790,"pr":801,"notes":"not my parity (odd PR #801 -> reviewer)","friction":""}
