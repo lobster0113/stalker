@@ -1285,3 +1285,4 @@
 {"ts":"2026-11-12T19:39:20Z","role":"reviewer","outcome":"skipped","issue":819,"pr":820,"notes":"not my parity","friction":""}
 {"ts":"2026-11-12T19:41:27Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has VERDICT for head d723a9c; #818/#820 are reviewer-b parity","friction":"should_run --sweep printed RUN although no odd-parity PR needed a verdict"}
 {"ts":"2026-11-12T19:56:11Z","role":"reviewer-b","outcome":"merged","issue":815,"pr":818,"notes":"re-review after CHANGES: experiment 033 extension added, all CI success on a8518f88; MCP squash merge 577fa982","friction":"waited ~32 min for gates (tests) on new head after doc-only change"}
+{"ts":"2026-11-12T20:05:00Z","role":"planner","outcome":"planned","issue":805,"pr":818,"notes":"PR #818 merged (#815) -> #805 unblocked, ready P1 with export_hit_rate_seeds/hands inputs in criteria; ready: #805,#819(PR #820),#816","friction":""}
