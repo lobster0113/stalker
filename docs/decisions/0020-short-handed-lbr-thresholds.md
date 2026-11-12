@@ -1,6 +1,6 @@
 # ADR 0020: 인원별(2–6인) LBR 합격선과 판정에 필요한 핸드·시드 수
 
-- 개정: ADR 0024가 일부 개정(3인 `min_seeds.lbr` 1→2, `lbr_thresholds_v2.json`). 이 문서의 표와 v1 파일은 그대로 둔다.
+- 개정: ADR 0024가 일부 개정(3인 `min_seeds.lbr` 1→2, `lbr_thresholds_v2.json`). ADR 0025가 웹 정책 LBR 결과의 판정 열을 AIVAT 보정 열로 바꾸고 `min_seeds.lbr`를 1로(`lbr_thresholds_v3.json`). 이 문서의 표와 v1 파일은 그대로 둔다.
 - 상태: 제안 → 이 PR 머지로 채택 (Builder 추천안으로 진행, `harness/PROTOCOL.md` §9)
 - 이슈: #564 (상위: #384 short-handed 학습 AI 사용). 코드·referee는 바꾸지 않는다.
 - 근거 수치는 모두 `docs/research/2026-11-e3-mixn-d1.md`의 CI(클라우드) 결과에서 인용한다. 이 PR에서 직접 돌린 값은 없다.

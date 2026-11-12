@@ -119,4 +119,4 @@ CI `jobs/web-policy-lbr-pages-evalnoise8.yaml`(run 43111293721, main e7da3a97, s
 
 ## 후속 (PR "후속"에 제안, 이 PR 범위 밖)
 1. (#781에서 반영: 심판 `lbr_hands`·`aivat_samples`, 잡 schema 2 기본 `--aivat-samples 8`.) **referee-change**: `referee/e3/lbr.py:lbr`·`exploitability_lb`에 AIVAT식 보정 열(`aivat_lbr_bb`·`aivat_stderr_bb`) 기록 추가, `stalker/tools/web_policy_lbr_job.py` 결과에 같은 열(`SCHEMA_VERSION` 2, v1 읽기 호환). 기존 `lbr_bb`·판정은 그대로. 수용 기준: 기존 열 바이트 동일 테스트, 보정 항 평균 0 테스트(작은 게임), evalnoise8 잡(2–6인)으로 CI sd 표.
-2. (#785 CI 수치 확보: 위 「CI 측정」.) **ADR**: 보정 열로 판정을 옮길지, `lbr_thresholds_v3.json`의 선·`min_seeds`.
+2. (#785 CI 수치 확보: 위 「CI 측정」. #792: ADR 0025로 채택.) **ADR**: 보정 열로 판정을 옮길지, `lbr_thresholds_v3.json`의 선·`min_seeds`.
