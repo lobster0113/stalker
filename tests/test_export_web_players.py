@@ -388,7 +388,7 @@ def test_l1_rows_field_is_the_top_fit_selection_within_the_cap_and_only_with_roo
     enc = f["l1_rows_bytes"]["encodings"]["grouped_top_fit"]
     assert enc["bytes"] == len(json.dumps(doc["l1_rows"], separators=(",", ":")).encode())
     assert enc["rows"] == sum(len(by_eq) for by_eq in doc["l1_rows"].values())
-    index = json.loads((tmp_path / "big" / "index.json").read_text())
+    index = json.loads((tmp_path / "big" / "index.json").read_text(encoding="utf-8"))
     assert "l1_rows" not in json.dumps(index)   # the model list says nothing about the rows
     # the cap bites at the byte: exactly this file fits, one byte less must drop a group yet stay inside
     for cap in (f["bytes"], f["bytes"] - 1):
