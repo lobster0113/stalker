@@ -175,7 +175,22 @@ function measureCells(type, hands, seed, nType) {
     playHand(players, h % 6, rng, st, track);
   }
   return Object.fromEntries(CELLS.map(c => { const x = st.cells[c];
-    return [c, { cbet: 100 * x.cb / x.cbOpp, cbOpp: x.cbOpp, fcb: 100 * x.fcb / x.fcbOpp, fcbOpp: x.fcbOpp }]; }));
+    return [c, { cbet: 100 * x.cb / x.cbOpp, cbOpp: x.cbOpp, fcb: 100 * x.fcb / x.fcbOpp, fcbOpp: x.fcbOpp, cb: x.cb, fcbN: x.fcb }]; }));
+}
+// ADR 0023 (#750) rule for the web mirror (#787): one seed's cell value is partly seed luck, so each cell test runs
+// these seeds, sums the counts and opportunities per cell, and applies the tolerance once to the pooled rate.
+const CELL_SEEDS = [2000, 2001, 2002, 2003];
+function measureCellsPooled(type) {
+  const runs = CELL_SEEDS.map(sd => measureCells(type, PRO_CELL_HANDS, sd, PRO_CELL_SEATS));
+  const pooled = Object.fromEntries(CELLS.map(c => {
+    const cbOpp = runs.reduce((a, r) => a + r[c].cbOpp, 0), fcbOpp = runs.reduce((a, r) => a + r[c].fcbOpp, 0);
+    return [c, { cbet: 100 * runs.reduce((a, r) => a + r[c].cb, 0) / cbOpp, cbOpp,
+      fcb: 100 * runs.reduce((a, r) => a + r[c].fcbN, 0) / fcbOpp, fcbOpp }];
+  }));
+  const range = (c, k) => { const v = runs.map(r => r[c][k]).filter(Number.isFinite); return `${Math.min(...v).toFixed(1)}–${Math.max(...v).toFixed(1)}`; };
+  console.log(`${type} flop cells, ${CELL_SEEDS.length} seeds pooled (% (opps) [per-seed min–max]): ` + CELLS.map(c =>
+    `${c} cbet ${pooled[c].cbet.toFixed(1)} (${pooled[c].cbOpp}) [${range(c, "cbet")}] fold ${pooled[c].fcb.toFixed(1)} (${pooled[c].fcbOpp}) [${range(c, "fcb")}]`).join(" | "));
+  return pooled;
 }
 // Human pro cells (note §10.1): c-bet hu_srp 53.0 (581 opps), hu_3bp 62.0 (142), mw_srp 29.3 (82); fold to c-bet
 // hu_srp 43.9 (305). mw_3bp (5 opps) and mw fold (41) are too thin to target.
@@ -184,8 +199,7 @@ const PRO_CELLS = { cbet: { hu_srp: 53, hu_3bp: 62, mw_srp: 29 }, fcb: { hu_srp:
 // hu_srp 2307 (local run, note §10.1.3). The aggregate pro cbet/FCB in TARGETS still hold, so they stay checked.
 const CELL_TOL = 6, CELL_MIN_OPPS = 150;
 test("pro flop cells hit the human pro targets", () => {
-  const m = measureCells("pro", PRO_CELL_HANDS, 2000, PRO_CELL_SEATS);
-  console.log("pro flop cells (% (opps)): " + CELLS.map(c => `${c} cbet ${m[c].cbet.toFixed(1)} (${m[c].cbOpp}) fold ${m[c].fcb.toFixed(1)} (${m[c].fcbOpp})`).join(" | "));
+  const m = measureCellsPooled("pro");
   const bad = [];
   for (const [stat, cells] of Object.entries(PRO_CELLS)) for (const [c, want] of Object.entries(cells)) {
     const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
@@ -210,8 +224,7 @@ test("web tag levers equal the Python tag levers of #684", async () => {
     [cbet, c3, cmw, 0.46, fmw]);
 });
 test("tag flop cells hit the human tag targets", () => {
-  const m = measureCells("tag", PRO_CELL_HANDS, 2000, PRO_CELL_SEATS);
-  console.log("tag flop cells (% (opps)): " + CELLS.map(c => `${c} cbet ${m[c].cbet.toFixed(1)} (${m[c].cbOpp}) fold ${m[c].fcb.toFixed(1)} (${m[c].fcbOpp})`).join(" | "));
+  const m = measureCellsPooled("tag");
   const bad = [];
   for (const [stat, cells] of Object.entries(TAG_CELLS)) for (const [c, want] of Object.entries(cells)) {
     const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
@@ -248,8 +261,7 @@ test("web fish levers track the Python loose_passive/calling_station levers of #
 });
 for (const type of Object.keys(FISH_CELLS)) {
   test(`${type} flop cells hit the low-stakes fish targets`, () => {
-    const m = measureCells(type, PRO_CELL_HANDS, 2000, PRO_CELL_SEATS);
-    console.log(`${type} flop cells (% (opps)): ` + CELLS.map(c => `${c} cbet ${m[c].cbet.toFixed(1)} (${m[c].cbOpp}) fold ${m[c].fcb.toFixed(1)} (${m[c].fcbOpp})`).join(" | "));
+    const m = measureCellsPooled(type);
     const bad = [];
     for (const [stat, cells] of Object.entries(FISH_CELLS[type])) for (const [c, want] of Object.entries(cells)) {
       const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
