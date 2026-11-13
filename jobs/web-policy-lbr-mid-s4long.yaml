@@ -5,7 +5,7 @@
 # Result: ops:cloud/results/<run id>.json
 name: web-policy-lbr-mid-s4long
 image: python:3.12-slim
-command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; POLICY_RUN=42591543123; python3 -m stalker.tools.web_policy_lbr_job --policy-run $POLICY_RUN --workers 32 --out /result/web-policy-lbr-mid-s4long.json
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; export POLICY_RUN=42591543123; python3 -m stalker.tools.run_stages --out /result/web-policy-lbr-mid-s4long.json --stage 'lbr=python3 -m stalker.tools.web_policy_lbr_job --policy-run $POLICY_RUN --workers 32 --out /result/web-policy-lbr-mid-s4long.json'
 cpu_flavors: [cpu5c, cpu3c]
 flavor_hourly_usd: [1.2, 1.0]
 vcpu: 32
