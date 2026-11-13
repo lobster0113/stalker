@@ -46,6 +46,7 @@ from stalker.core.cards import COMBOS, RANKS, hand_class
 from stalker.e2.eq_view import combo_index
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
+from stalker.tools import web_hit_rate as W
 
 SPOTS = ("first_in", "vs_open")
 # The #391 table: the merged top steps hold pairs and big aces; these are the hands a sane preflop
@@ -68,8 +69,40 @@ def load(path: Path) -> dict:
         raise SystemExit(f"{path}: not a web policy file (schema stalker.web.policy); export one with "
                          "python -m stalker.tools.export_web_policy")
     q = d["q"]
-    return {"policy": {k: [x / q for x in v] for k, v in d["policy"].items()}, "k": d["k"], "depth": d["depth"],
-            "players": d["players"], "menu": d.get("menu", "v1"), "raise_cap": d.get("raise_cap", G.RAISE_CAP)}
+    rows = {k: [x / q for x in v] for k, v in d["policy"].items()}
+    t = {"policy": rows, "k": d["k"], "depth": d["depth"],
+         "players": d["players"], "menu": d.get("menu", "v1"), "raise_cap": d.get("raise_cap", G.RAISE_CAP)}
+    if d.get("key_variant"):
+        # A c1 file is read as the page does: the file's key layout, and a miss falls back L1 -> L2 -> L3 -> uniform.
+        t["variant"] = d["key_variant"]
+        # `l1_rows` are quantized 0..q like `policy`; the page divides by q too (`tpgto.js l1Extra`).
+        t["l1_extra"] = {ck: {m: [x / q for x in row] for m, row in by_m.items()}
+                         for ck, by_m in W.l1_extra_of(d).items()}
+        t["policy"] = WebPolicy(rows, t["l1_extra"])
+    return t
+
+
+class WebPolicy:
+    """The rows of a web policy file as the page plays them (`tpgto.js backoffRow`, `web_hit_rate.backoff_row`):
+    the exact key, else the coarser levels' mean row (`l1_rows` filling L1), else None = uniform in `seat_probs`.
+    A pure function of the key string, so it reads only public facts and the hero's own equity step (Gate L)."""
+
+    LEVELS = ("L0", "L1", "L2", "L3", "uniform")
+
+    def __init__(self, rows: dict, l1_extra: dict | None = None):
+        self.rows = rows
+        self.tables = W.coarse_tables(rows)
+        for ck, by_m in (l1_extra or {}).items():
+            for m, row in by_m.items():
+                self.tables[0].setdefault(ck, {}).setdefault(m, row)
+
+    def lookup(self, key: str, m: int):
+        """(row or None, level name)."""
+        row, level = W.backoff_row(self.rows, self.tables, key, m)
+        return row, self.LEVELS[level]
+
+    def __call__(self, key: str, acts):
+        return self.lookup(key, len(acts))[0]
 
 
 def group_combos(name: str) -> list[tuple[int, int]]:
@@ -130,10 +163,31 @@ def _playout(t: dict, s: G.State, ranges, rng) -> G.State:
 def deals(t: dict, spot: str, seat: int, group: str, count: int, seed) -> tuple[list, int]:
     """Up to `count` deals that reach `spot` for `seat` holding `group`: (actions, the policy's row, EV per
     action in bb) each, and the number of rejection attempts."""
+    out, tries, _ = deals_levels(t, spot, seat, group, count, seed)
+    return out, tries
+
+
+def _hero_level(t: dict, s: G.State, seat: int, ranges) -> str:
+    """The backoff level of the hero's own decision key (c1 files only)."""
+    k = t["k"]
+    key = K.key(K.public_key(s, seat, t["depth"]), K.my_step(K.equity_steps(s, seat, ranges, k), s, seat))
+    return t["policy"].lookup(key, len(G.legal(s)))[1]
+
+
+def deals_levels(t: dict, spot: str, seat: int, group: str, count: int, seed) -> tuple[list, int, dict]:
+    """`deals` plus, for a c1 file, how many of the hero's decisions each backoff level supplied ({} otherwise)."""
+    variant = t.get("variant")
+    if variant is None:
+        return _deals(t, spot, seat, group, count, seed)
+    with K.using_variant(variant):
+        return _deals(t, spot, seat, group, count, seed)
+
+
+def _deals(t: dict, spot: str, seat: int, group: str, count: int, seed) -> tuple[list, int, dict]:
     rng = np.random.default_rng(seed)
     pool = group_combos(group)
     pol, k, depth = t["policy"], t["k"], t["depth"]
-    out, tries = [], 0
+    out, tries, levels = [], 0, {}
     while len(out) < count and tries < MAX_TRIES * count:
         tries += 1
         s = _deal(rng, t, seat, pool[int(rng.integers(len(pool)))])
@@ -144,13 +198,16 @@ def deals(t: dict, spot: str, seat: int, group: str, count: int, seed) -> tuple[
         acts = G.legal(s)
         pr = seat_probs(pol, s, seat, ranges, k, depth)
         row = pr[combo_index(s.hole[seat])]
+        if "variant" in t:
+            lv = _hero_level(t, s, seat, ranges)
+            levels[lv] = levels.get(lv, 0) + 1
         stream = int(rng.integers(1 << 62))
         vals = []
         for i, a in enumerate(acts):
             end = _playout(t, G.apply(s, a), K.update_range(ranges, seat, pr[:, i]), np.random.default_rng(stream))
             vals.append(float(G.payoff(end)[seat]) / G.BB)
         out.append((tuple(acts), (row / row.sum()).tolist(), vals))
-    return out, tries
+    return out, tries, levels
 
 
 _T: dict | None = None
@@ -161,9 +218,9 @@ def _init(t: dict) -> None:
     _T = t
 
 
-def _task(args) -> tuple[list, int]:
+def _task(args) -> tuple[list, int, dict]:
     spot, seat, group, count, seed = args
-    return deals(_T, spot, seat, group, count, seed)
+    return deals_levels(_T, spot, seat, group, count, seed)
 
 
 def _mean_se(x: np.ndarray) -> tuple[float, float]:
@@ -251,12 +308,18 @@ def probe(t: dict, deals_per_cell: int = 200, seed: int = 0, spots=SPOTS, seats=
         _init(t)
         parts = [_task(j) for j in jobs]
     res = [([], 0) for _ in cells_spec]
-    for ci, (r, tries) in zip(owner, parts):
+    levels: dict = {}
+    for ci, (r, tries, lv) in zip(owner, parts):
         res[ci] = (res[ci][0] + r, res[ci][1] + tries)
+        for name, c in lv.items():
+            levels[name] = levels.get(name, 0) + c
     cells = [summarize(spot, seat, group, r, tries, n) for (spot, seat, group, _, _), (r, tries) in zip(cells_spec, res)]
     z = flag(cells, threshold)
     leaks = [c for c in cells if c["leak"]]
-    return {"probe": "e3_preflop_v1", "deals_per_cell": deals_per_cell, "seed": seed, "threshold_bb": threshold,
+    extra = {}
+    if "variant" in t:   # a legacy file's result stays byte-identical
+        extra = {"key_variant": t["variant"], "backoff_levels": {n: levels.get(n, 0) for n in WebPolicy.LEVELS}}
+    return {"probe": "e3_preflop_v1", **extra, "deals_per_cell": deals_per_cell, "seed": seed, "threshold_bb": threshold,
             "alpha": ALPHA, "z_corrected": round(z, 3), "players": n, "menu": t["menu"], "k": t["k"],
             "depth": t["depth"], "cells": cells, "leaks": len(leaks),
             "leak_cells": [f"{c['spot']} {c['seat']} {c['group']}: {c['best']} +{c['actions'][c['best']]['vs_row_bb']}bb"

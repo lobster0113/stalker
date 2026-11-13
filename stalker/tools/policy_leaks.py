@@ -83,7 +83,8 @@ def build(probe: dict, tier: str, policy_file: str, policy_meta: dict | None = N
         raise ValueError(f"tier {tier!r}; known: {TIERS}")
     n = probe["players"]
     if n not in POSITIONS:
-        raise ValueError(f"{n} players: the page keys leak cells for 6-max tables only")
+        raise ValueError(f"{n} players: the page keys leak cells for 6-max tables only; "
+                         "probe a 6-player policy file (web/app/policy/<tier>-6.json)")
     seat_of = {p: i for i, p in enumerate(POSITIONS[n])}
     cells, leaks, spots, seats, groups = [], [], [], [], []
     again = {(c["spot"], c["seat"], c["group"]): c for c in (confirmed or {}).get("cells", [])}
@@ -147,6 +148,10 @@ def main(argv=None) -> int:
         d = json.loads(policy.read_text(encoding="utf-8"))
         meta = {k: d.get(k) for k in ("run_id", "sha")}
     screen = json.loads(a.probe.read_text(encoding="utf-8"))
+    if screen.get("players") not in POSITIONS:
+        print(f"policy_leaks: {screen.get('players')} players: the page keys leak cells for 6-max tables only; "
+              "probe a 6-player policy file (web/app/policy/<tier>-6.json)", file=sys.stderr)
+        return 1
     conf = None
     if a.confirm:
         conf = json.loads(a.confirm.read_text(encoding="utf-8"))
