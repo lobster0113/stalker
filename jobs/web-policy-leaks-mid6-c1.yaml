@@ -1,0 +1,19 @@
+# #836 (#824 prerequisite A): preflop leaks of the 120k c1 mid-6 web policy (run 42591543123, #714 re-export), for
+# web/app/policy/mid-6.leaks.json. Same two stages as #441: probe screen (300 deals/cell, seed 0) over every cell,
+# then policy_leaks re-probes the screened candidates (1000 deals, seed 7) as the confirmation.
+# Locally on 4 cores the screen took ~1 h and the confirmation did not finish in 40 min (#824 handoff, 11-13 06:26Z);
+# 32 workers should finish both in well under an hour.
+# The policy file is read from the public raw URL of the ops branch (the pod gets no GitHub credentials).
+# Worst case = hourly_usd * max_minutes / 60 = 1.2 * 150 / 60 = $3.00.
+# Result: ops:cloud/results/<run id>.json (schema stalker.web.policy-leaks); #824 copies it to mid-6.leaks.json.
+name: web-policy-leaks-mid6-c1
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -c "import urllib.request as u; u.urlretrieve('https://raw.githubusercontent.com/lobster0113/stalker/ops/cloud/policies/42591543123/mid-6.json', '/src/mid-6.json')"; python3 -m referee.e3.preflop_probe /src/mid-6.json --deals 300 --seed 0 --workers 32 --json /src/mid-6.probe.json; python3 -m stalker.tools.policy_leaks --tier mid --screen /src/mid-6.probe.json --save-confirm /src/mid-6.confirm.json --policy /src/mid-6.json --workers 32 --out /result/web-policy-leaks-mid6-c1.json --evidence "cloud job web-policy-leaks-mid6-c1, policy ops:cloud/policies/42591543123/mid-6.json" --command "python3 -m referee.e3.preflop_probe mid-6.json --deals 300 --seed 0 --workers 32 --json mid-6.probe.json"
+cpu_flavors: [cpu5c, cpu3c]
+flavor_hourly_usd: [1.2, 1.0]
+vcpu: 32
+disk_gb: 10
+max_minutes: 150
+hourly_usd: 1.2
+est_cost_usd: 1.0
+result_path: /result/web-policy-leaks-mid6-c1.json

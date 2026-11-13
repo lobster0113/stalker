@@ -36,6 +36,9 @@
 - `web-policy-lbr-pages-evalnoise-both.yaml`(#756): `web-policy-lbr-pages-evalnoise.yaml`과 같되 `--backoff both`(켬·끔 모두)라 서비스가 쓰는 켬 칸의 평가 시드 4개 sd·최소 k를 잰다(레거시 6인은 켬 칸 없음). 결과 파일 이름만 다르다. 최악 $3.00.
 - `web-policy-lbr-pages-evalnoise8.yaml`(#762): `web-policy-lbr-pages-evalnoise-both.yaml`과 같되 `--seeds 8`(평가 시드 10001–10008)이라 #756의 시드 4개 sd·최소 k를 시드 8개로 다시 잰다. 결과 파일 이름만 다르다. 최악 $3.00.
 
+## 웹 정책 누수 잡 (`web-policy-leaks-mid6-c1.yaml`, #836)
+- 120k c1 mid-6 정책(`ops:cloud/policies/42591543123/mid-6.json`, public raw URL로 받음)에 프리플랍 프로브 screen(300딜, 시드 0)과 `policy_leaks` 확인 단계(1000딜, 시드 7)를 32워커로 돌려 `stalker.web.policy-leaks` 파일을 만든다(#824가 `web/app/policy/mid-6.leaks.json`으로 옮긴다). 최악 $3.00(`max_minutes: 150`). 결과: `ops:cloud/results/<run id>.json`.
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
