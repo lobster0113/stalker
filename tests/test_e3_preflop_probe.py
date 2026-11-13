@@ -117,7 +117,7 @@ from stalker.e3 import tp_key as K
 from stalker.tools import policy_leaks as PL
 
 MID5 = Path(__file__).resolve().parents[1] / "web" / "app" / "policy" / "mid-5.json"
-LEGACY_GOLDEN = "1d6b1bdcbd39733d29d61f2dd37d09fef1e139ae66e99823da311c4fe051ecf3"   # main before #823, measured once
+LEGACY_GOLDEN = "0e3425d4a40a6ba8c20c3758005e74080ca6947f3c6e714739dfeecf2f8c0fc6"   # pre-#823 main code, rows hit (6-max, spy-keyed)
 
 
 def _c1_policy():
@@ -128,16 +128,43 @@ def _c1_policy():
     return {k: [x / q for x in d["policy"][k]] for k in keys}, d
 
 
+def _legacy6_file(tmp_path):
+    """A legacy (no key_variant) 6-max file whose rows the probe really hits: keys recorded from a spy run,
+    rows a fixed function of the key (crc32), so the file never changes with the served policies."""
+    import zlib
+    seen = {}
+
+    def spy(key, acts):
+        seen[key] = tuple(acts)
+        return None
+    P.probe({"policy": spy, "k": 5, "depth": "full", "players": 6, "menu": "v1", "raise_cap": 3},
+            6, 4, spots=("first_in",), seats=[0, 3], groups=("AA", "AKs"))
+    q = 255
+    policy = {}
+    for key, acts in sorted(seen.items()):
+        h = zlib.crc32(key.encode()) % 7
+        row = [1] * len(acts)
+        row[h % len(acts)] += 3
+        tot = sum(row)
+        v = [round(x * q / tot) for x in row]
+        v[0] += q - sum(v)
+        policy[key] = v
+    f = tmp_path / "legacy6.json"
+    f.write_text(json.dumps({"schema": "stalker.web.policy", "q": q, "k": 5, "depth": "full", "players": 6,
+                             "menu": "v1", "policy": policy}, sort_keys=True), encoding="utf-8")
+    return f, len(policy)
+
+
 def test_legacy_file_result_is_unchanged(tmp_path):
-    # No key_variant: the old path, same bytes as before the c1 reader (all-uniform policy, fixed seed).
-    f = tmp_path / "legacy.json"
-    f.write_text(json.dumps({"schema": "stalker.web.policy", "q": 255, "k": 5, "depth": "full", "players": 3,
-                             "menu": "v1", "policy": {}}), encoding="utf-8")
+    # No key_variant: the old dict path with rows that are actually returned (the rows hit), fixed seed.
+    f, n = _legacy6_file(tmp_path)
+    assert n > 5
     t = P.load(f)
     assert "variant" not in t and isinstance(t["policy"], dict)
-    r = P.probe(t, 6, 4, groups=("AA", "AKs"))
+    r = P.probe(t, 6, 4, spots=("first_in",), seats=[0, 3], groups=("AA", "AKs"))
     assert "key_variant" not in r and "backoff_levels" not in r
-    assert hashlib.sha256((json.dumps(r, indent=1) + "\n").encode()).hexdigest() == LEGACY_GOLDEN
+    got = hashlib.sha256((json.dumps(r, indent=1) + "\n").encode()).hexdigest()
+    assert got == LEGACY_GOLDEN, got
 
 
 def test_c1_lookup_exact_l1_rows_and_uniform():
@@ -174,7 +201,8 @@ def test_c1_file_load_keeps_variant_and_l1_rows(tmp_path):
     t = P.load(f)
     assert t["variant"] == "c1" and t["l1_extra"]
     miss = "|".join(parts[:at] + ["e97"] + parts[at + 1:])
-    assert t["policy"].lookup(miss, len(rows[key]))[1] == "L1"
+    row, level = t["policy"].lookup(miss, len(rows[key]))
+    assert level == "L1" and row == [1.0] + [0.0] * (len(rows[key]) - 1)   # probabilities, not 0..q integers
 
 
 def test_c1_hero_key_reads_only_public_line_and_own_cards():

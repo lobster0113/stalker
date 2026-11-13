@@ -75,7 +75,9 @@ def load(path: Path) -> dict:
     if d.get("key_variant"):
         # A c1 file is read as the page does: the file's key layout, and a miss falls back L1 -> L2 -> L3 -> uniform.
         t["variant"] = d["key_variant"]
-        t["l1_extra"] = W.l1_extra_of(d)
+        # `l1_rows` are quantized 0..q like `policy`; the page divides by q too (`tpgto.js l1Extra`).
+        t["l1_extra"] = {ck: {m: [x / q for x in row] for m, row in by_m.items()}
+                         for ck, by_m in W.l1_extra_of(d).items()}
         t["policy"] = WebPolicy(rows, t["l1_extra"])
     return t
 
