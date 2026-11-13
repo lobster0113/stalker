@@ -1,11 +1,31 @@
 """#611: web policy table hit-rate tool."""
 import json
+from pathlib import Path
 
 import pytest
 
 from stalker.tools import web_hit_rate as H
 
 K, DEPTH, N3 = 11, "full", 3
+MID3 = Path("web/app/policy/mid-3.json")
+
+
+@pytest.fixture(scope="module")
+def _mid3_once():
+    pol, doc = H.load_policy(MID3)
+    return MID3.read_bytes(), pol, doc, H.coarse_tables(pol)
+
+
+@pytest.fixture
+def mid3_shared(_mid3_once, monkeypatch):
+    """mid-3.json is read, and its backoff tables built, once per module instead of once per `measure` (#826: the
+    tables are most of a short run's time). `measure` adds `l1_extra` rows into the tables, so each call gets a copy;
+    the policy and header are only read."""
+    raw, pol, doc, tables = _mid3_once
+    load, build = H.load_policy, H.coarse_tables
+    monkeypatch.setattr(H, "load_policy", lambda path: (pol, doc) if Path(path).read_bytes() == raw else load(path))
+    monkeypatch.setattr(H, "coarse_tables", lambda policy: [{ck: dict(by_m) for ck, by_m in t.items()} for t in tables]
+                        if policy is pol else build(policy))
 
 
 class Spy(dict):
@@ -215,7 +235,7 @@ def _levels(r):
     return {st: {k: c[k] for k in keys} for st, c in r["by_backoff"]["by_street"].items()}
 
 
-def test_play_backoff_levels_are_exact_and_the_trajectory_differs_from_uniform_play():
+def test_play_backoff_levels_are_exact_and_the_trajectory_differs_from_uniform_play(mid3_shared):
     uni, bo = _mid3(False), _mid3(True)
     assert "play" not in uni and uni["schema_version"] == 2
     assert bo["play"] == "backoff" and bo["schema_version"] == 3 and bo == _mid3(True)
@@ -243,7 +263,7 @@ def test_backoff_row_is_exact_then_coarse_then_none():
     assert H.backoff_row(pol, tabs, third, 3) == (None, 4)
 
 
-def test_main_play_backoff_flag_and_legacy_refusal(tmp_path, capsys):
+def test_main_play_backoff_flag_and_legacy_refusal(mid3_shared, tmp_path, capsys):
     import shutil
     p = tmp_path / "mid-3.json"
     shutil.copy("web/app/policy/mid-3.json", p)
@@ -289,7 +309,7 @@ def _mid3_miss(top):
                      variant=H.variant_of(pol, doc), play_backoff=True, backoff=True, miss_report=top)
 
 
-def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged():
+def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged(mid3_shared):
     bo, mr = _mid3(True), _mid3_miss(3)
     assert mr["schema_version"] == 4 and bo["schema_version"] == 3 and "miss_report" not in bo
     assert {k: v for k, v in mr.items() if k not in ("miss_report", "schema_version")} == \
@@ -310,7 +330,7 @@ def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged():
     assert mr == _mid3_miss(3)
 
 
-def test_miss_report_off_is_byte_identical_and_needs_play_backoff(tmp_path, capsys):
+def test_miss_report_off_is_byte_identical_and_needs_play_backoff(mid3_shared, tmp_path, capsys):
     import shutil
     import pytest
     p = tmp_path / "mid-3.json"
@@ -449,7 +469,7 @@ def test_l4_on_call_and_basic_keys():
     assert _l4(pol, basic.format(3).replace("|late|", "|blind|"), top=4) == (None, 5)
 
 
-def test_l4_counts_a_level_and_off_is_byte_identical(tmp_path, capsys):
+def test_l4_counts_a_level_and_off_is_byte_identical(mid3_shared, tmp_path, capsys):
     import shutil
     p = tmp_path / "mid-3.json"
     shutil.copy("web/app/policy/mid-3.json", p)
@@ -548,7 +568,7 @@ def test_fidelity_is_weighted_by_decisions_not_keys(monkeypatch):
     assert w_tv != (tv[k1] + tv[k2]) / 2 and w_ag != 0.5   # a per-key average would give other numbers
 
 
-def test_fidelity_off_is_byte_identical_and_needs_play_backoff(tmp_path, capsys):
+def test_fidelity_off_is_byte_identical_and_needs_play_backoff(mid3_shared, tmp_path, capsys):
     import shutil
     p = tmp_path / "mid-3.json"
     shutil.copy("web/app/policy/mid-3.json", p)

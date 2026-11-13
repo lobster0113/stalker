@@ -1,4 +1,5 @@
 """#535: a player-mix run counts hands, traverser updates and c1 keys per player count, across resumes."""
+import copy
 import hashlib
 import json
 
@@ -10,10 +11,28 @@ from stalker.e3.mccfr import E3MCCFR, key_players
 from stalker.tools import pod_train as P
 
 MIX = (2, 3, 6)
+AT = (3, 4, 5, 9, 12)   # the iteration counts the tests start from (`c1_at`)
 
 
 def _c1(seed=3, **kw):
     return E3MCCFR(seed, 5, 6, "basic", key_variant="c1", player_mix=MIX, **kw)
+
+
+@pytest.fixture(scope="module")
+def c1_at():
+    """`c1_at(n)`: a copy of `_c1()` after `iterate(n)`. One run is advanced and snapshotted instead of a fresh run per
+    test (#826): consecutive `iterate` calls end in the same state, rng included, as one call of the total."""
+    snaps: dict = {}
+
+    def at(n):
+        if n not in snaps:
+            base = max((k for k in snaps if k < n), default=None)
+            m = copy.deepcopy(snaps[base]) if base is not None else _c1()
+            for stop in sorted({*(k for k in AT if m.iterations < k < n), n}):   # keep the counts passed on the way
+                m.iterate(stop - m.iterations)
+                snaps[stop] = copy.deepcopy(m)
+        return copy.deepcopy(snaps[n])
+    return at
 
 
 def _state_digest(m) -> str:
@@ -36,15 +55,13 @@ def test_runs_without_player_mix_keep_their_table_and_checkpoint(args, kw, regre
     assert "mix_counts" not in m.state() and m.mix_hands == {}
 
 
-def test_counting_draws_no_random_numbers():
-    m = _c1()
-    m.iterate(3)   # the same mixed run on main before #535 (e7327b3)
+def test_counting_draws_no_random_numbers(c1_at):
+    m = c1_at(3)   # the same mixed run on main before #535 (e7327b3)
     assert m.regret_hash() == "28b71e994f91658402bf11f0895a4a99307f773397adf5592d17eae2f5a840ae"
 
 
-def test_per_size_counts_add_up_to_the_run():
-    m = _c1()
-    m.iterate(12)
+def test_per_size_counts_add_up_to_the_run(c1_at):
+    m = c1_at(12)
     c = m.mix_counts()
     assert set(c) == {"2", "3", "6"}
     assert sum(r["hands"] for r in c.values()) == m.iterations == 12
@@ -68,11 +85,9 @@ def test_key_players_reads_every_depth():
     assert key_players("call|1|2|4|fc|e0") is None
 
 
-def test_checkpoint_resume_counts_as_one_run():
-    once = _c1()
-    once.iterate(9)
-    part = _c1()
-    part.iterate(5)
+def test_checkpoint_resume_counts_as_one_run(c1_at):
+    once = c1_at(9)
+    part = c1_at(5)
     st = json.loads(json.dumps(part.state()))
     assert st["version"] == 7 and st["counted_from"] == 0
     back = E3MCCFR.from_state(st, player_mix=MIX)
@@ -81,9 +96,8 @@ def test_checkpoint_resume_counts_as_one_run():
     assert back.mix_counts() == once.mix_counts() and back.counted_from == 0
 
 
-def test_version_6_checkpoint_counts_from_where_it_resumes():
-    m = _c1()
-    m.iterate(4)
+def test_version_6_checkpoint_counts_from_where_it_resumes(c1_at):
+    m = c1_at(4)
     st = json.loads(json.dumps(m.state()))
     del st["mix_counts"], st["counted_from"]
     back = E3MCCFR.from_state({**st, "version": 6})
@@ -105,9 +119,8 @@ def test_parallel_workers_add_their_counts():
     assert sum(r["visits"] for r in c.values()) == sum(m.visits.values())
 
 
-def test_pod_checkpoint_carries_the_counts():
-    m = _c1()
-    m.iterate(5)
+def test_pod_checkpoint_carries_the_counts(c1_at):
+    m = c1_at(5)
     meta = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
             "menu": m.menu, "raise_cap": m.raise_cap, "avg_rule": m.avg_rule, "rng": m.rng.bit_generator.state,
             "key_variant": m.key_variant, "stacks": m.stacks, "key_version": 1, "player_mix": list(MIX),
