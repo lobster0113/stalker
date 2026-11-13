@@ -23,6 +23,12 @@
 | `policy_version` | 결정을 낸 정책 버전 |
 | `env_id` | 기록을 만든 환경(`EnvSpec`)의 식별자. `stalker.env.spec.lookup(env_id)`로 전체 명세 복원 |
 
+토너먼트 환경 분리 키(`docs/research/2026-11-icm-env-separation.md`)는 모두 `EnvSpec` 필드라 하나만 달라도 `env_id`가 달라진다(`tests/test_env_spec.py::test_each_tournament_separation_key_changes_env_id`):
+- 페이아웃 구조(상금권 비율) → `payout_vector`·`payout_mode` / 블라인드 증가 속도 → `blind_schedule`의 레벨 길이(`time_model` 단위)
+- 인원 → `field_size`·`initial_stacks`, 테이블 크기 → `table_size` / 앤티·BB앤티 유무 → `ante_mode`·`ante_schedule`
+- 잔여 인원은 환경이 아니라 결정 상태(`tournament_context.remaining`)다.
+- 바운티(PKO)는 v1 `KINDS`에 없어 범위 밖이다. 도입하면 별도 `kind`(=별도 env_id)로 둔다.
+
 ## `DecisionRecord`
 - `tournament_context`: `table_size`(2..9), `sb`, `bb`, `ante_type`(`none`/`classic`/`bb_ante`), `ante`, `level`(0부터), `remaining`, `paid_places`, `payout_vector`(1등부터, 길이 = `paid_places`), `next_level`(`[sb, bb, ante]` 또는 null), `stacks`(남은 전원 스택 요약: n·total·min·max·mean·median).
 - `table_observation`: 행동자 본인이 볼 수 있는 것만. `seats`(≤9; seat·player_id·stack·bet·in_hand), `hero_seat`, `button`, `position`, `pot`, `hole_cards`(본인 2장), `board`, `street`, `current_hand_actions`(`[seat, 'f'|'cc'|'cbr', amount]`), `action_space`(`{kind: fold|call|raise, amount: raise-to}`), `legal_action_mask`(action_space와 정렬).
