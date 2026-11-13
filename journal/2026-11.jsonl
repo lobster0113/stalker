@@ -1402,3 +1402,4 @@
 {"ts":"2026-11-13T23:15:39Z","role":"planner","outcome":"planned","issue":845,"pr":856,"notes":"PR #856 머지 → #845 라벨 정리; 후속 #857(ADR 0026 보상 ICM+λ 보정·CI 선택) P2·#858(icm_grid 레벨·배치 재측정) P3 ready; ready 3개 회복","friction":""}
 {"ts":"2026-11-13T23:41:49Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has CHANGES at head d723a9c, no new commits","friction":""}
 {"ts":"2026-11-13T23:49:56Z","role":"builder","outcome":"pr_opened","issue":853,"pr":859,"notes":"run_stages --deadline-s(killpg TERM→10s→KILL, exit timeout, 종료 0) + stage-failure v2(stage_elapsed_s·deadline_s) + metrics v2 호환 테스트 + jobs/README","friction":"gates full 로컬 ~33분 후 test_text_encoding(read_text encoding 누락) 1건으로 FAIL — 커밋 전 quick를 먼저 돌렸으면 3분에 잡혔을 것. 브랜치를 stale origin/main(fetch는 ops만)에서 따서 한 번 리셋함"}
+{"ts":"2026-11-13T23:50:08Z","role":"reviewer-b","outcome":"skipped","issue":853,"pr":859,"notes":"not my parity","friction":""}
