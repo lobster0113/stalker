@@ -1390,3 +1390,4 @@
 {"ts":"2026-11-13T20:41:46Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-13T21:11:49Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity); nothing for reviewer-b","friction":""}
 {"ts":"2026-11-13T21:41:45Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT CHANGES on head d723a9c; awaiting author fix","friction":""}
+{"ts":"2026-11-13T21:55:05Z","role":"builder-b","outcome":"pr_opened","issue":851,"pr":852,"notes":"web-policy-lbr-mid* 3종 run_stages 감쌈 + export POLICY_RUN, 파라미터 테스트, gates full 로컬 PASS","friction":"gates full 로컬 ~35분(a); MCP 대기 폴링 수단 없어 sleep 루프 사용"}
