@@ -1,0 +1,56 @@
+"""#836: the pod job that writes the preflop leaks of the 120k c1 mid-6 web policy (screen + confirmation)."""
+import shlex
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+JOB = "jobs/web-policy-leaks-mid6-c1.yaml"
+POLICY_URL = "https://raw.githubusercontent.com/lobster0113/stalker/ops/cloud/policies/42591543123/mid-6.json"
+
+
+def _spec():
+    sys.path.insert(0, str(ROOT / "harness/cloud"))
+    import launcher
+    return launcher.parse_spec((ROOT / JOB).read_text(encoding="utf-8"), JOB)
+
+
+def _flags(cmd, module):
+    # the part of the job command that runs `python3 -m <module>`, up to the next `;`
+    args = shlex.split(cmd.split(f"python3 -m {module} ", 1)[1].split("; ", 1)[0])
+    flags, pos, i = {}, [], 0
+    while i < len(args):
+        if args[i].startswith("--"):
+            if i + 1 < len(args) and not args[i + 1].startswith("--"):
+                flags[args[i]] = args[i + 1]
+                i += 2
+                continue
+            flags[args[i]] = True
+        else:
+            pos.append(args[i])
+        i += 1
+    return pos, flags
+
+
+def test_job_probes_the_c1_policy_then_writes_the_leaks_file():
+    job = _spec()
+    cmd = job.command
+    assert "refs/heads/main" in cmd and "pip install -q -e '.[fast]'" in cmd and POLICY_URL in cmd
+    pos, probe = _flags(cmd, "referee.e3.preflop_probe")
+    assert pos == ["/src/mid-6.json"]
+    assert probe["--deals"] == "300" and probe["--seed"] == "0" and probe["--workers"] == "32"
+    _, leaks = _flags(cmd, "stalker.tools.policy_leaks")
+    assert leaks["--tier"] == "mid" and leaks["--policy"] == "/src/mid-6.json"
+    assert leaks["--screen"] == probe["--json"]
+    assert "--save-confirm" in leaks            # the confirmation stage runs on the pod
+    assert leaks["--out"] == job.result_path == "/result/web-policy-leaks-mid6-c1.json"
+    assert "42591543123/mid-6.json" in leaks["--evidence"]
+    assert "--deals 300 --seed 0" in leaks["--command"]
+    # the steps run in order: download, probe, leaks
+    assert cmd.index(POLICY_URL) < cmd.index("referee.e3.preflop_probe") < cmd.index("stalker.tools.policy_leaks")
+
+
+def test_job_worst_case_cost():
+    job = _spec()
+    assert job.vcpu == 32 and tuple(job.cpu_flavors) == ("cpu5c", "cpu3c")
+    assert job.hourly_usd == 1.2 and job.max_minutes <= 150
+    assert job.hourly_usd * job.max_minutes / 60 <= 3.0
