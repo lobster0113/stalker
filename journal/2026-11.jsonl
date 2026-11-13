@@ -1379,3 +1379,4 @@
 {"ts":"2026-11-13T19:07:32Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":849,"notes":"not my parity","friction":""}
 {"ts":"2026-11-13T19:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #849,#599 both odd (reviewer parity); none for reviewer-b","friction":"(h) --sweep RUN with no even-numbered PR to judge"}
 {"ts":"2026-11-13T19:30:49Z","role":"builder","outcome":"pr_opened","issue":844,"pr":850,"notes":"icm_grid 격자 실행기+테스트+문서, gates full 로컬 PASS. #841 run 43472297428은 19:04Z 아직 실행 중(결과 미도착)이라 손대지 않음","friction":"#844 수용 기준의 spawn(n칸) 칸 순서 시드와 칸 시드 독립성 테스트(프로필 하나 빼기)가 서로 모순 → spawn_key=칸 키로 해소, PR에 명시. gh CLI 미인증이라 MCP 사용. gates full tests 단계 19분"}
+{"ts":"2026-11-13T19:31:01Z","role":"reviewer","outcome":"skipped","issue":844,"pr":850,"notes":"not my parity","friction":""}
