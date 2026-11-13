@@ -32,5 +32,6 @@
 ## 측정 도구
 - `stalker/tools/icm_calibration.py`(#834): 같은 중간 상태에서 생존자별 ICM 에퀴티와 시드 고정 시뮬레이션 상금 평균·sd·차이(sim − icm)를 JSON으로 낸다.
 - 실행 예: `python -m stalker.tools.icm_calibration --players 6 --remaining 3 --stack-profile skewed --games 200 --seed 0 --out icm.json`
+- `stalker/tools/icm_grid.py`(#844): 위 도구를 프리셋×잔여 인원×스택 프로필 격자로 돌려 칸별 최대 |차이|/pool·최대 |z| 표를 낸다. 예: `python -m stalker.tools.icm_grid --presets 6max_sng_topheavy,9max_sng_503020 --remaining 2,3,4 --profiles even,random,skewed --games 200 --seed 0 --out grid.json --md grid.md`
 - `--agents persona:NAME`(#843, 기본 `random`): 모든 좌석을 같은 페르소나(`PersonaAgent`, `persona_params`의 이름)로 채워 대칭 실력을 유지한다. 출력(`schema_version` 2)의 `diff_se`(= `sim_prize_sd/√games`)·`z`(= `diff/diff_se`, se 0이면 0)로 차이가 표본 오차인지 가른다.
 - 이 도구로 얻는 수치는 로컬 참고값이며 CI 결과가 아니다(합격선 없음).
