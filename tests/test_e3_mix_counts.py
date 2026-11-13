@@ -139,6 +139,7 @@ def small(monkeypatch):
     monkeypatch.setattr(T, "E3_BY_PLAYERS_LBR_HANDS_BY_N", {})
 
 
+@pytest.mark.slow  # ~12-18s of quick (#816/#832); full/G1 still runs it
 def test_result_and_summary_carry_the_counts(small, tmp_path):
     runs = []
     for seed in (1, 2):

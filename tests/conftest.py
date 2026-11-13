@@ -69,3 +69,31 @@ def node_path():
 @pytest.fixture
 def node():
     return node_path()
+
+
+@pytest.fixture(scope="session")
+def gate_l_report(tmp_path_factory):
+    """One `run_gate_l()` per pytest run, shared by its two consumers (#832, ~7 worker-seconds).
+
+    Gates use `--dist worksteal`, which does not keep a module on one worker, so a plain session
+    fixture would still compute once per worker; xdist workers share basetemp's parent, so the first
+    worker computes under a lock and the rest read the pickle (pytest-xdist "session fixture once").
+    """
+    from referee.gate_l import run_gate_l
+
+    try:
+        import fcntl
+    except ImportError:  # no flock (Windows): compute per worker, still correct
+        fcntl = None
+    if fcntl is None or "PYTEST_XDIST_WORKER" not in os.environ:
+        return run_gate_l()
+    import pickle
+
+    cache = tmp_path_factory.getbasetemp().parent / "gate_l_report.pkl"
+    with open(cache.with_suffix(".lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if cache.exists():
+            return pickle.loads(cache.read_bytes())
+        report = run_gate_l()
+        cache.write_bytes(pickle.dumps(report))
+        return report
