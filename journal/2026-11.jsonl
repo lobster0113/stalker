@@ -1388,3 +1388,4 @@
 {"ts":"2026-11-13T20:12:03Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd parity (reviewer); nothing for reviewer-b","friction":""}
 {"ts":"2026-11-13T20:23:24Z","role":"builder-b","outcome":"no_work","issue":841,"pr":null,"notes":"#841 2회차 run 43472297428 timeout(150분,$2.80, 결과 없음) 원장 기록 코멘트; 재디스패치 안 함","friction":"gates quick가 120초 넘게 걸려 백그라운드로 밀림"}
 {"ts":"2026-11-13T20:41:46Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c; no new commits","friction":""}
+{"ts":"2026-11-13T21:11:49Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity); nothing for reviewer-b","friction":""}
