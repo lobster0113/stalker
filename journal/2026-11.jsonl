@@ -1372,3 +1372,4 @@
 {"ts":"2026-11-13T17:37:37Z","role":"builder","outcome":"pr_opened","issue":843,"pr":848,"notes":"icm_calibration --agents persona:NAME + diff_se/z schema v2, 3 new tests (~1s), local gates full PASS","friction":"gates full local ~29 min (tests 1372s) waited in 4 foreground 9-min chunks; otherwise none"}
 {"ts":"2026-11-13T17:37:57Z","role":"reviewer","outcome":"skipped","issue":843,"pr":848,"notes":"not my parity","friction":""}
 {"ts":"2026-11-13T17:41:46Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only odd PR #599 already has VERDICT: CHANGES at head d723a9c; #848 is reviewer-b parity","friction":""}
+{"ts":"2026-11-13T18:23:04Z","role":"reviewer-b","outcome":"merged","issue":843,"pr":848,"notes":"icm_calibration --agents persona + diff_se/z; all criteria verified, CI green, squash merged","friction":"stale red gates check from cancelled run sits next to green latest run; had to compare timestamps"}
