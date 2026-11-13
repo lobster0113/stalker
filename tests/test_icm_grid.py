@@ -66,3 +66,40 @@ def test_bad_profile_exits_with_a_message(capsys):
     with pytest.raises(SystemExit) as e:
         main(["--presets", "6max_sng_topheavy", "--remaining", "2", "--profiles", "flat", "--games", "1"])
     assert e.value.code == 2 and "flat" in capsys.readouterr().err
+
+
+def test_default_agents_output_is_the_pre_option_computation(tmp_path):
+    import numpy as np
+
+    from stalker.tools.icm_calibration import calibrate
+    from stalker.tools.icm_grid import cell_seed
+    from stalker.tournament.config import load_preset
+    from stalker.tournament.start_state import make_start_state
+
+    a, _ = _cli(tmp_path, "default")
+    b, _ = _cli(tmp_path, "random", "--agents", "random")
+    assert a.read_bytes() == b.read_bytes()
+    d = json.loads(a.read_bytes())
+    assert "agents" not in d
+    c = d["cells"][0]
+    config = load_preset(c["preset"])
+    rng = np.random.default_rng(cell_seed(5, c["preset"], c["remaining"], c["profile"]))
+    ss = make_start_state(config, rng, c["remaining"], c["profile"], 0)
+    want = calibrate(config, ss, None, GAMES, rng)
+    assert c["calibrate"] == json.loads(json.dumps(want))
+
+
+def test_persona_agents_change_every_cell_and_are_recorded():
+    base = run_grid(["6max_sng_topheavy"], [3, 4], ["even", "skewed"], 10, 3)
+    tag = run_grid(["6max_sng_topheavy"], [3, 4], ["even", "skewed"], 10, 3, agents="persona:tag")
+    assert tag["agents"] == "persona:tag" and "agents" not in base
+    assert len(tag["cells"]) == len(base["cells"]) == 4
+    for b, t in zip(base["cells"], tag["cells"]):
+        assert (b["preset"], b["remaining"], b["profile"]) == (t["preset"], t["remaining"], t["profile"])
+        assert b["calibrate"]["sim_prize_mean"] != t["calibrate"]["sim_prize_mean"]
+
+
+def test_bad_agents_spec_exits_with_a_message(capsys):
+    with pytest.raises(SystemExit) as e:
+        main(["--presets", "6max_sng_topheavy", "--remaining", "2", "--games", "1", "--agents", "persona:bogus"])
+    assert e.value.code == 2 and "bogus" in capsys.readouterr().err
