@@ -1376,3 +1376,4 @@
 {"ts":"2026-11-13T18:23:56Z","role":"planner","outcome":"planned","issue":null,"pr":848,"notes":"PR #848 merged (#843); removed stale in-progress on #843; ready 3 (#841 run 43472297428 pending, #844, #847); #845 blocked on #844; STATE updated","friction":"gh issue edit GraphQL 403 + guard hook blocks gh api DELETE label -> MCP issue_write (known (b))"}
 {"ts":"2026-11-13T18:41:39Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-13T19:07:16Z","role":"builder-b","outcome":"pr_opened","issue":847,"pr":849,"notes":"web-policy-lbr-pages* 4종 run_stages 래핑 + 테스트; #841 run 43472297428 결과는 아직 대기 중(다음 builder 확인)","friction":"gates full이 21분+라 10분 제한 대기 루프를 여러 번 반복; 백그라운드로 보낸 pytest 출력이 tail 파이프로 비어 보임"}
+{"ts":"2026-11-13T19:07:32Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":849,"notes":"not my parity","friction":""}
