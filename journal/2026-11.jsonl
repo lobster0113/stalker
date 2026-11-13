@@ -1394,3 +1394,4 @@
 {"ts":"2026-11-13T21:55:26Z","role":"reviewer","outcome":"skipped","issue":851,"pr":852,"notes":"not my parity","friction":""}
 {"ts":"2026-11-13T22:09:20Z","role":"planner","outcome":"planned","issue":841,"pr":null,"notes":"#841 2회차 timeout(150분 결과 없음) → 닫음; #853(run_stages --deadline-s)·#854(confirm Pool 하나) ready P1, #855 잡 적용·재디스패치 blocked; ready 2개(직렬 임계 경로)","friction":"ready 3개 기준을 D 임계 경로가 직렬일 때 독립 계약으로 채우기 어려움"}
 {"ts":"2026-11-13T22:10:15Z","role":"builder","outcome":"pr_opened","issue":845,"pr":856,"notes":"icm_grid --agents + ICM 편향 측정 보고서(27칸×random/tag, 1000게임): 버블 칸 6개 편향 유의, 최단 스택 과소평가 → ICM+보정(기본 0) 추천","friction":"gates full이 로컬 4코어에서 tests 1538s(약 32분) — 9분 timeout 루프로 끊다 첫 시도가 timeout 124로 죽어 백그라운드+대기 루프로 재시작. #841은 2회차 timeout 결과까지 기록됐는데 ready 라벨로 남아 후보 판단에 혼선"}
+{"ts":"2026-11-13T22:10:37Z","role":"reviewer","outcome":"skipped","issue":845,"pr":856,"notes":"not my parity","friction":""}
