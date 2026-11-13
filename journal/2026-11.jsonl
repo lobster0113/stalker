@@ -1305,3 +1305,4 @@
 {"ts":"2026-11-12T23:41:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c; no new commits since","friction":"should_run --sweep printed RUN on interval alone although no PR needed a verdict"}
 {"ts":"2026-11-13T00:10:13Z","role":"researcher","outcome":"pr_opened","issue":null,"pr":null,"notes":"ICM·환경 분리 연구 문서 PR 생성, 이슈는 Planner 판단용 제안만","friction":"gh 미인증으로 MCP 사용; 웹 검색 출처 품질 낮음"}
 {"ts":"2026-11-13T00:10:41Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":827,"notes":"not my parity","friction":""}
+{"ts":"2026-11-13T00:11:51Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #827,#599 are odd (reviewer's parity); no even PRs","friction":"should_run printed RUN although no even-numbered PR is open"}
