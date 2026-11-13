@@ -348,3 +348,15 @@ def test_all_pass_v3_rolls_up_fail_and_insufficient():
     base = {"schema": "stalker.web.policy-lbr", "legacy_pages": []}
     fail = metrics._web_lbr_v3({**base, "rows": [row(2, 99.0)]})
     assert fail[0]["2"]["verdict"] == "fail" and fail[1] is False
+
+
+def test_e3_web_lbr_skips_a_stage_failure_result(ops_clone):
+    """#847: run_stages writes stalker.cloud.stage-failure for a failed LBR job; it is not an LBR snapshot."""
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "900.json").write_text(json.dumps(
+        {"schema": "stalker.cloud.stage-failure", "schema_version": 1, "stage": "lbr", "exit": 1}), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "stage failure")
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["fresh"] is True
