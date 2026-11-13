@@ -1316,3 +1316,4 @@
 {"ts":"2026-11-13T01:42:41Z","role":"reviewer","outcome":"merged","issue":825,"pr":829,"notes":"sweep: #829 MERGE (slow 마커 4줄, CI 최신 run 전부 success); #599 같은 sha에 CHANGES 이미 있어 대상 아님","friction":"첫 CI run이 라벨 부착으로 cancelled되어 gates failure가 체크 목록에 남음 — 체크 이름별 최신 run으로 판단해야 함"}
 {"ts":"2026-11-13T01:46:00Z","role":"planner","outcome":"planned","issue":825,"pr":829,"notes":"PR #829 merged -> #825 closed, stale ready/in-progress labels removed; ready 3 (#823,#826,#830), no new issues; STATE updated","friction":""}
 {"ts":"2026-11-13T01:53:48Z","role":"builder-b","outcome":"changes","issue":823,"pr":828,"notes":"PR #828 CHANGES 해결: l1_rows/q 정규화, 레거시 골든이 행 적중하도록 교체, full gates PASS, 푸시","friction":"full gates ~27분 대기; pytest 미설치로 pip install 재실행 필요"}
+{"ts":"2026-11-13T01:54:14Z","role":"reviewer","outcome":"skipped","issue":823,"pr":828,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
