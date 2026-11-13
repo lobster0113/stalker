@@ -135,11 +135,11 @@ def test_l3_foreign_table_events_are_flagged():
     assert foreign_table_events(ev[:2], 5) == []
 
 
-def test_pipeline_checks_pass_and_gate_runner_reports():
+def test_pipeline_checks_pass_and_gate_runner_reports(gate_l_report):
     r = Report()
     gate_l.check_l3(r)
     gate_l.check_l4(r)
     assert r.ok, r.failures
-    full = gate_l.run_gate_l()
+    full = gate_l_report
     assert full.ok, full.failures
     assert any("L6" in s for s in full.skipped) or full.counts["L6"][1] > 0

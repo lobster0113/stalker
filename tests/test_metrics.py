@@ -8,8 +8,8 @@ from referee import metrics
 from referee.gate_l import Report
 
 
-def test_gate_l_snapshot_keys_and_ranges():
-    snap = metrics.gate_l()
+def test_gate_l_snapshot_keys_and_ranges(gate_l_report):
+    snap = metrics.gate_l(gate_l_report)
     assert 0.0 <= snap["gate_l_pass_rate"] <= 1.0
     assert isinstance(snap["gate_l_checks"], int) and snap["gate_l_checks"] > 0
     items = snap["gate_l_items"]
