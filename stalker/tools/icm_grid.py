@@ -9,7 +9,10 @@ Cell seeds come from the cell's key, not its position: removing a preset, surviv
 leaves every other cell's output byte-identical, so a partial rerun can be compared with a full one.
 
     python -m stalker.tools.icm_grid --presets 6max_sng_topheavy,9max_sng_503020 --remaining 2,3,4 \
-        --profiles even,random,skewed --games 200 --seed 0 --out grid.json --md grid.md
+        --profiles even,random,skewed --games 200 --seed 0 --out grid.json --md grid.md [--agents persona:tag]
+
+`--agents` picks who plays every seat (`random` default, or `persona:NAME` via `icm_calibration.agents_factory`).
+The default writes no `agents` field, so outputs from before the option existed stay byte-identical (#845).
 """
 from __future__ import annotations
 
@@ -22,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
-from stalker.tools.icm_calibration import calibrate
+from stalker.tools.icm_calibration import agents_factory, calibrate
 from stalker.tournament.config import load_preset
 from stalker.tournament.start_state import STACK_PROFILES, make_start_state
 
@@ -49,7 +52,8 @@ def summarize(raw: dict) -> dict:
 
 
 def run_grid(presets: Sequence[str], remainings: Sequence[int], profiles: Sequence[str], games: int,
-             seed: int) -> dict:
+             seed: int, agents: str = "random") -> dict:
+    factory = None if agents == "random" else agents_factory(agents)
     for p in profiles:
         if p not in STACK_PROFILES:
             raise ValueError(f"profile {p!r}: must be one of {STACK_PROFILES}.")
@@ -68,13 +72,17 @@ def run_grid(presets: Sequence[str], remainings: Sequence[int], profiles: Sequen
                     continue
                 rng = np.random.default_rng(cell_seed(seed, preset, remaining, profile))
                 ss = make_start_state(config, rng, remaining, profile, 0)
-                raw = calibrate(config, ss, None, games, rng)
+                raw = calibrate(config, ss, factory, games, rng)
                 cells.append({**key, **summarize(raw), "calibrate": raw})
-    return {"schema_version": SCHEMA_VERSION, "seed": seed, "games": games, "cells": cells, "skipped": skipped}
+    grid = {"schema_version": SCHEMA_VERSION, "seed": seed, "games": games, "cells": cells, "skipped": skipped}
+    if factory is not None:
+        grid["agents"] = agents
+    return grid
 
 
 def to_markdown(grid: dict) -> str:
-    lines = [MD_NOTE, "", "| preset | remaining | profile | max\\|diff\\|/pool | max\\|z\\| |", "|---|---:|---|---:|---:|"]
+    head = MD_NOTE if "agents" not in grid else f"{MD_NOTE} (agents={grid['agents']})"
+    lines = [head, "", "| preset | remaining | profile | max\\|diff\\|/pool | max\\|z\\| |", "|---|---:|---|---:|---:|"]
     for c in grid["cells"]:
         lines.append(f"| {c['preset']} | {c['remaining']} | {c['profile']} | {c['max_abs_diff_rel']:.4f} "
                      f"| {c['max_abs_z']:.2f} |")
@@ -92,6 +100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--profiles", default=",".join(STACK_PROFILES), help="comma-separated stack profiles")
     ap.add_argument("--games", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--agents", default="random", help="random | persona:NAME (every seat)")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--md", type=Path)
     a = ap.parse_args(argv)
@@ -100,7 +109,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ValueError:
         ap.error(f"--remaining {a.remaining!r}: use comma-separated integers, e.g. 2,3,4.")
     try:
-        grid = run_grid(_csv(a.presets), remainings, _csv(a.profiles), a.games, a.seed)
+        grid = run_grid(_csv(a.presets), remainings, _csv(a.profiles), a.games, a.seed, a.agents)
     except (ValueError, FileNotFoundError, KeyError) as e:
         ap.exit(2, f"icm_grid: {e}\n")
     text = json.dumps(grid, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
