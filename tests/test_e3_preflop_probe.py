@@ -90,6 +90,7 @@ def test_probe_is_reproducible_and_worker_independent():
 
 
 
+@pytest.mark.slow
 def test_probe_flags_the_served_mid_policy_limping_aces():
     # #413 criterion 1 / #391: the served mid policy (average strategy) limps AA first in from HJ/CO most
     # of the time. Pre-registered cells: first_in, HJ and CO, AA, 300 deals, seed 1. If the served file

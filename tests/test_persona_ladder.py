@@ -31,6 +31,7 @@ def test_presets_unchanged():
     assert len(PRESETS) == 9 and persona_params("tag").vpip == 0.22
 
 
+@pytest.mark.slow
 def test_fidelity_levels_1_7_13_19():
     lv = (1, 7, 13, 19)
     params = [level(n) for n in lv] + [persona_params("tag")] * 2
@@ -40,6 +41,7 @@ def test_fidelity_levels_1_7_13_19():
     assert not bad, bad
 
 
+@pytest.mark.slow
 def test_level_19_beats_level_1_headsup():
     cfg = preset("cash_6max_100bb", hands=6000)
     total = 0.0
