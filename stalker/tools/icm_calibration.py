@@ -3,7 +3,8 @@
 ICM is a model with known stack-size bias, so a tournament evaluation that only reports ICM equity would judge
 policies by the model's own error. This tool measures that error in our simulator: it plays the state out to the
 end `games` times and puts the per-survivor mean prize next to `icm_equity`. With symmetric agents (the default
-`RandomLegalAgent`) the gap is ICM model bias plus sampling error (`sim_prize_sd / sqrt(games)`).
+`RandomLegalAgent`, or `--agents persona:NAME` on every seat) the gap is ICM model bias plus sampling error;
+`diff_se` (= `sim_prize_sd / sqrt(games)`) and `z` (= `diff / diff_se`) tell the two apart.
 
 Survivors are listed in ascending player_id order. They compete only for places 1..remaining, so `prize_pool` here
 is `sum(payouts[:remaining])` (equal to `config.prize_pool` whenever remaining >= paid places).
@@ -21,13 +22,14 @@ from pathlib import Path
 import numpy as np
 
 from stalker.agents.base import Agent
+from stalker.agents.persona import PersonaAgent, persona_params
 from stalker.agents.random_agent import RandomLegalAgent
 from stalker.core.icm import icm_equity
 from stalker.tournament.config import TournamentConfig, load_preset, top_heavy
 from stalker.tournament.director import run_game
 from stalker.tournament.start_state import STACK_PROFILES, StartState, make_start_state
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_LEVELS_PRESET = "6max_sng_topheavy"
 
 AgentsFactory = Callable[[TournamentConfig, np.random.Generator], Sequence[Agent]]
@@ -35,6 +37,21 @@ AgentsFactory = Callable[[TournamentConfig, np.random.Generator], Sequence[Agent
 
 def random_agents(config: TournamentConfig, rng: np.random.Generator) -> list[Agent]:
     return [RandomLegalAgent(np.random.default_rng(int(s))) for s in rng.integers(2**63, size=config.players)]
+
+
+def agents_factory(spec: str) -> AgentsFactory:
+    """`random` or `persona:NAME` (same persona on every seat, so skill stays symmetric). Bad names fail here, before
+    any game runs, with persona_params' KeyError listing the choices."""
+    if spec == "random":
+        return random_agents
+    kind, _, name = spec.partition(":")
+    if kind != "persona" or not name:
+        raise ValueError(f"--agents {spec!r}: use 'random' or 'persona:NAME'.")
+    params = persona_params(name)
+
+    def personas(config: TournamentConfig, rng: np.random.Generator) -> list[Agent]:
+        return [PersonaAgent(params, np.random.default_rng(int(s))) for s in rng.integers(2**63, size=config.players)]
+    return personas
 
 
 def calibrate(config: TournamentConfig, start_state: StartState, agents_factory: AgentsFactory | None,
@@ -54,6 +71,9 @@ def calibrate(config: TournamentConfig, start_state: StartState, agents_factory:
         prizes[g] = [res.prizes[p] for p in players]
     mean = prizes.mean(axis=0)
     sd = prizes.std(axis=0, ddof=1) if games > 1 else np.zeros(len(players))
+    diff = mean - np.asarray(icm, dtype=float)
+    se = sd / math.sqrt(games)
+    z = np.divide(diff, se, out=np.zeros_like(diff), where=se != 0)
     return {
         "schema_version": SCHEMA_VERSION,
         "config": config.to_dict(),
@@ -65,7 +85,9 @@ def calibrate(config: TournamentConfig, start_state: StartState, agents_factory:
         "icm_equity": [float(x) for x in icm],
         "sim_prize_mean": [float(x) for x in mean],
         "sim_prize_sd": [float(x) for x in sd],
-        "diff": [float(m - e) for m, e in zip(mean, icm)],
+        "diff": [float(x) for x in diff],
+        "diff_se": [float(x) for x in se],
+        "z": [float(x) for x in z],
         "games": games,
     }
 
@@ -88,8 +110,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--level-index", type=int, default=0)
     ap.add_argument("--games", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--agents", default="random", help="random | persona:NAME (every seat)")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args(argv)
+    try:
+        factory = agents_factory(a.agents)
+    except (KeyError, ValueError) as e:
+        ap.exit(2, f"icm_calibration: {e.args[0]}\n")
     if a.preset:
         config = load_preset(a.preset)
     elif a.players:
@@ -98,7 +125,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         ap.error("give --players N or --preset NAME.")
     rng = np.random.default_rng(a.seed)
     ss = make_start_state(config, rng, a.remaining, a.stack_profile, a.level_index)
-    out = calibrate(config, ss, None, a.games, rng)
+    out = calibrate(config, ss, factory, a.games, rng)
+    out["agents"] = a.agents
     out["seed"] = a.seed
     out["stack_profile"] = a.stack_profile
     text = json.dumps(out, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
