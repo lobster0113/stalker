@@ -119,8 +119,9 @@ def test_pages_job_spec_differs_from_s3_only_in_source_and_stays_under_budget():
     assert pg.command == s3.command.replace(
         "POLICY_RUN=41813684540; python3 -m stalker.tools.web_policy_lbr_job --policy-run $POLICY_RUN --workers 32 --seeds 3 "
         "--out /result/web-policy-lbr-mid-s3.json",
-        "python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 3 "
-        "--out /result/web-policy-lbr-pages.json")
+        "python3 -m stalker.tools.run_stages --out /result/web-policy-lbr-pages.json --stage "
+        "'lbr=python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 3 "
+        "--out /result/web-policy-lbr-pages.json'")  # wrapped in run_stages (#847)
     assert pg.command != s3.command
     assert pg.result_path == "/result/web-policy-lbr-pages.json"
     for f in ("image", "vcpu", "max_minutes", "hourly_usd", "cpu_flavors", "flavor_hourly_usd", "disk_gb"):
@@ -374,3 +375,27 @@ def test_run_result_names_the_v3_table(tmp_path, monkeypatch):
     res = J.run("r1", tmp_path / "o.json")
     assert res["thresholds"] == "referee/e3/lbr_thresholds_v3.json"
     assert J.run("r1", tmp_path / "p.json", thresholds="v2")["thresholds"] == "referee/e3/lbr_thresholds_v2.json"
+
+
+@pytest.mark.parametrize("name,flags", [
+    ("web-policy-lbr-pages", ["--workers 32", "--seeds 3"]),
+    ("web-policy-lbr-pages-evalnoise", ["--workers 32", "--seeds 4", "--backoff off"]),
+    ("web-policy-lbr-pages-evalnoise8", ["--workers 32", "--seeds 8", "--backoff both"]),
+    ("web-policy-lbr-pages-evalnoise-both", ["--workers 32", "--seeds 4", "--backoff both"]),
+])
+def test_lbr_pages_jobs_run_under_run_stages(name, flags):
+    """#847: a failing measurement is retrieved as stage-failure JSON instead of being lost with the pod."""
+    import shlex
+    sys.path.insert(0, str(ROOT / "harness/cloud"))
+    import launcher
+    path = f"jobs/{name}.yaml"
+    job = launcher.parse_spec((ROOT / path).read_text(encoding="utf-8"), path)
+    wrapped = job.command.split("; ")[-1]
+    argv = shlex.split(wrapped)
+    assert argv[:3] == ["python3", "-m", "stalker.tools.run_stages"], "wrap the measurement in run_stages"
+    assert argv[argv.index("--out") + 1] == job.result_path
+    stage = argv[argv.index("--stage") + 1]
+    assert stage.startswith("lbr=python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy ")
+    for f in flags:
+        assert f in stage, f
+    assert f"--out {job.result_path}" in stage
