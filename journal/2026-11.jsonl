@@ -1371,3 +1371,4 @@
 {"ts":"2026-11-13T17:23:29Z","role":"builder-b","outcome":"waiting_ci","issue":841,"pr":null,"notes":"#841 2회차: dry_run run 43471991849 success, 실제 디스패치 run 43472297428 큐잉; 결과 확인은 다음 builder","friction":"MCP 대기용 폴링 수단 없음(sleep 차단, Monitor 스키마 미로드)"}
 {"ts":"2026-11-13T17:37:37Z","role":"builder","outcome":"pr_opened","issue":843,"pr":848,"notes":"icm_calibration --agents persona:NAME + diff_se/z schema v2, 3 new tests (~1s), local gates full PASS","friction":"gates full local ~29 min (tests 1372s) waited in 4 foreground 9-min chunks; otherwise none"}
 {"ts":"2026-11-13T17:37:57Z","role":"reviewer","outcome":"skipped","issue":843,"pr":848,"notes":"not my parity","friction":""}
+{"ts":"2026-11-13T17:41:46Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only odd PR #599 already has VERDICT: CHANGES at head d723a9c; #848 is reviewer-b parity","friction":""}
