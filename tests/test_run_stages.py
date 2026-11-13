@@ -71,7 +71,7 @@ def test_deadline_stops_running_stage_and_its_grandchildren(tmp_path):
     assert code == 0 and doc["exit"] == "timeout" and doc["stage"] == "slow" and doc["deadline_s"] == 2
     assert doc["stages_done"] == ["quick"] and set(doc["stage_elapsed_s"]) == {"quick", "slow"}
     assert not marker.exists()
-    assert not _alive(int(pidfile.read_text()))
+    assert not _alive(int(pidfile.read_text(encoding="utf-8")))
 
 
 def test_rejects_non_positive_deadline(tmp_path):
