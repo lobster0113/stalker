@@ -90,7 +90,7 @@ def gate_l_report(tmp_path_factory):
     import pickle
 
     cache = tmp_path_factory.getbasetemp().parent / "gate_l_report.pkl"
-    with open(cache.with_suffix(".lock"), "w") as lock:
+    with open(cache.with_suffix(".lock"), "w", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if cache.exists():
             return pickle.loads(cache.read_bytes())
