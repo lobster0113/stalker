@@ -31,22 +31,32 @@ def _flags(cmd, module):
     return pos, flags
 
 
+def _stages(cmd):
+    args = shlex.split(cmd.split("python3 -m stalker.tools.run_stages ", 1)[1])
+    return [args[i + 1] for i, a in enumerate(args) if a == "--stage"]
+
+
 def test_job_probes_the_c1_policy_then_writes_the_leaks_file():
     job = _spec()
     cmd = job.command
     assert "refs/heads/main" in cmd and "pip install -q -e '.[fast]'" in cmd and POLICY_URL in cmd
-    pos, probe = _flags(cmd, "referee.e3.preflop_probe")
+    assert "python3 -m stalker.tools.run_stages --out /result/web-policy-leaks-mid6-c1.json" in cmd
+    assert _flags(cmd, "stalker.tools.run_stages")[1]["--out"] == job.result_path
+    stages = dict(v.split("=", 1) for v in _stages(cmd))
+    assert list(stages) == ["probe", "confirm"]
+    pos, probe = _flags(stages["probe"], "referee.e3.preflop_probe")
     assert pos == ["/src/mid-6.json"]
     assert probe["--deals"] == "300" and probe["--seed"] == "0" and probe["--workers"] == "32"
-    _, leaks = _flags(cmd, "stalker.tools.policy_leaks")
+    _, leaks = _flags(stages["confirm"], "stalker.tools.policy_leaks")
+    assert leaks["--workers"] == "16"
     assert leaks["--tier"] == "mid" and leaks["--policy"] == "/src/mid-6.json"
     assert leaks["--screen"] == probe["--json"]
     assert "--save-confirm" in leaks            # the confirmation stage runs on the pod
     assert leaks["--out"] == job.result_path == "/result/web-policy-leaks-mid6-c1.json"
     assert "42591543123/mid-6.json" in leaks["--evidence"]
     assert "--deals 300 --seed 0" in leaks["--command"]
-    # the steps run in order: download, probe, leaks
-    assert cmd.index(POLICY_URL) < cmd.index("referee.e3.preflop_probe") < cmd.index("stalker.tools.policy_leaks")
+    # the steps run in order: download, then the staged probe and leaks
+    assert cmd.index(POLICY_URL) < cmd.index("run_stages") < cmd.index("referee.e3.preflop_probe") < cmd.index("stalker.tools.policy_leaks")
 
 
 def test_job_worst_case_cost():
