@@ -55,3 +55,39 @@ def test_winner_take_all_equity_is_chip_proportional():
     total = sum(out["stacks"])
     assert out["icm_equity"] == pytest.approx([cfg.prize_pool * s / total for s in out["stacks"]], abs=1e-9)
     assert sum(out["sim_prize_mean"]) == pytest.approx(cfg.prize_pool, abs=1e-9)
+
+
+def _cli(tmp_path, name, *extra, games=8):
+    out = tmp_path / name
+    main(["--players", "6", "--remaining", "3", "--stack-profile", "skewed", "--games", str(games), "--seed", "3",
+          "--out", str(out), *extra])
+    return out.read_bytes()
+
+
+def test_persona_agents_are_deterministic_and_differ_from_random(tmp_path):
+    a = _cli(tmp_path, "a.json", "--agents", "persona:tag")
+    b = _cli(tmp_path, "b.json", "--agents", "persona:tag")
+    r = _cli(tmp_path, "r.json")
+    assert a == b
+    da, dr = json.loads(a), json.loads(r)
+    assert da["agents"] == "persona:tag" and dr["agents"] == "random"
+    assert da["schema_version"] == 2
+    assert da["sim_prize_mean"] != dr["sim_prize_mean"]
+    assert sum(da["sim_prize_mean"]) == pytest.approx(da["prize_pool"], abs=1e-9)
+
+
+def test_diff_se_and_z_follow_the_formula(tmp_path):
+    d = json.loads(_cli(tmp_path, "s.json"))
+    se = [sd / d["games"] ** 0.5 for sd in d["sim_prize_sd"]]
+    assert d["diff_se"] == pytest.approx(se, abs=1e-12)
+    assert d["z"] == pytest.approx([x / s if s else 0.0 for x, s in zip(d["diff"], se)], abs=1e-12)
+    one = json.loads(_cli(tmp_path, "one.json", games=1))
+    assert one["diff_se"] == [0.0] * 3 and one["z"] == [0.0] * 3
+
+
+def test_unknown_persona_exits_nonzero(tmp_path, capsys):
+    with pytest.raises(SystemExit) as e:
+        main(["--players", "6", "--remaining", "3", "--agents", "persona:nope", "--out", str(tmp_path / "x.json")])
+    assert e.value.code != 0
+    assert "unknown persona" in capsys.readouterr().err
+    assert not (tmp_path / "x.json").exists()
