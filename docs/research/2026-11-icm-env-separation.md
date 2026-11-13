@@ -28,3 +28,8 @@
 ## 추천
 1. #385(E 토너먼트) 착수 전 `env_id`에 위 분리 키를 포함하는 스키마 점검 이슈(P3, area:records).
 2. 토너먼트 평가에 "ICM 에퀴티 + 페이아웃 시뮬 상금" 이중 기록 이슈(P3, area:ai) — 심판 경로 변경 필요 여부는 Planner 판단.
+
+## 측정 도구
+- `stalker/tools/icm_calibration.py`(#834): 같은 중간 상태에서 생존자별 ICM 에퀴티와 시드 고정 시뮬레이션 상금 평균·sd·차이(sim − icm)를 JSON으로 낸다.
+- 실행 예: `python -m stalker.tools.icm_calibration --players 6 --remaining 3 --stack-profile skewed --games 200 --seed 0 --out icm.json`
+- 이 도구로 얻는 수치는 로컬 참고값이며 CI 결과가 아니다(합격선 없음).
