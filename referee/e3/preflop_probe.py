@@ -46,6 +46,7 @@ from stalker.core.cards import COMBOS, RANKS, hand_class
 from stalker.e2.eq_view import combo_index
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
+from stalker.jsonio import read_json
 from stalker.tools import web_hit_rate as W
 
 SPOTS = ("first_in", "vs_open")
@@ -64,7 +65,7 @@ MAX_TRIES = 400         # rejection attempts per wanted deal before the cell giv
 
 def load(path: Path) -> dict:
     """A web policy file (`stalker.web.policy`, stalker/tools/export_web_policy.py) as a probe table."""
-    d = json.loads(Path(path).read_text(encoding="utf-8"))
+    d = read_json(Path(path))
     if d.get("schema") != "stalker.web.policy":
         raise SystemExit(f"{path}: not a web policy file (schema stalker.web.policy); export one with "
                          "python -m stalker.tools.export_web_policy")

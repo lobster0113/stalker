@@ -1,3 +1,5 @@
+import gzip
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -7,7 +9,10 @@ from referee.e3 import preflop_probe as P
 from stalker.core.cards import hand_class
 
 K5 = 5
-SERVED_MID = Path(__file__).resolve().parents[1] / "web" / "app" / "policy" / "mid-6.json"
+# Frozen copy of the legacy served mid-6 policy (run 40919207457) so the leak-discrimination evidence survives
+# the web policy being replaced (#824, #837).
+LEGACY_MID6 = Path(__file__).resolve().parent / "fixtures" / "legacy-mid-6.json.gz"
+LEGACY_MID6_SHA256 = "13565ca43eca0f73ea8eef96a2ab3f1a8570a93730436443a3912b7117d78268"  # run 40919207457, decompressed
 
 
 def _parts(key):
@@ -79,10 +84,15 @@ def test_vs_open_reaches_only_single_raised_pots():
     assert seen and all(k.split("|")[-1].startswith("e") for k in seen)
 
 
+def test_legacy_mid6_fixture_is_the_frozen_run_40919207457_copy():
+    assert hashlib.sha256(gzip.open(LEGACY_MID6).read()).hexdigest() == LEGACY_MID6_SHA256, \
+        "tests/fixtures/legacy-mid-6.json.gz changed: restore the run 40919207457 copy"
+
+
 def test_probe_is_reproducible_and_worker_independent():
     # Two chunks (CHUNK deals each) so that workers=2 really splits the cell; chunk seeds depend only on
     # the cell and the chunk index. A loaded policy file, because worker processes must pickle the table.
-    t = P.load(SERVED_MID)
+    t = P.load(LEGACY_MID6)
     kw = dict(seed=2, spots=("first_in",), seats=[1], groups=("KK",))
     a = P.probe(t, 2 * P.CHUNK, **kw)
     assert a == P.probe(t, 2 * P.CHUNK, **kw)
@@ -91,12 +101,13 @@ def test_probe_is_reproducible_and_worker_independent():
 
 
 @pytest.mark.slow
-def test_probe_flags_the_served_mid_policy_limping_aces():
-    # #413 criterion 1 / #391: the served mid policy (average strategy) limps AA first in from HJ/CO most
-    # of the time. Pre-registered cells: first_in, HJ and CO, AA, 300 deals, seed 1. If the served file
+def test_probe_flags_the_legacy_mid_policy_limping_aces():
+    # #413 criterion 1 / #391: the legacy served mid policy (average strategy) limps AA first in from HJ/CO most
+    # of the time. Pre-registered cells: first_in, HJ and CO, AA, 300 deals, seed 1. If the fixture
     # changes and the leak is gone, this fails on purpose: re-register the cells or close #391.
-    assert SERVED_MID.exists(), f"{SERVED_MID} missing: the served policy moved; update this test"
-    r = P.probe(P.load(SERVED_MID), 300, seed=1, spots=("first_in",), seats=[1, 2], groups=("AA",))
+    assert hashlib.sha256(gzip.open(LEGACY_MID6).read()).hexdigest() == LEGACY_MID6_SHA256, \
+        "tests/fixtures/legacy-mid-6.json.gz changed: restore the run 40919207457 copy"
+    r = P.probe(P.load(LEGACY_MID6), 300, seed=1, spots=("first_in",), seats=[1, 2], groups=("AA",))
     assert r["leaks"] >= 1, P.table(r)
     assert any(c["open_minus_limp"]["r"]["ci"][0] > 0 for c in r["cells"] if c["leak"]), P.table(r)
 
