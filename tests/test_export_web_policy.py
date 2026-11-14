@@ -114,6 +114,9 @@ def test_shipped_index_marks_every_tier_placeholder_with_its_rules():
 
     idx = json.loads((Path(__file__).resolve().parents[1] / "web/app/policy/index.json").read_text(encoding="utf-8"))
     for tier, e in idx["tiers"].items():
+        if e.get("menu") == "real":   # #824: mid-6 is the real-rules c1 export (run 42591543123), no longer a stand-in
+            assert not X.placeholder_of(e) and e["key_variant"] == "c1"
+            continue
         assert X.placeholder_of(e), f"{tier}: v1 6-max 100BB policy must stay marked 임시 until a real-rules one replaces it"
         assert {"game", "players", "stack_bb", "menu"} <= set(e["trained_on"])
 
@@ -328,7 +331,10 @@ def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
             f"mid-{n}.json", n, run_ids[n], "c1", len(body))
         assert len(body) <= 3_145_728, f"mid-{n}.json exceeds the page budget"
     assert mid["by_players"]["2"]["min_visits"] == 5
-    assert (mid["run_id"], mid["file"]) == ("40919207457", "mid-6.json") and "key_variant" not in mid
+    # #824: mid-6 is the 120k c1 export (run 42591543123) copied from ops, with `l1_rows`.
+    body6 = (pol / "mid-6.json").read_bytes()
+    assert (mid["run_id"], mid["file"], mid["key_variant"], mid["bytes"]) == ("42591543123", "mid-6.json", "c1", len(body6))
+    assert "l1_rows" in json.loads(body6) and len(body6) <= 3_145_728
 
 
 def test_keep_players_keeps_the_shared_call_keys_in_every_seat_count():
