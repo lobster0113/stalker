@@ -187,6 +187,18 @@ def test_checkpoint_round_trip_keeps_payoff_and_continues_bit_for_bit():
         E3MCCFR.from_state(st, payoff="chip")
 
 
+def test_resume_keeps_payouts_whose_normalized_sum_is_not_one():
+    # [54, 50, 3] normalized does not fsum to 1.0, so normalizing the saved list again moves the last bit
+    a = E3MCCFR(7, n=3, payoff="icm", payouts=[54, 50, 3], **KW)
+    b = E3MCCFR(7, n=3, payoff="icm", payouts=[54, 50, 3], **KW)
+    a.iterate(4)
+    b.iterate(2)
+    c = E3MCCFR.from_state(json.loads(json.dumps(b.state())), payoff="icm")
+    assert c.payouts == a.payouts
+    c.iterate(2)
+    assert a.regret_hash() == c.regret_hash() and avg_hash(a) == avg_hash(c)
+
+
 def test_checkpoint_v9_keeps_the_other_options():
     a = E3MCCFR(4, n=3, player_mix=(2, 3), stacks="sampled", avg_rule="own", avg_cap=50.0,
                 payoff="icm", payouts=[1], **KW)

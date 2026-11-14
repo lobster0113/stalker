@@ -359,6 +359,8 @@ class E3MCCFR:
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
                 st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""),
                 st.get("stacks", "uniform"), mix, cap, pay, st.get("payouts"), st.get("lam", 0.0))
+        if pay != "chip":   # saved payouts are already normalized; normalizing again can move the last bit (#883)
+            m.payouts = tuple(float(x) for x in st["payouts"])
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
         m.chain, m.seg_start = [dict(c) for c in st.get("chain", [])], m.iterations   # old checkpoints: no chain
