@@ -110,6 +110,9 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
     """
     if workers < 1 or batch < 1:
         raise ValueError(f"workers and batch must be >= 1, got workers={workers} batch={batch}")
+    if workers > 1 and m.payoff != "chip":
+        raise ValueError(f"payoff {m.payoff!r} is not wired into the parallel workers yet (#883): run it with "
+                         "workers=1 (the sequential trainer) or use payoff 'chip'")
     if workers == 1:
         t0 = time.perf_counter()
         m.iterate(iters)
