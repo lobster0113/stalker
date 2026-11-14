@@ -239,14 +239,15 @@ def test_play_backoff_levels_are_exact_and_the_trajectory_differs_from_uniform_p
     uni, bo = _mid3(False), _mid3(True)
     assert "play" not in uni and uni["schema_version"] == 2
     assert bo["play"] == "backoff" and bo["schema_version"] == 3 and bo == _mid3(True)
-    # #645: uniform play keeps the L1/L2 counts of #635; the turn decision that stayed uniform now finds an L3 row
-    assert _levels(uni) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, L3=0, uniform=1),
-                            "1": dict(decisions=14, exact=6, L1=2, L2=1, L3=0, uniform=5),
-                            "2": dict(decisions=4, exact=1, L1=2, L2=0, L3=1, uniform=0),
+    # Pinned on the shipped mid-3.json: the 120k c1 file since #840 (the 40k file's counts were #635/#645's).
+    # Every level from exact to L3 is reached, and backoff play changes the trajectory (other decision counts).
+    assert _levels(uni) == {"0": dict(decisions=74, exact=70, L1=2, L2=1, L3=1, uniform=0),
+                            "1": dict(decisions=20, exact=7, L1=3, L2=1, L3=1, uniform=8),
+                            "2": dict(decisions=2, exact=0, L1=1, L2=1, L3=0, uniform=0),
                             "3": dict(decisions=0, exact=0, L1=0, L2=0, L3=0, uniform=0)}
-    assert _levels(bo) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, L3=0, uniform=1),
-                           "1": dict(decisions=13, exact=6, L1=1, L2=1, L3=0, uniform=5),
-                           "2": dict(decisions=3, exact=1, L1=0, L2=0, L3=1, uniform=1),
+    assert _levels(bo) == {"0": dict(decisions=108, exact=100, L1=5, L2=1, L3=1, uniform=1),
+                           "1": dict(decisions=10, exact=5, L1=2, L2=0, L3=2, uniform=1),
+                           "2": dict(decisions=2, exact=1, L1=0, L2=0, L3=0, uniform=1),
                            "3": dict(decisions=0, exact=0, L1=0, L2=0, L3=0, uniform=0)}
     for r in (uni, bo):
         for c in r["by_backoff"]["by_street"].values():
@@ -319,13 +320,12 @@ def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged(mid3_sha
     for st, c in rep["by_street"].items():
         assert c["misses"] == bo["by_backoff"]["by_street"][st]["uniform"]
     flop = rep["by_street"]["1"]
-    assert flop["misses"] == 5 and flop["distinct_keys"] == 5 and flop["any_field"] == 4
-    assert flop["by_field"] == {"14": 4, "3": 2, "0": 1, "5": 1}
+    # Pinned on the shipped mid-3.json (120k c1 since #840; the 40k file had 5 flop misses).
+    assert flop["misses"] == 1 and flop["distinct_keys"] == 1 and flop["any_field"] == 1
+    assert flop["by_field"] == {"14": 1, "2": 1, "5": 1}
     # since #645 the report reads the last level (L3): position names are their groups
-    assert flop["top_keys"] == [["blind|n3|1|2|0|2|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150a|e6", 1],
-                                ["blind|n3|1|2|1|1|2|*|tc0|s*|*|*|*|fcr25ra|e1", 1],
-                                ["late|n3|1|1|0|1|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150b200b300a|e7", 1]]
-    assert rep["by_street"]["0"]["by_field"] == {"6": 1}
+    assert flop["top_keys"] == [["blind|n3|1|1|0|1|0|*|tc0|s*|*|*|*|kb20a|e6", 1]]
+    assert rep["by_street"]["0"]["by_field"] == {"13": 1}
     assert rep["by_street"]["3"] == {"misses": 0, "distinct_keys": 0, "top_keys": [], "by_field": {}, "any_field": 0}
     assert mr == _mid3_miss(3)
 
