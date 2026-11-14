@@ -8,8 +8,8 @@ from referee import metrics
 from referee.gate_l import Report
 
 
-def test_gate_l_snapshot_keys_and_ranges():
-    snap = metrics.gate_l()
+def test_gate_l_snapshot_keys_and_ranges(gate_l_report):
+    snap = metrics.gate_l(gate_l_report)
     assert 0.0 <= snap["gate_l_pass_rate"] <= 1.0
     assert isinstance(snap["gate_l_checks"], int) and snap["gate_l_checks"] > 0
     items = snap["gate_l_items"]
@@ -348,3 +348,28 @@ def test_all_pass_v3_rolls_up_fail_and_insufficient():
     base = {"schema": "stalker.web.policy-lbr", "legacy_pages": []}
     fail = metrics._web_lbr_v3({**base, "rows": [row(2, 99.0)]})
     assert fail[0]["2"]["verdict"] == "fail" and fail[1] is False
+
+
+def test_e3_web_lbr_skips_a_stage_failure_result(ops_clone):
+    """#847: run_stages writes stalker.cloud.stage-failure for a failed LBR job; it is not an LBR snapshot."""
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "900.json").write_text(json.dumps(
+        {"schema": "stalker.cloud.stage-failure", "schema_version": 1, "stage": "lbr", "exit": 1}), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "stage failure")
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["fresh"] is True
+
+
+def test_e3_web_lbr_skips_a_v2_stage_failure_result(ops_clone):
+    """#853: stage-failure v2 (deadline timeout, stage_elapsed_s) is still not an LBR snapshot."""
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "900.json").write_text(json.dumps(
+        {"schema": "stalker.cloud.stage-failure", "schema_version": 2, "stage": "lbr", "exit": "timeout",
+         "stage_elapsed_s": {"lbr": 7200.0}, "deadline_s": 7200.0}), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "stage failure v2")
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["fresh"] is True
