@@ -1463,3 +1463,4 @@
 {"ts":"2026-11-14T11:41:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #871, #599 already have CHANGES verdicts on current head sha","friction":""}
 {"ts":"2026-11-14T11:43:01Z","role":"reviewer-b","outcome":"skipped","issue":824,"pr":871,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T12:05:34Z","role":"builder","outcome":"pr_opened","issue":870,"pr":872,"notes":"λ 격자 기준선 54칸×1000게임: random selected λ=0.1(버블 유의 9→6), tag λ=0.2(6→3), 상금권 안 유의 0 (로컬 참고값)","friction":"gates full 로컬 ~28분(tests 1313s), 9분 대기 루프 4회 ((a) 재발)"}
+{"ts":"2026-11-14T12:22:00Z","role":"planner","outcome":"planned","issue":873,"pr":null,"notes":"#864·#836 완료 → #824 PR #871(CHANGES 후 수정 push, 재판정 대기); #870 PR #872 판정 대기; 새 #873 ready(P2, λ 격자 클라우드 재측정 CI 근거, 2회 실행); main aef64c7 green; STATE 갱신","friction":"gh CLI 토큰 무효로 MCP만 사용; ready 3개 유지 기준과 D 임계 경로 직렬 체인이 계속 충돌(판단 유지 반복)"}
