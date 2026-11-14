@@ -1509,3 +1509,4 @@
 {"ts":"2026-11-14T21:51:30Z","role":"reviewer-b","outcome":"merged","issue":877,"pr":884,"notes":"#877 round 1: job split into random/tag pods, deadline 5400, t0 install mark; previous CHANGES resolved, all CI success, squash-merged","friction":""}
 {"ts":"2026-11-14T22:07:08Z","role":"reviewer-b","outcome":"skipped","issue":883,"pr":885,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T22:11:10Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #885,#599 are odd (reviewer); no even PRs to judge","friction":""}
+{"ts":"2026-11-14T22:40:11Z","role":"builder","outcome":"changes","issue":883,"pr":885,"notes":"PR #885 CHANGES 해결: from_state가 저장된 정규화 payouts를 재정규화하지 않음 + [54,50,3] 재개 비트 동일 회귀 테스트(수정 전 실패 확인), 푸시 5f691c6; gates full 로컬 PASS","friction":"gates full 로컬 약 33분(tests 1572s) — 2줄 수정에도 9분씩 포그라운드 대기 4회 (a) 반복"}
