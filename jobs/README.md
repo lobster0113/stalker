@@ -39,8 +39,8 @@
 ## 웹 정책 누수 잡 (`web-policy-leaks-mid6-c1.yaml`, #836)
 - 120k c1 mid-6 정책(`ops:cloud/policies/42591543123/mid-6.json`, public raw URL로 받음)에 프리플랍 프로브 screen(300딜, 시드 0)과 `policy_leaks` 확인 단계(1000딜, 시드 7)를 32워커로 돌려 `stalker.web.policy-leaks` 파일을 만든다(#824가 `web/app/policy/mid-6.leaks.json`으로 옮긴다). 최악 $3.00(`max_minutes: 150`). `run_stages --deadline-s 8100`(#855, #841 2회차 파드 상한 timeout 뒤)으로 상한 전에 단계별 시간이 담긴 실패 결과를 남긴다. 결과: `ops:cloud/results/<run id>.json`.
 
-## λ 격자 기준선 잡 (`icm-lambda-grid.yaml`, #873)
-- #870(PR #872)의 로컬 참고값과 같은 명령·시드로 `icm_grid --lambda-grid`를 random, persona:tag 두 단계로 돌리고 `icm_grid_pair`로 `stalker.icm.lambda-grid-pair` 한 파일에 묶는다(각 에이전트 원 출력 그대로 `agents.<이름>`에). 단일 프로세스라 2 vCPU(`cpu3c`), 최악 $0.24(`max_minutes: 120`), `run_stages --deadline-s 6300`. 결과: `ops:cloud/results/<run id>.json`. 2회차에 디스패치·회수해 ADR 0026 CI 근거 값으로 기록한다.
+## λ 격자 기준선 잡 (`icm-lambda-grid-random.yaml`·`icm-lambda-grid-tag.yaml`, #873 → #877)
+- #870(PR #872)의 로컬 참고값과 같은 명령·시드로 `icm_grid --lambda-grid`를 에이전트별 별도 잡으로 돌린다(#873은 한 파드에 random+tag를 순서대로 돌려 120분 상한 `timeout`, 결과 없음). 각 잡은 `icm_grid_pair`로 단일 에이전트 `stalker.icm.lambda-grid-pair` 파일(`agents.random` 또는 `agents.tag`, 원 출력 그대로)을 낸다. **두 결과를 하나로 묶지 않고** 문서가 두 run id를 각각 인용한다(묶음 잡을 또 만들면 한쪽 실패가 다른 쪽 결과까지 잃게 한다). 단일 프로세스라 2 vCPU(`cpu3c`), 각 최악 $0.24(`max_minutes: 120`), `run_stages --deadline-s 5400`(상한 30분 전). 명령 맨 앞에서 `/src/t0`에 epoch를 적고, 측정 단계가 `t0=… stage_start=…`를 stderr로 먼저 찍는다(`icm_grid`는 stderr에 다른 출력이 없다). 단계 실패 결과의 `stderr_tail`에서 설치·다운로드 시간(stage_start−t0)을 읽는다. 성공 결과에는 남지 않는다. 결과: `ops:cloud/results/<run id>.json`.
 
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
