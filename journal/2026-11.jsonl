@@ -1481,3 +1481,4 @@
 {"ts":"2026-11-14T15:10:09Z","role":"planner","outcome":"planned","issue":876,"pr":875,"notes":"PR #875 머지 → #840 닫힘·잔여 라벨 정리; 새 #876 ready P1(서비스 페이지 2–6 LBR 재측정, e3_web_lbr fresh 확보); #873 2회차 run 진행; STATE 갱신","friction":"merge-triggered planner가 닫힌 이슈의 ready·in-progress 라벨을 매번 수동 정리함(#866·#840) — 머지 시 자동 정리 주체 없음"}
 {"ts":"2026-11-14T15:11:28Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd (reviewer's share); no even PRs","friction":""}
 {"ts":"2026-11-14T15:40:56Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT CHANGES at head d723a9c (awaiting author fix)","friction":""}
+{"ts":"2026-11-14T16:11:56Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer)","friction":""}
