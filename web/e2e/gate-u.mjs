@@ -1019,6 +1019,7 @@ wd.section("10 #464");
   let decided = 0, hands = 0, slider = false, foldViews = 0, closedHand = -1, targetSeen = false;
   const dials = new Set();
   for (let guard = 0; guard < 80 && (decided < 4 || hands < 2 || foldViews < 2); guard++) {
+    console.log(`Guided 흐름: 반복 ${guard} (결정 ${decided}·핸드 분석 ${hands}·폴드 화면 ${foldViews})`);   // progress for the stall watchdog (#724)
     await p6.waitForSelector("#tp-body .tpc:not([hidden]), #tp-resume, #tp-next-hand, #sd-muck, #fold-close");
     if (await p6.locator("#sd-muck").count()) { await p6.click("#sd-muck"); continue; }
     if (await p6.locator("#fold-close").count()) {
@@ -1060,8 +1061,12 @@ wd.section("10 #464");
       const card = p6.locator("#tp-body .tpc:not([hidden])");
       for (const q of await card.locator(".q:not(.na)").all()) {
         if (await q.locator("[data-act]").count()) {
+          // Later decisions end hands cheaply (fold), but until two hands were played to their analysis they
+          // check or call, so the hero stays in (#824: the c1 mid-6 opponents raise often enough that "fold first"
+          // never left a hand to analyse).
+          const stay = q.locator("[data-act='check']:not([disabled]), [data-act='call']:not([disabled])");
           const pick = decided ? "[data-act='fold']:not([disabled]), [data-act='check']:not([disabled])" : "[data-act]:not([disabled]):not([data-act='fold'])";
-          await q.locator(pick).first().click();
+          await (decided && hands < 2 && await stay.count() ? stay : q.locator(pick)).first().click();
           if (await p6.locator("[data-sizes]:not([hidden]) [data-size]").count()) await p6.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
         } else if (await q.locator("[data-dial]").count()) {
           // Judgment items are sliders (#464); plan.pot is checked by name, the others by the ends.
@@ -1168,10 +1173,10 @@ wd.section("7 #397");
   await autoContinue(p7);
   p7.setDefaultTimeout(60_000);
   p7.on("pageerror", e => must(false, `page error (임시 표시): ${e.message}`));
-  await open(p7);
+  await open(p7, null, "pro");   // #824: mid-6 is a trained c1 policy now, so the placeholder badge is read on the pro table
   const a = await info(p7);
   must(a.badge.length === 1 && /임시 AI/.test(a.badge[0].t) && /실전 규칙 정책 학습 중/.test(a.badge[0].t) && a.badge[0].role === "note" && a.untrained === 0
-    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 중수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
+    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 고수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
   for (const [name, width, height] of VIEWPORTS) { await p7.setViewportSize({ width, height }); await p7.screenshot({ path: `${shots}/placeholder-${name}.png` }); }
   await p7.setViewportSize({ width: 1440, height: 900 });
   await inspect("placeholder-badge", "#infobar [data-placeholder]", p7);
