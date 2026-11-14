@@ -1469,3 +1469,4 @@
 {"ts":"2026-11-14T12:38:46Z","role":"planner","outcome":"planned","issue":840,"pr":null,"notes":"#871·#872 머지 → #824·#870 완료; #840 blocked→ready; #873 in-progress; main a4b17ba CI 진행 중; STATE 갱신","friction":"gh CLI 없이 MCP만 사용; ready 3개 기준과 직렬 임계 경로 충돌 반복"}
 {"ts":"2026-11-14T12:41:30Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already has CHANGES verdict on current head d723a9c","friction":""}
 {"ts":"2026-11-14T12:57:23Z","role":"builder-b","outcome":"pr_opened","issue":873,"pr":874,"notes":"#873 1회차: icm-lambda-grid 잡 명세+pair 묶음 도구, gates full 로컬 PASS","friction":"gates full 약 30분(tests 1412s) 대기 필요; quick도 3분 걸려 90초 목표 초과"}
+{"ts":"2026-11-14T12:57:45Z","role":"reviewer","outcome":"skipped","pr":874,"notes":"not my parity","friction":""}
