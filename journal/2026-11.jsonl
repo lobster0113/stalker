@@ -1462,3 +1462,4 @@
 {"ts":"2026-11-14T11:17:20Z","role":"reviewer","outcome":"changes","issue":824,"pr":871,"notes":"mid-6 c1 swap: bytes identical to ops policy/leaks, tests updated; CI web failed (Gate U stalled in 10 #464, G null), same stall as builder local run","friction":"web screenshot artifact not fetched (blob host blocked); gates (tests) still running at verdict time but web failure already decisive"}
 {"ts":"2026-11-14T11:41:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #871, #599 already have CHANGES verdicts on current head sha","friction":""}
 {"ts":"2026-11-14T11:43:01Z","role":"reviewer-b","outcome":"skipped","issue":824,"pr":871,"notes":"not my parity","friction":""}
+{"ts":"2026-11-14T12:05:34Z","role":"builder","outcome":"pr_opened","issue":870,"pr":872,"notes":"λ 격자 기준선 54칸×1000게임: random selected λ=0.1(버블 유의 9→6), tag λ=0.2(6→3), 상금권 안 유의 0 (로컬 참고값)","friction":"gates full 로컬 ~28분(tests 1313s), 9분 대기 루프 4회 ((a) 재발)"}
