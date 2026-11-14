@@ -1438,3 +1438,4 @@
 {"ts":"2026-11-14T06:55:15Z","role":"builder-b","outcome":"pr_opened","issue":864,"pr":867,"notes":"run_stages mkdir out parent + 2 tests; gates full PASS locally","friction":"gates full local ~28min (a); local checkout was stale vs origin/main, hard reset denied by classifier so used ff merge"}
 {"ts":"2026-11-14T06:55:37Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":867,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T07:11:21Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even open PR #599 already has VERDICT CHANGES on current head d723a9c; #867 odd (reviewer)","friction":""}
+{"ts":"2026-11-14T07:27:02Z","role":"reviewer","outcome":"merged","issue":864,"pr":867,"notes":"run_stages mkdir fix; CI 8 checks green, new tests fail on old code (local ref); squash-merged 5232577, #864 in-progress->ready","friction":"python env lacked pytest; CI gates (tests) took ~35min"}
