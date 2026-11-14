@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { coarseKey, TIER_K } from "../app/tpgto.js";
+import { coarseKey, l1Extra, TIER_K } from "../app/tpgto.js";
 import { createWatchdog, probePages, stallMsFrom } from "./watchdog.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1333,16 +1333,16 @@ wd.section("11 #541");
 }
 
 wd.section("12 #604");
-// 12. #604 2–5인 중수 = c1 정책(run 41813684540, 4·5인은 #753·#739부터 120k run 42591543123): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
+// 12. #604 2–5인 중수 = c1 정책(#739·#753·#840부터 모두 120k run 42591543123): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
 // 결정이 c1 키로 mid-<n>.json 행을 읽는다(레거시 키로 읽으면 한 번도 맞지 않아 균등 분포가 된다). #608: 포스트플랍도
 // c1+b1 키(`|o…v…k…` 칸)로 읽어 엔진 거울을 켠 채 핸드가 끝난다 — 3인에서 플랍 이상 간 핸드 1개(체크·콜로 진행)의
 // AI 포스트플랍 키 형식, 표에 있는 키의 확률, 거울 유지 종료, 거울 꺼짐 경고 없음, 긴 작업(b1 계산) 한도.
 {
-  // #739: mid-5 is the 120k export (run 42591543123, ops 18409fb6); 4 (#753) too; 2·3인 stay on the 40k run.
-  const C1_RUNS = { 2: "41813684540", 3: "41813684540", 4: "42591543123", 5: "42591543123" };
+  // #739: mid-5 is the 120k export (run 42591543123, ops 18409fb6); 4 (#753) too; 2·3인 since #840 (ops 3b86e734).
+  const C1_RUNS = { 2: "42591543123", 3: "42591543123", 4: "42591543123", 5: "42591543123" };
   const C1_LONG_TASK_MS = 2000;
-  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of the largest c1 file (mid-2 since #640) at load, #623
-  const C1_LOAD_MS = 30000;    // click on the mid tier -> policy parsed (mid-2 is 3 MB), #640
+  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of the largest c1 file (mid-2, 3 MB since #840) at load, #623
+  const C1_LOAD_MS = 30000;    // click on the mid tier -> policy parsed (mid-2·mid-3 are 3 MB since #840), #640
   // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
   const coarseRow = (file, k, lv, m) => {
     if (lv === 4) {   // L4 (#652): the L3 means at the equity steps next to the key's, averaged (tpgto.js neighborRow)
@@ -1351,7 +1351,10 @@ wd.section("12 #604");
       return near.length ? Array.from({ length: m }, (_, j) => near.reduce((a, r) => a + r[j], 0) / near.length) : null;
     }
     const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
-    return rows.length ? Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length) : null;
+    if (rows.length) return Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length);
+    // #840: the 120k files ship `l1_rows` (#803); the page uses one at L1 only where the table builds no row of that length.
+    const extra = lv === 1 ? l1Extra(file.l1_rows, file.q).get(ck)?.get(m) : null;
+    return extra ? [...extra] : null;
   };   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
   // 2인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
   // c1policy.test.mjs checks that its first preflop c1 keys hit mid-<n>.json. 3·4·5인 play a hand below (#739, #753).
@@ -1385,14 +1388,14 @@ wd.section("12 #604");
     pg.on("request", r => { const m = r.url().match(/\/policy\/(mid-\d)\.json$/); if (m) polReqs.push(m[1]); });
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
-    // #739: the 3 MB 5인 file is fetched only after the 5인 mid table is chosen, so the first screen does not pay for it.
-    if (n === 4 || n === 5) must(!polReqs.includes(`mid-${n}`), `c1 ${n}인: 첫 화면이 테이블 선택 전에 mid-${n}.json을 받음 (${polReqs.join(",")}) — 지연 로드 확인 (#739, #753)`);
+    // #739: a 2–3 MB c1 file is fetched only after its mid table is chosen, so the first screen does not pay for it (2·3인 since #840).
+    must(!polReqs.includes(`mid-${n}`), `c1 ${n}인: 첫 화면이 테이블 선택 전에 mid-${n}.json을 받음 (${polReqs.join(",")}) — 지연 로드 확인 (#739, #753, #840)`);
     await pg.selectOption("#c-seats", String(n));
     const loadT0 = Date.now();
     await pg.click("#set-tier [data-v='mid']");
     await pg.waitForFunction(k => TPG.pol[k], `mid-${n}`, { timeout: 120_000 });
     const loadMs = Date.now() - loadT0;
-    if (n === 2 || n === 4 || n === 5) {   // #640·#739·#753: the ~3 MB c1 files load and build their coarse tables inside the budgets
+    {   // #640·#739·#753·#840: every 2–5인 c1 file (2–3 MB) loads and builds its coarse tables inside the budgets
       const cms = await pg.evaluate(k => TPG.coarseMs?.[k], `mid-${n}`);
       must(loadMs < C1_LOAD_MS, `c1 ${n}인: mid-${n} 로드 ${loadMs}ms ≥ ${C1_LOAD_MS}ms — 파일 크기·파싱 확인 (#640)`);
       must(Number.isFinite(cms) && cms < C1_COARSE_MS, `c1 ${n}인: 거친 표 생성 ${cms}ms (예산 ${C1_COARSE_MS}ms) (#640)`);
