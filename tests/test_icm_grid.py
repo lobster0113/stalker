@@ -150,3 +150,97 @@ def test_bad_level_index_and_layouts_exit_with_a_message(capsys):
         with pytest.raises(SystemExit) as e:
             main(["--presets", "9max_sng_503020", "--remaining", "3", "--games", "1", *extra])
         assert e.value.code == 2 and word in capsys.readouterr().err
+
+
+# ---- --lambda-grid (#866, ADR 0026 CI selection procedure) ----
+from stalker.tools.icm_grid import DEFAULT_LAMBDA_GRID, select_lambda, summarize_lambdas  # noqa: E402
+
+
+def _row(lam, bs, bm, ps):
+    return {"lambda": lam, "bubble_significant": bs, "bubble_mean_rel": bm, "in_prize_significant": ps}
+
+
+def test_select_picks_fewest_significant_bubble_cells():
+    rows = [_row(0.0, 4, 0.05, 1), _row(0.1, 2, 0.04, 1), _row(0.2, 1, 0.03, 1)]
+    assert select_lambda(rows) == 0.2
+
+
+def test_select_ties_go_to_smaller_mean_then_smaller_lambda():
+    assert select_lambda([_row(0.0, 3, 0.05, 0), _row(0.1, 1, 0.04, 0), _row(0.2, 1, 0.03, 0)]) == 0.2
+    assert select_lambda([_row(0.0, 3, 0.05, 0), _row(0.1, 1, 0.03, 0), _row(0.2, 1, 0.03, 0)]) == 0.1
+
+
+def test_select_skips_lambdas_that_add_in_prize_significant_cells():
+    rows = [_row(0.0, 4, 0.05, 1), _row(0.1, 3, 0.04, 1), _row(0.2, 0, 0.01, 2)]
+    assert select_lambda(rows) == 0.1
+
+
+def test_select_keeps_zero_when_nothing_reduces_bubble_significance():
+    # all worse, and ties on (i) even with a smaller (ii) do not beat lambda=0
+    assert select_lambda([_row(0.0, 2, 0.05, 0), _row(0.1, 3, 0.06, 0), _row(0.2, 4, 0.07, 0)]) == 0.0
+    assert select_lambda([_row(0.0, 2, 0.05, 0), _row(0.1, 2, 0.01, 0)]) == 0.0
+    # the only improving lambda is excluded by in-prize worsening
+    assert select_lambda([_row(0.0, 2, 0.05, 0), _row(0.1, 0, 0.01, 1)]) == 0.0
+
+
+def _lam_grid(lambdas, **kw):
+    return run_grid(["9max_sng_503020"], [3, 4], ["even", "skewed"], GAMES, 3, lambda_grid=lambdas, **kw)
+
+
+def test_lambda_grid_scores_the_same_simulation_for_any_list():
+    a, b = _lam_grid([0, 0.1]), _lam_grid([0, 0.5, 0.2])
+    for ca, cb in zip(a["cells"], b["cells"], strict=True):
+        assert json.dumps(ca["calibrate"]["sim_prize_mean"]) == json.dumps(cb["calibrate"]["sim_prize_mean"])
+        assert ca["lambda_metrics"][0] == cb["lambda_metrics"][0]  # lambda=0 is first in both
+
+
+def test_lambda_grid_output_shape_and_zones():
+    g = _lam_grid(list(DEFAULT_LAMBDA_GRID), layouts=1)
+    assert g["schema_version"] == 3 and g["lambda_grid"] == list(DEFAULT_LAMBDA_GRID)
+    zones = {c["remaining"]: c["zone"] for c in g["cells"]}
+    assert zones == {3: "in_prize", 4: "bubble"}  # 9max_sng_503020 pays 3
+    for c in g["cells"]:
+        assert [m["lambda"] for m in c["lambda_metrics"]] == list(DEFAULT_LAMBDA_GRID)
+        assert c["lambda_metrics"][0]["max_abs_diff_rel"] == pytest.approx(c["max_abs_diff_rel"])
+        assert c["lambda_metrics"][0]["max_abs_z"] == pytest.approx(c["max_abs_z"])
+        if c["zone"] == "in_prize":  # lambda only acts on the bubble
+            assert len({m["max_abs_diff_rel"] for m in c["lambda_metrics"]}) == 1
+    s = g["lambda_summary"]
+    assert [r["bubble_cells"] for r in s] == [2] * 6 and [r["in_prize_cells"] for r in s] == [2] * 6
+    assert g["selected_lambda"] == select_lambda(s) == select_lambda(summarize_lambdas(g["cells"], g["lambda_grid"]))
+
+
+def test_lambda_grid_without_zero_or_out_of_range_is_an_error():
+    with pytest.raises(ValueError, match="include 0"):
+        _lam_grid([0.1, 0.2])
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        _lam_grid([0, 1.5])
+    with pytest.raises(ValueError, match="duplicates"):
+        _lam_grid([0, 0.1, 0.1])
+
+
+def test_no_lambda_flag_output_is_unchanged_and_composes_with_layouts(tmp_path):
+    plain = run_grid(["9max_sng_503020"], [4], ["even"], GAMES, 3)
+    assert plain["schema_version"] == 1 and "lambda_grid" not in plain
+    assert all("lambda_metrics" not in c for c in plain["cells"])
+    both = run_grid(["9max_sng_503020"], [4], ["even"], GAMES, 3, level_indexes=[0, 1], layouts=2,
+                    lambda_grid=[0, 0.2])
+    assert len(both["cells"]) == 4 and all({"level_index", "layout", "zone"} <= c.keys() for c in both["cells"])
+    out, md = tmp_path / "l.json", tmp_path / "l.md"
+    assert main(["--presets", "9max_sng_503020", "--remaining", "4", "--profiles", "even", "--games", str(GAMES),
+                 "--lambda-grid", "--out", str(out), "--md", str(md)]) == 0
+    d = json.loads(out.read_text(encoding="utf-8"))
+    assert d["lambda_grid"] == list(DEFAULT_LAMBDA_GRID) and "selected λ" in md.read_text(encoding="utf-8")
+
+
+def test_lambda_grid_cli_rejects_grid_without_zero(tmp_path):
+    with pytest.raises(SystemExit) as e:
+        main(["--presets", "9max_sng_503020", "--remaining", "4", "--games", "1", "--lambda-grid", "0.1,0.2"])
+    assert e.value.code == 2
+
+
+def test_old_levels_json_still_reads_with_the_v2_reader():
+    d = json.loads(open("docs/research/data/icm-bias-levels-2026-11-14-random.json", encoding="utf-8").read())
+    assert d["schema_version"] == 2 and "lambda_grid" not in d
+    from stalker.tools.icm_grid import to_markdown
+    assert "selected" not in to_markdown(d)
