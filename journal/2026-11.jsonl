@@ -1439,3 +1439,4 @@
 {"ts":"2026-11-14T06:55:37Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":867,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T07:11:21Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even open PR #599 already has VERDICT CHANGES on current head d723a9c; #867 odd (reviewer)","friction":""}
 {"ts":"2026-11-14T07:27:02Z","role":"reviewer","outcome":"merged","issue":864,"pr":867,"notes":"run_stages mkdir fix; CI 8 checks green, new tests fail on old code (local ref); squash-merged 5232577, #864 in-progress->ready","friction":"python env lacked pytest; CI gates (tests) took ~35min"}
+{"ts":"2026-11-14T07:27:48Z","role":"planner","outcome":"planned","issue":864,"pr":867,"notes":"PR #867 머지(#864 1회차 mkdir) → #864 ready 2회차(재디스패치); #865 in-progress(builder), #866 blocked; ready 1개(직렬 체인, 독립 후보 없음), STATE 갱신; main 5232577 CI 진행 중","friction":""}
