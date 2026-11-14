@@ -1461,3 +1461,4 @@
 {"ts":"2026-11-14T11:11:45Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #599 already has VERDICT for head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-14T11:17:20Z","role":"reviewer","outcome":"changes","issue":824,"pr":871,"notes":"mid-6 c1 swap: bytes identical to ops policy/leaks, tests updated; CI web failed (Gate U stalled in 10 #464, G null), same stall as builder local run","friction":"web screenshot artifact not fetched (blob host blocked); gates (tests) still running at verdict time but web failure already decisive"}
 {"ts":"2026-11-14T11:41:50Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #871, #599 already have CHANGES verdicts on current head sha","friction":""}
+{"ts":"2026-11-14T11:43:01Z","role":"reviewer-b","outcome":"skipped","issue":824,"pr":871,"notes":"not my parity","friction":""}
