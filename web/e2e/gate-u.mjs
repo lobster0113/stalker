@@ -303,7 +303,12 @@ if (freeSized) {
       });
       must(chk.real.join() === chk.mine.join(), `실전 사이즈: 단축 버튼 금액 ${chk.mine}이 엔진 real 메뉴 ${chk.real}과 다름`);
       must(chk.missing.length === 0, `실전 사이즈: MENU_COL에 색이 없는 라벨 ${chk.missing}`);
-      must(chk.menu === "v1", `실전 사이즈: 정책 메타에 메뉴가 없으면 v1이어야 하는데 ${chk.menu}`);
+      must(chk.menu === "v1" || chk.menu === "real", `실전 사이즈: 메뉴는 v1(레거시 정책) 또는 real(c1 정책, #824 mid-6)이어야 하는데 ${chk.menu}`);
+      if (chk.menu === "real") {   // #824: the served mid-6 is a real-menu c1 policy, so every real size is its own label (nothing to translate)
+        console.log(`실전 사이즈: 단축 ${chk.mine.length}개 = 엔진 real 메뉴 (정책 메뉴 real, 번역 없음)`);
+        realBet = true;
+        continue;
+      }
       const idx = chk.mine.findIndex(t => !chk.v1.includes(t));
       if (idx >= 0) {
         const more = page.locator("[data-size-more]");
@@ -344,7 +349,7 @@ if (freeSized) {
   for (const d of log) {
     const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
     must(i >= 0, `정책 상대: AI가 합법 메뉴 밖 액션 ${d.chosen}을 고름 (${d.key})`);
-    if (!row) { must(!d.fromTable, `정책 상대: 파일에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+    if (!row) { must(d.fromTable !== "exact", `정책 상대: 파일에 없는 키인데 정확 행으로 읽었다고 함 (${d.key})`); continue; }   // c1 files (#824) back off to coarser keys: "L1".."L4" are fine
     inTable++;
     must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `정책 상대: 페이지가 쓴 확률이 정책 파일과 다름 (${d.key})`);
     must(row[i] > 0, `정책 상대: 정책 확률 0인 액션 ${d.chosen}을 고름 (${d.key})`);
@@ -364,7 +369,7 @@ const eqTruth = await page.evaluate(() => {
   if (!E?.ok || !CUR.g.model) return null;
   const seat = E.s.toAct, eq = tg.multiEquity(E.s, seat, E.ranges)[tg.comboIndex(E.s.hole[seat])];
   return { want: Math.round(eq * 100), got: CUR.g.v["hand.equity"], src: CUR.g.src?.["hand.equity"],
-           step: CUR.g.model.step, step2: tg.equityStepOf(E.s, seat, E.ranges, E.tier), key: CUR.g.model.d.key, key2: tg.decisionKey(E.s, E.ranges, E.tier).key };
+           step: CUR.g.model.step, step2: tg.equityStepOf(E.s, seat, E.ranges, E.tier), key: CUR.g.model.d.key, key2: tg.decisionKey(E.s, E.ranges, E.tier, CUR.g.model.d.variant).key };
 });
 must(eqTruth && eqTruth.src === "model" && eqTruth.got === eqTruth.want, `hand.equity 정답: 엔진 공개 레인지 에퀴티와 다름 (${JSON.stringify(eqTruth)})`);
 must(eqTruth && eqTruth.step === eqTruth.step2 && eqTruth.key === eqTruth.key2, `hand.equity 정답: 정책 키·단계가 엔진과 다름 (${JSON.stringify(eqTruth)})`);
@@ -911,7 +916,7 @@ wd.section("7 #364");
     let n = 0;
     for (const d of xs) {
       const row = file.policy[d.key];
-      if (!row) { must(!d.fromTable, `등급 변경: 파일에 없는 키인데 표에서 읽었다고 함 (${d.tier} ${d.key})`); continue; }
+      if (!row) { must(d.fromTable !== "exact", `등급 변경: 파일에 없는 키인데 정확 행으로 읽었다고 함 (${d.tier} ${d.key})`); continue; }
       n++;
       must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `등급 변경: 페이지 확률이 ${d.tier} 정책 파일과 다름 (${d.key})`);
     }
