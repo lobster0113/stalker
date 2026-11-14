@@ -13,6 +13,11 @@ leaves every other cell's output byte-identical, so a partial rerun can be compa
 
 `--agents` picks who plays every seat (`random` default, or `persona:NAME` via `icm_calibration.agents_factory`).
 The default writes no `agents` field, so outputs from before the option existed stay byte-identical (#845).
+
+`--level-index 0,6` starts the cells at each blind level and `--layouts N` draws N independent survivor/stack layouts
+per cell (#858). Level 0 / layout 0 keeps the pre-option seed and output; any other choice writes schema_version 2 with
+`level_index` and `layout` on every cell. Layout k's seed is the cell key plus (level, k), so dropping a level or a
+layout leaves the others byte-identical.
 """
 from __future__ import annotations
 
@@ -33,10 +38,14 @@ SCHEMA_VERSION = 1
 MD_NOTE = "로컬 참고값, CI 결과 아님"
 
 
-def cell_seed(seed: int, preset: str, remaining: int, profile: str) -> np.random.SeedSequence:
-    """Child of SeedSequence(seed) whose spawn key is the cell key (crc32 keeps preset names stable across runs)."""
-    return np.random.SeedSequence(seed, spawn_key=(zlib.crc32(preset.encode()), remaining,
-                                                   STACK_PROFILES.index(profile)))
+def cell_seed(seed: int, preset: str, remaining: int, profile: str, level_index: int = 0,
+              layout: int = 0) -> np.random.SeedSequence:
+    """Child of SeedSequence(seed) whose spawn key is the cell key (crc32 keeps preset names stable across runs).
+    Level 0 / layout 0 uses the v1 key so old outputs reproduce."""
+    key = (zlib.crc32(preset.encode()), remaining, STACK_PROFILES.index(profile))
+    if level_index or layout:
+        key += (level_index, layout)
+    return np.random.SeedSequence(seed, spawn_key=key)
 
 
 def summarize(raw: dict) -> dict:
@@ -52,12 +61,19 @@ def summarize(raw: dict) -> dict:
 
 
 def run_grid(presets: Sequence[str], remainings: Sequence[int], profiles: Sequence[str], games: int,
-             seed: int, agents: str = "random") -> dict:
+             seed: int, agents: str = "random", level_indexes: Sequence[int] = (0,), layouts: int = 1) -> dict:
     factory = None if agents == "random" else agents_factory(agents)
     for p in profiles:
         if p not in STACK_PROFILES:
             raise ValueError(f"profile {p!r}: must be one of {STACK_PROFILES}.")
+    if layouts < 1:
+        raise ValueError(f"layouts={layouts}: must be >= 1.")
     configs = {name: load_preset(name) for name in presets}
+    for name, config in configs.items():
+        for lv in level_indexes:
+            if not 0 <= lv < len(config.levels):
+                raise ValueError(f"level_index={lv}: {name} has levels 0..{len(config.levels) - 1}.")
+    v2 = tuple(level_indexes) != (0,) or layouts != 1
     cells, skipped = [], []
     for preset in presets:
         config = configs[preset]
@@ -70,11 +86,18 @@ def run_grid(presets: Sequence[str], remainings: Sequence[int], profiles: Sequen
                 if remaining > config.players:
                     skipped.append({**key, "reason": f"remaining={remaining} > players={config.players}."})
                     continue
-                rng = np.random.default_rng(cell_seed(seed, preset, remaining, profile))
-                ss = make_start_state(config, rng, remaining, profile, 0)
-                raw = calibrate(config, ss, factory, games, rng)
-                cells.append({**key, **summarize(raw), "calibrate": raw})
-    grid = {"schema_version": SCHEMA_VERSION, "seed": seed, "games": games, "cells": cells, "skipped": skipped}
+                for lv in level_indexes:
+                    for k in range(layouts):
+                        rng = np.random.default_rng(cell_seed(seed, preset, remaining, profile, lv, k))
+                        ss = make_start_state(config, rng, remaining, profile, lv)
+                        raw = calibrate(config, ss, factory, games, rng)
+                        extra = {"level_index": lv, "layout": k} if v2 else {}
+                        cells.append({**key, **extra, **summarize(raw), "calibrate": raw})
+    grid = {"schema_version": 2 if v2 else SCHEMA_VERSION, "seed": seed, "games": games, "cells": cells,
+            "skipped": skipped}
+    if v2:
+        grid["level_indexes"] = list(level_indexes)
+        grid["layouts"] = layouts
     if factory is not None:
         grid["agents"] = agents
     return grid
@@ -82,9 +105,12 @@ def run_grid(presets: Sequence[str], remainings: Sequence[int], profiles: Sequen
 
 def to_markdown(grid: dict) -> str:
     head = MD_NOTE if "agents" not in grid else f"{MD_NOTE} (agents={grid['agents']})"
-    lines = [head, "", "| preset | remaining | profile | max\\|diff\\|/pool | max\\|z\\| |", "|---|---:|---|---:|---:|"]
+    v2 = grid["schema_version"] >= 2
+    cols = "| preset | remaining | profile |" + (" level | layout |" if v2 else "") + " max\\|diff\\|/pool | max\\|z\\| |"
+    lines = [head, "", cols, "|---|---:|---|" + ("---:|---:|" if v2 else "") + "---:|---:|"]
     for c in grid["cells"]:
-        lines.append(f"| {c['preset']} | {c['remaining']} | {c['profile']} | {c['max_abs_diff_rel']:.4f} "
+        lv = f" {c['level_index']} | {c['layout']} |" if v2 else ""
+        lines.append(f"| {c['preset']} | {c['remaining']} | {c['profile']} |{lv} {c['max_abs_diff_rel']:.4f} "
                      f"| {c['max_abs_z']:.2f} |")
     return "\n".join(lines) + "\n"
 
@@ -100,6 +126,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--profiles", default=",".join(STACK_PROFILES), help="comma-separated stack profiles")
     ap.add_argument("--games", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--level-index", default="0", help="comma-separated start blind levels (default 0)")
+    ap.add_argument("--layouts", type=int, default=1, help="survivor/stack layouts per cell (default 1)")
     ap.add_argument("--agents", default="random", help="random | persona:NAME (every seat)")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--md", type=Path)
@@ -109,7 +137,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ValueError:
         ap.error(f"--remaining {a.remaining!r}: use comma-separated integers, e.g. 2,3,4.")
     try:
-        grid = run_grid(_csv(a.presets), remainings, _csv(a.profiles), a.games, a.seed, a.agents)
+        levels = [int(x) for x in _csv(a.level_index)]
+    except ValueError:
+        ap.error(f"--level-index {a.level_index!r}: use comma-separated integers, e.g. 0,6.")
+    try:
+        grid = run_grid(_csv(a.presets), remainings, _csv(a.profiles), a.games, a.seed, a.agents, levels, a.layouts)
     except (ValueError, FileNotFoundError, KeyError) as e:
         ap.exit(2, f"icm_grid: {e}\n")
     text = json.dumps(grid, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
