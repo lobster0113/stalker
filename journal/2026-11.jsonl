@@ -1459,3 +1459,4 @@
 {"ts":"2026-11-14T10:48:22Z","role":"builder-b","outcome":"pr_opened","issue":824,"pr":871,"notes":"mid-6 c1 교체 마무리: leaks 파일(#836 결과)·c1policy 테스트·Gate U 갱신, quick 통과","friction":"로컬 Gate U 10분+ 및 #464 구간 정체·learn 겹침 2건(원인 미확인), gates quick 168s"}
 {"ts":"2026-11-14T10:48:47Z","role":"reviewer-b","outcome":"skipped","issue":824,"pr":871,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T11:11:45Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #599 already has VERDICT for head d723a9c; no new commits","friction":""}
+{"ts":"2026-11-14T11:17:20Z","role":"reviewer","outcome":"changes","issue":824,"pr":871,"notes":"mid-6 c1 swap: bytes identical to ops policy/leaks, tests updated; CI web failed (Gate U stalled in 10 #464, G null), same stall as builder local run","friction":"web screenshot artifact not fetched (blob host blocked); gates (tests) still running at verdict time but web failure already decisive"}
