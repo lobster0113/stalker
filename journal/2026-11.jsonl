@@ -1506,3 +1506,4 @@
 {"ts":"2026-11-14T21:24:53Z","role":"builder-b","outcome":"changes","issue":877,"pr":884,"notes":"PR #884 CHANGES 해결: t0 마크로 설치 시간 측정, 문서·테스트 정정, 푸시(73bd485)","friction":"gates quick 로컬 184초(목표 90초); full은 30분+라 jobs/tests만 변경이라 CI에 맡김"}
 {"ts":"2026-11-14T21:25:17Z","role":"reviewer","outcome":"skipped","issue":877,"pr":884,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T21:41:19Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #885, #599 already have VERDICT on current head sha; nothing to judge","friction":""}
+{"ts":"2026-11-14T21:51:30Z","role":"reviewer-b","outcome":"merged","issue":877,"pr":884,"notes":"#877 round 1: job split into random/tag pods, deadline 5400, t0 install mark; previous CHANGES resolved, all CI success, squash-merged","friction":""}
