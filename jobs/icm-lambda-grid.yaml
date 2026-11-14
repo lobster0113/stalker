@@ -1,0 +1,15 @@
+# #873 (ADR 0026 follow-up 2c): CI-grounded lambda-grid baseline for random and persona:tag, same command and seed as the
+# local reference in #870/#872 (local: random 13m50s, tag 31m, single process each) -> stages run in sequence.
+# icm_grid is single-process, so 2 vCPU is enough; est. ~45-60 min on the pod, limit 120 min.
+# Worst case = hourly_usd * max_minutes / 60 = 0.12 * 120 / 60 = $0.24.
+# run_stages --deadline-s 6300 (120*60 - 900 s install margin) turns a timeout into a retrievable stage-failure.
+# Result: ops:cloud/results/<run id>.json (schema stalker.icm.lambda-grid-pair, each agent's raw icm_grid output inside).
+name: icm-lambda-grid
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e .; python3 -m stalker.tools.run_stages --out /result/icm-lambda-grid.json --deadline-s 6300 --stage 'random=python3 -m stalker.tools.icm_grid --presets 9max_sng_503020,9max_sng_flat --remaining 2,3,4 --profiles even,random,skewed --level-index 0 --layouts 3 --games 1000 --seed 0 --agents random --lambda-grid --out /src/random.json' --stage 'tag=python3 -m stalker.tools.icm_grid --presets 9max_sng_503020,9max_sng_flat --remaining 2,3,4 --profiles even,random,skewed --level-index 0 --layouts 3 --games 1000 --seed 0 --agents persona:tag --lambda-grid --out /src/tag.json' --stage 'pair=python3 -m stalker.tools.icm_grid_pair --out /result/icm-lambda-grid.json random=/src/random.json tag=/src/tag.json'
+cpu_flavor: cpu3c
+vcpu: 2
+disk_gb: 10
+max_minutes: 120
+hourly_usd: 0.12
+result_path: /result/icm-lambda-grid.json
