@@ -1,0 +1,3493 @@
+{
+ "schema": "stalker.web.policy-leaks",
+ "schema_version": 1,
+ "tier": "mid",
+ "players": 6,
+ "policy": "mid-6.json",
+ "policy_run_id": "42591543123",
+ "policy_sha": "9660453c545a0910efb6dd9315cf85cdbe031a71",
+ "issue": 391,
+ "probe": "e3_preflop_v1",
+ "evidence": "cloud job web-policy-leaks-mid6-c1, policy ops:cloud/policies/42591543123/mid-6.json",
+ "command": "python3 -m referee.e3.preflop_probe mid-6.json --deals 300 --seed 0 --workers 32 --json mid-6.probe.json",
+ "settings": {
+  "deals_per_cell": 300,
+  "seed": 0,
+  "spots": [
+   "first_in",
+   "vs_open"
+  ],
+  "seats": [
+   "UTG",
+   "HJ",
+   "CO",
+   "BTN",
+   "SB",
+   "BB"
+  ],
+  "groups": [
+   "AA",
+   "KK",
+   "QQ",
+   "JJ",
+   "TT",
+   "AKs",
+   "AKo",
+   "AQs",
+   "AQo",
+   "AJs",
+   "KQs"
+  ],
+  "threshold_bb": 0.5,
+  "alpha": 0.05,
+  "z_corrected": 3.925,
+  "menu": "real",
+  "confirm": {
+   "rule": "screened, not a leak, best gain > threshold and uncorrected 95% lower bound > 0",
+   "cells": 54,
+   "deals_per_cell": 1000,
+   "seed": 7,
+   "z_corrected": 3.755
+  }
+ },
+ "cells": [
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AA",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "KK",
+   "deals": 300,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "QQ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AQs",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "KQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AA",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "KK",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "QQ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "KQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AA",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "KK",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "QQ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 2,
+   "pos": "CO",
+   "group": "KQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AA",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "KK",
+   "deals": 300,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "QQ",
+   "deals": 300,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "JJ",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "TT",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AKs",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AKo",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "KQs",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AA",
+   "deals": 145,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "KK",
+   "deals": 145,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "QQ",
+   "deals": 128,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "JJ",
+   "deals": 39,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "TT",
+   "deals": 37,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AKs",
+   "deals": 40,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AKo",
+   "deals": 38,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AQs",
+   "deals": 33,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AQo",
+   "deals": 63,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AJs",
+   "deals": 38,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "KQs",
+   "deals": 34,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AA",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "KK",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "QQ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AQs",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "KQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AA",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "KK",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "QQ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 2,
+   "pos": "CO",
+   "group": "KQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AA",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "KK",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "QQ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "KQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AA",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "KK",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "QQ",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AQo",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "KQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AA",
+   "deals": 300,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "KK",
+   "deals": 300,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "QQ",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "JJ",
+   "deals": 300,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "TT",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AKs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AKo",
+   "deals": 300,
+   "measured": true,
+   "leak": true,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AQs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AQo",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AJs",
+   "deals": 300,
+   "measured": true,
+   "leak": false,
+   "confirmed": false
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "KQs",
+   "deals": 1000,
+   "measured": true,
+   "leak": true,
+   "confirmed": true
+  }
+ ],
+ "leaks": [
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AA",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r10",
+   "gain_bb": 12.6,
+   "gain_ci": [
+    7.37,
+    17.82
+   ],
+   "gain_low_bb": 2.59,
+   "row": {
+    "f": 0.012,
+    "c": 0.082,
+    "r2": 0.012,
+    "r22": 0.067,
+    "r": 0.047,
+    "r3": 0.122,
+    "r35": 0.114,
+    "r4": 0.098,
+    "r5": 0.039,
+    "r6": 0.063,
+    "r8": 0.212,
+    "r10": 0.114,
+    "a": 0.02
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -9.26,
+     "ci": [
+      -17.71,
+      -0.81
+     ]
+    },
+    "r22": {
+     "bb": -7.47,
+     "ci": [
+      -16.0,
+      1.07
+     ]
+    },
+    "r": {
+     "bb": -4.97,
+     "ci": [
+      -13.58,
+      3.64
+     ]
+    },
+    "r3": {
+     "bb": 0.83,
+     "ci": [
+      -7.4,
+      9.06
+     ]
+    },
+    "r35": {
+     "bb": 1.64,
+     "ci": [
+      -6.67,
+      9.94
+     ]
+    },
+    "r4": {
+     "bb": 5.52,
+     "ci": [
+      -2.84,
+      13.88
+     ]
+    },
+    "r5": {
+     "bb": 4.93,
+     "ci": [
+      -3.36,
+      13.21
+     ]
+    },
+    "r6": {
+     "bb": 6.7,
+     "ci": [
+      -1.66,
+      15.07
+     ]
+    },
+    "r8": {
+     "bb": 6.5,
+     "ci": [
+      -1.74,
+      14.74
+     ]
+    },
+    "r10": {
+     "bb": 14.64,
+     "ci": [
+      6.2,
+      23.08
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "KK",
+   "deals": 300,
+   "stage": "screen",
+   "best": "r8",
+   "gain_bb": 14.42,
+   "gain_ci": [
+    7.27,
+    21.56
+   ],
+   "gain_low_bb": 0.11,
+   "row": {
+    "f": 0.012,
+    "c": 0.082,
+    "r2": 0.012,
+    "r22": 0.067,
+    "r": 0.047,
+    "r3": 0.122,
+    "r35": 0.114,
+    "r4": 0.098,
+    "r5": 0.039,
+    "r6": 0.063,
+    "r8": 0.212,
+    "r10": 0.114,
+    "a": 0.02
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -14.02,
+     "ci": [
+      -29.0,
+      0.95
+     ]
+    },
+    "r22": {
+     "bb": -16.69,
+     "ci": [
+      -32.05,
+      -1.33
+     ]
+    },
+    "r": {
+     "bb": -11.78,
+     "ci": [
+      -26.79,
+      3.23
+     ]
+    },
+    "r3": {
+     "bb": -7.5,
+     "ci": [
+      -22.33,
+      7.34
+     ]
+    },
+    "r35": {
+     "bb": -11.31,
+     "ci": [
+      -25.66,
+      3.04
+     ]
+    },
+    "r4": {
+     "bb": -5.4,
+     "ci": [
+      -20.17,
+      9.37
+     ]
+    },
+    "r5": {
+     "bb": -7.24,
+     "ci": [
+      -22.56,
+      8.08
+     ]
+    },
+    "r6": {
+     "bb": -3.37,
+     "ci": [
+      -18.51,
+      11.77
+     ]
+    },
+    "r8": {
+     "bb": 10.32,
+     "ci": [
+      -5.54,
+      26.19
+     ]
+    },
+    "r10": {
+     "bb": 1.88,
+     "ci": [
+      -14.34,
+      18.11
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 0,
+   "pos": "UTG",
+   "group": "AQs",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r8",
+   "gain_bb": 6.94,
+   "gain_ci": [
+    3.46,
+    10.42
+   ],
+   "gain_low_bb": 0.27,
+   "row": {
+    "f": 0.012,
+    "c": 0.082,
+    "r2": 0.012,
+    "r22": 0.067,
+    "r": 0.047,
+    "r3": 0.122,
+    "r35": 0.114,
+    "r4": 0.098,
+    "r5": 0.039,
+    "r6": 0.063,
+    "r8": 0.212,
+    "r10": 0.114,
+    "a": 0.02
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -7.74,
+     "ci": [
+      -14.83,
+      -0.65
+     ]
+    },
+    "r22": {
+     "bb": -9.92,
+     "ci": [
+      -16.87,
+      -2.97
+     ]
+    },
+    "r": {
+     "bb": -9.23,
+     "ci": [
+      -16.15,
+      -2.31
+     ]
+    },
+    "r3": {
+     "bb": -5.32,
+     "ci": [
+      -12.01,
+      1.37
+     ]
+    },
+    "r35": {
+     "bb": -3.76,
+     "ci": [
+      -10.44,
+      2.92
+     ]
+    },
+    "r4": {
+     "bb": -1.56,
+     "ci": [
+      -8.29,
+      5.16
+     ]
+    },
+    "r5": {
+     "bb": 0.05,
+     "ci": [
+      -7.01,
+      7.11
+     ]
+    },
+    "r6": {
+     "bb": -0.14,
+     "ci": [
+      -7.19,
+      6.91
+     ]
+    },
+    "r8": {
+     "bb": 4.94,
+     "ci": [
+      -2.01,
+      11.89
+     ]
+    },
+    "r10": {
+     "bb": 1.51,
+     "ci": [
+      -5.68,
+      8.7
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AA",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r8",
+   "gain_bb": 11.54,
+   "gain_ci": [
+    8.45,
+    14.63
+   ],
+   "gain_low_bb": 5.62,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": 2.48,
+     "ci": [
+      -2.74,
+      7.7
+     ]
+    },
+    "r22": {
+     "bb": 3.41,
+     "ci": [
+      -1.83,
+      8.65
+     ]
+    },
+    "r": {
+     "bb": 3.18,
+     "ci": [
+      -2.1,
+      8.45
+     ]
+    },
+    "r3": {
+     "bb": 4.64,
+     "ci": [
+      -0.66,
+      9.95
+     ]
+    },
+    "r35": {
+     "bb": 3.99,
+     "ci": [
+      -1.28,
+      9.26
+     ]
+    },
+    "r4": {
+     "bb": 5.11,
+     "ci": [
+      -0.22,
+      10.44
+     ]
+    },
+    "r5": {
+     "bb": 6.41,
+     "ci": [
+      1.38,
+      11.44
+     ]
+    },
+    "r6": {
+     "bb": 9.2,
+     "ci": [
+      4.12,
+      14.27
+     ]
+    },
+    "r8": {
+     "bb": 10.52,
+     "ci": [
+      5.47,
+      15.58
+     ]
+    },
+    "r10": {
+     "bb": 9.07,
+     "ci": [
+      3.83,
+      14.32
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "KK",
+   "deals": 300,
+   "stage": "screen",
+   "best": "r5",
+   "gain_bb": 10.82,
+   "gain_ci": [
+    5.42,
+    16.22
+   ],
+   "gain_low_bb": 0.01,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -11.23,
+     "ci": [
+      -21.32,
+      -1.14
+     ]
+    },
+    "r22": {
+     "bb": -10.84,
+     "ci": [
+      -20.81,
+      -0.86
+     ]
+    },
+    "r": {
+     "bb": -12.33,
+     "ci": [
+      -21.92,
+      -2.74
+     ]
+    },
+    "r3": {
+     "bb": -12.09,
+     "ci": [
+      -21.69,
+      -2.49
+     ]
+    },
+    "r35": {
+     "bb": -7.02,
+     "ci": [
+      -16.74,
+      2.7
+     ]
+    },
+    "r4": {
+     "bb": -7.27,
+     "ci": [
+      -16.98,
+      2.45
+     ]
+    },
+    "r5": {
+     "bb": 1.46,
+     "ci": [
+      -7.24,
+      10.17
+     ]
+    },
+    "r6": {
+     "bb": -1.79,
+     "ci": [
+      -10.46,
+      6.88
+     ]
+    },
+    "r8": {
+     "bb": 0.95,
+     "ci": [
+      -7.83,
+      9.72
+     ]
+    },
+    "r10": {
+     "bb": 0.74,
+     "ci": [
+      -9.11,
+      10.59
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "QQ",
+   "deals": 300,
+   "stage": "screen",
+   "best": "r6",
+   "gain_bb": 13.2,
+   "gain_ci": [
+    7.64,
+    18.76
+   ],
+   "gain_low_bb": 2.06,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -3.0,
+     "ci": [
+      -12.61,
+      6.62
+     ]
+    },
+    "r22": {
+     "bb": -2.72,
+     "ci": [
+      -12.27,
+      6.82
+     ]
+    },
+    "r": {
+     "bb": 0.91,
+     "ci": [
+      -8.9,
+      10.72
+     ]
+    },
+    "r3": {
+     "bb": 2.13,
+     "ci": [
+      -7.61,
+      11.87
+     ]
+    },
+    "r35": {
+     "bb": 4.37,
+     "ci": [
+      -5.28,
+      14.03
+     ]
+    },
+    "r4": {
+     "bb": 3.5,
+     "ci": [
+      -6.29,
+      13.29
+     ]
+    },
+    "r5": {
+     "bb": 9.51,
+     "ci": [
+      -0.09,
+      19.11
+     ]
+    },
+    "r6": {
+     "bb": 12.48,
+     "ci": [
+      3.0,
+      21.95
+     ]
+    },
+    "r8": {
+     "bb": 12.17,
+     "ci": [
+      2.58,
+      21.76
+     ]
+    },
+    "r10": {
+     "bb": 3.93,
+     "ci": [
+      -5.44,
+      13.31
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "JJ",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r6",
+   "gain_bb": 6.39,
+   "gain_ci": [
+    3.52,
+    9.27
+   ],
+   "gain_low_bb": 0.88,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": 2.17,
+     "ci": [
+      -2.69,
+      7.04
+     ]
+    },
+    "r22": {
+     "bb": 2.64,
+     "ci": [
+      -2.24,
+      7.52
+     ]
+    },
+    "r": {
+     "bb": 3.18,
+     "ci": [
+      -1.64,
+      8.01
+     ]
+    },
+    "r3": {
+     "bb": 4.75,
+     "ci": [
+      -0.08,
+      9.58
+     ]
+    },
+    "r35": {
+     "bb": 4.94,
+     "ci": [
+      0.03,
+      9.85
+     ]
+    },
+    "r4": {
+     "bb": 5.58,
+     "ci": [
+      0.68,
+      10.49
+     ]
+    },
+    "r5": {
+     "bb": 4.45,
+     "ci": [
+      -0.42,
+      9.32
+     ]
+    },
+    "r6": {
+     "bb": 5.88,
+     "ci": [
+      1.03,
+      10.74
+     ]
+    },
+    "r8": {
+     "bb": 5.01,
+     "ci": [
+      0.19,
+      9.82
+     ]
+    },
+    "r10": {
+     "bb": 5.45,
+     "ci": [
+      0.31,
+      10.59
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "TT",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r8",
+   "gain_bb": 8.55,
+   "gain_ci": [
+    5.54,
+    11.56
+   ],
+   "gain_low_bb": 2.79,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -0.74,
+     "ci": [
+      -5.92,
+      4.45
+     ]
+    },
+    "r22": {
+     "bb": -0.59,
+     "ci": [
+      -5.82,
+      4.65
+     ]
+    },
+    "r": {
+     "bb": 0.23,
+     "ci": [
+      -5.07,
+      5.53
+     ]
+    },
+    "r3": {
+     "bb": 1.56,
+     "ci": [
+      -3.66,
+      6.79
+     ]
+    },
+    "r35": {
+     "bb": 4.31,
+     "ci": [
+      -0.95,
+      9.56
+     ]
+    },
+    "r4": {
+     "bb": 4.71,
+     "ci": [
+      -0.54,
+      9.97
+     ]
+    },
+    "r5": {
+     "bb": 3.62,
+     "ci": [
+      -1.28,
+      8.51
+     ]
+    },
+    "r6": {
+     "bb": 5.87,
+     "ci": [
+      0.88,
+      10.85
+     ]
+    },
+    "r8": {
+     "bb": 7.55,
+     "ci": [
+      2.57,
+      12.53
+     ]
+    },
+    "r10": {
+     "bb": 6.27,
+     "ci": [
+      1.08,
+      11.46
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AKs",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r8",
+   "gain_bb": 6.67,
+   "gain_ci": [
+    3.53,
+    9.82
+   ],
+   "gain_low_bb": 0.65,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": 3.03,
+     "ci": [
+      -2.03,
+      8.09
+     ]
+    },
+    "r22": {
+     "bb": 1.94,
+     "ci": [
+      -3.21,
+      7.09
+     ]
+    },
+    "r": {
+     "bb": 2.74,
+     "ci": [
+      -2.34,
+      7.82
+     ]
+    },
+    "r3": {
+     "bb": 3.34,
+     "ci": [
+      -1.84,
+      8.51
+     ]
+    },
+    "r35": {
+     "bb": 2.49,
+     "ci": [
+      -2.8,
+      7.79
+     ]
+    },
+    "r4": {
+     "bb": 3.32,
+     "ci": [
+      -1.93,
+      8.56
+     ]
+    },
+    "r5": {
+     "bb": 5.96,
+     "ci": [
+      0.75,
+      11.17
+     ]
+    },
+    "r6": {
+     "bb": 6.49,
+     "ci": [
+      1.29,
+      11.69
+     ]
+    },
+    "r8": {
+     "bb": 6.95,
+     "ci": [
+      1.71,
+      12.2
+     ]
+    },
+    "r10": {
+     "bb": 3.14,
+     "ci": [
+      -2.28,
+      8.56
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "AKo",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r8",
+   "gain_bb": 7.42,
+   "gain_ci": [
+    4.3,
+    10.55
+   ],
+   "gain_low_bb": 1.44,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -0.92,
+     "ci": [
+      -6.01,
+      4.17
+     ]
+    },
+    "r22": {
+     "bb": 1.0,
+     "ci": [
+      -4.22,
+      6.22
+     ]
+    },
+    "r": {
+     "bb": 2.1,
+     "ci": [
+      -3.13,
+      7.32
+     ]
+    },
+    "r3": {
+     "bb": 2.15,
+     "ci": [
+      -3.17,
+      7.47
+     ]
+    },
+    "r35": {
+     "bb": 1.56,
+     "ci": [
+      -3.8,
+      6.93
+     ]
+    },
+    "r4": {
+     "bb": 2.13,
+     "ci": [
+      -3.26,
+      7.51
+     ]
+    },
+    "r5": {
+     "bb": 4.86,
+     "ci": [
+      -0.26,
+      9.99
+     ]
+    },
+    "r6": {
+     "bb": 5.5,
+     "ci": [
+      0.35,
+      10.65
+     ]
+    },
+    "r8": {
+     "bb": 7.3,
+     "ci": [
+      2.07,
+      12.54
+     ]
+    },
+    "r10": {
+     "bb": 3.94,
+     "ci": [
+      -1.31,
+      9.19
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 3,
+   "pos": "BTN",
+   "group": "KQs",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r8",
+   "gain_bb": 6.49,
+   "gain_ci": [
+    3.33,
+    9.65
+   ],
+   "gain_low_bb": 0.44,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": 0.82,
+     "ci": [
+      -4.16,
+      5.81
+     ]
+    },
+    "r22": {
+     "bb": 2.15,
+     "ci": [
+      -2.89,
+      7.19
+     ]
+    },
+    "r": {
+     "bb": 2.57,
+     "ci": [
+      -2.41,
+      7.54
+     ]
+    },
+    "r3": {
+     "bb": 4.36,
+     "ci": [
+      -0.7,
+      9.42
+     ]
+    },
+    "r35": {
+     "bb": 4.72,
+     "ci": [
+      -0.44,
+      9.88
+     ]
+    },
+    "r4": {
+     "bb": 5.15,
+     "ci": [
+      -0.06,
+      10.36
+     ]
+    },
+    "r5": {
+     "bb": 4.33,
+     "ci": [
+      -0.49,
+      9.16
+     ]
+    },
+    "r6": {
+     "bb": 4.35,
+     "ci": [
+      -0.6,
+      9.29
+     ]
+    },
+    "r8": {
+     "bb": 7.46,
+     "ci": [
+      2.35,
+      12.58
+     ]
+    },
+    "r10": {
+     "bb": 4.68,
+     "ci": [
+      -0.45,
+      9.82
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AA",
+   "deals": 145,
+   "stage": "confirm",
+   "best": "c",
+   "gain_bb": 14.22,
+   "gain_ci": [
+    7.36,
+    21.07
+   ],
+   "gain_low_bb": 1.09,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -14.03,
+     "ci": [
+      -22.2,
+      -5.85
+     ]
+    },
+    "r22": {
+     "bb": -13.32,
+     "ci": [
+      -21.47,
+      -5.18
+     ]
+    },
+    "r": {
+     "bb": -14.58,
+     "ci": [
+      -22.84,
+      -6.31
+     ]
+    },
+    "r3": {
+     "bb": -15.1,
+     "ci": [
+      -23.48,
+      -6.71
+     ]
+    },
+    "r35": {
+     "bb": -13.52,
+     "ci": [
+      -22.12,
+      -4.91
+     ]
+    },
+    "r4": {
+     "bb": -13.5,
+     "ci": [
+      -22.45,
+      -4.55
+     ]
+    },
+    "r5": {
+     "bb": -11.99,
+     "ci": [
+      -20.74,
+      -3.24
+     ]
+    },
+    "r6": {
+     "bb": -9.11,
+     "ci": [
+      -17.81,
+      -0.41
+     ]
+    },
+    "r8": {
+     "bb": -6.37,
+     "ci": [
+      -15.01,
+      2.27
+     ]
+    },
+    "r10": {
+     "bb": -4.22,
+     "ci": [
+      -13.09,
+      4.65
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "KK",
+   "deals": 145,
+   "stage": "confirm",
+   "best": "r8",
+   "gain_bb": 8.83,
+   "gain_ci": [
+    4.73,
+    12.94
+   ],
+   "gain_low_bb": 0.97,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": 0.13,
+     "ci": [
+      -9.35,
+      9.61
+     ]
+    },
+    "r22": {
+     "bb": -1.93,
+     "ci": [
+      -11.33,
+      7.48
+     ]
+    },
+    "r": {
+     "bb": -0.71,
+     "ci": [
+      -10.5,
+      9.07
+     ]
+    },
+    "r3": {
+     "bb": 0.34,
+     "ci": [
+      -8.77,
+      9.44
+     ]
+    },
+    "r35": {
+     "bb": -0.52,
+     "ci": [
+      -9.35,
+      8.31
+     ]
+    },
+    "r4": {
+     "bb": 3.61,
+     "ci": [
+      -5.46,
+      12.68
+     ]
+    },
+    "r5": {
+     "bb": 3.93,
+     "ci": [
+      -4.87,
+      12.73
+     ]
+    },
+    "r6": {
+     "bb": 8.77,
+     "ci": [
+      0.1,
+      17.44
+     ]
+    },
+    "r8": {
+     "bb": 8.8,
+     "ci": [
+      0.13,
+      17.47
+     ]
+    },
+    "r10": {
+     "bb": 8.52,
+     "ci": [
+      -0.43,
+      17.46
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "QQ",
+   "deals": 128,
+   "stage": "confirm",
+   "best": "r6",
+   "gain_bb": 7.65,
+   "gain_ci": [
+    3.72,
+    11.58
+   ],
+   "gain_low_bb": 0.12,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -7.9,
+     "ci": [
+      -16.4,
+      0.6
+     ]
+    },
+    "r22": {
+     "bb": -6.2,
+     "ci": [
+      -14.89,
+      2.5
+     ]
+    },
+    "r": {
+     "bb": -6.48,
+     "ci": [
+      -15.43,
+      2.46
+     ]
+    },
+    "r3": {
+     "bb": -6.22,
+     "ci": [
+      -15.06,
+      2.63
+     ]
+    },
+    "r35": {
+     "bb": -5.61,
+     "ci": [
+      -14.38,
+      3.16
+     ]
+    },
+    "r4": {
+     "bb": -5.04,
+     "ci": [
+      -13.81,
+      3.73
+     ]
+    },
+    "r5": {
+     "bb": -5.38,
+     "ci": [
+      -13.94,
+      3.17
+     ]
+    },
+    "r6": {
+     "bb": 0.0,
+     "ci": [
+      -8.97,
+      8.98
+     ]
+    },
+    "r8": {
+     "bb": -0.12,
+     "ci": [
+      -9.44,
+      9.2
+     ]
+    },
+    "r10": {
+     "bb": -4.11,
+     "ci": [
+      -13.16,
+      4.94
+     ]
+    }
+   }
+  },
+  {
+   "spot": "first_in",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AQo",
+   "deals": 63,
+   "stage": "screen",
+   "best": "r8",
+   "gain_bb": 11.35,
+   "gain_ci": [
+    6.32,
+    16.38
+   ],
+   "gain_low_bb": 1.27,
+   "row": {
+    "f": 0.077,
+    "c": 0.077,
+    "r2": 0.077,
+    "r22": 0.077,
+    "r": 0.077,
+    "r3": 0.077,
+    "r35": 0.077,
+    "r4": 0.077,
+    "r5": 0.077,
+    "r6": 0.077,
+    "r8": 0.077,
+    "r10": 0.077,
+    "a": 0.077
+   },
+   "open_minus_limp": {
+    "r2": {
+     "bb": -6.01,
+     "ci": [
+      -21.84,
+      9.81
+     ]
+    },
+    "r22": {
+     "bb": -6.5,
+     "ci": [
+      -22.38,
+      9.38
+     ]
+    },
+    "r": {
+     "bb": -9.49,
+     "ci": [
+      -24.14,
+      5.15
+     ]
+    },
+    "r3": {
+     "bb": -6.98,
+     "ci": [
+      -22.63,
+      8.67
+     ]
+    },
+    "r35": {
+     "bb": -7.11,
+     "ci": [
+      -23.0,
+      8.79
+     ]
+    },
+    "r4": {
+     "bb": -4.93,
+     "ci": [
+      -21.2,
+      11.34
+     ]
+    },
+    "r5": {
+     "bb": -1.43,
+     "ci": [
+      -17.24,
+      14.39
+     ]
+    },
+    "r6": {
+     "bb": 0.27,
+     "ci": [
+      -15.46,
+      16.01
+     ]
+    },
+    "r8": {
+     "bb": 4.96,
+     "ci": [
+      -11.28,
+      21.2
+     ]
+    },
+    "r10": {
+     "bb": 0.65,
+     "ci": [
+      -14.58,
+      15.88
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AA",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r4",
+   "gain_bb": 9.2,
+   "gain_ci": [
+    5.76,
+    12.65
+   ],
+   "gain_low_bb": 2.6,
+   "row": {
+    "f": 0.044,
+    "c": 0.093,
+    "r25": 0.165,
+    "r": 0.129,
+    "r35": 0.159,
+    "r4": 0.233,
+    "r5": 0.146,
+    "a": 0.032
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": -0.58,
+     "ci": [
+      -8.5,
+      7.35
+     ]
+    },
+    "r": {
+     "bb": 2.36,
+     "ci": [
+      -5.71,
+      10.43
+     ]
+    },
+    "r35": {
+     "bb": 5.86,
+     "ci": [
+      -2.35,
+      14.06
+     ]
+    },
+    "r4": {
+     "bb": 7.09,
+     "ci": [
+      -1.15,
+      15.34
+     ]
+    },
+    "r5": {
+     "bb": 5.01,
+     "ci": [
+      -3.36,
+      13.38
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "KK",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "c",
+   "gain_bb": 13.41,
+   "gain_ci": [
+    7.28,
+    19.55
+   ],
+   "gain_low_bb": 1.67,
+   "row": {
+    "f": 0.043,
+    "c": 0.096,
+    "r25": 0.165,
+    "r": 0.126,
+    "r35": 0.162,
+    "r4": 0.232,
+    "r5": 0.142,
+    "a": 0.034
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": -10.17,
+     "ci": [
+      -17.54,
+      -2.81
+     ]
+    },
+    "r": {
+     "bb": -10.49,
+     "ci": [
+      -18.25,
+      -2.73
+     ]
+    },
+    "r35": {
+     "bb": -6.9,
+     "ci": [
+      -14.48,
+      0.69
+     ]
+    },
+    "r4": {
+     "bb": -7.87,
+     "ci": [
+      -15.51,
+      -0.23
+     ]
+    },
+    "r5": {
+     "bb": -8.09,
+     "ci": [
+      -16.21,
+      0.02
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 1,
+   "pos": "HJ",
+   "group": "AQs",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r25",
+   "gain_bb": 8.87,
+   "gain_ci": [
+    5.04,
+    12.71
+   ],
+   "gain_low_bb": 1.52,
+   "row": {
+    "f": 0.043,
+    "c": 0.097,
+    "r25": 0.165,
+    "r": 0.125,
+    "r35": 0.164,
+    "r4": 0.232,
+    "r5": 0.141,
+    "a": 0.034
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 1.07,
+     "ci": [
+      -5.98,
+      8.12
+     ]
+    },
+    "r": {
+     "bb": -1.87,
+     "ci": [
+      -9.2,
+      5.45
+     ]
+    },
+    "r35": {
+     "bb": -7.48,
+     "ci": [
+      -14.86,
+      -0.1
+     ]
+    },
+    "r4": {
+     "bb": -7.68,
+     "ci": [
+      -15.0,
+      -0.37
+     ]
+    },
+    "r5": {
+     "bb": -8.19,
+     "ci": [
+      -15.88,
+      -0.5
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "AA",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r35",
+   "gain_bb": 3.73,
+   "gain_ci": [
+    1.78,
+    5.67
+   ],
+   "gain_low_bb": 0.0,
+   "row": {
+    "f": 0.0,
+    "c": 0.074,
+    "r25": 0.153,
+    "r": 0.151,
+    "r35": 0.302,
+    "r4": 0.105,
+    "r5": 0.075,
+    "a": 0.139
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 1.25,
+     "ci": [
+      -3.6,
+      6.1
+     ]
+    },
+    "r": {
+     "bb": 4.49,
+     "ci": [
+      -0.37,
+      9.35
+     ]
+    },
+    "r35": {
+     "bb": 6.23,
+     "ci": [
+      1.37,
+      11.08
+     ]
+    },
+    "r4": {
+     "bb": 3.27,
+     "ci": [
+      -1.73,
+      8.26
+     ]
+    },
+    "r5": {
+     "bb": 4.04,
+     "ci": [
+      -0.97,
+      9.05
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "KK",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r4",
+   "gain_bb": 5.95,
+   "gain_ci": [
+    3.35,
+    8.55
+   ],
+   "gain_low_bb": 0.97,
+   "row": {
+    "f": 0.0,
+    "c": 0.071,
+    "r25": 0.149,
+    "r": 0.157,
+    "r35": 0.297,
+    "r4": 0.104,
+    "r5": 0.076,
+    "a": 0.146
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 5.17,
+     "ci": [
+      0.29,
+      10.05
+     ]
+    },
+    "r": {
+     "bb": 8.67,
+     "ci": [
+      3.61,
+      13.72
+     ]
+    },
+    "r35": {
+     "bb": 7.88,
+     "ci": [
+      2.97,
+      12.79
+     ]
+    },
+    "r4": {
+     "bb": 10.95,
+     "ci": [
+      5.95,
+      15.95
+     ]
+    },
+    "r5": {
+     "bb": 9.54,
+     "ci": [
+      4.46,
+      14.62
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 4,
+   "pos": "SB",
+   "group": "QQ",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r4",
+   "gain_bb": 5.19,
+   "gain_ci": [
+    2.75,
+    7.63
+   ],
+   "gain_low_bb": 0.52,
+   "row": {
+    "f": 0.0,
+    "c": 0.074,
+    "r25": 0.153,
+    "r": 0.151,
+    "r35": 0.302,
+    "r4": 0.105,
+    "r5": 0.075,
+    "a": 0.14
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 3.0,
+     "ci": [
+      -1.9,
+      7.9
+     ]
+    },
+    "r": {
+     "bb": 5.54,
+     "ci": [
+      0.62,
+      10.45
+     ]
+    },
+    "r35": {
+     "bb": 5.52,
+     "ci": [
+      0.45,
+      10.59
+     ]
+    },
+    "r4": {
+     "bb": 9.33,
+     "ci": [
+      4.24,
+      14.43
+     ]
+    },
+    "r5": {
+     "bb": 7.6,
+     "ci": [
+      2.51,
+      12.69
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AA",
+   "deals": 300,
+   "stage": "screen",
+   "best": "a",
+   "gain_bb": 13.72,
+   "gain_ci": [
+    8.38,
+    19.07
+   ],
+   "gain_low_bb": 3.02,
+   "row": {
+    "f": 0.125,
+    "c": 0.125,
+    "r25": 0.125,
+    "r": 0.125,
+    "r35": 0.125,
+    "r4": 0.125,
+    "r5": 0.125,
+    "a": 0.125
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 2.63,
+     "ci": [
+      -4.78,
+      10.04
+     ]
+    },
+    "r": {
+     "bb": -2.92,
+     "ci": [
+      -9.85,
+      4.02
+     ]
+    },
+    "r35": {
+     "bb": -3.17,
+     "ci": [
+      -10.23,
+      3.9
+     ]
+    },
+    "r4": {
+     "bb": -2.42,
+     "ci": [
+      -9.3,
+      4.47
+     ]
+    },
+    "r5": {
+     "bb": 0.6,
+     "ci": [
+      -6.69,
+      7.89
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "KK",
+   "deals": 300,
+   "stage": "screen",
+   "best": "c",
+   "gain_bb": 11.87,
+   "gain_ci": [
+    6.63,
+    17.11
+   ],
+   "gain_low_bb": 1.38,
+   "row": {
+    "f": 0.125,
+    "c": 0.125,
+    "r25": 0.125,
+    "r": 0.125,
+    "r35": 0.125,
+    "r4": 0.125,
+    "r5": 0.125,
+    "a": 0.125
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": -10.39,
+     "ci": [
+      -17.61,
+      -3.17
+     ]
+    },
+    "r": {
+     "bb": -11.54,
+     "ci": [
+      -18.62,
+      -4.46
+     ]
+    },
+    "r35": {
+     "bb": -12.18,
+     "ci": [
+      -19.28,
+      -5.08
+     ]
+    },
+    "r4": {
+     "bb": -11.4,
+     "ci": [
+      -18.47,
+      -4.34
+     ]
+    },
+    "r5": {
+     "bb": -8.46,
+     "ci": [
+      -15.57,
+      -1.35
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "QQ",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "a",
+   "gain_bb": 7.4,
+   "gain_ci": [
+    4.57,
+    10.23
+   ],
+   "gain_low_bb": 1.97,
+   "row": {
+    "f": 0.125,
+    "c": 0.125,
+    "r25": 0.125,
+    "r": 0.125,
+    "r35": 0.125,
+    "r4": 0.125,
+    "r5": 0.125,
+    "a": 0.125
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 1.76,
+     "ci": [
+      -2.08,
+      5.61
+     ]
+    },
+    "r": {
+     "bb": 0.48,
+     "ci": [
+      -3.33,
+      4.3
+     ]
+    },
+    "r35": {
+     "bb": 0.27,
+     "ci": [
+      -3.56,
+      4.1
+     ]
+    },
+    "r4": {
+     "bb": 0.11,
+     "ci": [
+      -3.71,
+      3.93
+     ]
+    },
+    "r5": {
+     "bb": -0.17,
+     "ci": [
+      -4.07,
+      3.74
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "JJ",
+   "deals": 300,
+   "stage": "screen",
+   "best": "r25",
+   "gain_bb": 8.94,
+   "gain_ci": [
+    4.64,
+    13.24
+   ],
+   "gain_low_bb": 0.32,
+   "row": {
+    "f": 0.125,
+    "c": 0.125,
+    "r25": 0.125,
+    "r": 0.125,
+    "r35": 0.125,
+    "r4": 0.125,
+    "r5": 0.125,
+    "a": 0.125
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 2.16,
+     "ci": [
+      -5.08,
+      9.4
+     ]
+    },
+    "r": {
+     "bb": -7.35,
+     "ci": [
+      -14.29,
+      -0.41
+     ]
+    },
+    "r35": {
+     "bb": -7.82,
+     "ci": [
+      -14.67,
+      -0.97
+     ]
+    },
+    "r4": {
+     "bb": -7.12,
+     "ci": [
+      -13.91,
+      -0.32
+     ]
+    },
+    "r5": {
+     "bb": -5.22,
+     "ci": [
+      -12.11,
+      1.66
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AKo",
+   "deals": 300,
+   "stage": "screen",
+   "best": "a",
+   "gain_bb": 12.18,
+   "gain_ci": [
+    6.79,
+    17.57
+   ],
+   "gain_low_bb": 1.38,
+   "row": {
+    "f": 0.125,
+    "c": 0.125,
+    "r25": 0.125,
+    "r": 0.125,
+    "r35": 0.125,
+    "r4": 0.125,
+    "r5": 0.125,
+    "a": 0.125
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": -0.46,
+     "ci": [
+      -7.37,
+      6.45
+     ]
+    },
+    "r": {
+     "bb": -3.95,
+     "ci": [
+      -10.56,
+      2.67
+     ]
+    },
+    "r35": {
+     "bb": -4.65,
+     "ci": [
+      -11.37,
+      2.06
+     ]
+    },
+    "r4": {
+     "bb": -6.59,
+     "ci": [
+      -13.43,
+      0.25
+     ]
+    },
+    "r5": {
+     "bb": -4.01,
+     "ci": [
+      -11.07,
+      3.04
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "AQo",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "a",
+   "gain_bb": 7.7,
+   "gain_ci": [
+    4.79,
+    10.61
+   ],
+   "gain_low_bb": 2.12,
+   "row": {
+    "f": 0.125,
+    "c": 0.125,
+    "r25": 0.125,
+    "r": 0.125,
+    "r35": 0.125,
+    "r4": 0.125,
+    "r5": 0.125,
+    "a": 0.125
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 0.09,
+     "ci": [
+      -3.86,
+      4.03
+     ]
+    },
+    "r": {
+     "bb": -0.85,
+     "ci": [
+      -4.79,
+      3.1
+     ]
+    },
+    "r35": {
+     "bb": -1.05,
+     "ci": [
+      -5.01,
+      2.91
+     ]
+    },
+    "r4": {
+     "bb": -0.06,
+     "ci": [
+      -4.11,
+      3.98
+     ]
+    },
+    "r5": {
+     "bb": -0.55,
+     "ci": [
+      -4.57,
+      3.47
+     ]
+    }
+   }
+  },
+  {
+   "spot": "vs_open",
+   "seat": 5,
+   "pos": "BB",
+   "group": "KQs",
+   "deals": 1000,
+   "stage": "confirm",
+   "best": "r25",
+   "gain_bb": 5.45,
+   "gain_ci": [
+    2.93,
+    7.97
+   ],
+   "gain_low_bb": 0.62,
+   "row": {
+    "f": 0.125,
+    "c": 0.125,
+    "r25": 0.125,
+    "r": 0.125,
+    "r35": 0.125,
+    "r4": 0.125,
+    "r5": 0.125,
+    "a": 0.125
+   },
+   "open_minus_limp": {
+    "r25": {
+     "bb": 5.34,
+     "ci": [
+      1.26,
+      9.41
+     ]
+    },
+    "r": {
+     "bb": 1.05,
+     "ci": [
+      -2.93,
+      5.02
+     ]
+    },
+    "r35": {
+     "bb": 1.01,
+     "ci": [
+      -3.03,
+      5.04
+     ]
+    },
+    "r4": {
+     "bb": 1.15,
+     "ci": [
+      -2.87,
+      5.18
+     ]
+    },
+    "r5": {
+     "bb": 0.46,
+     "ci": [
+      -3.55,
+      4.47
+     ]
+    }
+   }
+  }
+ ]
+}
