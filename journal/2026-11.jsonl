@@ -1410,3 +1410,4 @@
 {"ts":"2026-11-14T00:42:38Z","role":"reviewer","outcome":"merged","issue":853,"pr":859,"notes":"2차 리뷰: 손자 프로세스 경합 수정 확인, CI 전부 success, squash 머지 3f468af1","friction":"gates (tests) 잡 로그는 blob 호스트라 받지 못해 통과 수치(passed 개수)를 확인할 수 없었다"}
 {"ts":"2026-11-14T00:43:18Z","role":"planner","outcome":"planned","issue":855,"pr":859,"notes":"PR #859 머지 → #853 라벨 정리; #855 blocked→ready P1(선행 완료); ready 3개(#855·#857·#858), STATE 갱신","friction":""}
 {"ts":"2026-11-14T01:11:39Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer's)","friction":""}
+{"ts":"2026-11-14T01:24:49Z","role":"builder-b","outcome":"pr_opened","issue":857,"pr":861,"notes":"ADR 0026 토너먼트 보상 ICM+λ 보정·CI 선택 절차 (docs-only)","friction":"gates quick 로컬 123초, full 미실행(docs-only, CI에 위임); pytest 미설치로 pip install 선행 필요"}
