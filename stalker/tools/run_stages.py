@@ -8,6 +8,7 @@ import argparse
 import collections
 import json
 import os
+import pathlib
 import resource
 import signal
 import subprocess
@@ -67,6 +68,8 @@ def run_stage(command: str, tail: collections.deque, remaining_s: float | None =
 
 
 def run(stages: list[tuple[str, str]], out: str, deadline_s: float | None = None) -> int:
+    # The pod's result dir may not exist yet; without it a failing stage's report itself would crash (#864).
+    pathlib.Path(out).parent.mkdir(parents=True, exist_ok=True)
     done: list[str] = []
     stage_elapsed: dict[str, float] = {}
     t0 = time.monotonic()
