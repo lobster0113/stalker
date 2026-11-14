@@ -91,7 +91,7 @@ run #475 found the exact seat set multiplied the keys most and the field got wor
 replaced by the button-relative position name and the player count (`BTN|n6`, `C1_POSITIONS`: 2-6 players use the
 short-table names, heads-up `BTN`/`BB`, #486; other counts `game.position_names`), and the
 environment slots #384/#385 continue from are reserved now: `t<stage><ante>` (stage `c` cash, `e` early, `b` bubble,
-`m` in the money, `f` final table; ante `0`/`1`), read from `using_env` (default cash, no ante). In a 6-max cash deal
+`m` in the money, `f` final table; ante `0`/`1`), read from `using_env` (default cash, no ante) or, for the ante, from the deal itself (`State.ante > 0`, #878). In a 6-max cash deal
 `n6` and `tc0` are constant and the position name is a one-to-one rename of the seat, so the reserved slots add no
 keys there. D/E deals reach other values of these slots, so their keys never meet C's regrets (ADR 0019 §3.2).
 b2 is left out (#472: indistinguishable at 2x10^4 iterations, re-measured in #479); adding it later is a new
@@ -337,9 +337,10 @@ def using_env(stage: str = "c", ante: bool = False):
         _ACTIVE["env"] = old
 
 
-def env_field() -> str:
+def env_field(s: G.State | None = None) -> str:
+    """A deal that carries a BB ante (`game.deal(ante=...)`, #878) reads ante 1 whatever `using_env` says."""
     stage, ante = _ACTIVE["env"]
-    return f"t{stage}{int(ante)}"
+    return f"t{stage}{int(ante or (s is not None and s.ante > 0))}"
 
 
 @contextmanager
@@ -624,7 +625,7 @@ def public_key(s: G.State, seat: int, depth: str = "full", variant: str | None =
     st = f"{stack_field(s, seat, variant)}|" if stacks else ""
     c1 = variant == "c1"
     if c1:
-        st = f"{env_field()}|{st}"
+        st = f"{env_field(s)}|{st}"
     if variant in FACT_VARIANTS:
         st += public_facts(s, seat, depth, counts=c1) + "|"
     if depth == "basic":

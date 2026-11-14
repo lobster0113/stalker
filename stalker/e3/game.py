@@ -106,6 +106,7 @@ class State(NamedTuple):
     menu: str = "v1"
     raise_cap: int | None = RAISE_CAP
     short_raise: int = 0                  # chips of short all-in raises since the last full raise (they add up, TDA)
+    ante: int = 0                         # chips the big blind paid as BB ante: dead money in `total`, not in `bet` (#878)
 
     @property
     def pot(self) -> int:
@@ -149,24 +150,37 @@ def sample_stacks(rng: np.random.Generator, n: int, equal_p: float = 0.5) -> tup
 
 
 def deal(rng: np.random.Generator, n: int = 6, menu: str | None = None, raise_cap=_UNSET,
-         stacks: tuple[int, ...] | None = None) -> State:
+         stacks: tuple[int, ...] | None = None, ante: int = 0) -> State:
     """`stacks`: each seat's starting stack before the blinds (default STACK for all, one rng draw order
-    unchanged so seeded results do not move)."""
+    unchanged so seeded results do not move).
+    `ante` (#878, chips, default 0 = no ante, the cash game): the big blind posts it for the whole table on top
+    of its blind. It is dead money: in the pot, but not in `bet`, so `to_call` and minimum raises ignore it.
+    A big blind that cannot afford both pays the ante first and the blind with what is left (PokerKit does the
+    same); `State.ante` holds what it actually paid."""
     if not 2 <= n <= 9:
         raise ValueError(f"n={n}: E3 supports 2..9 players")
-    if stacks is not None and (len(stacks) != n or min(stacks) < 2 * BB):
-        raise ValueError(f"stacks={stacks}: need {n} starting stacks of at least {2 * BB} chips")
+    # with an ante the big blind may start with less (it pays the ante first, see below)
+    if stacks is not None and (len(stacks) != n or min(stacks[:-1] + (stacks[-1] if not ante else 2 * BB,)) < 2 * BB
+                               or stacks[-1] < 1):
+        raise ValueError(f"stacks={stacks}: need {n} starting stacks of at least {2 * BB} chips"
+                         f"{' (the big blind at least 1 with an ante)' if ante else ''}")
     menu = _DEFAULT["menu"] if menu is None else menu
     raise_cap = _DEFAULT["raise_cap"] if raise_cap is _UNSET else raise_cap
     if menu not in MENUS:
         raise ValueError(f"menu={menu!r}; known menus: {MENUS}")
     d = [int(c) for c in rng.permutation(52)]
     hole = tuple((d[2 * i], d[2 * i + 1]) for i in range(n))
+    if ante < 0:
+        raise ValueError(f"ante={ante}: chips must not be negative")
+    start = [STACK if stacks is None else stacks[i] for i in range(n)]
+    paid = min(ante, start[n - 1])
     bet = [0] * n
-    bet[n - 2], bet[n - 1] = SB, BB
-    stack = tuple((STACK if stacks is None else stacks[i]) - b for i, b in enumerate(bet))
-    return State(n=n, hole=hole, deck=tuple(d[2 * n:]), stack=stack, bet=tuple(bet), total=tuple(bet),
-                 folded=(False,) * n, acted=(False,) * n, to_act=0, menu=menu, raise_cap=raise_cap)
+    bet[n - 2], bet[n - 1] = SB, min(BB, start[n - 1] - paid)
+    total = list(bet)
+    total[n - 1] += paid
+    stack = tuple(start[i] - total[i] for i in range(n))
+    return State(n=n, hole=hole, deck=tuple(d[2 * n:]), stack=stack, bet=tuple(bet), total=tuple(total),
+                 folded=(False,) * n, acted=(False,) * n, to_act=0, menu=menu, raise_cap=raise_cap, ante=paid)
 
 
 def postflop_order(n: int) -> list[int]:
@@ -373,24 +387,28 @@ def payoff(s: State) -> np.ndarray:
         return out
     score = {i: evaluate(list(s.hole[i]) + list(s.board)) for i in live}
     order = postflop_order(s.n)
-    prev = 0
-    for level in sorted({s.total[i] for i in live}):
-        amount = sum(min(t, level) - min(t, prev) for t in s.total)
+    # Side pots are layered by what each seat put in apart from the ante; the ante is dead money that joins
+    # the main pot (first layer), as in PokerKit (a big blind that is all in for just its ante still plays for it).
+    live_total = [t - (s.ante if i == s.n - 1 else 0) for i, t in enumerate(s.total)]
+    prev, dead = 0, s.ante
+    for level in sorted({live_total[i] for i in live}):
+        amount = sum(min(t, level) - min(t, prev) for t in live_total) + dead
+        dead = 0
         prev = level
-        seats = [i for i in live if s.total[i] >= level]
+        seats = [i for i in live if live_total[i] >= level]
         best = max(score[i] for i in seats)
         winners = [i for i in order if i in seats and score[i] == best]
         share, odd = divmod(amount, len(winners))
         for i in winners:
             out[i] += share
         out[winners[0]] += odd  # all odd chips to the first winner (TDA, as referee/gate_r/settlement.py; #203)
-    out += np.maximum(np.array(s.total, dtype=np.int64) - prev, 0)   # a bet above every live stack is returned
+    out += np.maximum(np.array(live_total, dtype=np.int64) - prev, 0)   # a bet above every live stack is returned
     return out
 
 
 def random_playout(rng: np.random.Generator, n: int = 6, menu: str | None = None,
-                   raise_cap=_UNSET, stacks: tuple[int, ...] | None = None) -> State:
-    s = deal(rng, n, menu, raise_cap, stacks)
+                   raise_cap=_UNSET, stacks: tuple[int, ...] | None = None, ante: int = 0) -> State:
+    s = deal(rng, n, menu, raise_cap, stacks, ante)
     while not s.done:
         acts = legal(s)
         s = apply(s, acts[int(rng.integers(len(acts)))])

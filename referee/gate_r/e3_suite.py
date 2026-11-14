@@ -20,6 +20,8 @@ on stacks set with `State._replace` (#412) for the betting rules equal stacks ne
 that does not reopen the betting, a minimum raise after an all in, a non-all-in 5-bet and raises to
 80-99% of the stack entered as real sizes (`apply_to`; the training menu does not offer them). `e3_result`
 covers side pots (PokerKit settles them) and is checked on every line.
+BB-ante hands (#878): a quarter as many again are dealt with `ante=BB` (equal and unequal stacks) and the
+edge cases include a short big blind that pays the ante first; PokerKit posts the same ante (no trimming).
 Seat mapping: E3 numbers seats in preflop order (0 = UTG ... n-2 = SB, n-1 = BB); PokerKit numbers
 them from the small blind (heads-up from the big blind).
 """
@@ -66,8 +68,9 @@ def _deal_boards(st, board: list[int], dealt: int) -> int:
     return dealt
 
 
-def replay_hand(rng: np.random.Generator, n: int, tally: Tally, where: str, unequal: bool = False) -> None:
-    s = G.deal(rng, n, stacks=G.sample_stacks(rng, n, equal_p=0.0) if unequal else None)
+def replay_hand(rng: np.random.Generator, n: int, tally: Tally, where: str, unequal: bool = False,
+                ante: int = 0) -> None:
+    s = G.deal(rng, n, stacks=G.sample_stacks(rng, n, equal_p=0.0) if unequal else None, ante=ante)
     _quiet(_replay, s, lambda s: G.apply(s, _pick(rng, G.legal(s))), tally, where)
 
 
@@ -93,8 +96,10 @@ def _replay(s: G.State, step_fn, tally: Tally, where: str) -> None:
     board = list(s.deck[:5])
     pk = pk_index(n)
     seat_of = {v: p for p, v in enumerate(pk)}
-    start = [s.stack[q] + s.bet[q] for q in range(n)]
-    st = NoLimitTexasHoldem.create_state(AUTO, True, 0, (G.SB, G.BB), G.BB,
+    start = [s.stack[q] + s.total[q] for q in range(n)]   # the deal's total = blind + BB ante
+    antes = [0] * n
+    antes[1] = s.ante   # PokerKit lists antes in blind order (SB first), so the big blind is 1 even heads-up
+    st = NoLimitTexasHoldem.create_state(AUTO, s.ante == 0, antes, (G.SB, G.BB), G.BB,
                                          tuple(start[seat_of[i]] for i in range(n)), n)
     for rnd in range(2):
         for i in range(n):
@@ -154,18 +159,27 @@ EDGE_CASES = (
     # raise_cap=None merges raises to >= 80% of the stack into the all in; a person may still make them.
     {"name": "raise to 80% of the stack", "menu": "real", "raise_cap": None,
      "line": ["r", "f", "c", "b33", ("room", 0.8), "c"]},
+    # BB ante (#878): the big blind pays 100 more; callers still owe 100, the ante is dead money in the main pot.
+    {"name": "BB ante, limp and check down", "ante": 100, "line": ["c", "c"]},
+    {"name": "BB ante, big blind folds to a raise", "ante": 100, "n": 4, "line": [("to", 300), "f", "f", "f"]},
+    # A 150 big blind pays the ante first, then a 50 blind; an 80 one is all in for part of its ante.
+    {"name": "BB ante, short big blind pays ante first", "ante": 100, "short": {2: 150}, "line": ["c", "c"]},
+    {"name": "BB ante, big blind all in for part of the ante", "ante": 100, "short": {2: 80}, "line": ["c", "c"]},
+    {"name": "BB ante, side pot over a short big blind", "ante": 100, "short": {2: 300},
+     "line": [("to", 600), "c", "c"]},
     {"name": "raise to 99% of the stack", "menu": "real", "raise_cap": None,
      "line": ["r", "f", "c", "b33", ("room", 0.99), "a", "c"]},
 )
 
 
 def edge_state(case: dict, seed: int = 412) -> G.State:
-    s = G.deal(np.random.default_rng(seed), case.get("n", 3), case.get("menu", "v1"),
-               case.get("raise_cap", G.RAISE_CAP))
-    stack = list(s.stack)
+    rng = np.random.default_rng(seed)
+    n = case.get("n", 3)
+    stacks = [G.STACK] * n
     for q, chips in case.get("short", {}).items():
-        stack[q] = chips - s.bet[q]
-    return s._replace(stack=tuple(stack))
+        stacks[q] = chips   # dealt, not patched in, so a short big blind pays its BB ante first (#878)
+    return G.deal(rng, n, case.get("menu", "v1"), case.get("raise_cap", G.RAISE_CAP), tuple(stacks),
+                  ante=case.get("ante", 0))
 
 
 def edge_step(s: G.State, step) -> G.State:
@@ -201,6 +215,9 @@ def run_e3_suite(hands: int = QUICK_HANDS, seats=SEATS, seed: int = 203) -> Tall
         rng = np.random.default_rng([seed, n, 396])   # seat-specific 20-250BB stacks: side pots (#396)
         for h in range(hands_n):
             replay_hand(rng, n, tally, f"{n}-max unequal-stack hand {h}", unequal=True)
+        rng = np.random.default_rng([seed, n, 878])   # BB ante on a quarter of the hands, equal and unequal stacks (#878)
+        for h in range(max(1, hands_n // 4)):
+            replay_hand(rng, n, tally, f"{n}-max BB-ante hand {h}", unequal=h % 2 == 1, ante=G.BB)
     return run_edge_cases(tally)
 
 
