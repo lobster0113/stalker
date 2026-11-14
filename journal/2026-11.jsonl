@@ -1499,3 +1499,4 @@
 {"ts":"2026-11-14T19:58:35Z","role":"builder-b","outcome":"pr_opened","issue":877,"pr":884,"notes":"λ 격자 잡을 random·tag 별도 pod로 분리(1회차), gates full PASS; 2회차는 머지 뒤","friction":"gates full 로컬 ~35분 (a) 반복"}
 {"ts":"2026-11-14T19:58:55Z","role":"reviewer","outcome":"skipped","issue":877,"pr":884,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T20:41:18Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PR #599 already has VERDICT CHANGES at head d723a9c; #884 is even (reviewer-b)","friction":""}
+{"ts":"2026-11-14T20:41:49Z","role":"builder","outcome":"pr_opened","issue":883,"pr":885,"notes":"E3MCCFR payoff=icm (tournament_payoff, 핸드별 캐시), 체크포인트 v9, CLI, 병렬 workers>1 icm 거부; chip 비트 동일 해시 테스트; gates full 로컬 PASS","friction":"gates full 로컬 약 30분(tests 1426s) — 9분씩 포그라운드 대기 4회 반복"}
