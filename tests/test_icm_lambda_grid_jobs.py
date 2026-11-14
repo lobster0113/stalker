@@ -34,9 +34,12 @@ def test_job_runs_one_agent_with_deadline_before_the_pod_limit(name, agents):
     assert job.hourly_usd * job.max_minutes / 60 <= 1.5
     stages = [args[i + 1] for i, a in enumerate(args) if a == "--stage"]
     names = [s.split("=", 1)[0] for s in stages]
-    assert names == ["start", name, "done", "pair"], "Keep timing marks around the measurement stage."
-    grid = stages[1]
+    assert names == [name, "pair"]
+    assert job.command.index("date -u +%s > /src/t0") < job.command.index("pip install"), "Record t0 before install."
+    grid = stages[0].split(">&2; ", 1)
+    assert "t0=$(cat /src/t0)" in grid[0] and "stage_start=" in grid[0], "Mark install time inside the measurement stage."
+    grid = grid[1]
     assert f"--agents {agents} " in grid and "--lambda-grid" in grid and "--seed 0" in grid
-    assert stages[3].endswith(f"{name}={'/src/' + name + '.json'}")
+    assert stages[1].endswith(f"{name}={'/src/' + name + '.json'}")
     assert job.result_path == f"/result/icm-lambda-grid-{name}.json"
     assert args[args.index("--out") + 1] == job.result_path
