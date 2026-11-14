@@ -1489,3 +1489,4 @@
 {"ts":"2026-11-14T17:11:10Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd parity, reviewer's)","friction":""}
 {"ts":"2026-11-14T17:41:38Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES for head d723a9c; no new commits since 11-06","friction":""}
 {"ts":"2026-11-14T18:09:02Z","role":"builder-b","outcome":"pr_opened","issue":878,"pr":881,"notes":"E3 BB ante option + Gate R ante replay; gates full pass locally","friction":"gates full takes ~30min; the 10-min command limit forces a background run plus foreground wait loops"}
+{"ts":"2026-11-14T18:09:28Z","role":"reviewer-b","outcome":"skipped","issue":878,"pr":881,"notes":"not my parity","friction":""}
