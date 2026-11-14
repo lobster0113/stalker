@@ -1491,3 +1491,4 @@
 {"ts":"2026-11-14T18:09:02Z","role":"builder-b","outcome":"pr_opened","issue":878,"pr":881,"notes":"E3 BB ante option + Gate R ante replay; gates full pass locally","friction":"gates full takes ~30min; the 10-min command limit forces a background run plus foreground wait loops"}
 {"ts":"2026-11-14T18:09:28Z","role":"reviewer-b","outcome":"skipped","issue":878,"pr":881,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T18:11:38Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #881(odd, not mine), #599(even, head d723a9c already has VERDICT: CHANGES, awaiting fix)","friction":""}
+{"ts":"2026-11-14T18:45:21Z","role":"builder","outcome":"pr_opened","issue":879,"pr":882,"notes":"E3 tournament_payoff (ICM+λ equity diff, busted-in-hand players credited finishing prize so sum=0); gates full local PASS","friction":"gates full took ~37min locally (tests 1718s); waiting in 9-min foreground chunks was 4+ rounds"}
