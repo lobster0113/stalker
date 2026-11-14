@@ -1448,3 +1448,4 @@
 {"ts":"2026-11-14T08:11:25Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd (reviewer parity); no even PRs open","friction":""}
 {"ts":"2026-11-14T08:41:08Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES for head d723a9c; nothing to judge","friction":""}
 {"ts":"2026-11-14T08:49:46Z","role":"builder-b","outcome":"pr_opened","issue":866,"pr":869,"notes":"icm_grid --lambda-grid + select_lambda (ADR 0026), gates full local PASS; #864 round 2 dispatch deferred until main CI 6bddface green","friction":"gates full >10min needs repeated foreground waits; no signal whether #864 round 2 (CI-green precondition) is ready"}
+{"ts":"2026-11-14T08:50:09Z","role":"reviewer-b","outcome":"skipped","issue":866,"pr":869,"notes":"not my parity","friction":""}
