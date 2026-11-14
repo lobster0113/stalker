@@ -71,7 +71,12 @@ def test_deadline_stops_running_stage_and_its_grandchildren(tmp_path):
     assert code == 0 and doc["exit"] == "timeout" and doc["stage"] == "slow" and doc["deadline_s"] == 2
     assert doc["stages_done"] == ["quick"] and set(doc["stage_elapsed_s"]) == {"quick", "slow"}
     assert not marker.exists()
-    assert not _alive(int(pidfile.read_text(encoding="utf-8")))
+    # A killed process closes its pipes (ending the stage) before the kernel marks it dead, so allow a moment.
+    pid = int(pidfile.read_text(encoding="utf-8"))
+    end = time.monotonic() + 3
+    while _alive(pid) and time.monotonic() < end:
+        time.sleep(0.05)
+    assert not _alive(pid)
 
 
 def test_rejects_non_positive_deadline(tmp_path):
