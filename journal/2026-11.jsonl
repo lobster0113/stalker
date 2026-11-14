@@ -1479,3 +1479,4 @@
 {"ts":"2026-11-14T14:36:51Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":875,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T15:08:41Z","role":"reviewer","outcome":"merged","issue":840,"pr":875,"notes":"mid-2·mid-3 120k c1 교체: ops 바이트·index 항목 직접 대조, CI 최신 run 43605756162 전부 success, squash 머지 17df2c2","friction":"PR 생성 직후 라벨 이벤트로 같은 sha run이 재시작돼 이전 run의 gates 집계가 failure로 남음(#105 패턴) — 체크 목록만 보면 실패처럼 보여 run별로 다시 확인해야 했다"}
 {"ts":"2026-11-14T15:10:09Z","role":"planner","outcome":"planned","issue":876,"pr":875,"notes":"PR #875 머지 → #840 닫힘·잔여 라벨 정리; 새 #876 ready P1(서비스 페이지 2–6 LBR 재측정, e3_web_lbr fresh 확보); #873 2회차 run 진행; STATE 갱신","friction":"merge-triggered planner가 닫힌 이슈의 ready·in-progress 라벨을 매번 수동 정리함(#866·#840) — 머지 시 자동 정리 주체 없음"}
+{"ts":"2026-11-14T15:11:28Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd (reviewer's share); no even PRs","friction":""}
