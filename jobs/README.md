@@ -37,7 +37,7 @@
 - `web-policy-lbr-pages-evalnoise8.yaml`(#762): `web-policy-lbr-pages-evalnoise-both.yaml`과 같되 `--seeds 8`(평가 시드 10001–10008)이라 #756의 시드 4개 sd·최소 k를 시드 8개로 다시 잰다. 결과 파일 이름만 다르다. 최악 $3.00.
 
 ## 웹 정책 누수 잡 (`web-policy-leaks-mid6-c1.yaml`, #836)
-- 120k c1 mid-6 정책(`ops:cloud/policies/42591543123/mid-6.json`, public raw URL로 받음)에 프리플랍 프로브 screen(300딜, 시드 0)과 `policy_leaks` 확인 단계(1000딜, 시드 7)를 32워커로 돌려 `stalker.web.policy-leaks` 파일을 만든다(#824가 `web/app/policy/mid-6.leaks.json`으로 옮긴다). 최악 $3.00(`max_minutes: 150`). 결과: `ops:cloud/results/<run id>.json`.
+- 120k c1 mid-6 정책(`ops:cloud/policies/42591543123/mid-6.json`, public raw URL로 받음)에 프리플랍 프로브 screen(300딜, 시드 0)과 `policy_leaks` 확인 단계(1000딜, 시드 7)를 32워커로 돌려 `stalker.web.policy-leaks` 파일을 만든다(#824가 `web/app/policy/mid-6.leaks.json`으로 옮긴다). 최악 $3.00(`max_minutes: 150`). `run_stages --deadline-s 8100`(#855, #841 2회차 파드 상한 timeout 뒤)으로 상한 전에 단계별 시간이 담긴 실패 결과를 남긴다. 결과: `ops:cloud/results/<run id>.json`.
 
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
@@ -47,7 +47,7 @@
 - 상태: `completed`(회수 성공), `failed`(명령 종료 코드 ≠ 0, 회수 안 함), `no_result`(결과 파일 없음 또는 회수 전에 파드가 스스로 종료), `result_rejected`(검사 실패, 저장 안 함), `timeout`. `completed` 외에는 실행이 실패로 끝난다.
 - 단계 실행기(`python -m stalker.tools.run_stages --out <result_path> --stage 이름=명령 ...`, #841): 단계가 실패하면 뒤 단계를 건너뛰고 결과를 `stalker.cloud.stage-failure`(v2: `stage`·`exit`·`elapsed_s`·`stages_done`·`stage_elapsed_s`·`deadline_s`·`stderr_tail`·`max_rss_kb`)로 쓰고 종료 코드 0으로 끝나 `completed`로 회수된다 → 결과 소비자는 `schema`를 먼저 확인한다.
   - 마감(`--deadline-s <초>`, #853): 시작부터 잰 전체 마감. 넘으면 실행 중 단계의 프로세스 그룹 전체(Pool 워커 포함)를 SIGTERM, 10초 뒤 SIGKILL로 끊고 `exit: "timeout"`으로 같은 실패 JSON을 쓴다. 파드 상한에 잘리면 결과가 회수되지 않으므로 `max_minutes*60 - 900`(설치 여유)을 권장한다. 성공한 단계는 stderr에 `[run_stages] stage <이름> done in <초>s`를 남긴다.
-- 적용된 잡: web-policy-leaks-mid6-c1, web-policy-lbr-pages* (pages·evalnoise·evalnoise8·evalnoise-both, #847), web-policy-lbr-mid* (mid·mid-s3·mid-s4long, #851; 셸 변수는 `export`).
+- 적용된 잡: web-policy-leaks-mid6-c1(`--deadline-s 8100`, #855), web-policy-lbr-pages* (pages·evalnoise·evalnoise8·evalnoise-both, #847), web-policy-lbr-mid* (mid·mid-s3·mid-s4long, #851; 셸 변수는 `export`).
 - 큰 체크포인트는 상한 안의 요약·정책 JSON으로 줄이거나, 재개 가능한 조각으로 나눈다.
 - CI 학습 잡(`stalker/train_jobs.py`)의 표 파일은 gzip이다(#560): `<잡>-seed<시드>.policy.json.gz`·`.ckpt.json.gz`. 시드당 256MiB 한도(`ARTIFACT_MAX_BYTES`)와 `_drop_tables`는 압축 뒤 바이트로 판단한다. resume과 `export_web_policy`·`preflop_rows`·`pod_train --resume`은 `.json.gz`와 이전의 평문 `.json`을 모두 읽는다(`stalker/jsonio.py`).
 

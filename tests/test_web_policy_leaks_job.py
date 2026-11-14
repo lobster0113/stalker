@@ -48,7 +48,7 @@ def test_job_probes_the_c1_policy_then_writes_the_leaks_file():
     assert pos == ["/src/mid-6.json"]
     assert probe["--deals"] == "300" and probe["--seed"] == "0" and probe["--workers"] == "32"
     _, leaks = _flags(stages["confirm"], "stalker.tools.policy_leaks")
-    assert leaks["--workers"] == "16"
+    assert leaks["--workers"] == "32"          # one Pool after #854, so all 32 vCPUs (#855)
     assert leaks["--tier"] == "mid" and leaks["--policy"] == "/src/mid-6.json"
     assert leaks["--screen"] == probe["--json"]
     assert "--save-confirm" in leaks            # the confirmation stage runs on the pod
@@ -57,6 +57,15 @@ def test_job_probes_the_c1_policy_then_writes_the_leaks_file():
     assert "--deals 300 --seed 0" in leaks["--command"]
     # the steps run in order: download, then the staged probe and leaks
     assert cmd.index(POLICY_URL) < cmd.index("run_stages") < cmd.index("referee.e3.preflop_probe") < cmd.index("stalker.tools.policy_leaks")
+
+
+def test_job_stages_end_before_the_pod_limit():
+    # #855: run_stages must hit its own deadline (and write stage-failure with timings) before the pod is cut off
+    job = _spec()
+    run = _flags(job.command, "stalker.tools.run_stages")[1]
+    assert "--deadline-s" in run, "add --deadline-s to run_stages so a timeout still returns a result (#841)"
+    deadline = float(run["--deadline-s"])
+    assert 0 < deadline <= job.max_minutes * 60 - 600, f"--deadline-s {deadline} leaves < 600 s before the pod limit"
 
 
 def test_job_worst_case_cost():
