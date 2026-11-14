@@ -25,7 +25,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
+from multiprocessing import Pool
 from pathlib import Path
+
+import numpy as np
 
 from referee.e3 import preflop_probe as P
 
@@ -54,12 +58,43 @@ def candidates(screen: dict) -> list[dict]:
 
 
 def confirm(table: dict, screen: dict, deals: int = CONFIRM_DEALS, seed: int = CONFIRM_SEED, workers: int = 1) -> dict:
-    """Re-probe the candidates (one probe call per cell, each with its own seed) and flag them as one family."""
+    """Re-probe the candidates and flag them as one family. All candidates' chunks go through one Pool (a
+    Pool per cell reloaded the policy table per worker and left most workers idle, #854). Chunk seeds are
+    those of a single-cell `P.probe(..., seed * 100_000 + i)` call, so the result is bit-identical to it."""
     pos = POSITIONS[screen["players"]]
+    cands = candidates(screen)
+    jobs, owner = [], []
+    for i, c in enumerate(cands):
+        seat = pos.index(c["seat"])
+        for j, start in enumerate(range(0, deals, P.CHUNK)):
+            ss = np.random.SeedSequence([seed * 100_000 + i, 0, seat, 0, j])
+            jobs.append((c["spot"], seat, c["group"], min(P.CHUNK, deals - start), ss))
+            owner.append(i)
+    print(f"[confirm] candidates {len(cands)}, jobs {len(jobs)}", file=sys.stderr, flush=True)
+    t0 = time.monotonic()
+    res = [([], 0) for _ in cands]
+    done = [0] * len(cands)
+    need = [owner.count(i) for i in range(len(cands))]
     cells = []
-    for i, c in enumerate(candidates(screen)):
-        r = P.probe(table, deals, seed * 100_000 + i, (c["spot"],), [pos.index(c["seat"])], (c["group"],), workers)
-        cells += r["cells"]
+
+    def take(k, part):
+        i = owner[k]
+        res[i] = (res[i][0] + part[0], res[i][1] + part[1])
+        done[i] += 1
+        if done[i] == need[i]:
+            c = cands[i]
+            cells.append(P.summarize(c["spot"], pos.index(c["seat"]), c["group"], *res[i], screen["players"]))
+            print(f"[confirm] {len(cells)}/{len(cands)} {c['spot']} {c['seat']} {c['group']} "
+                  f"{time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)
+
+    if workers > 1 and jobs:
+        with Pool(workers, initializer=P._init, initargs=(table,)) as p:
+            for k, part in enumerate(p.imap(P._task, jobs)):
+                take(k, part)
+    else:
+        P._init(table)
+        for k, job in enumerate(jobs):
+            take(k, P._task(job))
     z = P.flag(cells, screen["threshold_bb"])
     return {"probe": PROBE, "stage": "confirm", "deals_per_cell": deals, "seed": seed,
             "threshold_bb": screen["threshold_bb"], "alpha": P.ALPHA, "z_corrected": round(z, 3),
