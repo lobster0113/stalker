@@ -1441,3 +1441,4 @@
 {"ts":"2026-11-14T07:27:02Z","role":"reviewer","outcome":"merged","issue":864,"pr":867,"notes":"run_stages mkdir fix; CI 8 checks green, new tests fail on old code (local ref); squash-merged 5232577, #864 in-progress->ready","friction":"python env lacked pytest; CI gates (tests) took ~35min"}
 {"ts":"2026-11-14T07:27:48Z","role":"planner","outcome":"planned","issue":864,"pr":867,"notes":"PR #867 머지(#864 1회차 mkdir) → #864 ready 2회차(재디스패치); #865 in-progress(builder), #866 blocked; ready 1개(직렬 체인, 독립 후보 없음), STATE 갱신; main 5232577 CI 진행 중","friction":""}
 {"ts":"2026-11-14T07:29:27Z","role":"builder","outcome":"pr_opened","issue":865,"pr":868,"notes":"bubble_corrected_equity (ADR 0026 버블 보정 ICM) + 테스트 6종, gates full 로컬 PASS","friction":"gates full 로컬 약 24분(tests 1125s); 9분 대기 루프 3회 필요"}
+{"ts":"2026-11-14T07:29:47Z","role":"reviewer","outcome":"skipped","issue":865,"pr":868,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
