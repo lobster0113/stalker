@@ -82,3 +82,16 @@ def test_deadline_stops_running_stage_and_its_grandchildren(tmp_path):
 def test_rejects_non_positive_deadline(tmp_path):
     with pytest.raises(SystemExit):
         _run(tmp_path, "a=true", deadline=0)
+
+
+def test_out_parent_directory_is_created_for_failure(tmp_path):
+    out = tmp_path / "nodir" / "x.json"
+    code = run_stages.main(["--out", str(out), "--stage", "bad=exit 3"])
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert code == 0 and doc["schema"] == "stalker.cloud.stage-failure" and doc["exit"] == 3
+
+
+def test_out_parent_directory_is_created_for_timeout(tmp_path):
+    out = tmp_path / "nodir" / "x.json"
+    code = run_stages.main(["--out", str(out), "--deadline-s", "1", "--stage", "slow=sleep 30"])
+    assert code == 0 and json.loads(out.read_text(encoding="utf-8"))["exit"] == "timeout"
