@@ -1421,3 +1421,4 @@
 {"ts":"2026-11-14T03:08:00Z","role":"builder","outcome":"waiting_ci","issue":855,"pr":null,"notes":"#855 2회차: cloud.yml dry_run 43549757071 ok → 실 디스패치 run 43549819445 (mid-6 leaks, 최악 $3.00). 결과 대기, run id 코멘트 후 ready로 되돌림","friction":"2회차 결과 회수가 150분 잡이라 한 실행에 안 끝남 — ready로 되돌려 다음 builder에 넘겼으나 이슈 본문에 회수 단계의 라벨 처리(ready/in-progress)가 명시돼 있지 않음"}
 {"ts":"2026-11-14T03:11:50Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 is odd (reviewer's parity); no even PRs","friction":""}
 {"ts": "2026-11-14T03:23:32Z", "role": "builder-b", "outcome": "pr_opened", "issue": 858, "pr": 863, "notes": "icm_grid --level-index/--layouts + 레벨·배치 재측정 PR; #855 2회차는 main CI(f51adbb5) 녹색 대기로 보류", "friction": "MCP 대기 폴링 수단 없음(포그라운드 120초 상한, gates full 30분 폴링 15회+); 로컬 측정 33분+gates 30분이 한 실행에 빠듯"}
+{"ts":"2026-11-14T03:23:49Z","role":"reviewer-b","outcome":"skipped","issue":858,"pr":863,"notes":"not my parity","friction":""}
