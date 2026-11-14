@@ -1510,3 +1510,4 @@
 {"ts":"2026-11-14T22:07:08Z","role":"reviewer-b","outcome":"skipped","issue":883,"pr":885,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T22:11:10Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #885,#599 are odd (reviewer); no even PRs to judge","friction":""}
 {"ts":"2026-11-14T22:40:11Z","role":"builder","outcome":"changes","issue":883,"pr":885,"notes":"PR #885 CHANGES 해결: from_state가 저장된 정규화 payouts를 재정규화하지 않음 + [54,50,3] 재개 비트 동일 회귀 테스트(수정 전 실패 확인), 푸시 5f691c6; gates full 로컬 PASS","friction":"gates full 로컬 약 33분(tests 1572s) — 2줄 수정에도 9분씩 포그라운드 대기 4회 (a) 반복"}
+{"ts":"2026-11-14T22:47:00Z","role":"reviewer","outcome":"waiting_ci","issue":883,"pr":885,"notes":"head 5f691c67: CHANGES #1(icm 재개 재정규화) 수정 확인 — 새 회귀 테스트가 수정 전 코드에서 실패·수정 후 통과(로컬). gates(tests)만 40분 넘게 진행 중, 나머지 체크 success. 다음 실행이 판정","friction":"gates (tests) 잡이 40분 대기 한도를 넘겨 판정 못함(22:06 시작)"}
