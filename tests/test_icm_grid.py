@@ -103,3 +103,50 @@ def test_bad_agents_spec_exits_with_a_message(capsys):
     with pytest.raises(SystemExit) as e:
         main(["--presets", "6max_sng_topheavy", "--remaining", "2", "--games", "1", "--agents", "persona:bogus"])
     assert e.value.code == 2 and "bogus" in capsys.readouterr().err
+
+
+def test_new_options_at_defaults_keep_output_bytes_and_schema(tmp_path):
+    """#858: --level-index 0 --layouts 1 is the pre-option computation, byte for byte."""
+    a, _ = _cli(tmp_path, "plain")
+    b, _ = _cli(tmp_path, "explicit", "--level-index", "0", "--layouts", "1")
+    assert a.read_bytes() == b.read_bytes()
+    d = json.loads(a.read_bytes())
+    assert d["schema_version"] == 1 and "layouts" not in d and "level_index" not in d["cells"][0]
+
+
+def test_two_layouts_record_two_different_stack_sets_per_cell():
+    g = run_grid(["9max_sng_503020"], [4], ["skewed"], 4, 2, layouts=2)
+    assert g["schema_version"] == 2 and g["layouts"] == 2 and g["level_indexes"] == [0]
+    assert [c["layout"] for c in g["cells"]] == [0, 1]
+    s0, s1 = (c["calibrate"] for c in g["cells"])
+    assert s0["stacks"] != s1["stacks"]
+
+
+def test_level_index_cells_are_recorded_per_level_and_layout0_matches_v1_seed():
+    g = run_grid(["9max_sng_503020"], [3], ["random"], 4, 2, level_indexes=[0, 3])
+    assert [(c["level_index"], c["layout"]) for c in g["cells"]] == [(0, 0), (3, 0)]
+    v1 = run_grid(["9max_sng_503020"], [3], ["random"], 4, 2)
+    assert g["cells"][0]["calibrate"] == v1["cells"][0]["calibrate"]
+    assert g["cells"][1]["calibrate"] != g["cells"][0]["calibrate"]
+
+
+def test_dropping_a_level_or_layout_leaves_the_others_unchanged():
+    full = run_grid(["9max_sng_503020"], [3], ["skewed"], 3, 4, level_indexes=[0, 3], layouts=3)
+    part = run_grid(["9max_sng_503020"], [3], ["skewed"], 3, 4, level_indexes=[3], layouts=2)
+    by = {(c["level_index"], c["layout"]): c["calibrate"] for c in full["cells"]}
+    assert [(c["level_index"], c["layout"]) for c in part["cells"]] == [(3, 0), (3, 1)]
+    for c in part["cells"]:
+        assert c["calibrate"] == by[(c["level_index"], c["layout"])]
+
+
+def test_markdown_has_level_and_layout_columns_in_v2():
+    from stalker.tools.icm_grid import to_markdown
+    md = to_markdown(run_grid(["9max_sng_503020"], [3], ["even"], 2, 0, level_indexes=[0, 2]))
+    assert "| level | layout |" in md and md.count("\n| 9max") == 2
+
+
+def test_bad_level_index_and_layouts_exit_with_a_message(capsys):
+    for extra, word in ((["--level-index", "99"], "99"), (["--layouts", "0"], "layouts")):
+        with pytest.raises(SystemExit) as e:
+            main(["--presets", "9max_sng_503020", "--remaining", "3", "--games", "1", *extra])
+        assert e.value.code == 2 and word in capsys.readouterr().err
