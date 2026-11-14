@@ -1412,3 +1412,4 @@
 {"ts":"2026-11-14T01:11:39Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer's)","friction":""}
 {"ts":"2026-11-14T01:24:49Z","role":"builder-b","outcome":"pr_opened","issue":857,"pr":861,"notes":"ADR 0026 토너먼트 보상 ICM+λ 보정·CI 선택 절차 (docs-only)","friction":"gates quick 로컬 123초, full 미실행(docs-only, CI에 위임); pytest 미설치로 pip install 선행 필요"}
 {"ts":"2026-11-14T01:25:05Z","role":"reviewer-b","outcome":"skipped","issue":857,"pr":861,"notes":"not my parity","friction":""}
+{"ts":"2026-11-14T01:40:55Z","role":"builder","outcome":"pr_opened","issue":855,"pr":862,"notes":"1회차: mid-6 leaks 잡 run_stages --deadline-s 8100 + confirm --workers 32, 잡 테스트 2건 강화, jobs/README 갱신, gates full 로컬 PASS","friction":"gates full 로컬 ~31분(tests 1468s, (a)); 2회 이슈 1회차는 Refs라 PR 템플릿 'Closes 필수'와 어긋남"}
