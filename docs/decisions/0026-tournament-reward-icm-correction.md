@@ -55,4 +55,5 @@ E_i(s; λ) = icm_equity(s', p)_i
 ## 후속
 1. **[ai] 보상 함수 모듈**: `bubble_corrected_equity`와 테스트(λ=0 동등·총합 보존·범위 밖 λ 거부·버블 아닌 상태에서 g=0·파산자 0). P2, `#385` 선행.
 2. **[ai] λ 선택 도구/잡**: `icm_grid --lambda-grid`로 위 지표·채택 규칙을 계산해 JSON으로 낸다(정책 지정 `--agents` 확장 포함, 다중 스택 배치는 #858의 `--layouts`와 합친다). P2, 후속 1 선행.
+   - 기준선(ICM 모르는 에이전트, 로컬 참고값, 채택 아님): `docs/research/2026-11-icm-lambda-baseline.md`(#870).
 3. [records·referee-change] 토너먼트 평가의 "보정 에퀴티 + 시뮬 상금" 이중 기록을 심판에 연결. #385 뒤.
