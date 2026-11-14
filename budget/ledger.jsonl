@@ -93,3 +93,4 @@
 {"event": "start", "flavor": "cpu3c", "job": "icm-lambda-grid-random", "max_minutes": 120, "month": "2026-11", "pod_id": "qqbvjmoiwym3l1", "pod_name": "stalker-icm-lambda-grid-random-43647909801", "reserved_usd": 0.24, "run_id": "43647909801", "ts": "2026-11-14T22:24:26Z"}
 {"event": "start", "flavor": "cpu3c", "job": "icm-lambda-grid-tag", "max_minutes": 120, "month": "2026-11", "pod_id": "2u18897v7nbbzf", "pod_name": "stalker-icm-lambda-grid-tag-43647912273", "reserved_usd": 0.24, "run_id": "43647912273", "ts": "2026-11-14T22:24:28Z"}
 {"actual_usd": 0.0934, "cost_per_hr": 0.06, "event": "end", "job": "icm-lambda-grid-tag", "minutes": 93.35, "month": "2026-11", "pod_id": "2u18897v7nbbzf", "status": "error", "ts": "2026-11-14T23:57:49Z"}
+{"actual_usd": 0.0938, "cost_per_hr": 0.06, "event": "end", "job": "icm-lambda-grid-random", "minutes": 93.83, "month": "2026-11", "pod_id": "qqbvjmoiwym3l1", "status": "error", "ts": "2026-11-14T23:58:16Z"}
