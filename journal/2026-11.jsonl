@@ -1500,3 +1500,4 @@
 {"ts":"2026-11-14T19:58:55Z","role":"reviewer","outcome":"skipped","issue":877,"pr":884,"notes":"not my parity","friction":""}
 {"ts":"2026-11-14T20:41:18Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PR #599 already has VERDICT CHANGES at head d723a9c; #884 is even (reviewer-b)","friction":""}
 {"ts":"2026-11-14T20:41:49Z","role":"builder","outcome":"pr_opened","issue":883,"pr":885,"notes":"E3MCCFR payoff=icm (tournament_payoff, 핸드별 캐시), 체크포인트 v9, CLI, 병렬 workers>1 icm 거부; chip 비트 동일 해시 테스트; gates full 로컬 PASS","friction":"gates full 로컬 약 30분(tests 1426s) — 9분씩 포그라운드 대기 4회 반복"}
+{"ts":"2026-11-14T20:43:52Z","role":"reviewer","outcome":"changes","issue":883,"pr":885,"notes":"icm checkpoint resume is not bit-for-bit: from_state re-normalizes already-normalized payouts (repro [54,50,3]); asked fix + regression test","friction":"CI gates still in progress at verdict; the defect was code-level so did not wait the 40 min"}
