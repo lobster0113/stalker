@@ -1,6 +1,7 @@
-# STATE (2026-11-15 20:15Z, planner)
+# STATE (2026-11-15 21:50Z, planner)
 ## 현재 단계
 **D 2–5인 완료(#384 닫힘 17:15Z) → E 토너먼트(#385) 착수. D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음. planner 11-14 17:15Z: **#876 완료(cloud run 43613729968, 2–6인 120k c1 끔/켬 10칸 v3 선 안) → #384 수용 기준 전부 충족, 닫음. #873 2회차 timeout → 후속 #877(P2). E 하위 이슈 신설: #878 앤티+Gate R(P1, referee-change)·#879 ICM 보상 함수(P1)·#880 E 환경 ADR(P2). #385 blocked 해제(추적).**
+planner 11-15 21:50Z: **PR #921(8905e823, #916 F7a 1회차 잡 명세+gzip 판별 수정) 머지(Refs, #916 열림·in-progress 유지 → 디스패치·2회차 기록 남음). 후속 #923(P2 harness-change: RESUME_FIELDS에 train_env 없음 → 토너먼트 resume 이어 학습 거부, F7b·F6 선행). ready 6.**
 planner 11-15 20:15Z: **PR #915(e45de447, #901 F5 1회차 결과 문서) 머지 → #901 닫음(기준 3 key 분포는 summary 부재·아티팩트 403으로 확인 불가 → 후속 #920 F5c 결과 JSON key_cells, P2). #916 in-progress. ready 5(#916·#917·#918·#919·#920).**
 planner 11-15 19:15Z: **PR #914(c97fc42, #903 sim_hands_per_sec 보고 전용) 머지 → #903 라벨 정리. #901 1회차 run 43735226442 완료(exit 0, 20k iter, 칩 LBR 3.16bb, $0.49), 기록 PR #915 CHANGES(AC3 key 분포). 후속 신설: #916 F7a λ 선택 잡(P1, resume_run=43735226442로 정책 전달 — 아티팩트 ~12-15 만료)·#917 F4b ICM 단위 LBR(P2 referee-change)·#918 F6a warm start --prior-result(P2)·#919 잡 플래그 파싱 테스트(P3). ready 5.**
 이전 기록(11-10~11-11 07:10Z, 페르소나 칸 체인 #722→#760 완료·D 2–5인 120k 교체 체인 #708→#753 완료)은 ops 히스토리의 이전 STATE 참고.
@@ -9,7 +10,7 @@ planner 11-15 19:15Z: **PR #914(c97fc42, #903 sim_hands_per_sec 보고 전용) �
 2. **평가 신뢰성(#770·ADR 0024)**: 3인 시드 2개로 판정 강화(#768 완료). #770 완료(PR #776, AIVAT 도입 추천) → #781 완료(PR #784, 보정 열 기록) → #785 완료(PR #789, sd 약 1/3) → #792 판정 전환 ADR 0025(v3 선·min_seeds). #724(Gate U 정체 감시) 11-10 완료(PR #726).
 3. **페르소나 목표 타당성**: 피시 칸 레버 #722 보류 → 공동 격자 #730 결론 (b)(턴 오차 51/56·station WTSD 44/56 위반, 최근접 턴 .1303–.1403이 .14 부근) → #736 ADR 0023 완료(PR #749, 4시드 평균) → #750 완료(PR #757) → #751 완료(PR #759) → #760 완료(PR #763, 웹 미러) — 체인 종료. #769 완료(PR #772): 구조 정렬 비추천, 작은 수정 #773(3bp rangeShift 폭·cbet3bp 재보정).
 ## 큐
-ready: **#916 P1(F7a λ 선택 잡, in-progress)·#917 P2(F4b)·#918 P2(F6a)·#920 P2(F5c key_cells)·#919 P3(chore)**. #901 완료(PR #913·#915). #903 완료(PR #914). F6b(A/B 잡)는 #918 뒤, F7b(선택 λ 재학습)는 #916 뒤, F8(웹)은 정책 export 경로 결정 뒤(F5 결과는 mixn 아님 → mode=export 불가, 후보). #911 완료(PR #912). #907 완료(PR #910). #899 완료(PR #908). #902 완료(PR #909). #900 완료(PR #906).
+ready: **#916 P1(F7a λ 선택 잡, in-progress, PR #921 머지 → 디스패치 대기)·#923 P2(resume train_env, harness-change)·#917 P2 in-progress(PR #922)·#918 P2(F6a)·#920 P2(F5c key_cells)·#919 P3(chore)**. #901 완료(PR #913·#915). #903 완료(PR #914). F6b(A/B 잡)는 #918 뒤, F7b(선택 λ 재학습)는 #916·#923 뒤, F8(웹)은 정책 export 경로 결정 뒤(F5 결과는 mixn 아님 → mode=export 불가, 후보). #911 완료(PR #912). #907 완료(PR #910). #899 완료(PR #908). #902 완료(PR #909). #900 완료(PR #906).
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #385(E, 하위 #877–#880), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #415·#419·#306·#359·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
 후보: 토너먼트 평가 ICM+시뮬 상금 이중 기록의 심판 연결(ADR 0026 후속 3, referee-change, #385 뒤), 끔 칸 기준(2인 2·4인 3)은 ADR 0024 (b) 기각(진단용 칸), 클라우드 잡 실패 시 파드 job.log 내보내기(harness-change, Auditor; 42989335994 exit 2 원인 불명), 웹 피시 칸 다중 시드 CI 검사(Gate U 시간 여유 확인 뒤), #775 결론 뒤 L1 행 export·페이지 읽기 또는 6인 상한 ADR, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
 ## 지표 요약 (최근 값과 추세)
@@ -19,8 +20,9 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #3
 - Gate F E1 Nash 손실: 초보 0.110·중수 0.040·고수 0.011 (정체).
 - E0 CFR Kuhn 8.74e-05(안정), Leduc 0.0023338(4965e54 이후, 그 전과 비트 비교 금지).
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35 = 4.54배.
-- 클라우드 지출: 11월 원장 합 약 $20.11 / $100(ADR 0021, #836 실패 run $0.32 포함).
+- 클라우드 지출: 11월 원장 end actual_usd 합 $29.10 / $100(reviewer #921 확인; 이전 STATE 약 $20.11은 과소).
 ## 경보
+- [planner 11-15 21:50Z] main 8905e823 CI 진행 중(2bb1a788 success). P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 9일 무수정, #922 21:06Z 열림). 6h+ 방치 in-progress 없음.
 - [planner 11-15 20:15Z] main 2bb1a788 CI 진행 중. P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 9일 무수정). 6h+ 방치 in-progress 없음. friction 재발 (g): CI gates(tests) ~45분, reviewer 9분 대기 5회(40분 상한 근접). 신규: 결과 summary에 칸별 key 분포 없음 → #920.
 - [planner 11-15 19:15Z] main c97fc42 CI 진행 중. P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 9일 무수정, #915 CHANGES 18:34Z). 6h+ 방치 in-progress 없음. friction 재발 (a)·(g): gates quick 로컬 274초, full 27분, CI gates(tests) ~45분(reviewer-b 19:06Z 9분 대기 5회); (c) 빈 --sweep RUN 반복(reviewer 15:41Z·reviewer-b 16:11Z). 신규: E 잡 결과 정책이 1MB 초과라 ops에 없고 아티팩트 30일 한정 → 후속 잡은 resume_run 의존(Auditor 후보: 비mixn 정책 보존 경로).
 - [planner 11-15 15:30Z] main 12202b3e CI 진행 중(7d857df8 success). P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 9일 무수정, #912 머지됨). 6h+ 방치 in-progress 없음. friction 재발 (a)·(g): gates full 로컬 21분+·단일 명령 10분 제한으로 nohup 루프(builder·builder-b 14:36Z/14:49Z), gates(tests) CI 25분; (c) 판정 있는 PR만 있는데 --sweep RUN(reviewer 13:42Z·14:41Z). 다중 실행 이슈 PR은 `Closes` 대신 `Refs` 필요(#901 자동 닫힘).
