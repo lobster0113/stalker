@@ -11,8 +11,11 @@ leaves every other cell's output byte-identical, so a partial rerun can be compa
     python -m stalker.tools.icm_grid --presets 6max_sng_topheavy,9max_sng_503020 --remaining 2,3,4 \
         --profiles even,random,skewed --games 200 --seed 0 --out grid.json --md grid.md [--agents persona:tag]
 
-`--agents` picks who plays every seat (`random` default, or `persona:NAME` via `icm_calibration.agents_factory`).
-The default writes no `agents` field, so outputs from before the option existed stay byte-identical (#845).
+`--agents` picks who plays every seat (`random` default, `persona:NAME` or `policy:PATH` via
+`icm_calibration.agents_factory`). The default writes no `agents` field, so outputs from before the option existed stay
+byte-identical (#845). `policy:PATH` (#900: a pod result, checkpoint or web policy file of a c1 E3 table, or a folder
+holding one) seats `stalker.agents.e3_policy.E3PolicyAgent` everywhere, `persona:tag` where the table has no row; each
+cell then carries `policy` = {decisions, policy_hits, backoffs, backoff_rate, backoff_reasons} over its games.
 
 `--level-index 0,6` starts the cells at each blind level and `--layouts N` draws N independent survivor/stack layouts
 per cell (#858). Level 0 / layout 0 keeps the pre-option seed and output; any other choice writes schema_version 2 with
@@ -36,7 +39,7 @@ from pathlib import Path
 import numpy as np
 
 from stalker.core.icm import ICMError, bubble_corrected_equity
-from stalker.tools.icm_calibration import agents_factory, calibrate
+from stalker.tools.icm_calibration import PolicyAgents, agents_factory, calibrate
 from stalker.tournament.config import load_preset
 from stalker.tournament.start_state import STACK_PROFILES, make_start_state
 
@@ -147,6 +150,7 @@ def run_grid(presets: Sequence[str], remainings: Sequence[int], profiles: Sequen
              lambda_grid: Sequence[float] | None = None) -> dict:
     lambdas = None if lambda_grid is None else validate_lambda_grid(lambda_grid)
     factory = None if agents == "random" else agents_factory(agents)
+    policy = isinstance(factory, PolicyAgents)
     for p in profiles:
         if p not in STACK_PROFILES:
             raise ValueError(f"profile {p!r}: must be one of {STACK_PROFILES}.")
@@ -174,8 +178,12 @@ def run_grid(presets: Sequence[str], remainings: Sequence[int], profiles: Sequen
                     for k in range(layouts):
                         rng = np.random.default_rng(cell_seed(seed, preset, remaining, profile, lv, k))
                         ss = make_start_state(config, rng, remaining, profile, lv)
+                        if policy:
+                            factory.reset()
                         raw = calibrate(config, ss, factory, games, rng)
                         extra = {"level_index": lv, "layout": k} if v2 else {}
+                        if policy:
+                            extra["policy"] = factory.counts()
                         lam = ({"zone": zone(raw), "lambda_metrics": lambda_metrics(raw, lambdas)}
                                if lambdas else {})
                         cells.append({**key, **extra, **summarize(raw), **lam, "calibrate": raw})
@@ -226,7 +234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--lambda-grid", nargs="?", const=",".join(str(x) for x in DEFAULT_LAMBDA_GRID),
                     help="bubble-correction lambdas to score and select from (bare flag = 0,0.05,0.1,0.2,0.35,0.5; "
                          "must include 0)")
-    ap.add_argument("--agents", default="random", help="random | persona:NAME (every seat)")
+    ap.add_argument("--agents", default="random", help="random | persona:NAME | policy:PATH (every seat)")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--md", type=Path)
     a = ap.parse_args(argv)
