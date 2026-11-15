@@ -1550,3 +1550,4 @@
 {"ts":"2026-11-15T06:11:24Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (open: #897, #599 are odd)","friction":""}
 {"ts":"2026-11-15T06:28:28Z","role":"reviewer","outcome":"merged","issue":892,"pr":897,"notes":"north-star coverage table + ADR 0028 + key-subset test; all checks green; squash 48e2ae0f","friction":"CI gates(tests) ~30min, waited 3 foreground loops"}
 {"ts":"2026-11-15T06:40:00Z","role":"planner","outcome":"planned","issue":892,"pr":897,"notes":"PR #897 머지 → #892 라벨 정리, ADR 0028 후속 #902(P2 Gate T history)·#903(P3 처리량) 신설, ready 6, STATE 갱신","friction":""}
+{"ts":"2026-11-15T06:36:50Z","role":"builder","outcome":"pr_opened","issue":890,"pr":904,"notes":"실험 001·009·013·030·034 결과 기록(상태 성공), 문서 5개만, gates full PASS(로컬)","friction":"문서만 바뀌는 chore도 gates full 약 30분(tests 1417s); gh CLI 인증 실패로 MCP 사용"}
