@@ -45,7 +45,7 @@
 ## λ 선택 정책 잡 (`e3-sng-bubble-lambda-policy.yaml`, #916, ADR 0027 F7a)
 - F5 첫 run(43735226442)의 토너먼트 정책을 모든 좌석에 앉혀 `icm_grid --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --games 1000 --seed 10001 --agents "policy:$STALKER_RESUME" --lambda-grid`를 돈다. 정책 표가 1MB를 넘어 아티팩트에만 있으므로 **`resume_run=43735226442`로 디스패치**한다(아티팩트 ~12-15 만료). `$STALKER_RESUME`가 비면 명령이 종료 코드 3으로 바로 끝난다.
 - 런처가 넘기는 파일은 `RESUME_FIELDS`만 남긴 gzip이고 이름이 `resume.bin`이다. `stalker.jsonio.read_json`은 gzip을 이름이 아니라 앞 두 바이트로 알아본다(#916).
-- 정책 좌석은 c1 키의 에퀴티 계산 때문에 느리다(로컬 참고: numba로 게임당 ~0.6초, 없이 ~3.5초) → `.[fast]` 설치, 9칸×1000판 ≈ 90분 단일 프로세스. `max_minutes: 300`, `run_stages --deadline-s 16200`(상한 30분 전), 4 vCPU(메모리 여유), 최악 $1.20. 단독 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`, `stalker.icm.lambda-grid-pair`의 단일 에이전트 `policy`.
+- 정책 좌석은 c1 키의 에퀴티 계산 때문에 느리다(로컬 참고: numba로 게임당 ~0.6초, 없이 ~3.5초) → `.[fast]` 설치, 9칸×1000판 ≈ 90분 단일 프로세스. `max_minutes: 240`, `run_stages --deadline-s 12600`(상한 30분 전), 4 vCPU(메모리 여유), 최악 $0.96(탐침 상한 $1). 단독 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`, `stalker.icm.lambda-grid-pair`의 단일 에이전트 `policy`.
 
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.

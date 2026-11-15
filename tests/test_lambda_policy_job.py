@@ -47,7 +47,8 @@ def test_job_grid_flags_deadline_and_cost():
 def test_job_fails_at_once_without_a_resume_upload(tmp_path):
     first = _spec().command.split("; mkdir -p /src", 1)[0]
     env = {k: v for k, v in os.environ.items() if k != "STALKER_RESUME"}
-    r = subprocess.run(["bash", "-c", first], env={**env, "STALKER_RESUME": ""}, capture_output=True, text=True)
+    r = subprocess.run(["bash", "-c", first], env={**env, "STALKER_RESUME": ""}, capture_output=True, text=True,
+                       encoding="utf-8")
     assert r.returncode == 3 and "resume_run=43735226442" in r.stderr
     r = subprocess.run(["bash", "-c", first], env={**env, "STALKER_RESUME": str(tmp_path)}, capture_output=True)
     assert r.returncode == 0
