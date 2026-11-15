@@ -10,6 +10,8 @@ has a history; it is `null` when ops or such a result is missing. `fresh` (#690)
 measured player count's page policy (`web/app/policy/mid-<n>.json` `run_id`) is the measured `policy_run`.
 Its `v3` / `all_pass_v3` (#797) judge the result's service cells with the ADR 0025 table (`aivat_lbr_bb`).
 `gate_t_pass_rate` / `gate_t_checks` (#902, ADR 0028 decision 1) record Gate T T1~T4 over the REGISTRY.
+`sim_hands_per_sec` (#903, ADR 0028 decision 2) is report-only: runner speed varies too much to gate on it,
+so no gate reads it; it exists for the 4-week slope.
 """
 from __future__ import annotations
 
@@ -81,6 +83,24 @@ def gate_t(results=None) -> dict:
         return {"gate_t_pass_rate": round(passed / total, 6) if total else 0.0, "gate_t_checks": total}
     except Exception as e:  # noqa: BLE001 - one broken part must not drop the whole history row
         return {"gate_t_pass_rate": None, "gate_t_checks": None, "gate_t_error": f"{type(e).__name__}: {e}"[:300]}
+
+
+# Fixed throughput run (#903): 9 players, seed 0, FastHand (the engine training uses). Changing it breaks the trend.
+SIM_BENCH_PLAYERS = 9
+SIM_BENCH_SECONDS = 10.0
+
+
+def sim_throughput(seconds: float = SIM_BENCH_SECONDS, bench=None) -> dict:
+    """Hands/s of `stalker.tools.bench_engine.bench("fast", ...)`. Report-only, never a gate input: CI
+    runner speed differs run to run. A failure gives an error note and None, not a failed snapshot.
+    `bench` lets tests inject a failing benchmark."""
+    try:
+        if bench is None:
+            from stalker.tools.bench_engine import bench
+        row = bench("fast", SIM_BENCH_PLAYERS, min(float(seconds), 60.0), seed=0)
+        return {"sim_hands_per_sec": float(row["hands_per_s"])}
+    except Exception as e:  # noqa: BLE001 - one broken part must not drop the whole history row
+        return {"sim_hands_per_sec": None, "sim_hands_per_sec_error": f"{type(e).__name__}: {e}"[:300]}
 
 
 def gate_l(report=None) -> dict:
@@ -263,7 +283,7 @@ def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    for part in (test_counts, code_size, gate_r, gate_t, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr):
+    for part in (test_counts, code_size, sim_throughput, gate_r, gate_t, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr):
         t0 = time.monotonic()
         snap.update(part())
         print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)
