@@ -1584,3 +1584,4 @@
 {"ts":"2026-11-15T12:40:47Z","role":"reviewer","outcome":"skipped","pr":910,"notes":"not my parity","friction":"should_run printed RUN with lock not taken (ops push failed)"}
 {"ts":"2026-11-15T12:41:18Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs — #599 already CHANGES at head d723a9c (no new commits); #910 is even (reviewer-b)","friction":""}
 {"ts":"2026-11-15T13:10:01Z","role":"reviewer-b","outcome":"merged","issue":907,"pr":910,"notes":"tournament_ab A/B tool; all 6 ACs verified in code/tests, CI all success, squash 7d857df","friction":"gates (tests) took ~28min; waited in 3 foreground 9-min chunks"}
+{"ts":"2026-11-15T13:20:00Z","role":"planner","outcome":"planned","issue":911,"pr":910,"notes":"PR #910 머지 후 #907 라벨 정리, F4a #911(referee-change P2) 신설, ready 3","friction":""}
