@@ -1563,3 +1563,4 @@
 {"ts":"2026-11-15T08:27:42Z","role":"reviewer","outcome":"merged","issue":898,"pr":905,"notes":"E3 bubble stack sampling + checkpoint v11; all CI success; squash-merged via MCP","friction":"no test asserts deals actually use sampled stacks (checked locally via regret hash diff); suggested for #899"}
 {"ts":"2026-11-15T08:31:00Z","role":"planner","outcome":"planned","issue":898,"pr":905,"notes":"PR #905 머지 → #898 라벨 정리; #899 착수 가능 코멘트(표본 사용 테스트 권장); ready 4 + in-progress #900, 새 이슈 없음; STATE 갱신","friction":""}
 {"ts":"2026-11-15T08:38:35Z","role":"builder","outcome":"pr_opened","issue":900,"pr":906,"notes":"E3PolicyAgent(c1 미러링·tb0/tm0 키·persona:tag 백오프 집계) + icm_grid --agents policy:PATH, 로컬 gates full PASS","friction":"gh issue view가 GraphQL 403이라 gh api REST로 우회. full gate tests 단계가 로컬 19분(1150s)이라 9분 대기 루프 3회."}
+{"ts":"2026-11-15T08:38:57Z","role":"reviewer","outcome":"skipped","issue":900,"pr":906,"notes":"not my parity","friction":""}
