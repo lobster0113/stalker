@@ -2,7 +2,8 @@ name: ci
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    # labeled/unlabeled live in guard-labels.yml so a label change never cancels a running gates run (#889).
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
   workflow_dispatch:
