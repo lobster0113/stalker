@@ -1579,3 +1579,4 @@
 {"ts":"2026-11-15T11:40:41Z","role":"builder-b","outcome":"changes","issue":899,"pr":908,"notes":"#908 CHANGES 해결: chip 프리셋 실행 재개(체크포인트 버전·model 블록) + 테스트, 푸시 195b2d47","friction":"gates quick 로컬 291초(목표 90초), pod_train 테스트 파일만 400초"}
 {"ts":"2026-11-15T11:41:03Z","role":"reviewer","outcome":"skipped","issue":899,"pr":908,"notes":"not my parity (even PR -> reviewer-b)","friction":""}
 {"ts":"2026-11-15T12:31:44Z","role":"reviewer-b","outcome":"merged","issue":899,"pr":908,"notes":"2nd review: chip-payoff resume fix verified (unpack_state follows state() version rule, test covers both resume paths); CI all green; squash-merged aa259c4","friction":"gates (tests) took ~50min, past the 40min wait guidance; waited one extra 9-min chunk"}
+{"ts":"2026-11-15T12:36:00Z","role":"planner","outcome":"planned","issue":901,"pr":908,"notes":"PR #908·#909 머지 후 #899·#902 라벨 정리, #901 F5 착수 가능·P1 승격+구현 메모 코멘트, ready 3","friction":"STATE.md 60줄 상한을 이미 넘은 상태라 덮어쓰기 형식 유지가 어렵다"}
