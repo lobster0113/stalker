@@ -1539,3 +1539,4 @@
 {"ts":"2026-11-15T03:58:00Z","role":"reviewer-b","outcome":"skipped","issue":887,"pr":895,"notes":"not my parity (odd PR #895 → reviewer)","friction":""}
 {"ts":"2026-11-15T04:11:49Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #895,#599 are odd (reviewer parity); no even PRs","friction":""}
 {"ts":"2026-11-15T04:29:47Z","role":"reviewer","outcome":"merged","issue":887,"pr":895,"notes":"tpgto.js BB ante mirror: deal/payoff/c1 vs Python vectors, all CI green, squash merged e810934","friction":"web-screenshots artifact blob host still 403 via proxy; used local e2e fallback (~10min)"}
+{"ts":"2026-11-15T04:38:48Z","role":"builder","outcome":"pr_opened","issue":888,"pr":896,"notes":"E2d: parallel workers carry payoff/payouts/lam/ante/stage, refusals removed, default bits pinned from main, icm+ante checkpoint bit-identical","friction":"gates full local ~28min (tests 1309s) again; quick 154s vs 90s target"}
