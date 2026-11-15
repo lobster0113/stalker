@@ -124,7 +124,8 @@
 ## 토너먼트 평가 (record-only, #911, ADR 0026 후속 3·ADR 0027 F4a)
 - 구현: `referee/e3/tournament_eval.py`(`python -m referee.e3.tournament_eval --policy <file> --out <json>`), 고정 스팟 `referee/e3/tournament_spots_v1.json`(`9max_sng_503020`, 생존자 4명, 프로필 even·random·skewed, level 0). 평가 시드는 10001 이상(학습 rng와 겹치지 않게, ADR 0027 결정 4)이고, 셀 시드는 셀 키에서 나와 스팟을 빼도 남은 셀 값이 같다.
 - 무엇을 재나: 셀마다 학습 좌석 하나가 정책을 두고 나머지는 필드(`persona:tag`)다. 학습 좌석의 시뮬 상금(평균·SE), ICM 에퀴티, 보정 에퀴티(`bubble_corrected_equity`, λ = 정책의 `train_env.lam`, 없으면 0), `시뮬 상금 − 보정 에퀴티`를 **상금 풀 비율**로 기록한다(bb 아님). 정책 행이 없어 규칙 봇으로 대신한 결정 수(#900 백오프 의미)도 셀별로 남긴다. 출력에 `schema_version`·스팟 파일 sha256·정책 sha256·`train_env`가 있다.
-- 왜 판정에 쓰지 않나: 첫 토너먼트 정책(F5)의 분포와 셀 간 분산을 아직 모른다. 분포 없이 정한 임계값은 근거가 없으므로 F5 결과를 본 뒤 별도 이슈에서 임계값·history 등록을 정한다. ICM 단위 LBR(착취 가능도)은 F4b에서 한다.
+- 왜 판정에 쓰지 않나: 첫 토너먼트 정책(F5)의 분포와 셀 간 분산을 아직 모른다. 분포 없이 정한 임계값은 근거가 없으므로 F5 결과를 본 뒤 별도 이슈에서 임계값·history 등록을 정한다. ICM 단위 LBR(착취 가능도)은 아래 F4b 항목이고, 같은 이유로 판정에 쓰지 않는다.
+- ICM 단위 LBR (record-only, #917·ADR 0027 F4b): `--lbr-hands N`(기본 0 = 끔)을 주면 셀마다 `lbr_pool`(평균·SE·핸드 수·단계·앤티)을 더하고 `schema_version`은 2가 된다(옵션 없으면 출력은 1 그대로, 바이트 동일). 학습 좌석이 LBR(`referee/e3/lbr.py`의 `lbr_icm`), 나머지 좌석은 정책이다. 보상은 핸드 끝 `bubble_corrected_equity`(λ = 정책 `train_env.lam`) 변화를 **상금 풀 비율**로 잰 값이고(bb 아님), 정책은 셀의 `t<단계><앤티>` 키 칸을 읽는다. LBR의 행동 선택은 칩 한 수 앞 가치 그대로라 이 값은 하한이지 증명이 아니다(Gate Q3). 칩 LBR(F5 1회차 3.16bb)은 단위가 달라 토너먼트 정책 판단에 못 쓰므로 이 값이 대신 분포를 보여 준다. 임계값은 F5 분포를 본 뒤 별도 이슈에서 정한다.
 
 ## Gate X — 설명 충실도 (정의만, 구현은 D4)
 - TP 입력을 조금 바꿨을 때, 설명이 말한 대로 행동이 바뀌는가(설명과 실제 출력 변화의 일치).
