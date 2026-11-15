@@ -1570,3 +1570,4 @@
 {"ts":"2026-11-15T09:41:41Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd) already has CHANGES at head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-15T10:11:16Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd, reviewer's)","friction":""}
 {"ts":"2026-11-15T10:11:33Z","role":"builder-b","outcome":"pr_opened","issue":899,"pr":908,"notes":"pod_train tournament args + train_env; full gate PASS locally","friction":"issue smoke command evaluates LBR 1000 hands real menu n=4: >15min locally, tests shrink E3_LBR_HANDS; full gate ~35min"}
+{"ts":"2026-11-15T10:11:57Z","role":"reviewer","outcome":"skipped","issue":899,"pr":908,"notes":"not my parity","friction":""}
