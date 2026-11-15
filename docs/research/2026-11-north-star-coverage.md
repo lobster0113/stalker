@@ -9,7 +9,7 @@
 |---|---|---|---|
 | 기반 — Gate R·L 통과율 | `gate_r_pass_rate`, `gate_r_cash_pass_rate`, `gate_r_e3_pass_rate`, `gate_l_pass_rate` | — | 이미 산출 |
 | 기반 — 시뮬레이터 처리량(핸드/초) | 없음 | 평가기는 있으나(`stalker/tools/bench_engine.py`) 스냅샷에 등록 안 됨. 러너 속도 편차 → 추세용으로만 | CI 1~2분, $0 |
-| TP 준수 — Gate T | 없음 (`gates full`의 `gate_t` 단계 통과/실패만 있고 통과율 키가 없다) | 등록 안 됨. 평가기(`referee/gate_t`)는 있음 | CI 1분 안팎, $0 |
+| TP 준수 — Gate T | `gate_t_pass_rate`, `gate_t_checks` | 있음(키) — #902에서 등록. REGISTRY 전 정책 × T1~T4 | CI 1분 안팎, $0 |
 | 둔감성 — Gate S | `gate_s_e1` | E1(헤즈업 푸시/폴드)만. E1m·E3는 기록 전용 CLI | 이미 산출(E1) |
 | 강도 Q1 — 상대군 대비 | 없음 | E3 필드 결과는 ops `training/` 요약에만 있고 history에 안 옮긴다 | 클라우드 run 결과를 복사만 하면 CI $0 (`e3_web_lbr` 선례) |
 | 강도 Q2 — 앵커·솔버 손실 | 없음 | 앵커 비교는 Gate S·F 안에서만 쓰이고 독립 키가 없다. 솔버 스팟은 TexasSolver 워크플로 수동 | 앵커: 추가 계산 거의 없음. 솔버: 별도 워크플로 |
@@ -31,7 +31,7 @@ ADR 0008로 Gate A·B는 성공 정의에서 빠졌고 코드·CI 지표도 은�
 
 ## 3. 가장 싼 재산출 후보
 
-- **Gate T 통과율**(`gate_t_pass_rate`): 평가기와 스팟 세트가 이미 있고 `gates full`이 매번 돌린다. 등록만 하면 된다.
+- **Gate T 통과율**(`gate_t_pass_rate`): 평가기와 스팟 세트가 이미 있고 `gates full`이 매번 돌린다. 등록만 하면 된다. → #902에서 등록 완료.
 - **시뮬레이터 처리량**(`sim_hands_per_sec`): 헌장 "기반"의 두 번째 지표다. 러너 편차가 커서 판정이 아닌 추세용.
 
 선택과 구현 경로는 ADR 0028.
