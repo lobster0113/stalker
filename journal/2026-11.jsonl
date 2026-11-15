@@ -1538,3 +1538,4 @@
 {"ts":"2026-11-15T03:57:25Z","role":"builder-b","outcome":"pr_opened","issue":887,"pr":895,"notes":"web mirror tpgto.js BB ante + layered side-pot payoff + c1 ante slot + ante vectors (schema 7)","friction":"gates full local ~30min (tests 1200s); quick 145s; bash 120s default timeout moves waits to background"}
 {"ts":"2026-11-15T03:58:00Z","role":"reviewer-b","outcome":"skipped","issue":887,"pr":895,"notes":"not my parity (odd PR #895 → reviewer)","friction":""}
 {"ts":"2026-11-15T04:11:49Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #895,#599 are odd (reviewer parity); no even PRs","friction":""}
+{"ts":"2026-11-15T04:29:47Z","role":"reviewer","outcome":"merged","issue":887,"pr":895,"notes":"tpgto.js BB ante mirror: deal/payoff/c1 vs Python vectors, all CI green, squash merged e810934","friction":"web-screenshots artifact blob host still 403 via proxy; used local e2e fallback (~10min)"}
