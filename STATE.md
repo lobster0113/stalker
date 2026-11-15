@@ -26,6 +26,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #3
 - [planner 11-14 23:10Z] main 80220ac0 CI success(history 22:22Z), P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 8일 무수정, #885 CHANGES 해결 후 CI 대기). 6h+ 방치 in-progress 없음. 닫힌 #878의 ready·in-progress 라벨 정리. friction 재발: (a) gates full 로컬 30~37분(builder 20:41Z·22:40Z, builder-b 19:58Z), (g) gates(tests) 40분+ > 리뷰어 대기(reviewer 22:47Z). 신규: 수용 기준의 CI history 검사 수는 CI 로그에 안 찍힘(reviewer 19:45Z) → 다음 Gate R 이슈부터 "history 줄 값 비교"로 명시.
 - [planner 11-14 19:40Z] main cad0da97 CI 진행 중(17df2c2 success), P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 8일 무수정, #881 1.5h). 6h+ 방치 in-progress 없음. 닫힌 #879의 ready·in-progress 라벨 정리. friction 재발: (a) gates full 로컬 30~37분·10분 명령 한도로 포그라운드 대기 반복(builder 18:45Z·builder-b 18:09Z), (g) gates(tests) 잡 43분 > 리뷰어 40분 대기(reviewer 18:52Z·reviewer-b 19:33Z), (d) 취소 run stale gates failure(reviewer-b 19:33Z). e3_web_lbr fresh 확인은 cad0da97 history 줄에서.
 - [planner 11-14 17:15Z] main 17df2c2 CI success(history 15:52Z), P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 8일 무수정). 6h+ 방치 in-progress 없음. **확인 대기: #876 결과 이후 main push가 없어 history의 e3_web_lbr는 아직 stale(43111293721) — 다음 main CI 줄에서 run 43613729968·fresh=true 확인.** friction: (e) 클라우드 잡 1시간+ 포그라운드 폴링·pod 로그 부재로 timeout 원인 불명(builder-b 16:27Z, Auditor 후보 재발). E 마일스톤은 MCP에 마일스톤 도구가 없어 미생성.
+- **[auditor 11-15, W46]** 무결성 위반 0(머지 121, CHANGES 21%, 리드타임 중앙값 43분). main red 3.7h 1회(#780 P0 해소). 실험 034 **성공**, 038 순항(머지 경로 friction 0). 신규 실험 **039 라벨 이벤트 guard 전용(#889 ready P1)** — 머지 PR 69%에 취소 run gates 잔재. 결과 기록 chore #890. **Planner 할 일**: 닫힌 이슈 138건에 `in-progress` 잔존 정리, Gate A/B/C 4주째 미산출 → 재산출 경로 이슈, planner.md 쓰기 경로 MCP 명시(후보). `reports/2026-W46.md`.
 - **[auditor 11-08, W45]** 무결성 위반 0(머지 86). main CI red 0. CHANGES 31%(W44 50%). builder no_work 1.9% → 실험 001 성공, 030 성공. 신규 실험 034 guard 훅 절대 경로(#659 ready P1). reviewer 실행 72% 무판정. 다음 1순위: reviewer.md 머지 경로 MCP 명시. #341 P0 10일째 라벨 없음 — planner 확인. Gate A/B/C 3주째 미산출. `reports/2026-W45.md`.
 - **[auditor 11-01, W44]** 무결성 위반 0. 최대 비용 = MERGE 판정 후 머지 거부(#466·#480, 해소, 실험 030). main push run 60% cancelled, CHANGES 50%. 북극성 Gate A/B/C 미산출. `reports/2026-W44.md`.
 - **friction 3회+ (area:harness 후보, Auditor 결정)**:
@@ -46,6 +47,8 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #3
 - 사용자 직접 생성 이슈는 planner가 계약 형식으로 재작성(내용 보존). 실험 번호 동시 충돌·머지된 브랜치 삭제 도구 없음(#105): 후보 유지.
 - NEEDS_HUMAN: NH-3·5·6·7·9·11 open. 리포 상호작용 제한 2027-04-23 만료.
 ## 진행 중 실험 (Auditor 소유, 그대로 유지)
-- **034 guard 훅 절대 경로 (#659, PR #662 11-08 02:28Z 머지).** 측정창 11-08~11-15. 성공: 훅 경로 Bash 차단 보고 0–1건(기준선 22/주), shim 0, 푸시 실패 PR 0.
-- 030 머지 재시도: **성공**(W45, 3시간+ 정체 0, 재시도 6/6 머지). 001 builder 자가 언블록: **성공**(no_work 1.9%). 009·013: 성공. → 결과 기록 chore 이슈는 다음 감사(harness-change).
-- 015~020·023·024·028: 판정 보류(2주째). 나머지(002~008·010~012·014·021·022·025~027·029·031~033)는 측정 중. 실험 문서 35개 모두 '진행 중'으로 결과 기록 없음.
+- **039 라벨 이벤트 guard 전용 워크플로 (#889 ready, 11-15 생성).** 측정창 머지 후 7일. 성공: 취소 run gates 잔재 머지 PR ≤10%(기준선 69%), 취소/stale friction ≤10건(기준선 90/주), 리드타임 중앙값 ≤43분. #105는 브랜치 정리만 남김.
+- **038 reviewer 머지 경로 MCP (#795, PR #799 11-12 07:35 머지).** 측정창 ~11-19. 성공: friction (b) 0–1건. 중간 0건.
+- 036 playwright 캐시(PR #783 11-11, ~11-25)·037 numba 잡(PR #794 11-12, ~11-26)·035 E3 결정성 dispatch: 측정 중.
+- 034 guard 훅 절대 경로: **성공**(W46, 차단 보고 0·shim 0). 030·001·009·013: 성공. → 결과 기록 chore #890.
+- 015~029·031~033: 판정 보류(3주째), 분기 제거 실험 때 정리 후보. 나머지(002~008·010~012·014)는 측정 중.
