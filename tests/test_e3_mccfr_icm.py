@@ -165,12 +165,11 @@ def test_payouts_preset_and_numbers_are_normalized():
     assert E3MCCFR(0, n=3, **KW).payouts == ()
 
 
-def test_parallel_refuses_icm_instead_of_ignoring_it():
+def test_parallel_runs_icm_instead_of_refusing_it():
+    # #888: the workers carry the payoff now (#883 refused it); tests/test_e3_parallel_tournament.py checks the bits
     m = E3MCCFR(0, n=3, payoff="icm", payouts=[1], **KW)
-    with pytest.raises(ValueError, match="workers=1"):
-        parallel.iterate(m, 2, workers=2)
-    parallel.iterate(m, 1, workers=1)
-    assert m.iterations == 1
+    parallel.iterate(m, 2, workers=2, batch=1)
+    assert m.iterations == 2 and m.regret and (m.payoff, m.payouts) == ("icm", (1.0,))
 
 
 def test_checkpoint_round_trip_keeps_payoff_and_continues_bit_for_bit():
