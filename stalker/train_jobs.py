@@ -349,7 +349,9 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None,
     cur = m.current_policy() if cur is None else cur
     t1 = time.monotonic()
     # Same LBR deals for both policies.
-    with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant):
+    # #899: a tournament model's rows live under its t<stage><ante> key slot, so LBR must look there
+    with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant), \
+            K.using_env(getattr(m, "stage", "c"), getattr(m, "ante", 0) > 0):
         lbr = {k: exploitability_lb(pol, lbr_hands, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
                for k, pol in (("average", avg), ("current", cur))}
         # #343: an independent estimate (same seed, but deals drift once the exploiter picks another line) whose
