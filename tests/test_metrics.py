@@ -35,6 +35,40 @@ def test_gate_l_empty_report_is_not_a_pass():
     assert metrics.gate_l(Report())["gate_l_pass_rate"] == 0.0
 
 
+def test_gate_t_runs_every_registered_check_within_budget():
+    import time
+
+    from referee.gate_t import CHECKS, REGISTRY, run_checks
+
+    t0 = time.monotonic()
+    rows = run_checks()
+    snap = metrics.gate_t()
+    assert time.monotonic() - t0 < 120  # ADR 0028 part budget
+    assert {(r[0], r[1]) for r in rows} == {(n, c) for n in REGISTRY for c in CHECKS}
+    assert set(snap) == {"gate_t_pass_rate", "gate_t_checks"}
+    assert isinstance(snap["gate_t_checks"], int) and snap["gate_t_checks"] == sum(r[3] for r in rows) > 0
+    assert 0.0 <= snap["gate_t_pass_rate"] <= 1.0
+    assert snap["gate_t_pass_rate"] == round(sum(r[2] for r in rows) / snap["gate_t_checks"], 6)
+
+
+def test_gate_t_failed_checks_lower_the_pass_rate():
+    rows = [("a", "T1", 8, 8, []), ("a", "T2", 6, 8, ["x", "y"]), ("b", "T4", 0, 0, [])]
+    assert metrics.gate_t(rows) == {"gate_t_pass_rate": 0.875, "gate_t_checks": 16}
+    assert metrics.gate_t([])["gate_t_pass_rate"] == 0.0
+
+
+def test_gate_t_part_failure_is_a_note_and_none(monkeypatch):
+    import referee.gate_t as gt
+
+    def boom():
+        raise RuntimeError("spots missing")
+
+    monkeypatch.setattr(gt, "run_checks", boom)
+    snap = metrics.gate_t()
+    assert snap["gate_t_pass_rate"] is None and snap["gate_t_checks"] is None
+    assert "spots missing" in snap["gate_t_error"]
+
+
 @pytest.mark.slow
 def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
@@ -111,6 +145,7 @@ PARTS = {
     "test_counts": {"tests_passed", "tests_failed"},
     "gate_r": {"gate_r_pass_rate", "gate_r_checks", "gate_r_cash_pass_rate", "gate_r_cash_checks",
                "gate_r_e3_pass_rate", "gate_r_e3_checks"},
+    "gate_t": {"gate_t_pass_rate", "gate_t_checks"},
     "gate_l": {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"},
     "gate_s_e1": {"gate_s_e1"},
     "e0": {"e0_kuhn_iters", "e0_leduc_iters", "e0_kuhn_cfr_exploitability", "e0_leduc_cfr_exploitability"},

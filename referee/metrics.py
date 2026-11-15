@@ -9,6 +9,7 @@ limit, pass; backoff on/off) from `ops:cloud/results/<run id>.json` so the servi
 has a history; it is `null` when ops or such a result is missing. `fresh` (#690) is true only when every
 measured player count's page policy (`web/app/policy/mid-<n>.json` `run_id`) is the measured `policy_run`.
 Its `v3` / `all_pass_v3` (#797) judge the result's service cells with the ADR 0025 table (`aivat_lbr_bb`).
+`gate_t_pass_rate` / `gate_t_checks` (#902, ADR 0028 decision 1) record Gate T T1~T4 over the REGISTRY.
 """
 from __future__ import annotations
 
@@ -64,6 +65,22 @@ def gate_r() -> dict:
     return {"gate_r_pass_rate": round(tally.pass_rate, 6), "gate_r_checks": tally.total,
             "gate_r_cash_pass_rate": round(cash.pass_rate, 6), "gate_r_cash_checks": cash.total,
             "gate_r_e3_pass_rate": round(e3.pass_rate, 6), "gate_r_e3_checks": e3.total}
+
+
+def gate_t(results=None) -> dict:
+    """Gate T (#902, ADR 0028): T1~T4 over every registered policy, through the same `run_checks()` as
+    `python -m referee.gate_t`. A failure gives an error note and None values, not a failed snapshot.
+    `results` lets tests inject rows; CI leaves it None and runs the real gate."""
+    try:
+        if results is None:
+            from referee.gate_t import run_checks
+
+            results = run_checks()
+        passed = sum(int(r[2]) for r in results)
+        total = sum(int(r[3]) for r in results)
+        return {"gate_t_pass_rate": round(passed / total, 6) if total else 0.0, "gate_t_checks": total}
+    except Exception as e:  # noqa: BLE001 - one broken part must not drop the whole history row
+        return {"gate_t_pass_rate": None, "gate_t_checks": None, "gate_t_error": f"{type(e).__name__}: {e}"[:300]}
 
 
 def gate_l(report=None) -> dict:
@@ -246,7 +263,7 @@ def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr):
+    for part in (test_counts, code_size, gate_r, gate_t, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr):
         t0 = time.monotonic()
         snap.update(part())
         print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)

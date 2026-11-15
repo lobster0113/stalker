@@ -96,23 +96,33 @@ def check_t1(agent, perturbations: int = T1_PERTURBATIONS, seed: int = 0) -> tup
 REGISTRY: dict[str, Callable[[], object]] = {"linear_bottleneck_v0": default_agent}
 
 
+CHECKS = ("T1", "T2", "T3", "T4")
+
+
+def run_checks() -> list[tuple[str, str, int, int, list[str]]]:
+    """(policy, check, passed, total, failures) for every REGISTRY policy and T1~T4.
+    `main()` and the metrics snapshot (`referee.metrics.gate_t`) both read this, so they cannot drift."""
+    from referee.gate_t.t2 import check_t2
+    from referee.gate_t.t3 import check_t3
+    from referee.gate_t.t4 import check_t4
+
+    fns = dict(zip(CHECKS, (check_t1, check_t2, check_t3, check_t4)))
+    return [(name, label, *fns[label](make())) for name, make in REGISTRY.items() for label in CHECKS]
+
+
 def main() -> int:
     spec = load()
     print(f"tp_spec {spec.version} sha256 {spec.sha256}")
-    from referee.gate_t.t2 import check_t2
-    from referee.gate_t.t3 import check_t3
-    from referee.gate_t.t4 import check_t4, load as load_t4
+    from referee.gate_t.t4 import load as load_t4
 
     ok = True
     print(f"t4_spots v1 sha256 {load_t4()[1]}")
-    for name, make in REGISTRY.items():
-        for label, check in (("T1", check_t1), ("T2", check_t2), ("T3", check_t3), ("T4", check_t4)):
-            p, t, fails = check(make())
-            rate = f" ({100 * p / t:.0f}%)" if t else " (no decisions emitted a checked item)"
-            print(f"{label} [{name}] {p}/{t}{rate}")
-            for f in fails:
-                print("  " + f)
-            ok &= p == t
+    for name, label, p, t, fails in run_checks():
+        rate = f" ({100 * p / t:.0f}%)" if t else " (no decisions emitted a checked item)"
+        print(f"{label} [{name}] {p}/{t}{rate}")
+        for f in fails:
+            print("  " + f)
+        ok &= p == t
     return 0 if ok else 1
 
 
