@@ -42,6 +42,11 @@
 ## λ 격자 기준선 잡 (`icm-lambda-grid-random.yaml`·`icm-lambda-grid-tag.yaml`, #873 → #877)
 - #870(PR #872)의 로컬 참고값과 같은 명령·시드로 `icm_grid --lambda-grid`를 에이전트별 별도 잡으로 돌린다(#873은 한 파드에 random+tag를 순서대로 돌려 120분 상한 `timeout`, 결과 없음). 각 잡은 `icm_grid_pair`로 단일 에이전트 `stalker.icm.lambda-grid-pair` 파일(`agents.random` 또는 `agents.tag`, 원 출력 그대로)을 낸다. **두 결과를 하나로 묶지 않고** 문서가 두 run id를 각각 인용한다(묶음 잡을 또 만들면 한쪽 실패가 다른 쪽 결과까지 잃게 한다). 단일 프로세스라 2 vCPU(`cpu3c`), 각 최악 $0.24(`max_minutes: 120`), `run_stages --deadline-s 5400`(상한 30분 전). 명령 맨 앞에서 `/src/t0`에 epoch를 적고, 측정 단계가 `t0=… stage_start=…`를 stderr로 먼저 찍는다(`icm_grid`는 stderr에 다른 출력이 없다). 단계 실패 결과의 `stderr_tail`에서 설치·다운로드 시간(stage_start−t0)을 읽는다. 성공 결과에는 남지 않는다. 결과: `ops:cloud/results/<run id>.json`.
 
+## λ 선택 정책 잡 (`e3-sng-bubble-lambda-policy.yaml`, #916, ADR 0027 F7a)
+- F5 첫 run(43735226442)의 토너먼트 정책을 모든 좌석에 앉혀 `icm_grid --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --games 1000 --seed 10001 --agents "policy:$STALKER_RESUME" --lambda-grid`를 돈다. 정책 표가 1MB를 넘어 아티팩트에만 있으므로 **`resume_run=43735226442`로 디스패치**한다(아티팩트 ~12-15 만료). `$STALKER_RESUME`가 비면 명령이 종료 코드 3으로 바로 끝난다.
+- 런처가 넘기는 파일은 `RESUME_FIELDS`만 남긴 gzip이고 이름이 `resume.bin`이다. `stalker.jsonio.read_json`은 gzip을 이름이 아니라 앞 두 바이트로 알아본다(#916).
+- 정책 좌석은 c1 키의 에퀴티 계산 때문에 느리다(로컬 참고: numba로 게임당 ~0.6초, 없이 ~3.5초) → `.[fast]` 설치, 9칸×1000판 ≈ 90분 단일 프로세스. `max_minutes: 240`, `run_stages --deadline-s 12600`(상한 30분 전), 4 vCPU(메모리 여유), 최악 $0.96(탐침 상한 $1). 단독 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`, `stalker.icm.lambda-grid-pair`의 단일 에이전트 `policy`.
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
