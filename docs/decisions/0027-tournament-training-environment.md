@@ -107,7 +107,7 @@ D(#384)가 끝나 E(#385)에 들어간다. #385는 builder 한 번에 끝나지 
 | 항목 | 값 | 근거 |
 |---|---|---|
 | 잡 | `jobs/e3-tp-mid-c1-sng-bubble-pod32.yaml`(후속 F5가 추가) | jobs/README 형식 |
-| 명령(요지) | `pod_train --tier mid --players 4 --workers 16 --minutes 60 --max-iters 20000 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --payoff icm --preset 9max_sng_503020 --stage b --level-index 0 --lam 0 --stacks bubble` | `--payoff`·`--preset`·`--stage`·`--level-index`·`--lam`·`--stacks bubble`은 F2가 만든다. 나머지는 `jobs/e3-tp-mid-c1-mixn-s4-pod32.yaml`과 같다 |
+| 명령(요지) | `pod_train --tier mid --players 4 --workers 16 --minutes 60 --max-iters 20000 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --payoff icm --preset 9max_sng_503020 --stage b --level-index 0 --lam 0 --stacks bubble:skewed --lbr-hands 600` | `--payoff`·`--preset`·`--stage`·`--level-index`·`--lam`·`--stacks bubble:<프로필>`(F2, #899; 이 잡은 ICM 편향이 큰 `skewed`)은 F2가 만든다. `--lbr-hands`는 F5(#901)가 더했다. 나머지는 `jobs/e3-tp-mid-c1-mixn-s4-pod32.yaml`과 같다 |
 | λ | 0(순수 ICM) | ADR 0026: λ는 학습된 정책으로 나중에 고른다. 첫 정책은 λ 기준선이 필요 없는 0으로 만든다 |
 | 시드 | 학습 1, 평가 10001 | A/B는 시드 2·3을 더한다(결정 4) |
 | 반복 수 | 20,000 | **가정.** mixn 2–6인 c1이 16워커·90분에 40k–56k에 닿았다(`jobs/e3-tp-mid-c1-mixn-s4-pod32.yaml` 주석, #542). 4인 고정이라 반복당 비용이 그보다 크지 않다고 보고 60분 상한으로 잡았다. `stopped_by`가 어느 상한이 끝냈는지 남긴다 |

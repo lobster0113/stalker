@@ -124,3 +124,11 @@ def test_chip_payoff_preset_run_resumes_from_its_result_and_checkpoint(tmp_path,
     P.unpack(out, tmp_path / "out")
     ck = next((tmp_path / "out").glob("*.ckpt.json"))
     assert E3MCCFR.from_state(json.loads(ck.read_text(encoding="utf-8"))).payoff == "chip"
+
+
+@pytest.mark.slow
+def test_lbr_hands_flag_sets_the_evaluation_deals(tmp_path, small_eval):
+    out = tmp_path / "r.json"
+    assert P.main([*CLI, "--lbr-hands", "7", "--out", str(out)]) == 0
+    r = json.loads(out.read_text(encoding="utf-8"))
+    assert r["lbr"]["hands"] == 7 and r["lbr_average"]["hands"] == 7
