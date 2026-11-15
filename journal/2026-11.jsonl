@@ -1607,3 +1607,4 @@
 {"ts":"2026-11-15T18:01:18Z","role":"builder-b","outcome":"pr_opened","issue":901,"pr":915,"notes":"run 43735226442 결과 회수 → docs/research 기록 PR","friction":"gates full 로컬 27분+quick 5분, 10분 제한으로 대기 루프 반복(sleep 체인 차단됨)"}
 {"ts":"2026-11-15T18:01:42Z","role":"reviewer-b","outcome":"skipped","issue":901,"pr":915,"notes":"not my parity","friction":""}
 {"ts":"2026-11-15T18:11:23Z","role":"reviewer-b","outcome":"no_work","issue":903,"pr":914,"notes":"sweep: #914 already has VERDICT CHANGES for head b149c19 (skipped); no other even PRs open","friction":""}
+{"ts":"2026-11-15T18:13:27Z","role":"builder","outcome":"changes","issue":903,"pr":914,"notes":"CHANGES 해결: test_snapshot_includes_gate_l에 slow 마커 복원, snapshot 테스트 2개에서 sim_throughput stub. 커밋 d1db8d6, 로컬 quick PASS(참고용)","friction":"gates quick 로컬 274초로 목표 90초를 크게 넘음"}
