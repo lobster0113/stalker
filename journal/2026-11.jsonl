@@ -1529,3 +1529,4 @@
 {"ts":"2026-11-15T02:03:18Z","role":"builder-b","outcome":"pr_opened","issue":889,"pr":null,"notes":"#889 라벨 이벤트 guard 분리 PR 생성, 로컬 full PASS","friction":"gates full 로컬 약 30분(tests 1356s); 라벨 붙이기는 PR 도구에 없어 수동 라벨 불가"}
 {"ts":"2026-11-15T02:03:40Z","role":"reviewer-b","outcome":"skipped","issue":889,"pr":893,"notes":"not my parity","friction":""}
 {"ts":"2026-11-15T02:11:01Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: even PR #599 already has VERDICT CHANGES on head d723a9c (awaiting author fix); no other even PRs open","friction":""}
+{"ts":"2026-11-15T02:35:31Z","role":"builder","outcome":"pr_opened","issue":880,"pr":894,"notes":"ADR 0027 E 토너먼트 환경(env_id 유지·train_env, 첫 단계 503020 버블 r4, c1 t칸 충분, cold vs C prior A/B, 첫 run 최악 $3.60, 후속 F2-F10)","friction":"docs-only PR인데 gates full 로컬 약 29분(tests 1351s) — (a) 재발. #880과 #892가 둘 다 'ADR 0027'을 지정해 번호 충돌 가능(planner가 이슈에 번호를 박지 말 것)"}
