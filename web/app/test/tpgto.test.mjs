@@ -24,7 +24,7 @@ function seqSum(a) { let s = 0.0; for (const v of a) s += v; return s; }
 
 test("schema and constants match the Python side", () => {
   assert.equal(V.schema, "stalker.web.tpgto.vectors");
-  assert.equal(V.schema_version, 6);
+  assert.equal(V.schema_version, 7);
   const c = V.constants;
   assert.deepEqual(c.TIER_K, T.TIER_K, "TIER_K differs: update tpgto.js to stalker/e3/tp_key.py");
   assert.deepEqual(c.TIER_DEPTH, T.TIER_DEPTH);
@@ -377,6 +377,40 @@ test("rangeResponse (#465): a bet that makes every weaker combo fold reports ~10
   // Folding side: ending the street gives no reply.
   const rf = T.rangeResponse(pol, s, ranges, "mid", hero, null);
   assert.equal(rf.reply, null);
+});
+
+test("BB ante (#887): deal, passive and shove lines, side-pot payoff and c1 key equal Python; ante 0 is unchanged", () => {
+  assert.ok(V.ante.length >= 8, "ante vectors missing: python -m stalker.tools.web_vectors");
+  let pots = 0;
+  for (const h of V.ante) {
+    const tag = `${h.n}p ${h.style} stacks ${JSON.stringify(h.stacks)}`;
+    let s = T.dealFromPermutation(h.perm, h.n, { stacks: h.stacks ?? undefined, ante: h.ante });
+    assert.deepEqual({ stack: s.stack, bet: s.bet, total: s.total, ante: s.ante, pot: T.pot(s) }, h.dealt, `deal ${tag}`);
+    for (const d of h.decisions) {
+      assert.deepEqual(T.legal(s), d.legal, `legal ${tag} after ${s.history.join(" ")}`);
+      assert.equal(T.publicKeyC1(s, s.toAct, "full"), d.public, `c1 key ${tag}`);
+      assert.match(d.public.startsWith("call|") ? "tx1|" : d.public, /\|?t[cebmf]1\||^tx1\|/, `ante slot ${tag}`);
+      s = T.apply(s, d.a);
+    }
+    assert.ok(s.done, tag);
+    assert.deepEqual(s.history, h.history, tag);
+    const pay = T.payoff(s);
+    assert.deepEqual(pay, h.payoff, `payoff ${tag}`);
+    assert.equal(pay.reduce((x, y) => x + y, 0), 0, `zero sum ${tag}`);
+    pots += T.pot(s) > 0 ? 1 : 0;
+  }
+  assert.equal(pots, V.ante.length);
+  // ante 0: the same fields as before (no ante), cash key has the t c0 slot.
+  const d = V.c1_keys.hands[0];
+  const s0 = T.dealFromPermutation(d.perm, d.n, { stacks: d.stacks });
+  assert.equal(s0.ante, 0);
+  assert.deepEqual(s0.total, s0.bet);
+  assert.ok(T.publicKeyC1(s0, s0.toAct, "full").includes("|tc0|"));
+  // an ante deal reads ante 1 whatever env says; an explicit env ante is still honoured
+  const a = V.ante[0], sa = T.dealFromPermutation(a.perm, a.n, { ante: a.ante });
+  assert.ok(T.publicKeyC1(sa, sa.toAct, "full", { stage: "c", ante: false }).includes("|tc1|"));
+  assert.ok(T.publicKeyC1(s0, s0.toAct, "full", { stage: "e", ante: true }).includes("|te1|"));
+  assert.throws(() => T.newHand({ n: 2, holes: [[0, 1], [2, 3]], ante: -1 }), /ante=-1/);
 });
 
 test("c1 keys (#583): public key string equals Python at every depth; every c1 element appears for 2, 4 and 6 players", () => {
