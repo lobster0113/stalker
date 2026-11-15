@@ -53,6 +53,13 @@ every run before #886) deals cash hands with no ante. `ante=<chips>` deals every
 walk runs inside `tp_key.using_env(stage, ante > 0)`, so the keys carry `t<stage>1` (or `t<stage>0` without an
 ante). Only the c1 key has these slots. A checkpoint of it is version 10. The default takes the old code path.
 
+Which stacks a tournament hand is dealt with is an option (#898, ADR 0027 decisions 4-5). `stacks="bubble:<profile>"`
+(profile `even`, `random` or `skewed`) deals every hand with `sample_tournament_stacks(rng, stack_preset,
+stack_remaining, stack_level, profile)`: the survivors' chips of a mid-tournament state of that preset, in E3 BB
+units at that level's blind. `n` must equal `stack_remaining` and `player_mix` must be empty. A checkpoint of it is
+version 11 and holds the sampling setup; `from_state` refuses to resume it with another. `"uniform"` and
+`"sampled"` take the old code path, so their runs and checkpoints do not move.
+
     python -m stalker.e3.mccfr --tier beginner --iters 50 --seed 1
 """
 from __future__ import annotations
@@ -72,8 +79,11 @@ from stalker.core.icm import MAX_EXACT_PLAYERS
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
 from stalker.e3.icm_payoff import tournament_payoff
+from stalker.e3.tournament_stacks import sample_tournament_stacks
+from stalker.tournament.start_state import STACK_PROFILES
 
 AVG_RULES = ("legacy", "own")
+BUBBLE_PREFIX = "bubble:"
 
 RANGES = ("current", "average")
 STACKS = ("uniform", "sampled")
@@ -89,14 +99,28 @@ class E3MCCFR:
                  raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY,
                  avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
                  player_mix: tuple[int, ...] = (), avg_cap: float | None = None, payoff: str = "chip",
-                 payouts=None, lam: float = 0.0, ante: int = 0, stage: str = "c"):
+                 payouts=None, lam: float = 0.0, ante: int = 0, stage: str = "c",
+                 stack_preset: str = "", stack_remaining: int = 0, stack_level: int = 0):
         if avg_cap is not None and (avg_rule != "own" or not avg_cap >= 1):
             raise ValueError(f"avg_cap={avg_cap!r}: needs avg_rule 'own' and a cap >= 1 (#448)")
         player_mix = tuple(int(x) for x in player_mix)
         if player_mix and not all(2 <= x <= 9 for x in player_mix):
             raise ValueError(f"player_mix counts must be 2..9, got {player_mix}")
-        if stacks not in STACKS:
-            raise ValueError(f"stacks must be one of {STACKS}, got {stacks!r}")
+        bubble = stacks.startswith(BUBBLE_PREFIX)
+        if not bubble and stacks not in STACKS:
+            raise ValueError(f"stacks must be one of {STACKS} or 'bubble:<profile>', got {stacks!r}")
+        if bubble:
+            if stacks[len(BUBBLE_PREFIX):] not in STACK_PROFILES:
+                raise ValueError(f"stacks {stacks!r}: the profile must be one of {STACK_PROFILES}")
+            if not stack_preset or stack_remaining < 1:
+                raise ValueError(f"stacks {stacks!r} needs stack_preset (a tournament preset) and stack_remaining "
+                                 "(survivors, = n)")
+            if player_mix or max(player_mix or (n,)) != stack_remaining:
+                raise ValueError(f"stacks {stacks!r}: n={n} must equal stack_remaining={stack_remaining} and "
+                                 "player_mix must be empty - every hand is the same survivors' table")
+        elif stack_preset or stack_remaining or stack_level:
+            raise ValueError("stack_preset / stack_remaining / stack_level only go with stacks='bubble:<profile>'")
+        self.stack_preset, self.stack_remaining, self.stack_level = stack_preset, stack_remaining, stack_level
         if key_variant not in K.VARIANTS:
             raise ValueError(f"key_variant must be one of {K.VARIANTS}, got {key_variant!r}")
         if ranges not in RANGES:
@@ -174,7 +198,11 @@ class E3MCCFR:
             self.refresh_snapshot()
             self.iterations += 1
             n = self.player_mix[int(self.rng.integers(len(self.player_mix)))] if self.player_mix else self.n
-            stacks = G.sample_stacks(self.rng, n) if self.stacks == "sampled" else None
+            if self.bubble_stacks():
+                stacks = sample_tournament_stacks(self.rng, self.stack_preset, self.stack_remaining, self.stack_level,
+                                                  self.stacks[len(BUBBLE_PREFIX):], min_chips=2 * G.BB)
+            else:
+                stacks = G.sample_stacks(self.rng, n) if self.stacks == "sampled" else None
             if self.tournament_env():
                 s = G.deal(self.rng, n, self.menu, self.raise_cap, stacks, ante=self.ante)
             else:   # the old call, so default runs take exactly the code path they always did
@@ -193,6 +221,10 @@ class E3MCCFR:
             if self.player_mix:
                 self.mix_hands[n] += 1
                 self.mix_visits[n] += self.trav_updates - t0
+
+    def bubble_stacks(self) -> bool:
+        """Hands are dealt the survivors' tournament stacks (#898)."""
+        return self.stacks.startswith(BUBBLE_PREFIX)
 
     def tournament_env(self) -> bool:
         """A non-default ante or stage (#886): deals, keys and checkpoint (version 10) carry them."""
@@ -284,8 +316,10 @@ class E3MCCFR:
                       snap={k: v.tolist() for k, v in self.snap.items()},
                       **({"avg_cap": self.avg_cap} if self.avg_cap is not None else {}),
                       **(self._count_state() if self.player_mix else {}))
-        if self.tournament_env():   # version 10 (#886): code that predates it would resume this on cash deals
-            st.update(version=10, ante=self.ante, stage=self.stage,
+        if self.tournament_env() or self.bubble_stacks():
+            # version 10 (#886): code that predates it would resume this on cash deals;
+            # version 11 (#898) adds the tournament stack sampling, which version 10 code would resume on 100BB tables
+            st.update(version=11 if self.bubble_stacks() else 10, ante=self.ante, stage=self.stage,
                       **({"payoff": self.payoff, "payouts": list(self.payouts), "lam": self.lam}
                          if self.payoff != "chip" else {}),
                       player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
@@ -293,6 +327,9 @@ class E3MCCFR:
                       snap={k: v.tolist() for k, v in self.snap.items()},
                       **({"avg_cap": self.avg_cap} if self.avg_cap is not None else {}),
                       **(self._count_state() if self.player_mix else {}))
+            if self.bubble_stacks():
+                st.update(stack_preset=self.stack_preset, stack_remaining=self.stack_remaining,
+                          stack_level=self.stack_level)
         if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
             st["key_version"] = K.KEY_VERSIONS[self.key_variant]
         st["chain"] = self.resume_chain()   # #712: additive, so the version stays (older code ignores it)
@@ -345,15 +382,20 @@ class E3MCCFR:
     @classmethod
     def from_state(cls, st: dict, avg_rule: str | None = None,
                    player_mix: tuple[int, ...] | None = None, avg_cap: float | None = None,
-                   payoff: str | None = None, ante: int | None = None, stage: str | None = None) -> "E3MCCFR":
+                   payoff: str | None = None, ante: int | None = None, stage: str | None = None,
+                   stack_sample: tuple[str, int, int] | None = None) -> "E3MCCFR":
         """`avg_rule` / `player_mix` / `payoff` / `ante` / `stage`, if given, are what the caller means to continue
         with; a checkpoint of another is refused. Checkpoints before version 9 hold no payoff and are chip runs,
         before version 10 no ante or stage and are cash runs (ante 0, stage "c")."""
-        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 10")
-        v10 = st["version"] == 10
+        if stack_sample is not None and stack_sample != (st.get("stack_preset", ""), st.get("stack_remaining", 0),
+                                                         st.get("stack_level", 0)):
+            raise ValueError(f"checkpoint was dealt stacks of {(st.get('stack_preset', ''), st.get('stack_remaining', 0), st.get('stack_level', 0))}, "
+                             f"not {stack_sample} (#898); resume it with its own (preset, remaining, level) or start a fresh run")
+        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 11")
+        v10 = st["version"] in (10, 11)
         env = (st.get("ante", 0), st.get("stage", "c"))
-        if (env != (0, "c")) != v10:
+        if env != (0, "c") and not v10 or st["version"] == 10 and env == (0, "c"):
             raise ValueError(f"checkpoint version {st['version']} with ante/stage {env}: a tournament-environment "
                              "checkpoint is version 10 and only that one has an ante or stage (#886)")
         for name, want, have in (("ante", ante, env[0]), ("stage", stage, env[1])):
@@ -369,12 +411,12 @@ class E3MCCFR:
             raise ValueError(f"checkpoint was trained on payoff {pay!r}, not {payoff!r} (#883); the regrets of two "
                              "rewards must not mix - resume it with its own payoff or start a fresh run")
         cap = st.get("avg_cap")
-        if (st["version"] == 8 and cap is None) or (cap is not None and st["version"] not in (8, 9, 10)) \
+        if (st["version"] == 8 and cap is None) or (cap is not None and st["version"] not in (8, 9, 10, 11)) \
                 or (avg_cap is not None and avg_cap != cap):
             raise ValueError(f"checkpoint version {st['version']} holds avg_cap {cap!r}, asked {avg_cap!r} (#529); "
                              "the weights must not mix in one average - resume it with its own cap or start a fresh run")
         mix = tuple(st.get("player_mix", ()))
-        if st["version"] not in (8, 9, 10) and bool(mix) != (st["version"] in (6, 7)):
+        if st["version"] not in (8, 9, 10, 11) and bool(mix) != (st["version"] in (6, 7)):
             raise ValueError(f"checkpoint version {st['version']} with player_mix {list(mix)}: a mixed-player "
                              "checkpoint is version 6 or 7 and only those have a player_mix")
         if player_mix is not None and tuple(player_mix) != mix:
@@ -397,7 +439,8 @@ class E3MCCFR:
                              f"{K.KEY_VERSIONS[kv]} (#400) - its keys mean other things, start a fresh run")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
                 st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""),
-                st.get("stacks", "uniform"), mix, cap, pay, st.get("payouts"), st.get("lam", 0.0), *env)
+                st.get("stacks", "uniform"), mix, cap, pay, st.get("payouts"), st.get("lam", 0.0), *env,
+                st.get("stack_preset", ""), st.get("stack_remaining", 0), st.get("stack_level", 0))
         if pay != "chip":   # saved payouts are already normalized; normalizing again can move the last bit (#883)
             m.payouts = tuple(float(x) for x in st["payouts"])
         m.rng.bit_generator.state = st["rng"]
