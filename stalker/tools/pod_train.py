@@ -180,8 +180,12 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
     if meta.get("player_mix"):   # #486; with the per-size counts (#535) version 7
         version = 7 if "mix_counts" in meta else 6
     if "train_env" in meta:   # #899: E3MCCFR.state versions 9-11 (payoff, ante/stage, bubble stacks)
+        # same rule as E3MCCFR.state(): a chip run with no ante/stage/bubble stacks keeps its earlier version
         env = (meta.get("ante", 0), meta.get("stage", "c"))
-        version = 11 if meta.get("stack_preset") else 10 if env != (0, "c") else 9
+        if meta.get("payoff", "chip") != "chip":
+            version = 9
+        if meta.get("stack_preset") or env != (0, "c"):
+            version = 11 if meta.get("stack_preset") else 10
     if meta.get("ranges", "current") != "average":
         return {"version": version, "avg_rule": "legacy", **meta, "regret": regret, "avg": avg, "visits": visits}
     snap, si, sv = {}, 0, z["snap"].astype(float).tolist()
@@ -266,9 +270,10 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
         res["model"].update(player_mix=list(m.player_mix), **m._count_state())   # #535: counts resume with the table
     if train_env:   # absent for cash training, so those results stay as before #899
         res["train_env"] = dict(train_env)
-        res["model"].update(train_env=dict(train_env), payoff=m.payoff, payouts=list(m.payouts), lam=m.lam,
-                            ante=m.ante, stage=m.stage, player_mix=list(m.player_mix), key_variant=m.key_variant,
-                            stacks=m.stacks)
+        res["model"].update(train_env=dict(train_env), ante=m.ante, stage=m.stage, player_mix=list(m.player_mix),
+                            key_variant=m.key_variant, stacks=m.stacks)
+        if m.payoff != "chip":   # from_state refuses payouts/lam on a chip run
+            res["model"].update(payoff=m.payoff, payouts=list(m.payouts), lam=m.lam)
         if m.bubble_stacks():
             res["model"].update(stack_preset=m.stack_preset, stack_remaining=m.stack_remaining,
                                 stack_level=m.stack_level)

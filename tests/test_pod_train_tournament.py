@@ -109,3 +109,18 @@ def test_plain_run_has_no_train_env_and_keeps_its_result_keys(small_eval):
     assert "train_env" not in r and "train_env" not in r["model"] and "payoff" not in r["model"]
     assert P.tournament_args(type("A", (), {"payoff": "chip", "preset": None, "stage": "c", "level_index": 0,
                                             "lam": 0.0, "ante": None, "stacks": "uniform"})) == ({}, None)
+
+
+def test_chip_payoff_preset_run_resumes_from_its_result_and_checkpoint(tmp_path, small_eval):
+    """Review of #908: a chip run with no ante/stage/bubble stacks must keep state()'s version, not 9."""
+    base = ["--tier", "mid", "--players", "4", "--workers", "1", "--max-iters", "5", "--batch", "5", "--seed", "1",
+            "--menu", "real", "--no-raise-cap", "--key-variant", "c1", "--payoff", "chip", "--preset", PRESET]
+    out = tmp_path / "r.json"
+    assert P.main([*base, "--out", str(out)]) == 0
+    nxt = tmp_path / "n.json"
+    assert P.main([*base[:base.index("--max-iters")], "--max-iters", "10", *base[base.index("--batch"):],
+                   "--resume-result", str(out), "--out", str(nxt)]) == 0
+    assert json.loads(nxt.read_text(encoding="utf-8"))["resumed_from"] == 5
+    P.unpack(out, tmp_path / "out")
+    ck = next((tmp_path / "out").glob("*.ckpt.json"))
+    assert E3MCCFR.from_state(json.loads(ck.read_text(encoding="utf-8"))).payoff == "chip"
