@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "note": "ADR 0027 F4a first stage: 9max_sng_503020 bubble (3 paid, 4 survivors), level 0. Changing a spot makes a new file (v2); outputs record this file's sha256.",
+  "spots": [
+    {"preset": "9max_sng_503020", "remaining": 4, "profile": "even", "level_index": 0},
+    {"preset": "9max_sng_503020", "remaining": 4, "profile": "random", "level_index": 0},
+    {"preset": "9max_sng_503020", "remaining": 4, "profile": "skewed", "level_index": 0}
+  ]
+}
