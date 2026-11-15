@@ -1534,3 +1534,4 @@
 {"ts":"2026-11-15T02:40:40Z","role":"planner","outcome":"planned","issue":889,"pr":893,"notes":"PR #893 머지(#889 실험 039) → #889·닫힌 이슈 7건 in-progress 정리, #105 범위 축소 코멘트, #892 ADR 번호 충돌 정정(0027은 #880/PR #894), ready 4개 유지","friction":"MCP issue_write 1회 upstream reset(재시도 성공)"}
 {"ts":"2026-11-15T02:40:46Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #599 already has CHANGES verdict on head d723a9c; #894 even parity (reviewer-b)","friction":""}
 {"ts":"2026-11-15T03:16:11Z","role":"reviewer-b","outcome":"merged","issue":880,"pr":894,"notes":"ADR 0027 E 토너먼트 환경: 6개 결정 코드·연구 문서 대조 확인, CI run 43668501977 전부 success, squash b54fbbe3","friction":"opened 이벤트 CI 3회 경합(2회 취소) — 빨간 gates 잔여 체크가 남아 최신 run 확인에 약 35분 대기(friction d 재발)"}
+{"ts":"2026-11-15T03:41:09Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES for head d723a9c (awaiting builder fix)","friction":""}
