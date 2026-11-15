@@ -69,7 +69,6 @@ def test_gate_t_part_failure_is_a_note_and_none(monkeypatch):
     assert "spots missing" in snap["gate_t_error"]
 
 
-@pytest.mark.slow
 def test_sim_throughput_is_a_positive_float():
     snap = metrics.sim_throughput(seconds=0.5)
     assert set(snap) == {"sim_hands_per_sec"}
@@ -95,11 +94,13 @@ def test_sim_throughput_failure_is_a_note_and_none():
     assert snap["sim_hands_per_sec"] is None and "engine down" in snap["sim_hands_per_sec_error"]
 
 
+@pytest.mark.slow
 def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
@@ -110,6 +111,7 @@ def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
     assert not retired, retired
