@@ -1,5 +1,5 @@
 # 001: builder 자가 언블록
-- 상태: 진행 중
+- 상태: 성공
 - 제안: auditor, 2026-10-25 / 이슈 #55 / PR #57
 ## 문제
 builder 실행의 24%(41회 중 10회)가 no_work였다. planner는 실제로 하루 1회(21:00 UTC)만 돌아서, 선행이 닫힌 blocked 이슈가 최대 24시간 동안 ready로 바뀌지 않는다(#13·#15·#17 사례).
@@ -14,4 +14,6 @@ no_work 비율 ≤ 10%, 일 평균 머지 수가 직전 주의 80% 이상, 잘�
 ## 롤백 방법
 builder.md의 자가 언블록 문단을 되돌리는 PR(ROUTINES.md 정정은 유지).
 ## 결과
-(측정창 종료 후 auditor가 기록)
+성공 (auditor 판정, `ops:reports/2026-W45.md` §4 · `ops:reports/2026-W46.md` §1).
+- builder 계열 no_work 비율: W45 **1.9%**(3/158), W46 **5.2%**(9/173). 목표 ≤10% 달성(기준선 W43 24%, W44 16%).
+- 근거: `ops:reports/2026-W45.md`, `ops:reports/2026-W46.md`
