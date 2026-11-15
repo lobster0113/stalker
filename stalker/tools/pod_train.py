@@ -250,7 +250,7 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
         menu: str = "v1", raise_cap: int | None | str = "default", ranges: str = "current",
         avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
         player_mix: tuple[int, ...] = (), max_iters: int | None = None, env: dict | None = None,
-        train_env: dict | None = None) -> dict:
+        train_env: dict | None = None, lbr_hands: int | None = None) -> dict:
     from stalker.e3 import tp_key as K
     from stalker.train_jobs import e3_evaluate
 
@@ -258,7 +258,7 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
                      key_variant, stacks, player_mix, max_iters, env)
     res = {"job": job_name(tier, players, m.key_variant, m.player_mix), "tier": tier, "players": players, "seed": seed, "workers": workers,
            "batch": batch, "iters": m.iterations, "resumed_from_run": resumed_from_run, **stats}
-    res.update(e3_evaluate(m, seed))   # under the model's t<stage><ante> key slot, so LBR reads the rows trained
+    res.update(e3_evaluate(m, seed, **({} if lbr_hands is None else {"lbr_hands": lbr_hands})))   # under the model's t<stage><ante> key slot, so LBR reads the rows trained
     res["model"] = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
                     "menu": m.menu, "raise_cap": m.raise_cap, "avg_rule": m.avg_rule, "rng": m.rng.bit_generator.state,
                     **m._grid()}
@@ -379,6 +379,7 @@ def main(argv=None) -> int:
     ap.add_argument("--preset", help="tournament preset (stalker/tournament/presets): payouts, ante, stacks (#899)")
     ap.add_argument("--stage", default="c", help="c1 key tournament stage e|b|m|f (#886); c = cash")
     ap.add_argument("--level-index", type=int, default=0, help="blind level of the --preset table (#899)")
+    ap.add_argument("--lbr-hands", type=int, help="LBR deals of the evaluation (default: train_jobs.E3_LBR_HANDS); #901 uses 600")
     ap.add_argument("--lam", type=float, default=0.0, help="payoff icm: bubble correction (ADR 0026), 0 = pure ICM")
     ap.add_argument("--ante", type=int, help="BB ante in E3 chips (BB=100); default: the --preset level's BB ante")
     ap.add_argument("--player-mix", type=parse_mix, default=(),
@@ -411,7 +412,7 @@ def main(argv=None) -> int:
                                               a.key_variant, a.stacks, a.player_mix, train_env)
     res = run(a.tier, a.players, a.workers, a.minutes, a.seed, a.batch, resume, resumed_from_run=from_run,
               menu=a.menu, raise_cap=cap, ranges=a.ranges, avg_rule=a.avg_rule, key_variant=a.key_variant,
-              stacks=a.stacks, player_mix=a.player_mix, max_iters=a.max_iters, env=env, train_env=train_env)
+              stacks=a.stacks, player_mix=a.player_mix, max_iters=a.max_iters, env=env, train_env=train_env, lbr_hands=a.lbr_hands)
     res["sha"] = a.sha_file.read_text(encoding="utf-8").strip() if a.sha_file and a.sha_file.exists() else ""
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res), encoding="utf-8")
