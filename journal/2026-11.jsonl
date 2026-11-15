@@ -1621,3 +1621,4 @@
 {"ts":"2026-11-15T20:41:25Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 열린 홀수 PR #599는 head d723a9c에 이미 CHANGES 판정, 새 커밋 없음","friction":""}
 {"ts": "2026-11-15T21:03:16Z", "role": "builder", "outcome": "pr_opened", "issue": 916, "pr": 921, "notes": "F7a lambda 선택 잡 e3-sng-bubble-lambda-policy(resume_run=43735226442, 최악 $0.96) + read_json gzip 매직 판별(resume.bin 못 읽던 버그); 1회차 디스패치는 머지 뒤", "friction": "gates full 로컬 ~23분(tests 946s), 첫 full에서야 $1 탐침 비용 상한·utf-8 검사를 발견해 재실행; 정책 좌석 icm_grid가 numba 없이 3.5s/게임이라 잡 크기 추정에 프로파일 필요; RESUME_FIELDS에 train_env 없음(토너먼트 이어 학습 거부 예상, PR 후속)"}
 {"ts":"2026-11-15T21:03:23Z","role":"reviewer-b","outcome":"skipped","issue":916,"pr":921,"notes":"not my parity","friction":""}
+{"ts":"2026-11-15T21:06:00Z","role":"builder-b","outcome":"pr_opened","issue":917,"pr":922,"notes":"ICM 단위 LBR lbr_icm + tournament_eval --lbr-hands","friction":"gates quick 296초·full 27분, 단일 명령 10분 제한으로 nohup 루프 필요"}
