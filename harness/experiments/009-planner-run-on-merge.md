@@ -1,5 +1,5 @@
 # 009: 머지 직후 planner 실행 (run_on_merge)
-- 상태: 진행 중
+- 상태: 성공
 - 제안: 사용자 요청(대화 세션, 2026-10-27) / 이슈 #130 / PR #131
 ## 문제
 planner가 10시간 주기와 큐 바닥 규칙(실험 008)으로만 깨어나서, 머지로 선행이 풀리거나 큐가 바뀌어도 다음 계획까지 몇 시간 걸린다. 사용자는 planner가 "PR이 되면 바로 다시 실행"되기를 요청했다.
@@ -16,4 +16,7 @@ main에 마지막 planner 실행보다 새 커밋이 있으면 바로 실행하�
 ## 롤백 방법
 schedule.json의 planner에서 `run_on_merge`를 false로. 트리거 webhook은 대화 세션에서 제거.
 ## 결과
-(측정창 종료 후 auditor가 기록)
+성공 (auditor 판정).
+- W44: 잠정 성공 — planner 116회/주 실행, 큐 고갈 없음. 비용: 실행 대부분이 `planned`, STATE.md가 매번 길어짐.
+- W45·W46: 잠정 성공 유지.
+- 근거: `ops:reports/2026-W44.md` §4, `ops:reports/2026-W45.md` §4, `ops:reports/2026-W46.md`

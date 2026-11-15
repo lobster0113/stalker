@@ -1,5 +1,5 @@
 # 034: Bash guard 훅을 절대 경로(`$CLAUDE_PROJECT_DIR`)로 — cwd가 web/로 바뀌어도 Bash가 막히지 않게
-- 상태: 진행 중
+- 상태: 성공
 - 제안: auditor, 2026-11-08 / 이슈 #659 / PR (이 PR)
 ## 문제 (관측 근거: ops journal 11-01~11-07, ops:reports/2026-W45.md, STATE 경보 11-04 13:15Z·11-06 12:45Z·11-07 13:05Z·15:30Z)
 `.claude/settings.json`의 PreToolUse 훅 명령이 `python harness/hooks/guard_bash.py`(상대 경로)였다. 셸 cwd가 `web/e2e`·`web/app`로
@@ -24,3 +24,9 @@ guard 차단 기능 회귀 없음(force push·main push 차단 테스트 유지)
 ## 롤백 방법
 이 PR revert.
 ## 결과 (측정창 종료 후 기록)
+성공 (auditor 판정, 측정창 11-08~11-15, `ops:reports/2026-W46.md` §4).
+- (1) cwd 이동 후 훅 경로 때문에 Bash가 막혔다는 보고 **0건**(기준선 22).
+- (2) 임시 shim **0건**.
+- (3) 같은 원인으로 수정 푸시에 실패한 PR **0건**.
+- 남은 guard 차단은 force-push 문자열 heredoc 1건(의도된 동작)뿐.
+- 근거: `ops:reports/2026-W46.md` §4
