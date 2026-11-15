@@ -155,13 +155,12 @@ def test_icm_with_ante_conserves_the_prize_pool(monkeypatch):
     assert sums and max(abs(x) for x in sums) < 1e-12
 
 
-def test_parallel_refuses_ante_and_stage():
-    for kw in (dict(ante=G.BB), dict(stage="m")):
+def test_parallel_runs_ante_and_stage_instead_of_refusing_them():
+    # #888: the workers carry ante/stage now (#886 refused them)
+    for kw, slot in ((dict(ante=G.BB), "tc1"), (dict(stage="m"), "tm0")):
         m = E3MCCFR(0, n=3, **KW, **kw)
-        with pytest.raises(ValueError, match="workers=1"):
-            parallel.iterate(m, 2, workers=2)
-        parallel.iterate(m, 1, workers=1)
-        assert m.iterations == 1
+        parallel.iterate(m, 2, workers=2, batch=1)
+        assert m.iterations == 2 and env_slots(m) == {slot}
 
 
 def test_cli_ante_stage_flags(capsys):

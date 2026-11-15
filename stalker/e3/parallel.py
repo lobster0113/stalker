@@ -10,6 +10,9 @@ workers=1 is the sequential `E3MCCFR.iterate`, unchanged, so a 1-worker run matc
 Worker generators are seeded from the model's own generator, so checkpoints (#301) still continue
 bit for bit.
 
+Workers build their model with the parent's payoff (`payouts` as the parent normalized them, `lam`) and
+tournament environment (`ante`, `stage`) (#888), so an ICM or ante run means the same thing on any worker count.
+
 Average-strategy ranges (#405): the parent retakes the snapshot at a sync once `range_every` iterations have
 passed since the last one (so the effective interval is `range_every` rounded up to whole syncs) and every
 worker of the batch reads that same snapshot; workers never refresh it, since each sees only its own sums.
@@ -73,10 +76,14 @@ class _Overlay(dict):
 
 
 def _work(args) -> tuple[dict, dict, dict, int, float, tuple[dict, dict]]:
-    k, n, depth, menu, raise_cap, blob, iterations, seed, iters, ranges, snap_blob, avg_rule, key_variant, stacks, mix, avg_cap = args
+    (k, n, depth, menu, raise_cap, blob, iterations, seed, iters, ranges, snap_blob, avg_rule, key_variant, stacks, mix,
+     avg_cap, payoff, payouts, lam, ante, stage) = args
     regret = _Overlay(*pickle.loads(blob))
     m = E3MCCFR(0, k, n, depth, menu, raise_cap, ranges, avg_rule=avg_rule, key_variant=key_variant,
-                stacks=stacks, player_mix=mix, avg_cap=avg_cap)
+                stacks=stacks, player_mix=mix, avg_cap=avg_cap, payoff=payoff,
+                payouts=payouts if payoff != "chip" else None, lam=lam, ante=ante, stage=stage)
+    # The parent's payouts are already normalized; renormalizing could move the last bit of a prize.
+    m.payouts = payouts
     if snap_blob is not None:
         m.snap, m.snap_frozen = _Overlay(*pickle.loads(snap_blob)), True  # read-only: only .get is used
     m.rng = np.random.default_rng(seed)
@@ -110,12 +117,6 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
     """
     if workers < 1 or batch < 1:
         raise ValueError(f"workers and batch must be >= 1, got workers={workers} batch={batch}")
-    if workers > 1 and m.payoff != "chip":
-        raise ValueError(f"payoff {m.payoff!r} is not wired into the parallel workers yet (#883): run it with "
-                         "workers=1 (the sequential trainer) or use payoff 'chip'")
-    if workers > 1 and m.tournament_env():
-        raise ValueError(f"ante {m.ante} / stage {m.stage!r} are not wired into the parallel workers yet (#886, "
-                         "#888): run it with workers=1 (the sequential trainer) or use ante=0, stage='c'")
     if workers == 1:
         t0 = time.perf_counter()
         m.iterate(iters)
@@ -140,7 +141,8 @@ def iterate(m: E3MCCFR, iters: int, workers: int = 1, batch: int = 500, pool: Pr
             # table the per-job pickling in the pool's single feeder thread was the serial part (#333).
             blob = pickle.dumps(pack_regret(m.regret), protocol=pickle.HIGHEST_PROTOCOL)
             jobs = [(m.k, m.n, m.depth, m.menu, m.raise_cap, blob, m.iterations, int(sd), s, m.ranges, snap_blob,
-                     m.avg_rule, m.key_variant, m.stacks, m.player_mix, m.avg_cap)
+                     m.avg_rule, m.key_variant, m.stacks, m.player_mix, m.avg_cap, m.payoff, m.payouts, m.lam,
+                     m.ante, m.stage)
                     for sd, s in zip(seeds, shares)]
             results = list(pool.map(_work, jobs))
             t1 = time.perf_counter()
