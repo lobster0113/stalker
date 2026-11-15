@@ -39,14 +39,53 @@ def random_agents(config: TournamentConfig, rng: np.random.Generator) -> list[Ag
     return [RandomLegalAgent(np.random.default_rng(int(s))) for s in rng.integers(2**63, size=config.players)]
 
 
+class PolicyAgents:
+    """`policy:PATH` (#900): a trained E3 c1 policy (`stalker.agents.e3_policy`) on every seat, `persona:tag` where it
+    has no row. Loaded once; every agent it makes adds to `counts()` until `reset()`."""
+
+    def __init__(self, path: str) -> None:
+        from stalker.agents.e3_policy import load_table
+
+        self.table = load_table(Path(path))
+        self.agents: list = []
+
+    def __call__(self, config: TournamentConfig, rng: np.random.Generator) -> list[Agent]:
+        from stalker.agents.e3_policy import E3PolicyAgent
+
+        made = [E3PolicyAgent(self.table, np.random.default_rng(int(s)), players=config.players,
+                              table_size=config.table_size) for s in rng.integers(2**63, size=config.players)]
+        self.agents += made
+        return made
+
+    def reset(self) -> None:
+        self.agents = []
+
+    def counts(self) -> dict:
+        """Decisions, policy hits and backoffs summed over the agents made since `reset`; `backoff_rate` =
+        backoffs / decisions (None before any decision)."""
+        out = {"decisions": 0, "policy_hits": 0, "backoffs": 0, "backoff_reasons": {}}
+        for a in self.agents:
+            c = a.counts()
+            for k in ("decisions", "policy_hits", "backoffs"):
+                out[k] += c[k]
+            for r, n in c["backoff_reasons"].items():
+                out["backoff_reasons"][r] = out["backoff_reasons"].get(r, 0) + n
+        out["backoff_reasons"] = dict(sorted(out["backoff_reasons"].items()))
+        out["backoff_rate"] = out["backoffs"] / out["decisions"] if out["decisions"] else None
+        return out
+
+
 def agents_factory(spec: str) -> AgentsFactory:
-    """`random` or `persona:NAME` (same persona on every seat, so skill stays symmetric). Bad names fail here, before
-    any game runs, with persona_params' KeyError listing the choices."""
+    """`random`, `persona:NAME` (same persona on every seat, so skill stays symmetric) or `policy:PATH` (a trained E3
+    policy on every seat, `PolicyAgents`). Bad names fail here, before any game runs, with persona_params' KeyError
+    listing the choices (a bad policy path with its FileNotFoundError/ValueError)."""
     if spec == "random":
         return random_agents
     kind, _, name = spec.partition(":")
+    if kind == "policy" and name:
+        return PolicyAgents(name)
     if kind != "persona" or not name:
-        raise ValueError(f"--agents {spec!r}: use 'random' or 'persona:NAME'.")
+        raise ValueError(f"--agents {spec!r}: use 'random', 'persona:NAME' or 'policy:PATH'.")
     params = persona_params(name)
 
     def personas(config: TournamentConfig, rng: np.random.Generator) -> list[Agent]:
@@ -110,12 +149,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--level-index", type=int, default=0)
     ap.add_argument("--games", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--agents", default="random", help="random | persona:NAME (every seat)")
+    ap.add_argument("--agents", default="random", help="random | persona:NAME | policy:PATH (every seat)")
     ap.add_argument("--out", type=Path)
     a = ap.parse_args(argv)
     try:
         factory = agents_factory(a.agents)
-    except (KeyError, ValueError) as e:
+    except (KeyError, ValueError, FileNotFoundError) as e:
         ap.exit(2, f"icm_calibration: {e.args[0]}\n")
     if a.preset:
         config = load_preset(a.preset)
