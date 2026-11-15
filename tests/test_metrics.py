@@ -69,12 +69,38 @@ def test_gate_t_part_failure_is_a_note_and_none(monkeypatch):
     assert "spots missing" in snap["gate_t_error"]
 
 
+def test_sim_throughput_is_a_positive_float():
+    snap = metrics.sim_throughput(seconds=0.5)
+    assert set(snap) == {"sim_hands_per_sec"}
+    assert isinstance(snap["sim_hands_per_sec"], float) and snap["sim_hands_per_sec"] > 0
+
+
+def test_sim_throughput_caps_the_run_and_uses_the_fixed_setup():
+    seen = {}
+
+    def fake(engine, players, seconds, seed=0):
+        seen.update(engine=engine, players=players, seconds=seconds, seed=seed)
+        return {"hands_per_s": 123.4}
+
+    assert metrics.sim_throughput(seconds=600, bench=fake) == {"sim_hands_per_sec": 123.4}
+    assert seen == {"engine": "fast", "players": 9, "seconds": 60.0, "seed": 0}
+
+
+def test_sim_throughput_failure_is_a_note_and_none():
+    def broken(*a, **k):
+        raise RuntimeError("engine down")
+
+    snap = metrics.sim_throughput(bench=broken)
+    assert snap["sim_hands_per_sec"] is None and "engine down" in snap["sim_hands_per_sec_error"]
+
+
 @pytest.mark.slow
 def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
@@ -85,6 +111,7 @@ def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
     assert not retired, retired
@@ -146,6 +173,7 @@ PARTS = {
     "gate_r": {"gate_r_pass_rate", "gate_r_checks", "gate_r_cash_pass_rate", "gate_r_cash_checks",
                "gate_r_e3_pass_rate", "gate_r_e3_checks"},
     "gate_t": {"gate_t_pass_rate", "gate_t_checks"},
+    "sim_throughput": {"sim_hands_per_sec"},
     "gate_l": {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"},
     "gate_s_e1": {"gate_s_e1"},
     "e0": {"e0_kuhn_iters", "e0_leduc_iters", "e0_kuhn_cfr_exploitability", "e0_leduc_cfr_exploitability"},
