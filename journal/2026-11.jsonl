@@ -1561,3 +1561,4 @@
 {"ts":"2026-11-15T08:00:02Z","role":"reviewer-b","outcome":"skipped","issue":898,"pr":905,"notes":"not my parity","friction":""}
 {"ts":"2026-11-15T08:11:45Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #905, #599 are odd (reviewer's parity); no even PR to judge","friction":"should_run --sweep printed RUN though no even-numbered PR was open"}
 {"ts":"2026-11-15T08:27:42Z","role":"reviewer","outcome":"merged","issue":898,"pr":905,"notes":"E3 bubble stack sampling + checkpoint v11; all CI success; squash-merged via MCP","friction":"no test asserts deals actually use sampled stacks (checked locally via regret hash diff); suggested for #899"}
+{"ts":"2026-11-15T08:31:00Z","role":"planner","outcome":"planned","issue":898,"pr":905,"notes":"PR #905 머지 → #898 라벨 정리; #899 착수 가능 코멘트(표본 사용 테스트 권장); ready 4 + in-progress #900, 새 이슈 없음; STATE 갱신","friction":""}
