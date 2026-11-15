@@ -258,7 +258,7 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
                      key_variant, stacks, player_mix, max_iters, env)
     res = {"job": job_name(tier, players, m.key_variant, m.player_mix), "tier": tier, "players": players, "seed": seed, "workers": workers,
            "batch": batch, "iters": m.iterations, "resumed_from_run": resumed_from_run, **stats}
-    res.update(e3_evaluate(m, seed, lbr_hands=lbr_hands))   # under the model's t<stage><ante> key slot, so LBR reads the rows trained
+    res.update(e3_evaluate(m, seed, **({} if lbr_hands is None else {"lbr_hands": lbr_hands})))   # under the model's t<stage><ante> key slot, so LBR reads the rows trained
     res["model"] = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
                     "menu": m.menu, "raise_cap": m.raise_cap, "avg_rule": m.avg_rule, "rng": m.rng.bit_generator.state,
                     **m._grid()}
