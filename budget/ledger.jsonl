@@ -94,3 +94,4 @@
 {"event": "start", "flavor": "cpu3c", "job": "icm-lambda-grid-tag", "max_minutes": 120, "month": "2026-11", "pod_id": "2u18897v7nbbzf", "pod_name": "stalker-icm-lambda-grid-tag-43647912273", "reserved_usd": 0.24, "run_id": "43647912273", "ts": "2026-11-14T22:24:28Z"}
 {"actual_usd": 0.0934, "cost_per_hr": 0.06, "event": "end", "job": "icm-lambda-grid-tag", "minutes": 93.35, "month": "2026-11", "pod_id": "2u18897v7nbbzf", "status": "error", "ts": "2026-11-14T23:57:49Z"}
 {"actual_usd": 0.0938, "cost_per_hr": 0.06, "event": "end", "job": "icm-lambda-grid-random", "minutes": 93.83, "month": "2026-11", "pod_id": "qqbvjmoiwym3l1", "status": "error", "ts": "2026-11-14T23:58:16Z"}
+{"event": "start", "flavor": "cpu3c", "job": "e3-tp-mid-c1-sng-bubble-pod32", "max_minutes": 180, "month": "2026-11", "pod_id": "4f58vr56cagzjp", "pod_name": "stalker-e3-tp-mid-c1-sng-bubble-pod32-43735226442", "reserved_usd": 3.6, "run_id": "43735226442", "ts": "2026-11-15T16:23:54Z"}
