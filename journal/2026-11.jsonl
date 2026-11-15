@@ -1631,3 +1631,4 @@
 {"ts":"2026-11-15T22:54:44Z","role":"reviewer","outcome":"skipped","pr":924,"notes":"not my parity","friction":""}
 {"ts":"2026-11-15T23:50:00Z","role":"builder-b","outcome":"pr_opened","issue":920,"notes":"e3 key_cells 필드 추가, gates full 로컬 PASS","friction":"gates full 로컬 약 36분, 단일 명령 10분 제한으로 폴링 루프 반복"}
 {"ts":"2026-11-15T23:40:49Z","role":"reviewer-b","outcome":"waiting_ci","pr":924,"notes":"코드 검토 완료(문제 미발견: prior 평균합 시드·tc0→t<stage><ante> 슬롯·워커 avg 미전달로 중복 없음 확인), gates (tests) 40분 넘게 진행 중이라 판정 보류","friction":"gates (tests) 잡이 40분 대기 한도를 넘김(22:54 시작) — 대기 한도와 실제 잡 시간이 안 맞음"}
+{"ts":"2026-11-15T23:53:47Z","role":"reviewer","outcome":"waiting_ci","issue":920,"pr":925,"notes":"gates (tests) still in_progress after 40+ min (started 23:06Z); other 5 checks success; code reviewed, local tests 9 pass (reference), AC look satisfied — next run judges","friction":"gates (tests) job exceeded the 40-min review wait window"}
