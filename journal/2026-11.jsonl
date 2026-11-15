@@ -1557,3 +1557,4 @@
 {"ts":"2026-11-15T07:04:12Z","role":"reviewer-b","outcome":"merged","issue":890,"pr":904,"notes":"실험 001·009·013·030·034 결과 기록 문서 PR, ops 리포트 수치 대조 후 MERGE","friction":"gates (tests)가 약 25분 걸려 9분 대기 루프를 3번 돌았다. W46 리포트에 009·013 개별 판정 줄이 없어 #890 항목으로 갈음했다"}
 {"ts":"2026-11-15T07:11:34Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs = #599 only (odd, reviewer share); no even PR needs verdict","friction":""}
 {"ts":"2026-11-15T07:40:48Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has CHANGES at head d723a9c; no new commits","friction":""}
+{"ts":"2026-11-15T07:59:43Z","role":"builder-b","outcome":"pr_opened","issue":898,"pr":905,"notes":"F2a sample_tournament_stacks + stacks=bubble:<profile> (ckpt v11), gates full PASS local","friction":"gates full 약 38분(tests 1545s) 로컬; sleep 체인 차단돼 until 루프로 대기"}
