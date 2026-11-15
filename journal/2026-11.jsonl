@@ -1582,3 +1582,4 @@
 {"ts":"2026-11-15T12:36:00Z","role":"planner","outcome":"planned","issue":901,"pr":908,"notes":"PR #908·#909 머지 후 #899·#902 라벨 정리, #901 F5 착수 가능·P1 승격+구현 메모 코멘트, ready 3","friction":"STATE.md 60줄 상한을 이미 넘은 상태라 덮어쓰기 형식 유지가 어렵다"}
 {"ts":"2026-11-15T12:40:30Z","role":"builder","outcome":"pr_opened","issue":907,"pr":910,"notes":"tournament_ab: 학습 좌석 시뮬 상금-ICM B-A 95% CI·판정, 대칭 필드 ADR 0026 (i)(ii), 백오프 집계; 로컬 full PASS","friction":"gates full 로컬 tests 1411s(약 24분)+gate_r 330s, 9분 대기 루프 4번. 처음 커밋 후 ruff import 정렬로 full을 한 번 다시 시작했다(quick 전에 ruff를 먼저 돌렸으면 피했음)."}
 {"ts":"2026-11-15T12:40:47Z","role":"reviewer","outcome":"skipped","pr":910,"notes":"not my parity","friction":"should_run printed RUN with lock not taken (ops push failed)"}
+{"ts":"2026-11-15T12:41:18Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs — #599 already CHANGES at head d723a9c (no new commits); #910 is even (reviewer-b)","friction":""}
