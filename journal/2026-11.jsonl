@@ -1559,3 +1559,4 @@
 {"ts":"2026-11-15T07:40:48Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has CHANGES at head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-15T07:59:43Z","role":"builder-b","outcome":"pr_opened","issue":898,"pr":905,"notes":"F2a sample_tournament_stacks + stacks=bubble:<profile> (ckpt v11), gates full PASS local","friction":"gates full 약 38분(tests 1545s) 로컬; sleep 체인 차단돼 until 루프로 대기"}
 {"ts":"2026-11-15T08:00:02Z","role":"reviewer-b","outcome":"skipped","issue":898,"pr":905,"notes":"not my parity","friction":""}
+{"ts":"2026-11-15T08:11:45Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #905, #599 are odd (reviewer's parity); no even PR to judge","friction":"should_run --sweep printed RUN though no even-numbered PR was open"}
