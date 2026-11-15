@@ -33,7 +33,13 @@ import numpy as np
 from stalker.agents.e3_policy import E3PolicyAgent
 from stalker.core.icm import icm_equity
 from stalker.tools.icm_calibration import PolicyAgents, agents_factory, calibrate
-from stalker.tools.icm_grid import cell_seed, lambda_metrics, summarize, summarize_lambdas, zone
+from stalker.tools.icm_grid import (
+    cell_seed,
+    lambda_metrics,
+    summarize,
+    summarize_lambdas,
+    zone,
+)
 from stalker.tournament.config import load_preset
 from stalker.tournament.director import run_game
 from stalker.tournament.start_state import STACK_PROFILES, make_start_state
