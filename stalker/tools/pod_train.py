@@ -33,12 +33,21 @@ change; `--ante` defaults to the preset level's BB ante. The result and its `mod
 `--max-iters N` (#547): stop once the chain (resume included) has N iterations, the last sync batch cut to land on
 N; `--minutes` stays the ceiling. The result's `stopped_by` says which limit ended training ("max_iters" or
 "minutes"), so runs of different pod speeds compare at the same iteration count. Without it training is as before.
+
+Warm start (#918, ADR 0027 decision 4 arm B): `--prior-result PATH` (a pod result, plain or gzipped, or a CI
+`.ckpt.json`) of a cash run of the same tier, key variant and rules seeds the average-strategy sums of a fresh
+run: each prior key's `tc0` slot becomes the training env's `t<stage><ante>` and its normalized average strategy
+goes in `min(visits, PRIOR_W_CAP)` times. Regrets start at 0 (copying regrets across rewards is refused by the ADR).
+Keys of player counts the run never deals are left out; `call|` keys have no env slot and keep their name. Reading
+the prior is inside the `--minutes` clock ("same compute"). The result's top-level `prior` names the source (run id,
+file sha256) and the cap; it is not in `train_env`, so a chain of the run resumes by its environment as before.
 """
 from __future__ import annotations
 
 import argparse
 import base64
 import gzip
+import hashlib
 import io
 import json
 import sys
@@ -56,6 +65,7 @@ RESULT_BUDGET = 250 * 1024 * 1024  # under the launcher's 256 MB result cap (#34
 RESUME_BUDGET = 95 * 1024 * 1024
 GZIP_MAGIC = bytes((0x1F, 0x8B))
 PROGRESS_SECONDS = 300
+PRIOR_W_CAP = 1000   # ADR 0027 decision 4: w = min(the key's prior visits, 1000), an assumption the A/B checks
 
 
 def tournament_env(preset: str, players: int, stage: str = "c", level_index: int = 0, lam: float = 0.0,
@@ -136,6 +146,66 @@ def load_resume_result(path: Path, tier: str, players: int, menu: str = "v1",
     return st, (str(r["run_id"]) if r.get("run_id") is not None else None)
 
 
+def read_prior(path: Path) -> tuple[dict, dict]:
+    """(`E3MCCFR.state()` data, source record) of a warm-start prior: a pod result or a CI checkpoint (#918)."""
+    raw = path.read_bytes()
+    try:
+        r = json.loads(gzip.decompress(raw) if raw[:2] == GZIP_MAGIC else raw)
+    except (ValueError, OSError) as e:
+        raise SystemExit(f"--prior-result {path}: not JSON ({e}); pass a pod result or a .ckpt.json") from None
+    src = {"run_id": str(r["run_id"]) if r.get("run_id") is not None else None,
+           "sha256": hashlib.sha256(raw).hexdigest(), "w_cap": PRIOR_W_CAP}
+    if "avg" in r and "visits" in r:   # a CI-layout checkpoint (or `--unpack` output)
+        return r, src
+    if not r.get("checkpoint"):
+        raise SystemExit(f"--prior-result {path}: no model in it ({r.get('checkpoint_note', 'no checkpoint')}); "
+                         "pass a pod result with a checkpoint, or its `--unpack`ed .ckpt.json")
+    return unpack_state(base64.b64decode(r["checkpoint"]["b64"]), r.get("model") or {}), src
+
+
+def apply_prior(m, st: dict, cap: int = PRIOR_W_CAP) -> int:
+    """Seed fresh model `m`'s average-strategy sums from prior state `st` (#918); returns the keys seeded.
+
+    Refuses a prior whose keys mean other things in `m`'s table: another tier, key variant or version, action
+    menu, a prior that is not cash (`tc0`), or one that never dealt a player count `m` deals."""
+    from stalker.e3 import game as G
+    from stalker.e3 import tp_key as K
+    from stalker.e3.mccfr import key_players
+
+    if m.iterations or m.regret or any(v is not None for v in m.avg.values()):
+        raise SystemExit("--prior-result seeds a fresh run only; drop --resume/--resume-result or the prior")
+    have = {"k": st.get("k"), "depth": st.get("depth"), "key_variant": st.get("key_variant", ""),
+            "key_version": st.get("key_version"), "menu": st.get("menu", "v1"),
+            "raise_cap": st.get("raise_cap", G.RAISE_CAP)}
+    want = {"k": m.k, "depth": m.depth, "key_variant": m.key_variant, "key_version": K.KEY_VERSIONS.get(m.key_variant),
+            "menu": m.menu, "raise_cap": m.raise_cap}
+    bad = [f"{k} {have[k]!r} != {v!r}" for k, v in want.items() if have[k] != v]
+    if m.key_variant != "c1":
+        bad.append(f"key_variant {m.key_variant!r}: only c1 keys carry the t<stage><ante> slot")
+    if (st.get("stage", "c"), st.get("ante", 0)) != ("c", 0) or st.get("train_env"):
+        bad.append(f"prior env stage {st.get('stage', 'c')!r} ante {st.get('ante', 0)!r}: the prior must be a cash "
+                   "(tc0) run")
+    dealt = set(st.get("player_mix") or [st.get("n")])
+    need = set(m.player_mix or (m.n,))
+    if not need <= dealt:
+        bad.append(f"prior dealt {sorted(dealt)} players, this run deals {sorted(need)}")
+    if bad:
+        raise SystemExit(f"--prior-result: cannot seed this run ({'; '.join(bad)}); pass a cash c1 policy of the "
+                         "same tier, menu and key version (e.g. the c1 mixn run of the tier)")
+    slot = f"t{m.stage}{int(m.ante > 0)}"
+    visits, seeded = st.get("visits", {}), 0
+    for key, row in st.get("avg", {}).items():
+        row = np.asarray(row, dtype=float)
+        w = min(int(visits.get(key, 0)), cap)
+        n = key_players(key)
+        if w <= 0 or not row.sum() > 0 or (n is not None and n not in need):
+            continue
+        new = "|".join(slot if f == "tc0" else f for f in key.split("|"))
+        m.avg[new] = row / row.sum() * w
+        seeded += 1
+    return seeded
+
+
 def pack(m, dtype=np.float64) -> bytes:
     """The model's tables as a compressed npz (rng and counters travel in the JSON summary)."""
     keys = sorted(m.regret.keys() | {k for k, v in m.avg.items() if v is not None})
@@ -201,7 +271,7 @@ def train(tier: str, players: int, workers: int, minutes: float, seed: int, batc
           resume: dict | None = None, menu: str = "v1", raise_cap: int | None | str = "default",
           ranges: str = "current", avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
           player_mix: tuple[int, ...] = (), max_iters: int | None = None, env: dict | None = None,
-          log=lambda s: print(s, file=sys.stderr, flush=True)):
+          prior: Path | None = None, log=lambda s: print(s, file=sys.stderr, flush=True)):
     from stalker.e3 import game as G
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
@@ -216,9 +286,13 @@ def train(tier: str, players: int, workers: int, minutes: float, seed: int, batc
         m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu,
                     G.RAISE_CAP if raise_cap == "default" else raise_cap, ranges, avg_rule=avg_rule,
                     key_variant=key_variant, stacks=stacks, player_mix=player_mix, **env)
-    start_iters, timing = m.iterations, {}
+    start_iters, timing, prior_rec = m.iterations, {}, None
     t0 = time.monotonic()
     deadline, next_log = t0 + minutes * 60, t0 + PROGRESS_SECONDS
+    if prior is not None:   # on the clock: ADR 0027 "same compute" for both arms
+        st, prior_rec = read_prior(prior)
+        prior_rec["keys"] = apply_prior(m, st)
+        prior_rec["read_seconds"] = round(time.monotonic() - t0, 2)
     with ProcessPoolExecutor(workers) if workers > 1 else _NoPool() as p:
         while time.monotonic() < deadline and (max_iters is None or m.iterations < max_iters):
             step = workers * batch if max_iters is None else min(workers * batch, max_iters - m.iterations)
@@ -232,7 +306,7 @@ def train(tier: str, players: int, workers: int, minutes: float, seed: int, batc
     done = m.iterations - start_iters
     total = max(timing.get("total", 0.0), 1e-9)
     stopped = "max_iters" if max_iters is not None and m.iterations >= max_iters else "minutes"
-    return m, {"chunk_iters": done, "max_iters": max_iters, "stopped_by": stopped, "resumed_from": start_iters, "train_seconds": round(train_s, 1),
+    return m, {**({"prior": prior_rec} if prior_rec else {}), "chunk_iters": done, "max_iters": max_iters, "stopped_by": stopped, "resumed_from": start_iters, "train_seconds": round(train_s, 1),
                "iters_per_s": round(done / max(train_s, 1e-6), 2),
                "sync_frac": round(max(0.0, total - timing.get("compute", 0.0)) / total, 3)}
 
@@ -250,12 +324,12 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
         menu: str = "v1", raise_cap: int | None | str = "default", ranges: str = "current",
         avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
         player_mix: tuple[int, ...] = (), max_iters: int | None = None, env: dict | None = None,
-        train_env: dict | None = None, lbr_hands: int | None = None) -> dict:
+        train_env: dict | None = None, lbr_hands: int | None = None, prior: Path | None = None) -> dict:
     from stalker.e3 import tp_key as K
     from stalker.train_jobs import e3_evaluate
 
     m, stats = train(tier, players, workers, minutes, seed, batch, resume, menu, raise_cap, ranges, avg_rule,
-                     key_variant, stacks, player_mix, max_iters, env)
+                     key_variant, stacks, player_mix, max_iters, env, prior)
     res = {"job": job_name(tier, players, m.key_variant, m.player_mix), "tier": tier, "players": players, "seed": seed, "workers": workers,
            "batch": batch, "iters": m.iterations, "resumed_from_run": resumed_from_run, **stats}
     res.update(e3_evaluate(m, seed, **({} if lbr_hands is None else {"lbr_hands": lbr_hands})))   # under the model's t<stage><ante> key slot, so LBR reads the rows trained
@@ -387,6 +461,8 @@ def main(argv=None) -> int:
     ap.add_argument("--max-iters", type=int, help="stop once the chain (resume included) reaches this many "
                     "iterations (#547); --minutes stays the ceiling")
     ap.add_argument("--resume-result", type=Path, help="an earlier pod result (JSON, may be gzipped) to continue")
+    ap.add_argument("--prior-result", type=Path, help="warm start (#918): a cash c1 pod result or .ckpt.json whose "
+                    "average strategy seeds this fresh run's averages (tc0 -> t<stage><ante>), regrets 0")
     ap.add_argument("--sha-file", type=Path, help="file holding the source commit (the pod reads it from the tarball)")
     ap.add_argument("--unpack", type=Path, help="instead of training: write this pod result's model to --out (a folder)")
     ap.add_argument("--out", type=Path, required=True)
@@ -401,6 +477,8 @@ def main(argv=None) -> int:
         raise SystemExit("--max-iters must be >= 1 (leave it out for a time-limited run)")
     if a.resume and a.resume_result:
         raise SystemExit("pass --resume or --resume-result, not both")
+    if a.prior_result and (a.resume or a.resume_result):
+        raise SystemExit("--prior-result seeds a fresh run; a resumed chain already carries its prior - drop one")
     resume, from_run = (read_json(a.resume) if a.resume else None), None
     cap = None if a.no_raise_cap else "default"
     env, train_env = tournament_args(a)
@@ -412,7 +490,8 @@ def main(argv=None) -> int:
                                               a.key_variant, a.stacks, a.player_mix, train_env)
     res = run(a.tier, a.players, a.workers, a.minutes, a.seed, a.batch, resume, resumed_from_run=from_run,
               menu=a.menu, raise_cap=cap, ranges=a.ranges, avg_rule=a.avg_rule, key_variant=a.key_variant,
-              stacks=a.stacks, player_mix=a.player_mix, max_iters=a.max_iters, env=env, train_env=train_env, lbr_hands=a.lbr_hands)
+              stacks=a.stacks, player_mix=a.player_mix, max_iters=a.max_iters, env=env, train_env=train_env, lbr_hands=a.lbr_hands,
+              prior=a.prior_result)
     res["sha"] = a.sha_file.read_text(encoding="utf-8").strip() if a.sha_file and a.sha_file.exists() else ""
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res), encoding="utf-8")
