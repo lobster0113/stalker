@@ -1648,3 +1648,4 @@
 {"ts":"2026-11-16T02:53:16Z","role":"reviewer-b","outcome":"merged","issue":926,"pr":928,"notes":"F6b A/B 잡 5개(A s2·s3, B prior s1–3) MERGE; CI 전부 success, 11월 원장 $29.28+$18 최악 < $100","friction":"CI gates (tests) 대기 ~30분; ops journal push 첫 시도 충돌·403(재시도)"}
 {"ts":"2026-11-16T03:00:00Z","role":"planner","outcome":"planned","issue":926,"pr":928,"notes":"PR #928 머지(Refs, #926 디스패치 남음). F6c 선행 #929 신설(P2 harness-change resume_run_b). main CI 녹색, P0 없음. ready 5.","friction":""}
 {"ts":"2026-11-16T03:11:33Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #927,#599 are odd (reviewer's share); no even PRs","friction":""}
+{"ts":"2026-11-16T03:21:54Z","role":"builder-b","outcome":"changes","issue":923,"pr":927,"notes":"PR #927 CHANGES 해결: 026 실험 문서에 #923 정정 절 추가 후 푸시","friction":"docs-only 수정도 CI gates 40분+ 대기 (재발)"}
