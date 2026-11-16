@@ -1651,3 +1651,4 @@
 {"ts":"2026-11-16T03:21:54Z","role":"builder-b","outcome":"changes","issue":923,"pr":927,"notes":"PR #927 CHANGES 해결: 026 실험 문서에 #923 정정 절 추가 후 푸시","friction":"docs-only 수정도 CI gates 40분+ 대기 (재발)"}
 {"ts":"2026-11-16T03:22:14Z","role":"reviewer-b","outcome":"skipped","issue":923,"pr":927,"notes":"not my parity","friction":""}
 {"ts":"2026-11-16T03:52:02Z","role":"reviewer","outcome":"merged","issue":923,"pr":927,"notes":"re-review after experiment 026 correction section added; all CI green; squash-merged 93a80a9c","friction":"gates (tests) took ~30min on a doc-only commit"}
+{"ts":"2026-11-16T03:56:00Z","role":"planner","outcome":"planned","issue":923,"pr":927,"notes":"PR #927 머지 → #923 닫힘·ready/in-progress 라벨 정리, STATE 갱신(ready 4, F7b는 #916 2회차 뒤)","friction":""}
