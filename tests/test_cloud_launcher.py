@@ -640,6 +640,10 @@ def test_resume_payload_is_trimmed_gzipped_and_capped(tmp_path):
     got = json.loads(gzip.decompress(L.resume_payload(f, "123")))
     assert got["run_id"] == "123" and got["iters"] == 7 and got["checkpoint"]["b64"] == "QUJD"
     assert "lbr" not in got  # evaluation numbers stay in the artifact
+    assert "train_env" not in got  # a cash result has none; the key is not invented (#923)
+    env = {"env_id": "x", "stage": "b", "lam": 0.0}
+    kept = json.loads(gzip.decompress(L.resume_payload(_pod_result(tmp_path, train_env=env), "123")))
+    assert kept["train_env"] == env  # pod_train refuses a tournament resume whose train_env is missing (#923)
     with pytest.raises(L.LauncherError, match="proxy body limit"):
         L.resume_payload(f, "123", max_bytes=50)
     with pytest.raises(L.LauncherError, match="digits"):

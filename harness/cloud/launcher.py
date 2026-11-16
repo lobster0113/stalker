@@ -89,7 +89,8 @@ RESUME_ENV = "STALKER_RESUME"
 RESUME_MAX_BYTES = 95 * 1024 * 1024
 RESUME_WAIT_S = 1200
 # what pod_train --resume-result reads; the evaluation numbers stay in the artifact
-RESUME_FIELDS = ("job", "tier", "players", "seed", "iters", "model", "checkpoint", "sha")
+# train_env (#923) is only in tournament results; pod_train refuses a resume whose train_env differs, so it must travel
+RESUME_FIELDS = ("job", "tier", "players", "seed", "iters", "model", "checkpoint", "sha", "train_env")
 
 
 class LauncherError(Exception):
