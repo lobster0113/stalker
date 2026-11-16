@@ -209,7 +209,7 @@ def _csv(text: str) -> list[str]:
     return [s.strip() for s in text.split(",") if s.strip()]
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--a", required=True, help="arm A policy (pod result, checkpoint, web policy file or folder)")
     ap.add_argument("--b", required=True, help="arm B policy")
@@ -224,6 +224,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
     ap.add_argument("--field", default=DEFAULT_FIELD, help="the other seats: persona:NAME or random")
     ap.add_argument("--out", type=Path)
+    return ap
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    ap = build_parser()
     a = ap.parse_args(argv)
     try:
         remainings = [int(x) for x in _csv(a.remaining)]
