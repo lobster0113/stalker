@@ -427,7 +427,7 @@ def tournament_args(a) -> tuple[dict, dict | None]:
     return tournament_env(a.preset, a.players, a.stage, a.level_index, a.lam, a.stacks, a.payoff, a.ante)
 
 
-def main(argv=None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     from stalker.e3.mccfr import parse_mix
 
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -466,7 +466,11 @@ def main(argv=None) -> int:
     ap.add_argument("--sha-file", type=Path, help="file holding the source commit (the pod reads it from the tarball)")
     ap.add_argument("--unpack", type=Path, help="instead of training: write this pod result's model to --out (a folder)")
     ap.add_argument("--out", type=Path, required=True)
-    a = ap.parse_args(argv)
+    return ap
+
+
+def main(argv=None) -> int:
+    a = build_parser().parse_args(argv)
     if a.unpack:
         for f in unpack(a.unpack, a.out):
             print(f)
