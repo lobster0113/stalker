@@ -843,7 +843,7 @@ def test_cloud_workflow_resume_run_b_check_runs(a, b, ok):
     wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
     step = wf.split("- name: check resume_run_b", 1)[1].split("run: |\n", 1)[1].split("- name:", 1)[0]
     r = subprocess.run(["bash", "-c", step], env={"PATH": "/usr/bin:/bin", "RESUME_RUN": a, "RESUME_RUN_B": b},
-                       capture_output=True, text=True)
+                       capture_output=True, encoding="utf-8")
     assert (r.returncode == 0) == ok, r.stdout
     if not ok and not a:
         assert "needs resume_run" in r.stdout
