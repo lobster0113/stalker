@@ -1,0 +1,333 @@
+{
+ "job": "e3-tp-mid4-c1-pod",
+ "tier": "mid",
+ "players": 4,
+ "seed": 3,
+ "workers": 16,
+ "batch": 500,
+ "iters": 20000,
+ "resumed_from_run": null,
+ "prior": {
+  "run_id": "41813684540",
+  "sha256": "e2610b3aac70704ee3dc9fcabc46fbf8afdf984dab4c78f0dcd145a59420a498",
+  "w_cap": 1000,
+  "keys": 102845,
+  "read_seconds": 24.64
+ },
+ "chunk_iters": 20000,
+ "max_iters": 20000,
+ "stopped_by": "max_iters",
+ "resumed_from": 0,
+ "train_seconds": 2819.7,
+ "iters_per_s": 7.09,
+ "sync_frac": 0.006,
+ "field": null,
+ "field_seconds": 0.0,
+ "infosets": 658716,
+ "coverage": {
+  "fc": {
+   "keys": 528,
+   "under10": 8
+  },
+  "kb20a": {
+   "keys": 35908,
+   "under10": 34570
+  },
+  "fca": {
+   "keys": 153685,
+   "under10": 149075
+  },
+  "fcr2r22r25ra": {
+   "keys": 10458,
+   "under10": 9228
+  },
+  "ka": {
+   "keys": 56969,
+   "under10": 53900
+  },
+  "kb20b33b50a": {
+   "keys": 33949,
+   "under10": 32755
+  },
+  "kb20b33a": {
+   "keys": 34237,
+   "under10": 33046
+  },
+  "fcr2r22r25a": {
+   "keys": 2980,
+   "under10": 2904
+  },
+  "fcr25a": {
+   "keys": 26965,
+   "under10": 26955
+  },
+  "fcr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 3278,
+   "under10": 2619
+  },
+  "fcr25rr35r4r5a": {
+   "keys": 8101,
+   "under10": 7666
+  },
+  "fcr25ra": {
+   "keys": 35759,
+   "under10": 35714
+  },
+  "kb20b33b50b75a": {
+   "keys": 29582,
+   "under10": 29055
+  },
+  "fcr25rr4r5r7a": {
+   "keys": 22331,
+   "under10": 22322
+  },
+  "fcr25rr4a": {
+   "keys": 24373,
+   "under10": 24358
+  },
+  "kb20b33b50b75b100a": {
+   "keys": 34152,
+   "under10": 33440
+  },
+  "fcr25rr4r5a": {
+   "keys": 29095,
+   "under10": 29065
+  },
+  "kb20b33b50b75b100b150b200b300a": {
+   "keys": 29692,
+   "under10": 29476
+  },
+  "fcr25rr4r5r7r10a": {
+   "keys": 32578,
+   "under10": 32561
+  },
+  "kb20b33b50b75b100b150a": {
+   "keys": 22583,
+   "under10": 22336
+  },
+  "fcr2a": {
+   "keys": 1788,
+   "under10": 1762
+  },
+  "kb20b33b50b75b100b150b200a": {
+   "keys": 23491,
+   "under10": 23269
+  },
+  "fcr2r22a": {
+   "keys": 2313,
+   "under10": 2272
+  },
+  "fcr2r22rr3r35r4r5r6a": {
+   "keys": 352,
+   "under10": 351
+  },
+  "fcr2r22rr3a": {
+   "keys": 152,
+   "under10": 152
+  },
+  "fcr25rr35r4a": {
+   "keys": 1253,
+   "under10": 1253
+  },
+  "cr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 85,
+   "under10": 85
+  },
+  "fcr25rr35a": {
+   "keys": 713,
+   "under10": 713
+  },
+  "fcr2r22rr3r35r4r5a": {
+   "keys": 231,
+   "under10": 231
+  },
+  "fcr2r22rr3r35r4r5r6r8a": {
+   "keys": 403,
+   "under10": 403
+  },
+  "fcr2r22rr3r35r4a": {
+   "keys": 251,
+   "under10": 251
+  },
+  "fcr2r22rr3r35a": {
+   "keys": 137,
+   "under10": 137
+  },
+  "fcr2r22ra": {
+   "keys": 146,
+   "under10": 146
+  },
+  "kb20b50b75b100b150b200b300a": {
+   "keys": 104,
+   "under10": 104
+  },
+  "kb20b75b100b150b200b300a": {
+   "keys": 48,
+   "under10": 48
+  },
+  "cr2r22rr3r35r4a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "cr2r22rr3r35r4r5r6a": {
+   "keys": 5,
+   "under10": 5
+  },
+  "ca": {
+   "keys": 10,
+   "under10": 10
+  },
+  "kb20b50b75b100b150b200a": {
+   "keys": 10,
+   "under10": 10
+  },
+  "cr2r22rr3r35a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "kb20b50b75b100b150a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "cr2r22rr3r35r4r5r6r8a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "kb20b75b100b150a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "kb20b50b75b100a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "cr2r22ra": {
+   "keys": 1,
+   "under10": 1
+  },
+  "cr2r22rr3r35r4r5a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "kb20b50b75a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "cr2r22a": {
+   "keys": 1,
+   "under10": 1
+  }
+ },
+ "lbr": {
+  "lbr_bb": 3.2446,
+  "stderr_bb": 0.7604,
+  "by_seat": {
+   "EP0": 2.0875,
+   "BTN": 3.7907,
+   "SB": 1.6817,
+   "BB": 5.4185
+  },
+  "hands": 600
+ },
+ "lbr_average": {
+  "lbr_bb": 3.0763,
+  "stderr_bb": 0.7317,
+  "by_seat": {
+   "EP0": 2.8127,
+   "BTN": 1.7483,
+   "SB": 3.236,
+   "BB": 4.5083
+  },
+  "hands": 600
+ },
+ "lbr_offmenu": {
+  "lbr_bb": 3.2696,
+  "stderr_bb": 0.7613,
+  "by_seat": {
+   "EP0": 2.0875,
+   "BTN": 3.7907,
+   "SB": 1.6817,
+   "BB": 5.5185
+  },
+  "hands": 600
+ },
+ "lbr_seconds": 169.7,
+ "policy_sha256": "457ad52f86031be201df33d07672425ec4c9b7ffb7587577c9cafe2e6343831b",
+ "model": {
+  "k": 11,
+  "n": 4,
+  "depth": "full",
+  "iterations": 20000,
+  "nodes": 11014915,
+  "menu": "real",
+  "raise_cap": null,
+  "avg_rule": "own",
+  "rng": {
+   "bit_generator": "PCG64",
+   "state": {
+    "state": 66869763445367067932240322628216646535,
+    "inc": 222003063171874261427395693950637096479
+   },
+   "has_uint32": 0,
+   "uinteger": 0
+  },
+  "key_variant": "c1",
+  "stacks": "bubble:skewed",
+  "key_version": 1,
+  "train_env": {
+   "env_id": "1261657cabcdc1ad",
+   "stage": "b",
+   "level_index": 0,
+   "lam": 0.0,
+   "stacks": "bubble:skewed"
+  },
+  "ante": 0,
+  "stage": "b",
+  "player_mix": [],
+  "payoff": "icm",
+  "payouts": [
+   0.5,
+   0.3,
+   0.2
+  ],
+  "lam": 0.0,
+  "stack_preset": "9max_sng_503020",
+  "stack_remaining": 4,
+  "stack_level": 0,
+  "ranges": "average",
+  "range_every": 2000,
+  "snap_at": 16000
+ },
+ "train_env": {
+  "env_id": "1261657cabcdc1ad",
+  "stage": "b",
+  "level_index": 0,
+  "lam": 0.0,
+  "stacks": "bubble:skewed"
+ },
+ "checkpoint": {
+  "format": "npz",
+  "dtype": "float64",
+  "b64": {
+   "omitted_chars": 52264440,
+   "sha256": "81cdf03cbe0a3d701a3d91ccb0575d7de1960c24c2578a2f23c357e3dbadcea6"
+  }
+ },
+ "max_rss_mb": 3701.4,
+ "max_child_rss_mb": 3250.2,
+ "machine": {
+  "cpu_model": "AMD EPYC 7763 64-Core Processor",
+  "cpu_count": 256,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "max 100000",
+  "mem_total_mb": 515496,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.41"
+ },
+ "regret_sha256": "2eabd14f4dff0c60a87bbda01d361a3b928808e3f3a11105576fb39bdde60f5e",
+ "sha": "d9259ca785695e343f7041ef005cf4e74e0262a5",
+ "_summary_of": {
+  "result_bytes": 52269206,
+  "result_sha256": "d2515793923c4832cc9d528fbd6c0fc11a770cf4424dc91a02f4f922c2674a6f"
+ }
+}
