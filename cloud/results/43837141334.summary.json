@@ -1,0 +1,333 @@
+{
+ "job": "e3-tp-mid4-c1-pod",
+ "tier": "mid",
+ "players": 4,
+ "seed": 1,
+ "workers": 16,
+ "batch": 500,
+ "iters": 20000,
+ "resumed_from_run": null,
+ "prior": {
+  "run_id": "41813684540",
+  "sha256": "e2610b3aac70704ee3dc9fcabc46fbf8afdf984dab4c78f0dcd145a59420a498",
+  "w_cap": 1000,
+  "keys": 102845,
+  "read_seconds": 13.11
+ },
+ "chunk_iters": 20000,
+ "max_iters": 20000,
+ "stopped_by": "max_iters",
+ "resumed_from": 0,
+ "train_seconds": 1755.3,
+ "iters_per_s": 11.39,
+ "sync_frac": 0.007,
+ "field": null,
+ "field_seconds": 0.0,
+ "infosets": 656646,
+ "coverage": {
+  "fc": {
+   "keys": 528,
+   "under10": 4
+  },
+  "fcr25ra": {
+   "keys": 35542,
+   "under10": 35490
+  },
+  "ka": {
+   "keys": 57307,
+   "under10": 54326
+  },
+  "fca": {
+   "keys": 154358,
+   "under10": 149770
+  },
+  "kb20b33a": {
+   "keys": 34359,
+   "under10": 33176
+  },
+  "fcr25rr35r4r5a": {
+   "keys": 8077,
+   "under10": 7641
+  },
+  "kb20b33b50a": {
+   "keys": 34082,
+   "under10": 32892
+  },
+  "kb20b33b50b75a": {
+   "keys": 29754,
+   "under10": 29259
+  },
+  "fcr25a": {
+   "keys": 26729,
+   "under10": 26715
+  },
+  "kb20a": {
+   "keys": 36316,
+   "under10": 35077
+  },
+  "kb20b33b50b75b100b150b200b300a": {
+   "keys": 29297,
+   "under10": 29103
+  },
+  "kb20b33b50b75b100a": {
+   "keys": 33846,
+   "under10": 33199
+  },
+  "fcr2r22r25ra": {
+   "keys": 10527,
+   "under10": 9292
+  },
+  "fcr25rr4r5a": {
+   "keys": 27810,
+   "under10": 27784
+  },
+  "fcr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 3274,
+   "under10": 2628
+  },
+  "fcr25rr35a": {
+   "keys": 743,
+   "under10": 743
+  },
+  "fcr2r22a": {
+   "keys": 2310,
+   "under10": 2265
+  },
+  "fcr25rr4r5r7a": {
+   "keys": 22004,
+   "under10": 21991
+  },
+  "fcr2r22r25a": {
+   "keys": 2872,
+   "under10": 2806
+  },
+  "kb20b33b50b75b100b150b200a": {
+   "keys": 23545,
+   "under10": 23350
+  },
+  "fcr25rr4r5r7r10a": {
+   "keys": 31725,
+   "under10": 31711
+  },
+  "kb20b33b50b75b100b150a": {
+   "keys": 22648,
+   "under10": 22427
+  },
+  "fcr25rr4a": {
+   "keys": 24002,
+   "under10": 23987
+  },
+  "fcr2r22rr3r35r4r5a": {
+   "keys": 238,
+   "under10": 238
+  },
+  "fcr2r22ra": {
+   "keys": 167,
+   "under10": 167
+  },
+  "fcr2r22rr3r35r4r5r6r8a": {
+   "keys": 395,
+   "under10": 395
+  },
+  "fcr2a": {
+   "keys": 1862,
+   "under10": 1830
+  },
+  "fcr25rr35r4a": {
+   "keys": 1209,
+   "under10": 1209
+  },
+  "fcr2r22rr3r35r4r5r6a": {
+   "keys": 318,
+   "under10": 318
+  },
+  "fcr2r22rr3r35r4a": {
+   "keys": 223,
+   "under10": 223
+  },
+  "fcr2r22rr3a": {
+   "keys": 145,
+   "under10": 145
+  },
+  "cr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 89,
+   "under10": 89
+  },
+  "fcr2r22rr3r35a": {
+   "keys": 153,
+   "under10": 153
+  },
+  "kb20b50b75b100b150b200b300a": {
+   "keys": 117,
+   "under10": 117
+  },
+  "kb20b75b100b150b200b300a": {
+   "keys": 39,
+   "under10": 39
+  },
+  "ca": {
+   "keys": 12,
+   "under10": 12
+  },
+  "cr2r22rr3r35r4r5r6r8a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "kb20b50b75a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "cr2a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "kb20b50b75b100b150a": {
+   "keys": 4,
+   "under10": 4
+  },
+  "cr2r22rr3r35r4r5a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "kb20b75b100a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "kb20b75a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "cr2r22rr3r35r4a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "kb20b50b75b100b150b200a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "kb20b50b75b100a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "kb20b50a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "cr2r22rr3r35r4r5r6a": {
+   "keys": 1,
+   "under10": 1
+  }
+ },
+ "lbr": {
+  "lbr_bb": 2.6679,
+  "stderr_bb": 0.7063,
+  "by_seat": {
+   "EP0": 2.7836,
+   "BTN": 1.6313,
+   "SB": 2.2788,
+   "BB": 3.978
+  },
+  "hands": 600
+ },
+ "lbr_average": {
+  "lbr_bb": 3.5289,
+  "stderr_bb": 0.6893,
+  "by_seat": {
+   "EP0": 2.4599,
+   "BTN": 2.5053,
+   "SB": 2.8931,
+   "BB": 6.2575
+  },
+  "hands": 600
+ },
+ "lbr_offmenu": {
+  "lbr_bb": 2.6743,
+  "stderr_bb": 0.7063,
+  "by_seat": {
+   "EP0": 2.7836,
+   "BTN": 1.6313,
+   "SB": 2.2788,
+   "BB": 4.0035
+  },
+  "hands": 600
+ },
+ "lbr_seconds": 100.8,
+ "policy_sha256": "95e2d14bb80649014b0965f1129b6b60eb0e20082098b806f89af84cac0d8248",
+ "model": {
+  "k": 11,
+  "n": 4,
+  "depth": "full",
+  "iterations": 20000,
+  "nodes": 10908168,
+  "menu": "real",
+  "raise_cap": null,
+  "avg_rule": "own",
+  "rng": {
+   "bit_generator": "PCG64",
+   "state": {
+    "state": 207037337047313282661142340656591920366,
+    "inc": 194290289479364712180083596243593368443
+   },
+   "has_uint32": 0,
+   "uinteger": 0
+  },
+  "key_variant": "c1",
+  "stacks": "bubble:skewed",
+  "key_version": 1,
+  "train_env": {
+   "env_id": "1261657cabcdc1ad",
+   "stage": "b",
+   "level_index": 0,
+   "lam": 0.0,
+   "stacks": "bubble:skewed"
+  },
+  "ante": 0,
+  "stage": "b",
+  "player_mix": [],
+  "payoff": "icm",
+  "payouts": [
+   0.5,
+   0.3,
+   0.2
+  ],
+  "lam": 0.0,
+  "stack_preset": "9max_sng_503020",
+  "stack_remaining": 4,
+  "stack_level": 0,
+  "ranges": "average",
+  "range_every": 2000,
+  "snap_at": 16000
+ },
+ "train_env": {
+  "env_id": "1261657cabcdc1ad",
+  "stage": "b",
+  "level_index": 0,
+  "lam": 0.0,
+  "stacks": "bubble:skewed"
+ },
+ "checkpoint": {
+  "format": "npz",
+  "dtype": "float64",
+  "b64": {
+   "omitted_chars": 52039936,
+   "sha256": "1d878d4d503fd4757bc1a2ebfb30fe6d3519125a2ec533c0fe3dfcba6f6b1002"
+  }
+ },
+ "max_rss_mb": 3686.9,
+ "max_child_rss_mb": 3238.4,
+ "machine": {
+  "cpu_model": "AMD EPYC 9B45 128-Core Processor",
+  "cpu_count": 256,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "max 100000",
+  "mem_total_mb": 773113,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.41"
+ },
+ "regret_sha256": "a331661030a7b08faf1853fc85fc0a1439e86b45061936e73c921774130d7aba",
+ "sha": "bc88e60769886defa581de3c787dc86edeca67f3",
+ "_summary_of": {
+  "result_bytes": 52044691,
+  "result_sha256": "a2277361eb8510a11764b1c5e366b2e6ffb7874a54c47efd7b3e404db4644199"
+ }
+}
