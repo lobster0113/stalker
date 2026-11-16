@@ -25,15 +25,29 @@ result of the same variant, key version and stacks.
 is then the evaluation table. The job name carries `-mixn` (`e3-tp-mid-c1-mixn-pod`), and a chain resumes only a
 result of the same mix.
 
+Tournament training (#899, ADR 0027): `--payoff icm --preset <name> --stage <e|b|m|f> --level-index <i> --lam <x>
+--stacks bubble:<even|random|skewed>` deal every hand at the preset's survivors (`--players`) and reward the prize-equity
+change; `--ante` defaults to the preset level's BB ante. The result and its `model` block then carry `train_env`
+(`tournament_env`) and a chain resumes only a result of the same one. Without these arguments nothing changes.
+
 `--max-iters N` (#547): stop once the chain (resume included) has N iterations, the last sync batch cut to land on
 N; `--minutes` stays the ceiling. The result's `stopped_by` says which limit ended training ("max_iters" or
 "minutes"), so runs of different pod speeds compare at the same iteration count. Without it training is as before.
+
+Warm start (#918, ADR 0027 decision 4 arm B): `--prior-result PATH` (a pod result, plain or gzipped, or a CI
+`.ckpt.json`) of a cash run of the same tier, key variant and rules seeds the average-strategy sums of a fresh
+run: each prior key's `tc0` slot becomes the training env's `t<stage><ante>` and its normalized average strategy
+goes in `min(visits, PRIOR_W_CAP)` times. Regrets start at 0 (copying regrets across rewards is refused by the ADR).
+Keys of player counts the run never deals are left out; `call|` keys have no env slot and keep their name. Reading
+the prior is inside the `--minutes` clock ("same compute"). The result's top-level `prior` names the source (run id,
+file sha256) and the cap; it is not in `train_env`, so a chain of the run resumes by its environment as before.
 """
 from __future__ import annotations
 
 import argparse
 import base64
 import gzip
+import hashlib
 import io
 import json
 import sys
@@ -51,6 +65,38 @@ RESULT_BUDGET = 250 * 1024 * 1024  # under the launcher's 256 MB result cap (#34
 RESUME_BUDGET = 95 * 1024 * 1024
 GZIP_MAGIC = bytes((0x1F, 0x8B))
 PROGRESS_SECONDS = 300
+PRIOR_W_CAP = 1000   # ADR 0027 decision 4: w = min(the key's prior visits, 1000), an assumption the A/B checks
+
+
+def tournament_env(preset: str, players: int, stage: str = "c", level_index: int = 0, lam: float = 0.0,
+                   stacks: str = "uniform", payoff: str = "icm", ante: int | None = None) -> tuple[dict, dict]:
+    """(`E3MCCFR` keyword arguments, `train_env` record) of a tournament training run (#899, ADR 0027 decisions 1 and 5).
+
+    Payouts are the preset's `payout_ratios()`; `ante` (E3 chips, BB = 100) defaults to the preset level's BB ante,
+    0 if the level has none. `train_env.env_id` is `from_tournament(preset).env_id`; stage, level, lam and stacks are
+    training settings, not part of the id."""
+    from stalker.e3 import game as G
+    from stalker.env.spec import from_tournament
+    from stalker.tournament.config import load_preset
+
+    try:
+        cfg = load_preset(preset)
+    except (OSError, ValueError, KeyError) as e:
+        raise SystemExit(f"--preset {preset!r}: {e}; pass a name from stalker/tournament/presets") from None
+    if not 0 <= level_index < len(cfg.levels):
+        raise SystemExit(f"--level-index {level_index}: preset {preset} has levels 0..{len(cfg.levels) - 1}")
+    lv = cfg.levels[level_index]
+    if ante is None:
+        if lv.ante and cfg.ante_mode != "bb_ante":
+            raise SystemExit(f"preset {preset} level {level_index} has a {cfg.ante_mode} ante, which E3 does not deal; "
+                             "pass --ante in chips (e.g. 0) to choose")
+        ante = int(round(lv.ante * G.BB / lv.bb))
+    bubble = stacks.startswith("bubble:")
+    kw = {"payoff": payoff, "payouts": preset if payoff == "icm" else None, "lam": lam, "ante": ante, "stage": stage,
+          **({"stack_preset": preset, "stack_remaining": players, "stack_level": level_index} if bubble else {})}
+    train_env = {"env_id": from_tournament(cfg).env_id, "stage": stage, "level_index": level_index, "lam": lam,
+                 "stacks": stacks}
+    return kw, train_env
 
 
 def job_name(tier: str, players: int, key_variant: str = "", player_mix: tuple[int, ...] = ()) -> str:
@@ -61,7 +107,7 @@ def job_name(tier: str, players: int, key_variant: str = "", player_mix: tuple[i
 def load_resume_result(path: Path, tier: str, players: int, menu: str = "v1",
                        raise_cap: int | None | str = "default", ranges: str = "current",
                        avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-                       player_mix: tuple[int, ...] = ()) -> tuple[dict, str | None]:
+                       player_mix: tuple[int, ...] = (), train_env: dict | None = None) -> tuple[dict, str | None]:
     """`E3MCCFR.state()` from an earlier pod result (plain or gzipped JSON), plus the run it came from.
 
     Refuses a result of another job: its keys would mean other things in this table."""
@@ -87,7 +133,9 @@ def load_resume_result(path: Path, tier: str, players: int, menu: str = "v1",
              "key_variant": (model.get("key_variant", ""), key_variant), "stacks": (model.get("stacks", "uniform"), stacks),
              "key_version": (model.get("key_version"), K.KEY_VERSIONS.get(key_variant)),
              # #486: a result before it dealt every hand to `players`
-             "player_mix": (list(model.get("player_mix", [])), list(player_mix))}
+             "player_mix": (list(model.get("player_mix", [])), list(player_mix)),
+             # #899: a result before it, or of cash training, has none
+             "train_env": (r.get("train_env"), train_env)}
     bad += [f"{k} {got!r} != {want!r}" for k, (got, want) in rules.items() if got != want]
     if K.TIER_DEPTH[tier] == "pro" and model.get("nut_k", K.K_PRO) != K.NUT_K:
         bad.append(f"nut_k {model.get('nut_k', K.K_PRO)} != {K.NUT_K} (#332)")
@@ -96,6 +144,66 @@ def load_resume_result(path: Path, tier: str, players: int, menu: str = "v1",
                          "job as resume_run, or start fresh without it")
     st = unpack_state(base64.b64decode(r["checkpoint"]["b64"]), model)
     return st, (str(r["run_id"]) if r.get("run_id") is not None else None)
+
+
+def read_prior(path: Path) -> tuple[dict, dict]:
+    """(`E3MCCFR.state()` data, source record) of a warm-start prior: a pod result or a CI checkpoint (#918)."""
+    raw = path.read_bytes()
+    try:
+        r = json.loads(gzip.decompress(raw) if raw[:2] == GZIP_MAGIC else raw)
+    except (ValueError, OSError) as e:
+        raise SystemExit(f"--prior-result {path}: not JSON ({e}); pass a pod result or a .ckpt.json") from None
+    src = {"run_id": str(r["run_id"]) if r.get("run_id") is not None else None,
+           "sha256": hashlib.sha256(raw).hexdigest(), "w_cap": PRIOR_W_CAP}
+    if "avg" in r and "visits" in r:   # a CI-layout checkpoint (or `--unpack` output)
+        return r, src
+    if not r.get("checkpoint"):
+        raise SystemExit(f"--prior-result {path}: no model in it ({r.get('checkpoint_note', 'no checkpoint')}); "
+                         "pass a pod result with a checkpoint, or its `--unpack`ed .ckpt.json")
+    return unpack_state(base64.b64decode(r["checkpoint"]["b64"]), r.get("model") or {}), src
+
+
+def apply_prior(m, st: dict, cap: int = PRIOR_W_CAP) -> int:
+    """Seed fresh model `m`'s average-strategy sums from prior state `st` (#918); returns the keys seeded.
+
+    Refuses a prior whose keys mean other things in `m`'s table: another tier, key variant or version, action
+    menu, a prior that is not cash (`tc0`), or one that never dealt a player count `m` deals."""
+    from stalker.e3 import game as G
+    from stalker.e3 import tp_key as K
+    from stalker.e3.mccfr import key_players
+
+    if m.iterations or m.regret or any(v is not None for v in m.avg.values()):
+        raise SystemExit("--prior-result seeds a fresh run only; drop --resume/--resume-result or the prior")
+    have = {"k": st.get("k"), "depth": st.get("depth"), "key_variant": st.get("key_variant", ""),
+            "key_version": st.get("key_version"), "menu": st.get("menu", "v1"),
+            "raise_cap": st.get("raise_cap", G.RAISE_CAP)}
+    want = {"k": m.k, "depth": m.depth, "key_variant": m.key_variant, "key_version": K.KEY_VERSIONS.get(m.key_variant),
+            "menu": m.menu, "raise_cap": m.raise_cap}
+    bad = [f"{k} {have[k]!r} != {v!r}" for k, v in want.items() if have[k] != v]
+    if m.key_variant != "c1":
+        bad.append(f"key_variant {m.key_variant!r}: only c1 keys carry the t<stage><ante> slot")
+    if (st.get("stage", "c"), st.get("ante", 0)) != ("c", 0) or st.get("train_env"):
+        bad.append(f"prior env stage {st.get('stage', 'c')!r} ante {st.get('ante', 0)!r}: the prior must be a cash "
+                   "(tc0) run")
+    dealt = set(st.get("player_mix") or [st.get("n")])
+    need = set(m.player_mix or (m.n,))
+    if not need <= dealt:
+        bad.append(f"prior dealt {sorted(dealt)} players, this run deals {sorted(need)}")
+    if bad:
+        raise SystemExit(f"--prior-result: cannot seed this run ({'; '.join(bad)}); pass a cash c1 policy of the "
+                         "same tier, menu and key version (e.g. the c1 mixn run of the tier)")
+    slot = f"t{m.stage}{int(m.ante > 0)}"
+    visits, seeded = st.get("visits", {}), 0
+    for key, row in st.get("avg", {}).items():
+        row = np.asarray(row, dtype=float)
+        w = min(int(visits.get(key, 0)), cap)
+        n = key_players(key)
+        if w <= 0 or not row.sum() > 0 or (n is not None and n not in need):
+            continue
+        new = "|".join(slot if f == "tc0" else f for f in key.split("|"))
+        m.avg[new] = row / row.sum() * w
+        seeded += 1
+    return seeded
 
 
 def pack(m, dtype=np.float64) -> bytes:
@@ -141,6 +249,13 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
         version = 5 if meta.get("stacks", "uniform") != "uniform" else 4
     if meta.get("player_mix"):   # #486; with the per-size counts (#535) version 7
         version = 7 if "mix_counts" in meta else 6
+    if "train_env" in meta:   # #899: E3MCCFR.state versions 9-11 (payoff, ante/stage, bubble stacks)
+        # same rule as E3MCCFR.state(): a chip run with no ante/stage/bubble stacks keeps its earlier version
+        env = (meta.get("ante", 0), meta.get("stage", "c"))
+        if meta.get("payoff", "chip") != "chip":
+            version = 9
+        if meta.get("stack_preset") or env != (0, "c"):
+            version = 11 if meta.get("stack_preset") else 10
     if meta.get("ranges", "current") != "average":
         return {"version": version, "avg_rule": "legacy", **meta, "regret": regret, "avg": avg, "visits": visits}
     snap, si, sv = {}, 0, z["snap"].astype(float).tolist()
@@ -148,26 +263,36 @@ def unpack_state(blob: bytes, meta: dict) -> dict:
         if sl:
             snap[k] = sv[si:si + sl]
         si += sl
-    return {"version": max(version, 2), "avg_rule": "legacy", **meta, "regret": regret, "avg": avg, "visits": visits,
+    return {"version": version if "train_env" in meta else max(version, 2), "avg_rule": "legacy", **meta, "regret": regret, "avg": avg, "visits": visits,
             "snap": snap}
 
 
 def train(tier: str, players: int, workers: int, minutes: float, seed: int, batch: int,
           resume: dict | None = None, menu: str = "v1", raise_cap: int | None | str = "default",
           ranges: str = "current", avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-          player_mix: tuple[int, ...] = (), max_iters: int | None = None,
-          log=lambda s: print(s, file=sys.stderr, flush=True)):
+          player_mix: tuple[int, ...] = (), max_iters: int | None = None, env: dict | None = None,
+          prior: Path | None = None, log=lambda s: print(s, file=sys.stderr, flush=True)):
     from stalker.e3 import game as G
     from stalker.e3 import parallel
     from stalker.e3.mccfr import E3MCCFR
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
 
-    m = E3MCCFR.from_state(resume, avg_rule, player_mix) if resume else E3MCCFR(
-        seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, G.RAISE_CAP if raise_cap == "default" else raise_cap,
-        ranges, avg_rule=avg_rule, key_variant=key_variant, stacks=stacks, player_mix=player_mix)
-    start_iters, timing = m.iterations, {}
+    env = env or {}   # tournament training (#899); empty = the call every earlier run made
+    if resume:
+        asked = {k: env[k] for k in ("payoff", "ante", "stage") if k in env}
+        sample = (env.get("stack_preset", ""), env.get("stack_remaining", 0), env.get("stack_level", 0))
+        m = E3MCCFR.from_state(resume, avg_rule, player_mix, **({**asked, "stack_sample": sample} if env else {}))
+    else:
+        m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu,
+                    G.RAISE_CAP if raise_cap == "default" else raise_cap, ranges, avg_rule=avg_rule,
+                    key_variant=key_variant, stacks=stacks, player_mix=player_mix, **env)
+    start_iters, timing, prior_rec = m.iterations, {}, None
     t0 = time.monotonic()
     deadline, next_log = t0 + minutes * 60, t0 + PROGRESS_SECONDS
+    if prior is not None:   # on the clock: ADR 0027 "same compute" for both arms
+        st, prior_rec = read_prior(prior)
+        prior_rec["keys"] = apply_prior(m, st)
+        prior_rec["read_seconds"] = round(time.monotonic() - t0, 2)
     with ProcessPoolExecutor(workers) if workers > 1 else _NoPool() as p:
         while time.monotonic() < deadline and (max_iters is None or m.iterations < max_iters):
             step = workers * batch if max_iters is None else min(workers * batch, max_iters - m.iterations)
@@ -181,7 +306,7 @@ def train(tier: str, players: int, workers: int, minutes: float, seed: int, batc
     done = m.iterations - start_iters
     total = max(timing.get("total", 0.0), 1e-9)
     stopped = "max_iters" if max_iters is not None and m.iterations >= max_iters else "minutes"
-    return m, {"chunk_iters": done, "max_iters": max_iters, "stopped_by": stopped, "resumed_from": start_iters, "train_seconds": round(train_s, 1),
+    return m, {**({"prior": prior_rec} if prior_rec else {}), "chunk_iters": done, "max_iters": max_iters, "stopped_by": stopped, "resumed_from": start_iters, "train_seconds": round(train_s, 1),
                "iters_per_s": round(done / max(train_s, 1e-6), 2),
                "sync_frac": round(max(0.0, total - timing.get("compute", 0.0)) / total, 3)}
 
@@ -198,15 +323,16 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
         budget: int = RESULT_BUDGET, resume_budget: int = RESUME_BUDGET, resumed_from_run: str | None = None,
         menu: str = "v1", raise_cap: int | None | str = "default", ranges: str = "current",
         avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-        player_mix: tuple[int, ...] = (), max_iters: int | None = None) -> dict:
+        player_mix: tuple[int, ...] = (), max_iters: int | None = None, env: dict | None = None,
+        train_env: dict | None = None, lbr_hands: int | None = None, prior: Path | None = None) -> dict:
     from stalker.e3 import tp_key as K
     from stalker.train_jobs import e3_evaluate
 
     m, stats = train(tier, players, workers, minutes, seed, batch, resume, menu, raise_cap, ranges, avg_rule,
-                     key_variant, stacks, player_mix, max_iters)
+                     key_variant, stacks, player_mix, max_iters, env, prior)
     res = {"job": job_name(tier, players, m.key_variant, m.player_mix), "tier": tier, "players": players, "seed": seed, "workers": workers,
            "batch": batch, "iters": m.iterations, "resumed_from_run": resumed_from_run, **stats}
-    res.update(e3_evaluate(m, seed))
+    res.update(e3_evaluate(m, seed, **({} if lbr_hands is None else {"lbr_hands": lbr_hands})))   # under the model's t<stage><ante> key slot, so LBR reads the rows trained
     res["model"] = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
                     "menu": m.menu, "raise_cap": m.raise_cap, "avg_rule": m.avg_rule, "rng": m.rng.bit_generator.state,
                     **m._grid()}
@@ -216,6 +342,15 @@ def run(tier: str, players: int, workers: int, minutes: float, seed: int, batch:
             res["model"]["key_version"] = K.KEY_VERSIONS[m.key_variant]
     if m.player_mix:   # absent for n-handed deals, so those results stay as before #486
         res["model"].update(player_mix=list(m.player_mix), **m._count_state())   # #535: counts resume with the table
+    if train_env:   # absent for cash training, so those results stay as before #899
+        res["train_env"] = dict(train_env)
+        res["model"].update(train_env=dict(train_env), ante=m.ante, stage=m.stage, player_mix=list(m.player_mix),
+                            key_variant=m.key_variant, stacks=m.stacks)
+        if m.payoff != "chip":   # from_state refuses payouts/lam on a chip run
+            res["model"].update(payoff=m.payoff, payouts=list(m.payouts), lam=m.lam)
+        if m.bubble_stacks():
+            res["model"].update(stack_preset=m.stack_preset, stack_remaining=m.stack_remaining,
+                                stack_level=m.stack_level)
     if m.ranges == "average":  # absent for current ranges, so those results stay as before #405
         res["model"].update(ranges=m.ranges, range_every=m.range_every, snap_at=m.snap_at)
     res.update(_checkpoint(m, budget, resume_budget))
@@ -265,7 +400,34 @@ def unpack(result: Path, out: Path) -> list[Path]:
     return [ck, pol]
 
 
-def main(argv=None) -> int:
+def parse_stacks(text: str) -> str:
+    from stalker.e3.mccfr import BUBBLE_PREFIX, STACK_PROFILES, STACKS
+
+    if text in STACKS or (text.startswith(BUBBLE_PREFIX) and text[len(BUBBLE_PREFIX):] in STACK_PROFILES):
+        return text
+    raise argparse.ArgumentTypeError(f"{text!r}: use {'|'.join(STACKS)} or {BUBBLE_PREFIX}<{'|'.join(STACK_PROFILES)}>")
+
+
+def tournament_args(a) -> tuple[dict, dict | None]:
+    """(`E3MCCFR` kwargs, `train_env`) of the CLI's tournament arguments; ({}, None) when none was given (#899)."""
+    from stalker.e3 import tp_key as K
+
+    given = (a.payoff != "chip" or a.preset or a.stage != "c" or a.level_index or a.lam or a.ante is not None
+             or a.stacks.startswith("bubble:"))
+    if not given:
+        return {}, None
+    if a.stage not in K.STAGES:
+        raise SystemExit(f"--stage {a.stage!r}: use one of {'|'.join(K.STAGES)}")
+    if not a.preset:
+        raise SystemExit("tournament arguments need --preset <name> (payouts, ante and stacks come from it)")
+    if a.stacks == "sampled":
+        raise SystemExit("--stacks sampled is cash training; use uniform or bubble:<profile> with --preset")
+    if a.payoff != "icm" and a.lam:
+        raise SystemExit("--lam only goes with --payoff icm")
+    return tournament_env(a.preset, a.players, a.stage, a.level_index, a.lam, a.stacks, a.payoff, a.ante)
+
+
+def build_parser() -> argparse.ArgumentParser:
     from stalker.e3.mccfr import parse_mix
 
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -284,17 +446,31 @@ def main(argv=None) -> int:
     ap.add_argument("--avg-rule", default="legacy", choices=("legacy", "own"),
                     help="average-strategy accumulation (#426): legacy (every run before it) or own reach")
     ap.add_argument("--key-variant", default="", help="E3 key variant (stalker.e3.tp_key.VARIANTS), e.g. c1 (#400)")
-    ap.add_argument("--stacks", default="uniform", choices=("uniform", "sampled"),
-                    help="table stacks: 100BB or sampled 20-250BB (#399)")
+    ap.add_argument("--stacks", default="uniform", type=parse_stacks,
+                    help="table stacks: uniform 100BB, sampled 20-250BB (#399) or bubble:<even|random|skewed> "
+                    "(survivors of --preset at --level-index, #898)")
+    ap.add_argument("--payoff", default="chip", choices=("chip", "icm"), help="icm: prize-equity reward (#883)")
+    ap.add_argument("--preset", help="tournament preset (stalker/tournament/presets): payouts, ante, stacks (#899)")
+    ap.add_argument("--stage", default="c", help="c1 key tournament stage e|b|m|f (#886); c = cash")
+    ap.add_argument("--level-index", type=int, default=0, help="blind level of the --preset table (#899)")
+    ap.add_argument("--lbr-hands", type=int, help="LBR deals of the evaluation (default: train_jobs.E3_LBR_HANDS); #901 uses 600")
+    ap.add_argument("--lam", type=float, default=0.0, help="payoff icm: bubble correction (ADR 0026), 0 = pure ICM")
+    ap.add_argument("--ante", type=int, help="BB ante in E3 chips (BB=100); default: the --preset level's BB ante")
     ap.add_argument("--player-mix", type=parse_mix, default=(),
                     help="per-hand player counts, e.g. 2,3,4,5,6 (#486); --players is then the evaluation table")
     ap.add_argument("--max-iters", type=int, help="stop once the chain (resume included) reaches this many "
                     "iterations (#547); --minutes stays the ceiling")
     ap.add_argument("--resume-result", type=Path, help="an earlier pod result (JSON, may be gzipped) to continue")
+    ap.add_argument("--prior-result", type=Path, help="warm start (#918): a cash c1 pod result or .ckpt.json whose "
+                    "average strategy seeds this fresh run's averages (tc0 -> t<stage><ante>), regrets 0")
     ap.add_argument("--sha-file", type=Path, help="file holding the source commit (the pod reads it from the tarball)")
     ap.add_argument("--unpack", type=Path, help="instead of training: write this pod result's model to --out (a folder)")
     ap.add_argument("--out", type=Path, required=True)
-    a = ap.parse_args(argv)
+    return ap
+
+
+def main(argv=None) -> int:
+    a = build_parser().parse_args(argv)
     if a.unpack:
         for f in unpack(a.unpack, a.out):
             print(f)
@@ -305,14 +481,21 @@ def main(argv=None) -> int:
         raise SystemExit("--max-iters must be >= 1 (leave it out for a time-limited run)")
     if a.resume and a.resume_result:
         raise SystemExit("pass --resume or --resume-result, not both")
+    if a.prior_result and (a.resume or a.resume_result):
+        raise SystemExit("--prior-result seeds a fresh run; a resumed chain already carries its prior - drop one")
     resume, from_run = (read_json(a.resume) if a.resume else None), None
     cap = None if a.no_raise_cap else "default"
+    env, train_env = tournament_args(a)
+    if a.resume and (resume.get("train_env") if isinstance(resume, dict) else None) != train_env:
+        raise SystemExit(f"{a.resume}: cannot resume (train_env {resume.get('train_env')!r} != {train_env!r}); "
+                         "pass a checkpoint of the same tournament environment, or start fresh")
     if a.resume_result:
         resume, from_run = load_resume_result(a.resume_result, a.tier, a.players, a.menu, cap, a.ranges, a.avg_rule,
-                                              a.key_variant, a.stacks, a.player_mix)
+                                              a.key_variant, a.stacks, a.player_mix, train_env)
     res = run(a.tier, a.players, a.workers, a.minutes, a.seed, a.batch, resume, resumed_from_run=from_run,
               menu=a.menu, raise_cap=cap, ranges=a.ranges, avg_rule=a.avg_rule, key_variant=a.key_variant,
-              stacks=a.stacks, player_mix=a.player_mix, max_iters=a.max_iters)
+              stacks=a.stacks, player_mix=a.player_mix, max_iters=a.max_iters, env=env, train_env=train_env, lbr_hands=a.lbr_hands,
+              prior=a.prior_result)
     res["sha"] = a.sha_file.read_text(encoding="utf-8").strip() if a.sha_file and a.sha_file.exists() else ""
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res), encoding="utf-8")

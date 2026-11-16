@@ -250,7 +250,7 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "resume_chain": m.resume_chain(),   # #712
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
             "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur, lbr_hands),
-            **_e3_model_card(m, lbr_hands), **_e3_visit_quantiles(m),
+            **_e3_model_card(m, lbr_hands), **_e3_visit_quantiles(m), "key_cells": _e3_key_cells(m),
             **({"lbr_hands": lbr_hands} if eval_of else {}),
             **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
 
@@ -311,6 +311,27 @@ def _e3_visit_quantiles(m) -> dict:
     return out
 
 
+def _e3_key_cells(m) -> dict:
+    """#920: how many information sets sit in each tournament cell (`t<stage><ante>`, cash `tc0` left out) and
+    each player count (`n`), so a result's summary shows whether the run learned only the cells it meant to.
+    Only c1 keys carry the fields; the dict stays tiny so it survives the oversized-result summary strip."""
+    from stalker.e3.mccfr import key_players
+
+    t: dict[str, int] = {}
+    n: dict[str, int] = {}
+    if m.key_variant == "c1":
+        for k in m.visits:
+            for f in k.split("|"):
+                if len(f) == 3 and f[0] == "t" and f[1].isalpha() and f[2].isdigit():
+                    if f != "tc0":
+                        t[f[1:]] = t.get(f[1:], 0) + 1
+                    break
+            p = key_players(k)
+            if p is not None:
+                n[str(p)] = n.get(str(p), 0) + 1
+    return {"t": dict(sorted(t.items())), "n": dict(sorted(n.items(), key=lambda kv: int(kv[0])))}
+
+
 def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
     """#446: the #413 preflop-deviation probe on a trained average policy, first in at every seat; per cell
     only what a comparison needs (best deviation, its gain and uncorrected 95% CI; the leak flag keeps the run's Bonferroni bound), so it fits the summary."""
@@ -349,7 +370,9 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None,
     cur = m.current_policy() if cur is None else cur
     t1 = time.monotonic()
     # Same LBR deals for both policies.
-    with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant):
+    # #899: a tournament model's rows live under its t<stage><ante> key slot, so LBR must look there
+    with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant), \
+            K.using_env(getattr(m, "stage", "c"), getattr(m, "ante", 0) > 0):
         lbr = {k: exploitability_lb(pol, lbr_hands, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
                for k, pol in (("average", avg), ("current", cur))}
         # #343: an independent estimate (same seed, but deals drift once the exploiter picks another line) whose

@@ -182,7 +182,7 @@ def load_pod_result(path: Path) -> tuple[dict, dict]:
 
     from stalker.tools.pod_train import unpack_state
 
-    summary = json.loads(path.read_text(encoding="utf-8"))
+    summary = read_json(path)   # plain, gzipped, or a pod's gzipped resume.bin (#916)
     if not summary.get("checkpoint"):
         raise SystemExit(f"{path}: no checkpoint in this result ({summary.get('checkpoint_note', 'missing')})")
     return unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"]), summary

@@ -147,3 +147,16 @@ def test_b1_vectors_carry_c1_postflop_keys_per_tier(committed):
     assert all(re.search(label, d["c1"]["mid"]) and "|n%d|" % h["n"] in d["c1"]["mid"] for h, d in mid)
     assert any(d["live"] == 2 for _, d in mid) and any(d["live"] >= 3 for _, d in mid)
     assert any(d["street"] == 3 and "|o-v-k" in d["c1"]["mid"] for _, d in mid), "no river c1 key with o-v- labels"
+
+
+def test_ante_vectors_are_current_and_cover_the_pot_shapes(committed):
+    """#887: BB-ante hands the browser mirror replays (deal, side-pot payoff, c1 ante slot)."""
+    assert W.ante_vectors(committed["params"]["seed"]) == committed["ante"], \
+        "ante in web/app/test/vectors.json is stale: run `python -m stalker.tools.web_vectors`"
+    hands = committed["ante"]
+    assert any(h["stacks"] and len(set(h["stacks"])) > 1 for h in hands), "need mixed stacks (side pots)"
+    assert any(h["dealt"]["ante"] < h["ante"] for h in hands), "need a big blind that cannot pay the whole ante"
+    assert any(h["dealt"]["bet"][-1] == 0 for h in hands), "need a big blind that only paid the ante"
+    assert all(sum(h["payoff"]) == 0 for h in hands)
+    assert all(re.search(r"\|t[cebmf]1\|", d["public"]) for h in hands for d in h["decisions"]
+               if not d["public"].startswith("call|"))

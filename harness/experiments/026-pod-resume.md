@@ -70,5 +70,27 @@
 - `_signal`이 404도 "아직 부팅 중"으로 보고 다시 시도한다. 파드 서버의 404는 런처가 보내지 않는 경로에만 나오므로 오인 위험이 없다. 재시도 상한은 파드 쪽 `RESUME_WAIT_S` 뒤 exit 97(EXITED)이다.
 - #356 이후 모든 파드 잡이 신호(`resume-none` 포함)를 보내므로 이 수정 전에는 파드 실행이 모두 시작 직후 실패했다. 이 run은 측정창의 `resume_failed` 건수에서 뺀다(수정 전 결함).
 
+## 정정 (#923, 2026-11-16)
+- 문제: 다듬기(`RESUME_FIELDS`)가 `train_env`를 버려, 토너먼트 결과의 `resume_run`이 `pod_train.load_resume_result`에서 `train_env None != {...}`로 모두 거부됐다(#899 비교 도입 뒤).
+- 변경: `RESUME_FIELDS`에 `train_env`를 추가했다. 캐시 게임 결과처럼 키가 없으면 만들지 않는다.
+- 측정/성공 기준: 머지 뒤 첫 토너먼트 `resume_run`(F7b·F6 체인)이 train_env 거부 없이 이어 학습을 시작한다(성공 = 거부 0건). 이 run은 위 `resume_failed` 건수에서 수정 전 결함으로 뺀다.
+- 롤백: `RESUME_FIELDS`에서 `train_env`를 제거한다(토너먼트 resume는 다시 거부 상태로 돌아간다).
+
+## 확장 (#929, 2026-11-16): 두 번째 이전 결과 `resume_run_b`
+- 문제: F6c(A/B 평가)는 정책 두 개를 한 파드에 넘겨야 하는데, 핸드오버는 파일 하나(`$STALKER_RESUME`)뿐이었다.
+- 변경 요약
+  - `cloud.yml`에 입력 `resume_run_b`(숫자 검사, `resume_run` 없이 B만 주면 고치는 방법과 함께 거부)를 추가했다. 아티팩트를 받아 런처에 `--resume-file-b`로 넘긴다.
+  - 파드 서버 `/<토큰>/resume-b`: 신호를 주지 않는다. 한 번만 받는다(이후 409). 상한 `RESUME_MAX_BYTES`를 넘으면 413이다.
+  - 순서: 런처가 B를 먼저 보내고, 그다음 A(`resume`, 신호)를 보낸다. 잡은 A의 신호로 시작하므로 B가 이미 있다.
+  - 잡은 신호가 `ready`이고 B 파일이 있을 때만 `$STALKER_RESUME_B`를 받는다(없으면 빈 값). `resume_payload`는 파일마다 적용된다.
+  - B가 없는 실행은 이전과 동작이 같다(`test_without_resume_b_the_handover_is_unchanged`).
+- 측정: 머지 후 첫 F6c 평가 잡 run에서 확인한다.
+  - 런처 로그에 `resume-b: sent N bytes`와 `resume: sent M bytes`가 둘 다 찍히는가.
+  - 잡이 B를 읽었는가(결과 필드 또는 잡 로그).
+  - 원장(`ops:budget/ledger.jsonl`) 상태.
+  - 기록 위치: #929(또는 F6c 이슈) 코멘트에 run id, N·M, 상태를 적고 아래 "결과"에 옮긴다.
+- 성공 기준: 그 run의 상태가 `completed`이고, B 거부(409/413)·`resume_failed`가 0건.
+- 롤백: 이 PR(#931)을 revert한다. B가 없는 실행은 동작이 같으므로 영향은 `resume_run_b`를 쓰는 F6c 잡뿐이다.
+
 ## 결과
 (측정창 종료 후 auditor가 기록)

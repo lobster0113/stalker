@@ -196,3 +196,37 @@ def test_pod_result_of_c1_round_trips_and_resumes_only_the_same_key(tmp_path, mo
     with pytest.raises(SystemExit, match="key_version"):
         P.load_resume_result(f, "beginner", 3, "real", None, "average", "own", "c1", "sampled")
     assert base64.b64decode(r["checkpoint"]["b64"])
+
+
+# --- #940: c1 position names at 7-9 players; 2-6 player keys stay byte-identical ---
+
+_OLD_C1_NAMES = {2: ("BTN", "BB"), 3: ("BTN", "SB", "BB"), 4: ("CO", "BTN", "SB", "BB"),
+                 5: ("HJ", "CO", "BTN", "SB", "BB"), 6: G.POSITIONS[6]}   # the table before #940, copied on purpose
+
+
+def _old_c1_position_names(n):
+    return _OLD_C1_NAMES.get(n) or G.position_names(n)
+
+
+def test_c1_keys_at_2_to_6_players_are_unchanged_by_the_7_to_9_names(monkeypatch):
+    rng = np.random.default_rng(940)
+    now = {n: [K.public_key(s, s.to_act, "full", "c1") for s in _states(rng, n, 120)] for n in range(2, 7)}
+    assert all(len(v) >= 200 for v in now.values())
+    monkeypatch.setattr(K, "c1_position_names", _old_c1_position_names)
+    rng = np.random.default_rng(940)
+    old = {n: [K.public_key(s, s.to_act, "full", "c1") for s in _states(rng, n, 120)] for n in range(2, 7)}
+    assert now == old
+
+
+def test_c1_position_names_for_7_to_9_players():
+    assert K.c1_position_names(7) == ("UTG", "LJ", "HJ", "CO", "BTN", "SB", "BB")
+    assert K.c1_position_names(8) == ("UTG", "UTG1", "LJ", "HJ", "CO", "BTN", "SB", "BB")
+    assert K.c1_position_names(9) == G.POSITIONS[9]
+    for n in range(2, 10):
+        names = K.c1_position_names(n)
+        assert len(names) == n and len(set(names)) == n and not any(x.startswith("EP") for x in names)
+        assert names[-3:] == ("BTN", "SB", "BB") or n == 2
+    rng = np.random.default_rng(941)
+    for n in (7, 8, 9):
+        for s in _states(rng, n, 5):
+            assert not K.public_key(s, s.to_act, "full", "c1").startswith("EP")

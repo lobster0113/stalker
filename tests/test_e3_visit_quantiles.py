@@ -39,3 +39,41 @@ def test_summarize_adds_p50_only_when_all_seeds_have_it(tmp_path):
     assert T.summarize("e3-x", tmp_path)["visit_p50_by_seed"] == [7, 9]
     (tmp_path / "e3-x-seed2.json").write_text(json.dumps({**base, "seed": 2}), encoding="utf-8")
     assert "visit_p50_by_seed" not in T.summarize("e3-x", tmp_path)
+
+
+def test_key_cells_bubble_run_names_one_cell_and_one_player_count():
+    from stalker.e3 import tp_key as K
+    kw = dict(k=K.TIER_K["beginner"], depth=K.TIER_DEPTH["beginner"], key_variant="c1", stacks="bubble:random",
+              stack_preset="9max_sng_503020", stack_remaining=4, stack_level=1, stage="b")
+    m = E3MCCFR(1, n=4, **kw)
+    m.iterate(20)
+    cells = T._e3_key_cells(m)
+    assert list(cells["t"]) == ["b0"] and list(cells["n"]) == ["4"]
+    assert cells["n"]["4"] <= len(m.visits)
+
+
+def test_key_cells_cash_mix_has_no_t_and_one_n_per_player_count():
+    m = E3MCCFR(1, 3, 3, key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    cells = T._e3_key_cells(m)
+    assert cells["t"] == {} and set(cells["n"]) == {"2", "3"}
+
+
+def test_key_cells_non_c1_is_empty_and_survives_blob_strip():
+    from harness.cloud.launcher import SUMMARY_BLOB_CHARS, _strip_blobs
+    m = E3MCCFR(1, 3, 3)
+    m.iterate(3)
+    assert T._e3_key_cells(m) == {"t": {}, "n": {}}
+    m = E3MCCFR(1, 3, 3, key_variant="c1", player_mix=(2, 3))
+    m.iterate(10)
+    cells = T._e3_key_cells(m)
+    import json
+    assert len(json.dumps(cells)) <= SUMMARY_BLOB_CHARS
+    assert _strip_blobs({"key_cells": cells}) == {"key_cells": cells}
+
+
+def test_e3_tp_result_carries_key_cells(tmp_path, monkeypatch):
+    for name in ("E3_LBR_HANDS", "E3_FIELD_HANDS"):
+        monkeypatch.setattr(T, name, 2)
+    res = T._e3_tp(3, 1, tmp_path, tier="beginner", name="x", lbr_hands=4)
+    assert res["key_cells"] == {"t": {}, "n": {}}

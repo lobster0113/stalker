@@ -99,3 +99,27 @@ def icm_equity_mc(stacks, payouts, n_samples: int, rng: np.random.Generator) -> 
     won = np.bincount(ranked.ravel(), weights=np.tile(p, n_samples), minlength=m)
     eq[live] = won / n_samples
     return eq.tolist()
+
+
+def bubble_corrected_equity(stacks, payouts, lam: float) -> list[float]:
+    """ICM equity with the ADR 0026 bubble correction (tournament reward).
+
+    Pure ICM undervalues the shortest stack on the bubble (measured in #845):
+    the remaining game still pays short stacks. On the bubble only
+    (live players == len(payouts) + 1) every live player gets `lam` times the
+    live mean stack added as virtual chips before `icm_equity`, which flattens
+    the stack ratios without changing the prize total. `lam` = 0 is pure ICM.
+    """
+    try:
+        lam_f = float(lam)
+    except (TypeError, ValueError):
+        raise ICMError(f"lam must be a number in [0, 1], got {lam!r}.") from None
+    if not (0.0 <= lam_f <= 1.0):  # also rejects NaN
+        raise ICMError(f"lam must be in [0, 1] (ADR 0026), got {lam!r}; "
+                       "0 = pure ICM, values outside reverse or overturn rankings.")
+    s, p, live = _prepare(stacks, payouts)
+    if live.size != len(payouts) + 1 or lam_f == 0.0:
+        return icm_equity(s, payouts)
+    adjusted = s.copy()
+    adjusted[live] += lam_f * s[live].mean()
+    return icm_equity(adjusted, payouts)

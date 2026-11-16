@@ -114,8 +114,9 @@ def test_load_spec_only_from_jobs_dir(tmp_path):
         L.load_spec(p)
     cap = json.loads((ROOT / "harness" / "budget.json").read_text(encoding="utf-8"))["monthly_cap_usd"]
     for f in (ROOT / "jobs").glob("*.yaml"):
-        # Probes stay under $1; a training run (#333) may take at most a tenth of the monthly cap.
-        limit = 0.1 * cap if f.stem.startswith(("e3-tp-", "web-policy-lbr-")) else 1.0
+        # Probes stay under $1; a training run (#333) or a 32 vCPU web-policy measurement (#661, #836) may take at
+        # most a tenth of the monthly cap.
+        limit = 0.1 * cap if f.stem.startswith(("e3-tp-", "web-policy-lbr-", "web-policy-leaks-")) else 1.0
         assert L.load_spec(f).worst_case_usd <= limit, f
 
 
@@ -642,6 +643,10 @@ def test_resume_payload_is_trimmed_gzipped_and_capped(tmp_path):
     got = json.loads(gzip.decompress(L.resume_payload(f, "123")))
     assert got["run_id"] == "123" and got["iters"] == 7 and got["checkpoint"]["b64"] == "QUJD"
     assert "lbr" not in got  # evaluation numbers stay in the artifact
+    assert "train_env" not in got  # a cash result has none; the key is not invented (#923)
+    env = {"env_id": "x", "stage": "b", "lam": 0.0}
+    kept = json.loads(gzip.decompress(L.resume_payload(_pod_result(tmp_path, train_env=env), "123")))
+    assert kept["train_env"] == env  # pod_train refuses a tournament resume whose train_env is missing (#923)
     with pytest.raises(L.LauncherError, match="proxy body limit"):
         L.resume_payload(f, "123", max_bytes=50)
     with pytest.raises(L.LauncherError, match="digits"):
@@ -725,6 +730,126 @@ def test_cloud_workflow_resume_run_input():
     # validated before the download uses it, downloaded before the launcher runs
     assert wf.index("- name: check resume_run") < wf.index("- name: fetch resume result") < wf.index("- name: launcher")
     assert '--resume-file "$RUNNER_TEMP/resume/result.json" --resume-run "$RESUME_RUN"' in wf
+
+
+def test_pod_server_takes_resume_b_once_before_the_signal(pod_server):
+    # #929: the second file lands without a signal, so the job does not start before A arrives
+    port, root, rdir = pod_server
+    assert _http(port, f"/{TOKEN}/resume-b", b"x" * 1001)[0] in (413, 0)  # same per-file cap
+    assert _http(port, f"/{TOKEN}/resume-b", b"")[0] == 413  # an empty B is not a file
+    code, raw = _http(port, f"/{TOKEN}/resume-b", b"BB")
+    assert code == 200 and json.loads(raw) == {"bytes": 2, "sha256": hashlib.sha256(b"BB").hexdigest()}
+    assert (rdir / "resume_b.bin").read_bytes() == b"BB" and not (rdir / "signal").exists()
+    assert _http(port, f"/{TOKEN}/resume-b", b"CC")[0] == 409  # taken once
+    assert _http(port, f"/{TOKEN}/resume", b"AA")[0] == 200
+    assert (rdir / "resume.bin").read_bytes() == b"AA" and (rdir / "resume_b.bin").read_bytes() == b"BB"
+    assert _http(port, f"/{TOKEN}/resume_b.bin")[0] == 404  # not served back
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the pod script is bash on Linux")
+@pytest.mark.parametrize("with_b", [False, True], ids=["a-only", "a-and-b"])
+def test_pod_command_hands_both_files_to_the_job(tmp_path, with_b):
+    import os
+    import signal
+    import subprocess
+
+    port, work = _free_port(), tmp_path / "work"
+    cmd = (f'mkdir -p {work} && printf \'{{"a": "%s", "b": "%s"}}\' "$(cat "$STALKER_RESUME")" '
+           f'"${{STALKER_RESUME_B:+$(cat "$STALKER_RESUME_B")}}" > {work}/r.json')
+    script = L.pod_command(_job(command=cmd, result_path=f"{work}/r.json"), serve_dir=str(tmp_path / "srv"),
+                           port=port, resume_dir=str(tmp_path / "rs")).replace("sleep infinity", "sleep 30")
+    proc = subprocess.Popen(["bash", "-c", script], env={"PATH": "/usr/bin:/bin:" + str(Path(sys.executable).parent),
+                                                         L.TOKEN_ENV: TOKEN}, start_new_session=True)
+    try:
+        _wait(port, f"/{TOKEN}/status.json", code=404)
+        if with_b:
+            assert _http(port, f"/{TOKEN}/resume-b", b"PB")[0] == 200
+        assert _http(port, f"/{TOKEN}/resume", b"PA")[0] == 200
+        _wait(port, f"/{TOKEN}/status.json")
+        assert json.loads(_http(port, f"/{TOKEN}/result.json")[1]) == {"a": "PA", "b": "PB" if with_b else ""}
+    finally:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+
+
+def test_resume_b_is_uploaded_before_resume(tmp_path):
+    proxy = FakeProxy(up_after=1)
+    res, api, entries, out = _run_result(tmp_path, proxy, resume=b"A", resume_b=b"B")
+    assert res["status"] == "completed"
+    assert proxy.puts == [("resume-b", b"B"), ("resume-b", b"B"), ("resume", b"A")]  # first B try hit a booting pod
+
+
+def test_without_resume_b_the_handover_is_unchanged(tmp_path):
+    # regression (#929 i): no second file, the same single upload as before
+    proxy = FakeProxy(up_after=0)
+    _run_result(tmp_path, proxy, resume=b"A")
+    assert proxy.puts == [("resume", b"A")]
+    script = L.pod_command(_result_job())
+    assert 'STALKER_RESUME_B=""' in script and "export STALKER_RESUME STALKER_RESUME_B" in script
+
+
+class _RefusesB(FakeProxy):
+    def send(self, url, body):
+        if url.endswith("/resume-b"):
+            self.puts.append(("resume-b", body))
+            return 413, b""
+        return super().send(url, body)
+
+
+def test_resume_b_over_the_pod_cap_names_its_input(tmp_path):
+    p = _RefusesB(up_after=0)
+    with pytest.raises(L.LauncherError, match=r"resume-b \(resume_run_b\) refused .*413.*cap"):
+        _run_result(tmp_path, p, resume=b"A", resume_b=b"B" * 10)
+    assert p.puts == [("resume-b", b"B" * 10)]  # A (the signal) never sent: the job does not start
+    assert L.read_ledger(tmp_path / "l.jsonl")[-1]["status"] == "resume_failed"
+    with pytest.raises(L.LauncherError, match="resume_run_b: resume upload .* proxy body limit"):
+        L.resume_payload(_pod_result(tmp_path), "7", max_bytes=50, which="resume_run_b")
+
+
+def test_resume_b_needs_resume_and_is_checked_in_dry_run(tmp_path, capsys):
+    with pytest.raises(L.LauncherError, match="resume_run_b needs resume_run"):
+        _run_result(tmp_path, FakeProxy(), resume_b=b"B")
+    f = _pod_result(tmp_path)
+    spec, ledger = ROOT / "jobs" / "e3-tp-pro-pod32.yaml", tmp_path / "l2.jsonl"
+    base = ["run", str(spec), "--ledger", str(ledger), "--dry-run"]
+    assert L.main(base + ["--resume-file", str(f), "--resume-run", "55", "--resume-file-b", str(f),
+                          "--resume-run-b", "56"]) == 0
+    out = capsys.readouterr().out
+    assert "dry run: resume upload" in out and "dry run: resume_b upload" in out
+    assert L.main(base + ["--resume-file-b", str(f), "--resume-run-b", "56"]) == 1
+    assert "needs --resume-file" in capsys.readouterr().err
+    assert L.main(base + ["--resume-file", str(f), "--resume-run", "55", "--resume-file-b", str(f)]) == 1
+    assert "together" in capsys.readouterr().err
+    assert L.main(base + ["--resume-file", str(f), "--resume-run", "55", "--resume-file-b",
+                          str(tmp_path / "gone.json"), "--resume-run-b", "56"]) == 1
+    assert "resume_run_b: resume file" in capsys.readouterr().err
+
+
+def test_cloud_workflow_resume_run_b_input():
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    assert "resume_run_b:" in wf and "RESUME_RUN_B: ${{ inputs.resume_run_b }}" in wf
+    check = wf.split("- name: check resume_run_b", 1)[1].split("- name:", 1)[0]
+    assert '"$RESUME_RUN_B" =~ ^[0-9]+$' in check and '-n "$RESUME_RUN"' in check and "${{" not in check
+    fetch = wf.split("- name: fetch resume_b result", 1)[1].split("- name:", 1)[0]
+    assert "env.RESUME_RUN_B != ''" in fetch and "run-id: ${{ env.RESUME_RUN_B }}" in fetch and "resume_b/" in fetch
+    assert wf.index("- name: check resume_run_b") < wf.index("- name: fetch resume_b result") < wf.index("- name: launcher")
+    assert '--resume-file-b "$RUNNER_TEMP/resume_b/result.json" --resume-run-b "$RESUME_RUN_B"' in wf
+    inputs = wf.split("    inputs:\n", 1)[1].split("  schedule:", 1)[0]
+    assert len(re.findall(r"^      [a-z_]+:$", inputs, re.M)) <= 25  # GitHub's workflow_dispatch input limit
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="bash")
+@pytest.mark.parametrize("a,b,ok", [("", "", True), ("12", "", True), ("12", "34", True), ("", "34", False),
+                                    ("12", "3;4", False)])
+def test_cloud_workflow_resume_run_b_check_runs(a, b, ok):
+    import subprocess
+    wf = (ROOT / ".github" / "workflows" / "cloud.yml").read_text(encoding="utf-8")
+    step = wf.split("- name: check resume_run_b", 1)[1].split("run: |\n", 1)[1].split("- name:", 1)[0]
+    r = subprocess.run(["bash", "-c", step], env={"PATH": "/usr/bin:/bin", "RESUME_RUN": a, "RESUME_RUN_B": b},
+                       capture_output=True, encoding="utf-8")
+    assert (r.returncode == 0) == ok, r.stdout
+    if not ok and not a:
+        assert "needs resume_run" in r.stdout
 
 
 def test_cloud_workflow_uploads_result():
@@ -1190,6 +1315,11 @@ def test_cloud_workflow_export_mode(tmp_path):
     assert '--summary-out "ops/cloud/exports/$EXPORT_RUN.json"' in run and "--index-base web/app/policy/index.json" in run
     assert "--policies-out \"ops/cloud/policies/$EXPORT_RUN\"" in run and '--min-visits-by-players "$EXPORT_MIN_VISITS_BY_PLAYERS"' in run
     assert "export_min_visits_by_players must look like" in wf   # regex-checked like the other inputs (#596)
+    for n in ("hands", "seeds"):   # optional hit-rate inputs: validated, passed only when set (#815)
+        assert f"export_hit_rate_{n}:" in wf and f"EXPORT_HIT_RATE_{n.upper()}: ${{{{ inputs.export_hit_rate_{n} }}}}" in wf
+        assert f"export_hit_rate_{n} must be empty or a positive whole number" in wf
+        assert f'[[ -n "$EXPORT_HIT_RATE_{n.upper()}" ]] && extra+=(--hit-rate-{n} "$EXPORT_HIT_RATE_{n.upper()}")' in run
+    assert '"${extra[@]}"' in run
     assert "git " not in run   # never commits to main or web/app/policy/
     assert "name: web-policy-${{ env.EXPORT_RUN }}" in wf[idx[3]:idx[4]]
     # the pod, terminate, upload-result and ledger-writing launcher calls are all run-only

@@ -1,3 +1,5 @@
+import gzip
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -7,7 +9,10 @@ from referee.e3 import preflop_probe as P
 from stalker.core.cards import hand_class
 
 K5 = 5
-SERVED_MID = Path(__file__).resolve().parents[1] / "web" / "app" / "policy" / "mid-6.json"
+# Frozen copy of the legacy served mid-6 policy (run 40919207457) so the leak-discrimination evidence survives
+# the web policy being replaced (#824, #837).
+LEGACY_MID6 = Path(__file__).resolve().parent / "fixtures" / "legacy-mid-6.json.gz"
+LEGACY_MID6_SHA256 = "13565ca43eca0f73ea8eef96a2ab3f1a8570a93730436443a3912b7117d78268"  # run 40919207457, decompressed
 
 
 def _parts(key):
@@ -79,10 +84,15 @@ def test_vs_open_reaches_only_single_raised_pots():
     assert seen and all(k.split("|")[-1].startswith("e") for k in seen)
 
 
+def test_legacy_mid6_fixture_is_the_frozen_run_40919207457_copy():
+    assert hashlib.sha256(gzip.open(LEGACY_MID6).read()).hexdigest() == LEGACY_MID6_SHA256, \
+        "tests/fixtures/legacy-mid-6.json.gz changed: restore the run 40919207457 copy"
+
+
 def test_probe_is_reproducible_and_worker_independent():
     # Two chunks (CHUNK deals each) so that workers=2 really splits the cell; chunk seeds depend only on
     # the cell and the chunk index. A loaded policy file, because worker processes must pickle the table.
-    t = P.load(SERVED_MID)
+    t = P.load(LEGACY_MID6)
     kw = dict(seed=2, spots=("first_in",), seats=[1], groups=("KK",))
     a = P.probe(t, 2 * P.CHUNK, **kw)
     assert a == P.probe(t, 2 * P.CHUNK, **kw)
@@ -90,12 +100,14 @@ def test_probe_is_reproducible_and_worker_independent():
 
 
 
-def test_probe_flags_the_served_mid_policy_limping_aces():
-    # #413 criterion 1 / #391: the served mid policy (average strategy) limps AA first in from HJ/CO most
-    # of the time. Pre-registered cells: first_in, HJ and CO, AA, 300 deals, seed 1. If the served file
+@pytest.mark.slow
+def test_probe_flags_the_legacy_mid_policy_limping_aces():
+    # #413 criterion 1 / #391: the legacy served mid policy (average strategy) limps AA first in from HJ/CO most
+    # of the time. Pre-registered cells: first_in, HJ and CO, AA, 300 deals, seed 1. If the fixture
     # changes and the leak is gone, this fails on purpose: re-register the cells or close #391.
-    assert SERVED_MID.exists(), f"{SERVED_MID} missing: the served policy moved; update this test"
-    r = P.probe(P.load(SERVED_MID), 300, seed=1, spots=("first_in",), seats=[1, 2], groups=("AA",))
+    assert hashlib.sha256(gzip.open(LEGACY_MID6).read()).hexdigest() == LEGACY_MID6_SHA256, \
+        "tests/fixtures/legacy-mid-6.json.gz changed: restore the run 40919207457 copy"
+    r = P.probe(P.load(LEGACY_MID6), 300, seed=1, spots=("first_in",), seats=[1, 2], groups=("AA",))
     assert r["leaks"] >= 1, P.table(r)
     assert any(c["open_minus_limp"]["r"]["ci"][0] > 0 for c in r["cells"] if c["leak"]), P.table(r)
 
@@ -107,3 +119,132 @@ def test_flag_needs_both_the_threshold_and_the_corrected_bound():
     z = P.flag(cells)
     assert z > P.Z95                      # six tests: stricter than a single 95% bound
     assert [c["leak"] for c in cells] == [True, False, False]
+
+
+# --- c1 web policy files (#823) ---
+import hashlib
+import json
+
+from stalker.e3 import tp_key as K
+from stalker.tools import policy_leaks as PL
+
+MID5 = Path(__file__).resolve().parents[1] / "web" / "app" / "policy" / "mid-5.json"
+LEGACY_GOLDEN = "0e3425d4a40a6ba8c20c3758005e74080ca6947f3c6e714739dfeecf2f8c0fc6"   # pre-#823 main code, rows hit (6-max, spy-keyed)
+
+
+def _c1_policy():
+    """A tiny c1 table: a few real keys of the served 5-max file."""
+    d = json.loads(MID5.read_text(encoding="utf-8"))
+    q = d["q"]
+    keys = [k for k in d["policy"] if k.split("|")[0] not in ("b", "p", "call")][:50]
+    return {k: [x / q for x in d["policy"][k]] for k in keys}, d
+
+
+def _legacy6_file(tmp_path):
+    """A legacy (no key_variant) 6-max file whose rows the probe really hits: keys recorded from a spy run,
+    rows a fixed function of the key (crc32), so the file never changes with the served policies."""
+    import zlib
+    seen = {}
+
+    def spy(key, acts):
+        seen[key] = tuple(acts)
+        return None
+    P.probe({"policy": spy, "k": 5, "depth": "full", "players": 6, "menu": "v1", "raise_cap": 3},
+            6, 4, spots=("first_in",), seats=[0, 3], groups=("AA", "AKs"))
+    q = 255
+    policy = {}
+    for key, acts in sorted(seen.items()):
+        h = zlib.crc32(key.encode()) % 7
+        row = [1] * len(acts)
+        row[h % len(acts)] += 3
+        tot = sum(row)
+        v = [round(x * q / tot) for x in row]
+        v[0] += q - sum(v)
+        policy[key] = v
+    f = tmp_path / "legacy6.json"
+    f.write_text(json.dumps({"schema": "stalker.web.policy", "q": q, "k": 5, "depth": "full", "players": 6,
+                             "menu": "v1", "policy": policy}, sort_keys=True), encoding="utf-8")
+    return f, len(policy)
+
+
+def test_legacy_file_result_is_unchanged(tmp_path):
+    # No key_variant: the old dict path with rows that are actually returned (the rows hit), fixed seed.
+    f, n = _legacy6_file(tmp_path)
+    assert n > 5
+    t = P.load(f)
+    assert "variant" not in t and isinstance(t["policy"], dict)
+    r = P.probe(t, 6, 4, spots=("first_in",), seats=[0, 3], groups=("AA", "AKs"))
+    assert "key_variant" not in r and "backoff_levels" not in r
+    got = hashlib.sha256((json.dumps(r, indent=1) + "\n").encode()).hexdigest()
+    assert got == LEGACY_GOLDEN, got
+
+
+def test_c1_lookup_exact_l1_rows_and_uniform():
+    rows, _ = _c1_policy()
+    key = next(iter(rows))
+    m = len(rows[key])
+    pol = P.WebPolicy(rows)
+    assert pol.lookup(key, m) == (rows[key], "L0")                       # 1. exact key
+    parts = key.split("|")
+    at = max(i for i, f in enumerate(parts) if f.startswith("e") and f[1:].isdigit())
+    miss = "|".join(parts[:at] + ["e98"] + parts[at + 1:])
+    assert pol.lookup(miss, m) == (None, "uniform")                       # 3. nothing to fall back on
+    extra_row = [1.0] + [0.0] * (m - 1)
+    ck = P.W.coarse_key(miss, 1)
+    pol = P.WebPolicy(rows, {ck: {m: extra_row}})
+    assert pol.lookup(miss, m) == (extra_row, "L1")                       # 2. l1_rows supply L1
+    spr = key.split("|")
+    spr[P.W._SPR_AT] = "98"                                               # only the SPR step differs: L2 drops it
+    assert pol.lookup("|".join(spr), m)[1] == "L2"
+
+
+def test_c1_file_load_keeps_variant_and_l1_rows(tmp_path):
+    rows, d = _c1_policy()
+    d = {**d, "policy": {k: [round(x * d["q"]) for x in v] for k, v in rows.items()}, "l1_rows": None}
+    key = next(iter(rows))
+    parts = P.W.coarse_key(key, 1).split("|")   # the exporter's groups are L1 keys with the equity step wildcarded
+    at = max(i for i, f in enumerate(parts) if f.startswith("e") and f[1:].isdigit())
+    group = "|".join(parts[:at] + ["e*"] + parts[at + 1:])
+    parts = key.split("|")
+    at = max(i for i, f in enumerate(parts) if f.startswith("e") and f[1:].isdigit())
+    d["l1_rows"] = {group: {"97": [255] + [0] * (len(rows[key]) - 1)}}
+    f = tmp_path / "c1.json"
+    f.write_text(json.dumps(d), encoding="utf-8")
+    t = P.load(f)
+    assert t["variant"] == "c1" and t["l1_extra"]
+    miss = "|".join(parts[:at] + ["e97"] + parts[at + 1:])
+    row, level = t["policy"].lookup(miss, len(rows[key]))
+    assert level == "L1" and row == [1.0] + [0.0] * (len(rows[key]) - 1)   # probabilities, not 0..q integers
+
+
+def test_c1_hero_key_reads_only_public_line_and_own_cards():
+    # Gate L: the backoff key is public key + the hero's own equity step; other seats' hole cards do not enter.
+    t = P.load(MID5)
+    rng = np.random.default_rng(5)
+    mine = P.group_combos("AA")[0]
+    s = P._deal(rng, t, 0, mine)
+    rest = [c for c in range(52) if c not in mine]
+    others = [rest[i:i + 2] for i in range(0, 8, 2)]
+    hole2 = list(s.hole)
+    for q, h in zip((1, 2, 3, 4), reversed(others)):
+        hole2[q] = tuple(h)
+    s2 = s._replace(hole=tuple(hole2))
+    assert s.hole != s2.hole
+    with K.using_variant("c1"):
+        ranges = K.initial_ranges(s.n)
+        assert P._hero_level(t, s, 0, ranges) == P._hero_level(t, s2, 0, ranges)
+        assert K.public_key(s, 0, t["depth"]) == K.public_key(s2, 0, t["depth"])
+
+
+@pytest.mark.slow
+def test_c1_probe_smoke_mid5(tmp_path):
+    out = tmp_path / "o.json"
+    assert P.main([str(MID5), "--deals", "20", "--seats", "0", "--groups", "AA", "--json", str(out)]) == 0
+    r = json.loads(out.read_text(encoding="utf-8"))
+    assert r["key_variant"] == "c1"
+    assert sum(r["backoff_levels"].values()) == r["cells"][0]["deals"] == 20
+
+
+def test_policy_leaks_rejects_non_6max_with_fix():
+    with pytest.raises(ValueError, match=r"6-player policy file"):
+        PL.build({"probe": PL.PROBE, "players": 5, "cells": []}, "mid", "mid-5.json")

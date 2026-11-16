@@ -42,8 +42,8 @@ ROOT = Path(__file__).resolve().parents[2]
 VECTORS = ROOT / "web" / "app" / "test" / "vectors.json"
 ASSET = ROOT / "web" / "app" / "assets" / "hu_equity.json"
 SCHEMA = "stalker.web.tpgto.vectors"
-SCHEMA_VERSION = 6   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417); 4: "c1_keys" (#583);
-# 5: "b1" (#606); 6: c1 postflop keys per tier in the b1 hands (#608)
+SCHEMA_VERSION = 7   # 2: "menus" block (#386); 3: v1 menu hands and the per-bet "hte" flag (#417); 4: "c1_keys" (#583);
+# 5: "b1" (#606); 6: c1 postflop keys per tier in the b1 hands (#608); 7: "ante" BB-ante hands (#887)
 TIERS = ("beginner", "mid", "pro")
 PLAYERS = (2, 4, 6, 9)   # 2 and 4: the web looks up per-seat policies (#541)
 FOLD_WEIGHTS = (0.15, 1.0, 4.0)   # per hand: deep multiway hands, plain random, fold-heavy (heads-up postflop)
@@ -213,8 +213,49 @@ def c1_vectors(hands: int, seed: int) -> dict:
     for n in C1_PLAYERS:
         rng = np.random.default_rng([seed, 583, n])
         out.extend(_play_c1(n, rng) for _ in range(hands))
-    return {"version": K.KEY_VERSIONS["c1"], "positions": {str(n): list(K.c1_position_names(n)) for n in C1_PLAYERS},
+    return {"version": K.KEY_VERSIONS["c1"], "positions": {str(n): list(K.c1_position_names(n)) for n in range(2, 10)},
             "hands": out}
+
+
+# BB-ante hands (#887): the web mirror's deal, side-pot payoff and c1 key against `game.deal(ante=...)`. Fixed
+# scripted lines (not random) so each pot shape is hit on purpose: everyone folds to the big blind, a check-down,
+# and a shove called by all (mixed stacks make side pots). The web engine has no short-all-in raise rules (G._can_cover),
+# so every line is passive or a single shove that everyone answers with a call or a fold.
+ANTE = 100
+ANTE_CASES = (   # (players, stacks in chips or None for 100BB, line style)
+    (3, None, "fold"), (6, None, "fold"), (3, None, "passive"), (6, None, "passive"), (2, None, "passive"),
+    (4, (3000, 8000, 5000, 6000), "shove"), (6, (20000, 4000, 12000, 7000, 9000, 15000), "shove"),
+    (3, (10000, 10000, 150), "passive"),   # the big blind cannot post both: ante 100, blind 50, and it is all in
+    (3, (10000, 10000, 80), "passive"),    # the big blind posts only 80 of the ante and plays for it
+    (4, (10000, 600, 10000, 90), "shove"),
+)
+
+
+def _ante_line(s: G.State, style: str, first: bool) -> str:
+    acts = G.legal(s)
+    if style == "fold":
+        return "f" if "f" in acts else "k" if "k" in acts else "c"
+    if style == "shove" and first:
+        return "a"
+    return "c" if "c" in acts else "k"
+
+
+def _play_ante(n: int, stacks, style: str, seed: int, i: int) -> dict:
+    s = G.deal(np.random.default_rng([seed, 887, i]), n, stacks=stacks, ante=ANTE)
+    perm = [c for hl in s.hole for c in hl] + list(s.deck)
+    dealt = {"stack": list(s.stack), "bet": list(s.bet), "total": list(s.total), "ante": s.ante, "pot": s.pot}
+    decisions = []
+    while not s.done:
+        a = _ante_line(s, style, not decisions)
+        decisions.append({"a": a, "legal": G.legal(s), "public": K.public_key(s, s.to_act, "full", variant="c1")})
+        s = G.apply(s, a)
+    return {"n": n, "stacks": None if stacks is None else list(stacks), "ante": ANTE, "style": style, "perm": perm,
+            "dealt": dealt, "decisions": decisions, "history": list(s.history),
+            "payoff": [int(x) for x in G.payoff(s)]}
+
+
+def ante_vectors(seed: int) -> list[dict]:
+    return [_play_ante(n, stacks, style, seed, i) for i, (n, stacks, style) in enumerate(ANTE_CASES)]
 
 
 # b1 vectors (#606): the ranges must not stay uniform (every opponent alike would hide an order or weight bug), but
@@ -315,7 +356,7 @@ def build(hands: int = 12, iters: int = 20, seed: int = 335, players=PLAYERS, ti
             "params": {"hands": hands, "iters": iters, "seed": seed},
             "policies": policy_used, "hands": out_hands, "rng": rng_vectors(rng_count, seed),
             "menus": menu_vectors(menu_hands, seed), "hte": hte_vectors(seed),
-            "c1_keys": c1_vectors(C1_HANDS, seed), "b1": b1_vectors(B1_HANDS, seed)}
+            "c1_keys": c1_vectors(C1_HANDS, seed), "b1": b1_vectors(B1_HANDS, seed), "ante": ante_vectors(seed)}
 
 
 def c1_parts(v: dict) -> dict:

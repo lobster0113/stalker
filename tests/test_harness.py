@@ -407,6 +407,29 @@ def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
     assert not bad, "\n".join(bad)
 
 
+def _wf(name):
+    import yaml
+
+    return yaml.safe_load((ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8"))
+
+
+def _on(doc):
+    return doc.get("on", doc.get(True))
+
+
+def test_label_events_rerun_only_guard():
+    ci, gl = _wf("ci.yml"), _wf("guard-labels.yml")
+    ci_types = _on(ci)["pull_request"]["types"]
+    assert not {"labeled", "unlabeled"} & set(ci_types), "ci.yml must not trigger on label events (#889): move them to guard-labels.yml"
+    assert set(_on(gl)["pull_request"]["types"]) == {"labeled", "unlabeled"}, "guard-labels.yml must trigger on labeled/unlabeled only"
+    assert list(gl["jobs"]) == ["guard"], "guard-labels.yml must contain only the `guard` job (no skipped `gates` check)"
+    ci_run = [s["run"] for s in ci["jobs"]["guard"]["steps"] if "run" in s]
+    gl_run = [s["run"] for s in gl["jobs"]["guard"]["steps"] if "run" in s]
+    assert ci_run == gl_run, "guard commands in ci.yml and guard-labels.yml must match"
+    assert ci["concurrency"]["group"] != gl["concurrency"]["group"], "concurrency groups must differ so label events never cancel ci runs"
+    assert gl["concurrency"]["group"].startswith("guard-labels-")
+
+
 def test_two_reviewers_split_prs_by_parity():
     import json
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))

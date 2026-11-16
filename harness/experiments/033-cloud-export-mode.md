@@ -39,4 +39,10 @@ PR #590을 revert한다(`export` 케이스·입력 4개·export 스텝 4개·`pu
   측정창·성공 기준은 위와 같다(다음 export 디스패치 3건 또는 14일).
 - 롤백: PR #598 revert. 입력 1개·플래그 2개·`cloud/policies` 경로가 되돌아가고 `ops:cloud/policies/` 파일은 남지만 읽는 코드가 없어 지울 필요 없다.
 
+## 확장 (#815, PR #818, 2026-11-12)
+- 변경: 입력 `export_hit_rate_hands`·`export_hit_rate_seeds`(빈 값 또는 양의 정수 검증, 기본 빈 값), 값이 있을 때만 export 스텝이 `--hit-rate-hands`·`--hit-rate-seeds`를 넘김(`extra` 배열). 빈 값이면 명령줄 불변.
+- 가설: #805의 hit_rate 재측정을 코드 수정 없이 디스패치 입력만으로 할 수 있다.
+- 지표·측정창: hit-rate 입력이 있는 export 디스패치 N건(3건) 또는 14일. (a) 입력이 요약 `files[].hit_rate`에 반영되는 비율 100%, (b) 입력이 빈 기존 디스패치의 회귀 0건.
+- 롤백: PR #818 revert. 입력 2개·env 2개·검증 2줄·`extra` 배열이 되돌아간다.
+
 ## 결과 (측정창 종료 후 기록)

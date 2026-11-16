@@ -2,10 +2,11 @@
 # policy files fixed and only the evaluation seed varied: --seeds 4 = eval seeds 10001-10004, backoff off only (--backoff off).
 # 5 player counts x 4 seeds = 20 cells over 32 workers. Why: ADR 0020 margins are inside 1 se for many cells, so one eval seed cannot
 # separate pass from miss; the sd across eval seeds says how many seeds a verdict needs.
+# Measurement runs under run_stages (#847): a failing run is retrieved as stalker.cloud.stage-failure (exit 0).
 # Worst case = hourly_usd * max_minutes / 60 = 1.2 * 150 / 60 = $3.00 (expected ~$1). Result: ops:cloud/results/<run id>.json
 name: web-policy-lbr-pages-evalnoise
 image: python:3.12-slim
-command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 4 --backoff off --out /result/web-policy-lbr-pages-evalnoise.json
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.run_stages --out /result/web-policy-lbr-pages-evalnoise.json --stage 'lbr=python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 4 --backoff off --out /result/web-policy-lbr-pages-evalnoise.json'
 cpu_flavors: [cpu5c, cpu3c]
 flavor_hourly_usd: [1.2, 1.0]
 vcpu: 32

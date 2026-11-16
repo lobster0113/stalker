@@ -1,0 +1,18 @@
+# #926 (ADR 0027 decision 4, F6b): arm A (cold) seed 2 of the warm-start A/B. The same command as
+# e3-tp-mid-c1-sng-bubble-pod32 (#901, arm A seed 1, run 43735226442) with only --seed and the output name changed
+# (tests/test_sng_bubble_ab_jobs.py pins that). Dispatch without resume_run, alone (#877: two jobs at once got a 429).
+# Worst case = hourly_usd * max_minutes / 60 = 1.2 * 180 / 60 = $3.60.
+# #941: median_iters_per_s 12 = a little above the normal-host range of the F6b runs (11.36-11.84 it/s, final means from
+# ops:cloud/results/*.summary.json: 43735226442, 43837141334, 43842144620; non-CI reference values) so the launcher's 0.6x threshold
+# (7.2 it/s) also catches the three slow cpu3c hosts (6.25-7.09: 43847129076, 43855130625, 43863826212) and stays under the slowest
+# normal host. The launcher reads the FIRST progress line, which can differ from the final mean.
+name: e3-tp-mid-c1-sng-bubble-s2-pod32
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 4 --workers 16 --minutes 60 --max-iters 20000 --batch 500 --seed 2 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --payoff icm --preset 9max_sng_503020 --stage b --level-index 0 --lam 0 --stacks bubble:skewed --lbr-hands 600 --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-sng-bubble-s2-pod32.json
+cpu_flavor: cpu3c
+vcpu: 32
+disk_gb: 10
+max_minutes: 180
+hourly_usd: 1.2
+median_iters_per_s: [12]
+result_path: /result/e3-tp-mid-c1-sng-bubble-s2-pod32.json

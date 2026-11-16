@@ -114,6 +114,9 @@ def test_shipped_index_marks_every_tier_placeholder_with_its_rules():
 
     idx = json.loads((Path(__file__).resolve().parents[1] / "web/app/policy/index.json").read_text(encoding="utf-8"))
     for tier, e in idx["tiers"].items():
+        if e.get("menu") == "real":   # #824: mid-6 is the real-rules c1 export (run 42591543123), no longer a stand-in
+            assert not X.placeholder_of(e) and e["key_variant"] == "c1"
+            continue
         assert X.placeholder_of(e), f"{tier}: v1 6-max 100BB policy must stay marked 임시 until a real-rules one replaces it"
         assert {"game", "players", "stack_bb", "menu"} <= set(e["trained_on"])
 
@@ -308,15 +311,17 @@ def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
 
     pol = Path(__file__).resolve().parents[1] / "web/app/policy"
     # #640: mid-2 is the min_visits=5 re-export, copied from ops 81aa9424 (#631); the old mv=10 file was a4287c01….
-    want = {2: "66613749fa23f3fefe7243aeb34648eb964c0476e8fba7491701d5c52a3a3579",
-            3: "c78a325925b73ea47c15381c5c355917f38aa99b92826d470b718d81d48578ea",
+    # #840: mid-2·mid-3 are the 120k export (run 42591543123) copied from ops 3b86e734 (cloud/policies), swapped in
+    # on #805's 4-seed flop uniform remeasure (coarse_top_fit upper bound 2인 1.2%·3인 5.7%); the 40k files were 66613749…·c78a3259….
+    want = {2: "5796ac5ae4a1976a9a04d1b8b546c913ba9c4640b63dc8871a239b0cef2fadea",
+            3: "c67656ca452cf56cce76db796abd4f239f6fe25b3d655492798c6ee5a9f91c08",
             4: "2bc99320fc231ed9f365d4869fccbf14c6fa2c2b2169f137031293a341c7e29c",
             # #753: mid-4 is the 120k export (run 42591543123) copied from ops 18409fb6, swapped in on #741's
             # 4-seed flop/turn uniform-rate remeasure (intervals overlap, preflop exact higher); the 40k file was 3f248f0c….
             # #739: mid-5 is the 120k export (run 42591543123) copied from ops 18409fb6, swapped in on #733's
             # flop/turn uniform-rate comparison; the 40k file was 0b785199….
             5: "7484bcd181ec7c2d2fd46534c774671265a6c59fb947a918afc2db137de8e18c"}
-    run_ids = {2: "41813684540", 3: "41813684540", 4: "42591543123", 5: "42591543123"}
+    run_ids = {2: "42591543123", 3: "42591543123", 4: "42591543123", 5: "42591543123"}
     mid = json.loads((pol / "index.json").read_text(encoding="utf-8"))["tiers"]["mid"]
     for n, sha in want.items():
         body = (pol / f"mid-{n}.json").read_bytes()
@@ -327,8 +332,14 @@ def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
         assert (e["file"], e["players"], e["run_id"], e["key_variant"], e["bytes"]) == (
             f"mid-{n}.json", n, run_ids[n], "c1", len(body))
         assert len(body) <= 3_145_728, f"mid-{n}.json exceeds the page budget"
-    assert mid["by_players"]["2"]["min_visits"] == 5
-    assert (mid["run_id"], mid["file"]) == ("40919207457", "mid-6.json") and "key_variant" not in mid
+    for n in (2, 3):   # #840: the 120k files carry the L1 rows (coarse_top_fit) the page backs off to
+        body = (pol / f"mid-{n}.json").read_bytes()
+        assert "l1_rows" in json.loads(body), f"mid-{n}.json has no l1_rows; copy the ops export, not a re-export"
+        assert (mid["by_players"][str(n)]["iterations"], mid["by_players"][str(n)]["min_visits"]) == (120000, 15)
+    # #824: mid-6 is the 120k c1 export (run 42591543123) copied from ops, with `l1_rows`.
+    body6 = (pol / "mid-6.json").read_bytes()
+    assert (mid["run_id"], mid["file"], mid["key_variant"], mid["bytes"]) == ("42591543123", "mid-6.json", "c1", len(body6))
+    assert "l1_rows" in json.loads(body6) and len(body6) <= 3_145_728
 
 
 def test_keep_players_keeps_the_shared_call_keys_in_every_seat_count():

@@ -14,10 +14,10 @@
 // To seat a "button" at a physical table position, rotate your display; seat numbers are fixed.
 //
 // Game (immutable plain objects; apply returns a new state):
-//   newHand({n, holes, board?, deck?, menu?, raiseCap?})  holes: n pairs; deck: remaining cards, board
+//   newHand({n, holes, board?, deck?, menu?, raiseCap?, stacks?, ante?})  holes: n pairs; deck: remaining cards, board
 //                                        dealt from the front; or board: up to 5 board cards (filler is
 //                                        appended). menu "v1" (default) | "tp6" | "real"; raiseCap 3 or null.
-//   dealFromPermutation(perm52, n, {menu, raiseCap}?)  same as Python G.deal given rng.permutation(52).
+//   dealFromPermutation(perm52, n, {menu, raiseCap, stacks, ante}?)  same as Python G.deal given rng.permutation(52).
 //   menuOf(policyMeta) -> {menu, raiseCap}: the rules a policy file was trained on (v1 + cap 3 if unsaid).
 //   sizeMenu(s, menu?, raiseCap?) -> [{a, to}] sizes + all in; streetCap(s) as G.street_cap.
 //   legal(s) -> ["f","c","r","a"] etc.  apply(s, a) -> state    payoff(s) -> net chips per seat
@@ -511,7 +511,7 @@ export function menuOf(meta) {
 }
 
 /** A new hand. holes: n pairs; deck: remaining cards (board dealt from the front), or board. */
-export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP, stacks = null }) {
+export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP, stacks = null, ante = 0 }) {
   if (!(n >= 2 && n <= 9)) throw new Error(`n=${n}: E3 supports 2..9 players`);
   if (!MENUS.includes(menu)) throw new Error(`menu ${JSON.stringify(menu)}: use one of ${MENUS.join(", ")}`);
   if (!holes || holes.length !== n) throw new Error(`holes: need ${n} pairs`);
@@ -521,11 +521,16 @@ export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", 
     for (const c of b) used.add(c);
     deck = [...b, ...Array.from({ length: 52 }, (_, c) => c).filter((c) => !used.has(c))];
   }
+  if (ante < 0) throw new Error(`ante=${ante}: chips must not be negative`);
+  const start = (i) => (stacks ? stacks[i] : STACK);
+  // G.deal (#878): the big blind pays the ante first, the blind with what is left; the ante is dead money in total, not in bet.
+  const paid = Math.min(ante, start(n - 1));
   const bet = new Array(n).fill(0);
-  bet[n - 2] = SB; bet[n - 1] = BB;
+  bet[n - 2] = SB; bet[n - 1] = Math.min(BB, start(n - 1) - paid);
+  const total = bet.slice(); total[n - 1] += paid;
   return Object.freeze({
-    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: bet.map((b, i) => (stacks ? stacks[i] : STACK) - b), bet,
-    total: bet.slice(), folded: new Array(n).fill(false), acted: new Array(n).fill(false),
+    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: total.map((t, i) => start(i) - t), bet,
+    total, ante: paid, folded: new Array(n).fill(false), acted: new Array(n).fill(false),
     street: 0, board: [], toAct: 0, raises: 1, lastRaise: BB, history: [], log: [], done: false,
     menu, raiseCap: raiseCap === undefined ? RAISE_CAP : raiseCap,
   });
@@ -805,14 +810,26 @@ export function applyBet(s, to, how) {
 /** Net chips per seat relative to the start of the hand (sums to zero). */
 export function payoff(s) {
   if (!s.done) throw new Error("hand is not over");
-  const lv = live(s), out = s.total.map((t) => -t), P = pot(s);
+  const lv = live(s), out = s.total.map((t) => 0 - t), P = pot(s);   // 0 - t: no -0
   if (lv.length === 1) { out[lv[0]] += P; return out; }
   const score = new Map(lv.map((i) => [i, evaluate([...s.hole[i], ...s.board])]));
-  const best = max([...score.values()]);
-  const winners = postflopOrder(s.n).filter((i) => score.has(i) && score.get(i) === best);
-  const share = Math.floor(P / winners.length), odd = P % winners.length;
-  for (const i of winners) out[i] += share;
-  out[winners[0]] += odd;
+  const order = postflopOrder(s.n);
+  // G.payoff: side pots layered by what each seat put in apart from the ante; the ante is dead money in the first layer.
+  const ante = s.ante || 0;
+  const liveTotal = s.total.map((t, i) => t - (i === s.n - 1 ? ante : 0));
+  let prev = 0, dead = ante;
+  for (const level of [...new Set(lv.map((i) => liveTotal[i]))].sort((a, b) => a - b)) {
+    let amount = dead;
+    for (const t of liveTotal) amount += Math.min(t, level) - Math.min(t, prev);
+    dead = 0; prev = level;
+    const seats = lv.filter((i) => liveTotal[i] >= level);
+    const best = max(seats.map((i) => score.get(i)));
+    const winners = order.filter((i) => seats.includes(i) && score.get(i) === best);
+    const share = Math.floor(amount / winners.length), odd = amount % winners.length;
+    for (const i of winners) out[i] += share;
+    out[winners[0]] += odd;   // all odd chips to the first winner (TDA)
+  }
+  liveTotal.forEach((t, i) => { out[i] += Math.max(t - prev, 0); });   // a bet above every live stack is returned
   return out;
 }
 
@@ -884,7 +901,8 @@ export function publicKey(s, seat, depth = "full") {
 // ---- c1 key (#583, ADR 0021 / tp_key.py "c1", KEY_VERSIONS.c1 = 1): the public part of the combined key ----
 export const C1_VERSION = 1;
 const EFF_EDGES_BB = [5, 10, 15, 25, 40, 60, 100];
-const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6] };
+const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6],
+  7: ["UTG", "LJ", "HJ", "CO", "BTN", "SB", "BB"], 8: ["UTG", "UTG1", "LJ", "HJ", "CO", "BTN", "SB", "BB"], 9: POSITIONS[9] };
 export function c1PositionNames(n) { return C1_POSITIONS[n] ? C1_POSITIONS[n].slice() : positionNames(n); }
 function effectiveStack(s, seat) {   // hand-start chips (behind + put in), capped by the deepest other player who can act
   const chips = s.stack.map((x, i) => x + s.total[i]);
@@ -921,12 +939,12 @@ export function publicFactsC1(s, seat, depth) {
   }
   return out;
 }
-/** tp_key.public_key(s, seat, depth, variant="c1") with the default environment (cash, no ante) or env = {stage, ante}. */
+/** tp_key.public_key(s, seat, depth, variant="c1") with the default environment (cash, no ante) or env = {stage, ante}; a state that carries a BB ante reads ante 1 whatever env says (tp_key.env_field). */
 export function publicKeyC1(s, seat, depth = "full", env = { stage: "c", ante: false }) {
   const nOpp = Math.min(live(s).length - 1, 3);
   const lg = legal(s).join("");
   if (lg === "fc" || lg === "c") return `call|${s.street}|${nOpp}|${potOddsStep(s, seat)}|${lg}`;
-  const st = `t${env.stage}${env.ante ? 1 : 0}|${stackField(s, seat)}|${publicFactsC1(s, seat, depth)}|`;
+  const st = `t${env.stage}${env.ante || s.ante > 0 ? 1 : 0}|${stackField(s, seat)}|${publicFactsC1(s, seat, depth)}|`;
   if (depth === "basic") {
     return `b|n${s.n}|${positionGroup(s.n, seat)}|${s.street}|${Math.min(nOpp, 2)}|${Math.min(raiseLevel(s), 2)}|${potOddsStep(s, seat)}|${st}${lg}`;
   }

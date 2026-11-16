@@ -1,11 +1,31 @@
 """#611: web policy table hit-rate tool."""
 import json
+from pathlib import Path
 
 import pytest
 
 from stalker.tools import web_hit_rate as H
 
 K, DEPTH, N3 = 11, "full", 3
+MID3 = Path("web/app/policy/mid-3.json")
+
+
+@pytest.fixture(scope="module")
+def _mid3_once():
+    pol, doc = H.load_policy(MID3)
+    return MID3.read_bytes(), pol, doc, H.coarse_tables(pol)
+
+
+@pytest.fixture
+def mid3_shared(_mid3_once, monkeypatch):
+    """mid-3.json is read, and its backoff tables built, once per module instead of once per `measure` (#826: the
+    tables are most of a short run's time). `measure` adds `l1_extra` rows into the tables, so each call gets a copy;
+    the policy and header are only read."""
+    raw, pol, doc, tables = _mid3_once
+    load, build = H.load_policy, H.coarse_tables
+    monkeypatch.setattr(H, "load_policy", lambda path: (pol, doc) if Path(path).read_bytes() == raw else load(path))
+    monkeypatch.setattr(H, "coarse_tables", lambda policy: [{ck: dict(by_m) for ck, by_m in t.items()} for t in tables]
+                        if policy is pol else build(policy))
 
 
 class Spy(dict):
@@ -144,6 +164,12 @@ def test_backoff_counts_are_deterministic_and_off_is_the_old_output():
         assert c["decisions"] == off["by_street"][st]["decisions"]
         assert c["exact"] == off["by_street"][st]["hits"]
         assert c["exact"] + c["L1"] + c["L2"] + c["L3"] + c["uniform"] == c["decisions"]
+    # #819: every by_backoff cell carries the Wilson interval of its uniform share, null at 0 decisions
+    cells = [*bb["by_street"].values(), *bb["by_kind"].values()]
+    assert any(c["decisions"] == 0 for c in cells) and any(c["decisions"] > 0 for c in cells)
+    for c in cells:
+        assert c["uniform_ci95"] == H.uniform_ci95(c)
+        assert (c["uniform_ci95"] is None) == (c["decisions"] == 0)
 
 
 # --- #620: legacy (pre-c1) key tables ---
@@ -209,18 +235,19 @@ def _levels(r):
     return {st: {k: c[k] for k in keys} for st, c in r["by_backoff"]["by_street"].items()}
 
 
-def test_play_backoff_levels_are_exact_and_the_trajectory_differs_from_uniform_play():
+def test_play_backoff_levels_are_exact_and_the_trajectory_differs_from_uniform_play(mid3_shared):
     uni, bo = _mid3(False), _mid3(True)
     assert "play" not in uni and uni["schema_version"] == 2
     assert bo["play"] == "backoff" and bo["schema_version"] == 3 and bo == _mid3(True)
-    # #645: uniform play keeps the L1/L2 counts of #635; the turn decision that stayed uniform now finds an L3 row
-    assert _levels(uni) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, L3=0, uniform=1),
-                            "1": dict(decisions=14, exact=6, L1=2, L2=1, L3=0, uniform=5),
-                            "2": dict(decisions=4, exact=1, L1=2, L2=0, L3=1, uniform=0),
+    # Pinned on the shipped mid-3.json: the 120k c1 file since #840 (the 40k file's counts were #635/#645's).
+    # Every level from exact to L3 is reached, and backoff play changes the trajectory (other decision counts).
+    assert _levels(uni) == {"0": dict(decisions=74, exact=70, L1=2, L2=1, L3=1, uniform=0),
+                            "1": dict(decisions=20, exact=7, L1=3, L2=1, L3=1, uniform=8),
+                            "2": dict(decisions=2, exact=0, L1=1, L2=1, L3=0, uniform=0),
                             "3": dict(decisions=0, exact=0, L1=0, L2=0, L3=0, uniform=0)}
-    assert _levels(bo) == {"0": dict(decisions=93, exact=90, L1=2, L2=0, L3=0, uniform=1),
-                           "1": dict(decisions=13, exact=6, L1=1, L2=1, L3=0, uniform=5),
-                           "2": dict(decisions=3, exact=1, L1=0, L2=0, L3=1, uniform=1),
+    assert _levels(bo) == {"0": dict(decisions=108, exact=100, L1=5, L2=1, L3=1, uniform=1),
+                           "1": dict(decisions=10, exact=5, L1=2, L2=0, L3=2, uniform=1),
+                           "2": dict(decisions=2, exact=1, L1=0, L2=0, L3=0, uniform=1),
                            "3": dict(decisions=0, exact=0, L1=0, L2=0, L3=0, uniform=0)}
     for r in (uni, bo):
         for c in r["by_backoff"]["by_street"].values():
@@ -237,7 +264,7 @@ def test_backoff_row_is_exact_then_coarse_then_none():
     assert H.backoff_row(pol, tabs, third, 3) == (None, 4)
 
 
-def test_main_play_backoff_flag_and_legacy_refusal(tmp_path, capsys):
+def test_main_play_backoff_flag_and_legacy_refusal(mid3_shared, tmp_path, capsys):
     import shutil
     p = tmp_path / "mid-3.json"
     shutil.copy("web/app/policy/mid-3.json", p)
@@ -283,7 +310,7 @@ def _mid3_miss(top):
                      variant=H.variant_of(pol, doc), play_backoff=True, backoff=True, miss_report=top)
 
 
-def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged():
+def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged(mid3_shared):
     bo, mr = _mid3(True), _mid3_miss(3)
     assert mr["schema_version"] == 4 and bo["schema_version"] == 3 and "miss_report" not in bo
     assert {k: v for k, v in mr.items() if k not in ("miss_report", "schema_version")} == \
@@ -293,18 +320,17 @@ def test_miss_report_counts_the_l2_misses_and_leaves_the_play_unchanged():
     for st, c in rep["by_street"].items():
         assert c["misses"] == bo["by_backoff"]["by_street"][st]["uniform"]
     flop = rep["by_street"]["1"]
-    assert flop["misses"] == 5 and flop["distinct_keys"] == 5 and flop["any_field"] == 4
-    assert flop["by_field"] == {"14": 4, "3": 2, "0": 1, "5": 1}
+    # Pinned on the shipped mid-3.json (120k c1 since #840; the 40k file had 5 flop misses).
+    assert flop["misses"] == 1 and flop["distinct_keys"] == 1 and flop["any_field"] == 1
+    assert flop["by_field"] == {"14": 1, "2": 1, "5": 1}
     # since #645 the report reads the last level (L3): position names are their groups
-    assert flop["top_keys"] == [["blind|n3|1|2|0|2|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150a|e6", 1],
-                                ["blind|n3|1|2|1|1|2|*|tc0|s*|*|*|*|fcr25ra|e1", 1],
-                                ["late|n3|1|1|0|1|0|*|tc0|s*|*|*|*|kb20b33b50b75b100b150b200b300a|e7", 1]]
-    assert rep["by_street"]["0"]["by_field"] == {"6": 1}
+    assert flop["top_keys"] == [["blind|n3|1|1|0|1|0|*|tc0|s*|*|*|*|kb20a|e6", 1]]
+    assert rep["by_street"]["0"]["by_field"] == {"13": 1}
     assert rep["by_street"]["3"] == {"misses": 0, "distinct_keys": 0, "top_keys": [], "by_field": {}, "any_field": 0}
     assert mr == _mid3_miss(3)
 
 
-def test_miss_report_off_is_byte_identical_and_needs_play_backoff(tmp_path, capsys):
+def test_miss_report_off_is_byte_identical_and_needs_play_backoff(mid3_shared, tmp_path, capsys):
     import shutil
     import pytest
     p = tmp_path / "mid-3.json"
@@ -443,7 +469,7 @@ def test_l4_on_call_and_basic_keys():
     assert _l4(pol, basic.format(3).replace("|late|", "|blind|"), top=4) == (None, 5)
 
 
-def test_l4_counts_a_level_and_off_is_byte_identical(tmp_path, capsys):
+def test_l4_counts_a_level_and_off_is_byte_identical(mid3_shared, tmp_path, capsys):
     import shutil
     p = tmp_path / "mid-3.json"
     shutil.copy("web/app/policy/mid-3.json", p)
@@ -542,7 +568,7 @@ def test_fidelity_is_weighted_by_decisions_not_keys(monkeypatch):
     assert w_tv != (tv[k1] + tv[k2]) / 2 and w_ag != 0.5   # a per-key average would give other numbers
 
 
-def test_fidelity_off_is_byte_identical_and_needs_play_backoff(tmp_path, capsys):
+def test_fidelity_off_is_byte_identical_and_needs_play_backoff(mid3_shared, tmp_path, capsys):
     import shutil
     p = tmp_path / "mid-3.json"
     shutil.copy("web/app/policy/mid-3.json", p)
@@ -603,3 +629,10 @@ def test_l1_extra_rows_are_found_at_l1_and_empty_or_none_changes_nothing():
             break
     assert sum(c["L1"] for c in bb["by_street"].values()) >= 1
     assert sum(c["exact"] for c in bb["by_street"].values()) == 0
+
+
+def test_position_group_of_handles_every_7_to_9_player_name():
+    from stalker.e3 import tp_key as TK
+    for n in (7, 8, 9):
+        for seat, name in enumerate(TK.C1_POSITIONS[n]):
+            assert H.position_group_of(name, f"n{n}") == TK.position_group(n, seat)

@@ -2,10 +2,11 @@
 # of the main tarball) with --from-pages instead of one --policy-run. Why: e3_web_lbr is fresh only when the measured run matches each
 # player count's page run_id, and the 6p page (40919207457) differs from the mid-s3 run (41813684540), so per-player cells record each
 # page file's own run_id (#695). Seeds 1..3 in every cell, backoff off and on = 30 cells over 32 workers.
+# Measurement runs under run_stages (#847): a failing run is retrieved as stalker.cloud.stage-failure (exit 0).
 # Worst case = hourly_usd * max_minutes / 60 = 1.2 * 150 / 60 = $3.00 (expected ~$1). Result: ops:cloud/results/<run id>.json
 name: web-policy-lbr-pages
 image: python:3.12-slim
-command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 3 --out /result/web-policy-lbr-pages.json
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.run_stages --out /result/web-policy-lbr-pages.json --stage 'lbr=python3 -m stalker.tools.web_policy_lbr_job --from-pages web/app/policy --workers 32 --seeds 3 --out /result/web-policy-lbr-pages.json'
 cpu_flavors: [cpu5c, cpu3c]
 flavor_hourly_usd: [1.2, 1.0]
 vcpu: 32

@@ -34,13 +34,13 @@ test("every shipped 2–5인 c1 policy answers its first preflop decision from t
   }
 });
 
-test("a policy without key_variant (6-max mid) keeps the legacy key", () => {
-  const meta = INDEX.tiers.mid;
+test("a policy without key_variant (6-max pro; mid-6 is c1 since #824) keeps the legacy key", () => {
+  const meta = INDEX.tiers.pro;
   assert.equal(meta.key_variant, undefined);
   const s = firstDecision(6, meta), ranges = T.initialRanges(6);
-  const d = T.decisionKey(s, ranges, "mid", meta.key_variant);
-  assert.equal(d.public, T.publicKey(s, s.toAct, "full"));
-  assert.equal(d.key, T.decisionKey(s, ranges, "mid").key);
+  const d = T.decisionKey(s, ranges, "pro", meta.key_variant);
+  assert.equal(d.public, T.publicKey(s, s.toAct, "pro"));
+  assert.equal(d.key, T.decisionKey(s, ranges, "pro").key);
   assert.equal(d.variant, "");
 });
 
@@ -187,8 +187,8 @@ test("backoff (#623): a call| key backs off only at L2 (opponent count)", () => 
   assert.deepEqual(r.probs, [0.25, 0.75]);
 });
 
-test("backoff (#623): legacy tables (6-max beginner, mid, pro) never back off", () => {
-  for (const tier of ["beginner", "mid", "pro"]) {
+test("backoff (#623): legacy tables (6-max beginner and pro; mid-6 is c1 since #824) never back off", () => {
+  for (const tier of ["beginner", "pro"]) {
     const meta = INDEX.tiers[tier];
     assert.equal(meta.key_variant, undefined, `${tier}-6 is not a legacy table any more`);
     const { pol } = decoded(read(`../policy/${meta.file}`));

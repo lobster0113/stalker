@@ -8,8 +8,8 @@ from referee import metrics
 from referee.gate_l import Report
 
 
-def test_gate_l_snapshot_keys_and_ranges():
-    snap = metrics.gate_l()
+def test_gate_l_snapshot_keys_and_ranges(gate_l_report):
+    snap = metrics.gate_l(gate_l_report)
     assert 0.0 <= snap["gate_l_pass_rate"] <= 1.0
     assert isinstance(snap["gate_l_checks"], int) and snap["gate_l_checks"] > 0
     items = snap["gate_l_items"]
@@ -35,12 +35,72 @@ def test_gate_l_empty_report_is_not_a_pass():
     assert metrics.gate_l(Report())["gate_l_pass_rate"] == 0.0
 
 
+def test_gate_t_runs_every_registered_check_within_budget():
+    import time
+
+    from referee.gate_t import CHECKS, REGISTRY, run_checks
+
+    t0 = time.monotonic()
+    rows = run_checks()
+    snap = metrics.gate_t()
+    assert time.monotonic() - t0 < 120  # ADR 0028 part budget
+    assert {(r[0], r[1]) for r in rows} == {(n, c) for n in REGISTRY for c in CHECKS}
+    assert set(snap) == {"gate_t_pass_rate", "gate_t_checks"}
+    assert isinstance(snap["gate_t_checks"], int) and snap["gate_t_checks"] == sum(r[3] for r in rows) > 0
+    assert 0.0 <= snap["gate_t_pass_rate"] <= 1.0
+    assert snap["gate_t_pass_rate"] == round(sum(r[2] for r in rows) / snap["gate_t_checks"], 6)
+
+
+def test_gate_t_failed_checks_lower_the_pass_rate():
+    rows = [("a", "T1", 8, 8, []), ("a", "T2", 6, 8, ["x", "y"]), ("b", "T4", 0, 0, [])]
+    assert metrics.gate_t(rows) == {"gate_t_pass_rate": 0.875, "gate_t_checks": 16}
+    assert metrics.gate_t([])["gate_t_pass_rate"] == 0.0
+
+
+def test_gate_t_part_failure_is_a_note_and_none(monkeypatch):
+    import referee.gate_t as gt
+
+    def boom():
+        raise RuntimeError("spots missing")
+
+    monkeypatch.setattr(gt, "run_checks", boom)
+    snap = metrics.gate_t()
+    assert snap["gate_t_pass_rate"] is None and snap["gate_t_checks"] is None
+    assert "spots missing" in snap["gate_t_error"]
+
+
+def test_sim_throughput_is_a_positive_float():
+    snap = metrics.sim_throughput(seconds=0.5)
+    assert set(snap) == {"sim_hands_per_sec"}
+    assert isinstance(snap["sim_hands_per_sec"], float) and snap["sim_hands_per_sec"] > 0
+
+
+def test_sim_throughput_caps_the_run_and_uses_the_fixed_setup():
+    seen = {}
+
+    def fake(engine, players, seconds, seed=0):
+        seen.update(engine=engine, players=players, seconds=seconds, seed=seed)
+        return {"hands_per_s": 123.4}
+
+    assert metrics.sim_throughput(seconds=600, bench=fake) == {"sim_hands_per_sec": 123.4}
+    assert seen == {"engine": "fast", "players": 9, "seconds": 60.0, "seed": 0}
+
+
+def test_sim_throughput_failure_is_a_note_and_none():
+    def broken(*a, **k):
+        raise RuntimeError("engine down")
+
+    snap = metrics.sim_throughput(bench=broken)
+    assert snap["sim_hands_per_sec"] is None and "engine down" in snap["sim_hands_per_sec_error"]
+
+
 @pytest.mark.slow
 def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
@@ -51,6 +111,7 @@ def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
     assert not retired, retired
@@ -82,6 +143,7 @@ def test_gate_s_record_has_types_ranges_and_is_reproducible():
         assert isinstance(r["passed"], bool) and r["stab_regret_p99_pct"] >= 0, name
 
 
+@pytest.mark.slow
 def test_gate_f_metrics_are_deterministic_and_ordered():
     a = metrics.gate_f_e1()
     assert a == metrics.gate_f_e1()
@@ -110,6 +172,8 @@ PARTS = {
     "test_counts": {"tests_passed", "tests_failed"},
     "gate_r": {"gate_r_pass_rate", "gate_r_checks", "gate_r_cash_pass_rate", "gate_r_cash_checks",
                "gate_r_e3_pass_rate", "gate_r_e3_checks"},
+    "gate_t": {"gate_t_pass_rate", "gate_t_checks"},
+    "sim_throughput": {"sim_hands_per_sec"},
     "gate_l": {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"},
     "gate_s_e1": {"gate_s_e1"},
     "e0": {"e0_kuhn_iters", "e0_leduc_iters", "e0_kuhn_cfr_exploitability", "e0_leduc_cfr_exploitability"},
@@ -347,3 +411,28 @@ def test_all_pass_v3_rolls_up_fail_and_insufficient():
     base = {"schema": "stalker.web.policy-lbr", "legacy_pages": []}
     fail = metrics._web_lbr_v3({**base, "rows": [row(2, 99.0)]})
     assert fail[0]["2"]["verdict"] == "fail" and fail[1] is False
+
+
+def test_e3_web_lbr_skips_a_stage_failure_result(ops_clone):
+    """#847: run_stages writes stalker.cloud.stage-failure for a failed LBR job; it is not an LBR snapshot."""
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "900.json").write_text(json.dumps(
+        {"schema": "stalker.cloud.stage-failure", "schema_version": 1, "stage": "lbr", "exit": 1}), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "stage failure")
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["fresh"] is True
+
+
+def test_e3_web_lbr_skips_a_v2_stage_failure_result(ops_clone):
+    """#853: stage-failure v2 (deadline timeout, stage_elapsed_s) is still not an LBR snapshot."""
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "900.json").write_text(json.dumps(
+        {"schema": "stalker.cloud.stage-failure", "schema_version": 2, "stage": "lbr", "exit": "timeout",
+         "stage_elapsed_s": {"lbr": 7200.0}, "deadline_s": 7200.0}), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "stage failure v2")
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["fresh"] is True

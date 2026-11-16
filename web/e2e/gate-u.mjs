@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { coarseKey, TIER_K } from "../app/tpgto.js";
+import { coarseKey, l1Extra, TIER_K } from "../app/tpgto.js";
 import { createWatchdog, probePages, stallMsFrom } from "./watchdog.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -303,7 +303,12 @@ if (freeSized) {
       });
       must(chk.real.join() === chk.mine.join(), `실전 사이즈: 단축 버튼 금액 ${chk.mine}이 엔진 real 메뉴 ${chk.real}과 다름`);
       must(chk.missing.length === 0, `실전 사이즈: MENU_COL에 색이 없는 라벨 ${chk.missing}`);
-      must(chk.menu === "v1", `실전 사이즈: 정책 메타에 메뉴가 없으면 v1이어야 하는데 ${chk.menu}`);
+      must(chk.menu === "v1" || chk.menu === "real", `실전 사이즈: 메뉴는 v1(레거시 정책) 또는 real(c1 정책, #824 mid-6)이어야 하는데 ${chk.menu}`);
+      if (chk.menu === "real") {   // #824: the served mid-6 is a real-menu c1 policy, so every real size is its own label (nothing to translate)
+        console.log(`실전 사이즈: 단축 ${chk.mine.length}개 = 엔진 real 메뉴 (정책 메뉴 real, 번역 없음)`);
+        realBet = true;
+        continue;
+      }
       const idx = chk.mine.findIndex(t => !chk.v1.includes(t));
       if (idx >= 0) {
         const more = page.locator("[data-size-more]");
@@ -344,7 +349,7 @@ if (freeSized) {
   for (const d of log) {
     const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
     must(i >= 0, `정책 상대: AI가 합법 메뉴 밖 액션 ${d.chosen}을 고름 (${d.key})`);
-    if (!row) { must(!d.fromTable, `정책 상대: 파일에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+    if (!row) { must(d.fromTable !== "exact", `정책 상대: 파일에 없는 키인데 정확 행으로 읽었다고 함 (${d.key})`); continue; }   // c1 files (#824) back off to coarser keys: "L1".."L4" are fine
     inTable++;
     must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `정책 상대: 페이지가 쓴 확률이 정책 파일과 다름 (${d.key})`);
     must(row[i] > 0, `정책 상대: 정책 확률 0인 액션 ${d.chosen}을 고름 (${d.key})`);
@@ -364,7 +369,7 @@ const eqTruth = await page.evaluate(() => {
   if (!E?.ok || !CUR.g.model) return null;
   const seat = E.s.toAct, eq = tg.multiEquity(E.s, seat, E.ranges)[tg.comboIndex(E.s.hole[seat])];
   return { want: Math.round(eq * 100), got: CUR.g.v["hand.equity"], src: CUR.g.src?.["hand.equity"],
-           step: CUR.g.model.step, step2: tg.equityStepOf(E.s, seat, E.ranges, E.tier), key: CUR.g.model.d.key, key2: tg.decisionKey(E.s, E.ranges, E.tier).key };
+           step: CUR.g.model.step, step2: tg.equityStepOf(E.s, seat, E.ranges, E.tier), key: CUR.g.model.d.key, key2: tg.decisionKey(E.s, E.ranges, E.tier, CUR.g.model.d.variant).key };
 });
 must(eqTruth && eqTruth.src === "model" && eqTruth.got === eqTruth.want, `hand.equity 정답: 엔진 공개 레인지 에퀴티와 다름 (${JSON.stringify(eqTruth)})`);
 must(eqTruth && eqTruth.step === eqTruth.step2 && eqTruth.key === eqTruth.key2, `hand.equity 정답: 정책 키·단계가 엔진과 다름 (${JSON.stringify(eqTruth)})`);
@@ -911,7 +916,7 @@ wd.section("7 #364");
     let n = 0;
     for (const d of xs) {
       const row = file.policy[d.key];
-      if (!row) { must(!d.fromTable, `등급 변경: 파일에 없는 키인데 표에서 읽었다고 함 (${d.tier} ${d.key})`); continue; }
+      if (!row) { must(d.fromTable !== "exact", `등급 변경: 파일에 없는 키인데 정확 행으로 읽었다고 함 (${d.tier} ${d.key})`); continue; }
       n++;
       must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `등급 변경: 페이지 확률이 ${d.tier} 정책 파일과 다름 (${d.key})`);
     }
@@ -1014,6 +1019,7 @@ wd.section("10 #464");
   let decided = 0, hands = 0, slider = false, foldViews = 0, closedHand = -1, targetSeen = false;
   const dials = new Set();
   for (let guard = 0; guard < 80 && (decided < 4 || hands < 2 || foldViews < 2); guard++) {
+    console.log(`Guided 흐름: 반복 ${guard} (결정 ${decided}·핸드 분석 ${hands}·폴드 화면 ${foldViews})`);   // progress for the stall watchdog (#724)
     await p6.waitForSelector("#tp-body .tpc:not([hidden]), #tp-resume, #tp-next-hand, #sd-muck, #fold-close");
     if (await p6.locator("#sd-muck").count()) { await p6.click("#sd-muck"); continue; }
     if (await p6.locator("#fold-close").count()) {
@@ -1055,8 +1061,12 @@ wd.section("10 #464");
       const card = p6.locator("#tp-body .tpc:not([hidden])");
       for (const q of await card.locator(".q:not(.na)").all()) {
         if (await q.locator("[data-act]").count()) {
+          // Later decisions end hands cheaply (fold), but until two hands were played to their analysis they
+          // check or call, so the hero stays in (#824: the c1 mid-6 opponents raise often enough that "fold first"
+          // never left a hand to analyse).
+          const stay = q.locator("[data-act='check']:not([disabled]), [data-act='call']:not([disabled])");
           const pick = decided ? "[data-act='fold']:not([disabled]), [data-act='check']:not([disabled])" : "[data-act]:not([disabled]):not([data-act='fold'])";
-          await q.locator(pick).first().click();
+          await (decided && hands < 2 && await stay.count() ? stay : q.locator(pick)).first().click();
           if (await p6.locator("[data-sizes]:not([hidden]) [data-size]").count()) await p6.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
         } else if (await q.locator("[data-dial]").count()) {
           // Judgment items are sliders (#464); plan.pot is checked by name, the others by the ends.
@@ -1163,10 +1173,10 @@ wd.section("7 #397");
   await autoContinue(p7);
   p7.setDefaultTimeout(60_000);
   p7.on("pageerror", e => must(false, `page error (임시 표시): ${e.message}`));
-  await open(p7);
+  await open(p7, null, "pro");   // #824: mid-6 is a trained c1 policy now, so the placeholder badge is read on the pro table
   const a = await info(p7);
   must(a.badge.length === 1 && /임시 AI/.test(a.badge[0].t) && /실전 규칙 정책 학습 중/.test(a.badge[0].t) && a.badge[0].role === "note" && a.untrained === 0
-    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 중수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
+    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 고수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
   for (const [name, width, height] of VIEWPORTS) { await p7.setViewportSize({ width, height }); await p7.screenshot({ path: `${shots}/placeholder-${name}.png` }); }
   await p7.setViewportSize({ width: 1440, height: 900 });
   await inspect("placeholder-badge", "#infobar [data-placeholder]", p7);
@@ -1323,16 +1333,16 @@ wd.section("11 #541");
 }
 
 wd.section("12 #604");
-// 12. #604 2–5인 중수 = c1 정책(run 41813684540, 4·5인은 #753·#739부터 120k run 42591543123): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
+// 12. #604 2–5인 중수 = c1 정책(#739·#753·#840부터 모두 120k run 42591543123): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
 // 결정이 c1 키로 mid-<n>.json 행을 읽는다(레거시 키로 읽으면 한 번도 맞지 않아 균등 분포가 된다). #608: 포스트플랍도
 // c1+b1 키(`|o…v…k…` 칸)로 읽어 엔진 거울을 켠 채 핸드가 끝난다 — 3인에서 플랍 이상 간 핸드 1개(체크·콜로 진행)의
 // AI 포스트플랍 키 형식, 표에 있는 키의 확률, 거울 유지 종료, 거울 꺼짐 경고 없음, 긴 작업(b1 계산) 한도.
 {
-  // #739: mid-5 is the 120k export (run 42591543123, ops 18409fb6); 4 (#753) too; 2·3인 stay on the 40k run.
-  const C1_RUNS = { 2: "41813684540", 3: "41813684540", 4: "42591543123", 5: "42591543123" };
+  // #739: mid-5 is the 120k export (run 42591543123, ops 18409fb6); 4 (#753) too; 2·3인 since #840 (ops 3b86e734).
+  const C1_RUNS = { 2: "42591543123", 3: "42591543123", 4: "42591543123", 5: "42591543123" };
   const C1_LONG_TASK_MS = 2000;
-  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of the largest c1 file (mid-2 since #640) at load, #623
-  const C1_LOAD_MS = 30000;    // click on the mid tier -> policy parsed (mid-2 is 3 MB), #640
+  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of the largest c1 file (mid-2, 3 MB since #840) at load, #623
+  const C1_LOAD_MS = 30000;    // click on the mid tier -> policy parsed (mid-2·mid-3 are 3 MB since #840), #640
   // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
   const coarseRow = (file, k, lv, m) => {
     if (lv === 4) {   // L4 (#652): the L3 means at the equity steps next to the key's, averaged (tpgto.js neighborRow)
@@ -1341,7 +1351,10 @@ wd.section("12 #604");
       return near.length ? Array.from({ length: m }, (_, j) => near.reduce((a, r) => a + r[j], 0) / near.length) : null;
     }
     const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
-    return rows.length ? Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length) : null;
+    if (rows.length) return Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length);
+    // #840: the 120k files ship `l1_rows` (#803); the page uses one at L1 only where the table builds no row of that length.
+    const extra = lv === 1 ? l1Extra(file.l1_rows, file.q).get(ck)?.get(m) : null;
+    return extra ? [...extra] : null;
   };   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
   // 2인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
   // c1policy.test.mjs checks that its first preflop c1 keys hit mid-<n>.json. 3·4·5인 play a hand below (#739, #753).
@@ -1375,14 +1388,14 @@ wd.section("12 #604");
     pg.on("request", r => { const m = r.url().match(/\/policy\/(mid-\d)\.json$/); if (m) polReqs.push(m[1]); });
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
-    // #739: the 3 MB 5인 file is fetched only after the 5인 mid table is chosen, so the first screen does not pay for it.
-    if (n === 4 || n === 5) must(!polReqs.includes(`mid-${n}`), `c1 ${n}인: 첫 화면이 테이블 선택 전에 mid-${n}.json을 받음 (${polReqs.join(",")}) — 지연 로드 확인 (#739, #753)`);
+    // #739: a 2–3 MB c1 file is fetched only after its mid table is chosen, so the first screen does not pay for it (2·3인 since #840).
+    must(!polReqs.includes(`mid-${n}`), `c1 ${n}인: 첫 화면이 테이블 선택 전에 mid-${n}.json을 받음 (${polReqs.join(",")}) — 지연 로드 확인 (#739, #753, #840)`);
     await pg.selectOption("#c-seats", String(n));
     const loadT0 = Date.now();
     await pg.click("#set-tier [data-v='mid']");
     await pg.waitForFunction(k => TPG.pol[k], `mid-${n}`, { timeout: 120_000 });
     const loadMs = Date.now() - loadT0;
-    if (n === 2 || n === 4 || n === 5) {   // #640·#739·#753: the ~3 MB c1 files load and build their coarse tables inside the budgets
+    {   // #640·#739·#753·#840: every 2–5인 c1 file (2–3 MB) loads and builds its coarse tables inside the budgets
       const cms = await pg.evaluate(k => TPG.coarseMs?.[k], `mid-${n}`);
       must(loadMs < C1_LOAD_MS, `c1 ${n}인: mid-${n} 로드 ${loadMs}ms ≥ ${C1_LOAD_MS}ms — 파일 크기·파싱 확인 (#640)`);
       must(Number.isFinite(cms) && cms < C1_COARSE_MS, `c1 ${n}인: 거친 표 생성 ${cms}ms (예산 ${C1_COARSE_MS}ms) (#640)`);
