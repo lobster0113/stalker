@@ -47,6 +47,11 @@
 - 런처가 넘기는 파일은 `RESUME_FIELDS`만 남긴 gzip이고 이름이 `resume.bin`이다. `stalker.jsonio.read_json`은 gzip을 이름이 아니라 앞 두 바이트로 알아본다(#916).
 - 정책 좌석은 c1 키의 에퀴티 계산 때문에 느리다(로컬 참고: numba로 게임당 ~0.6초, 없이 ~3.5초) → `.[fast]` 설치, 9칸×1000판 ≈ 90분 단일 프로세스. `max_minutes: 240`, `run_stages --deadline-s 12600`(상한 30분 전), 4 vCPU(메모리 여유), 최악 $0.96(탐침 상한 $1). 단독 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`, `stalker.icm.lambda-grid-pair`의 단일 에이전트 `policy`.
 
+## warm start A/B 학습 잡 (`e3-tp-mid-c1-sng-bubble-{s2,s3,prior-s1,prior-s2,prior-s3}-pod32.yaml`, #926, ADR 0027 F6b)
+- A 팔(cold) 시드 2·3과 B 팔(prior) 시드 1–3. 모두 `e3-tp-mid-c1-sng-bubble-pod32.yaml`(#901, A 시드 1 = run 43735226442)과 같은 명령이고 `--seed`·출력 이름만 다르며, B 팔은 재개 플래그 자리에 `--prior-result "$STALKER_RESUME"`가 들어간다(`tests/test_sng_bubble_ab_jobs.py`가 고정). prior 읽기는 `--minutes` 시계 안이다(같은 연산).
+- A 팔은 `resume_run` 없이, B 팔은 **`resume_run=41813684540`**(40k mid c1 mixn 현금 run, 시드 4)으로 디스패치한다. 런처가 결과를 `RESUME_FIELDS`로 다듬어도 `model`·`checkpoint`가 남아 `read_prior`가 읽는다. 체크포인트 b64 95,196,812자 → gzip 약 72MB로 95MB 상한 안(먼저 `dry_run=true`로 확인). 120k run 42591543123(b64 220,621,820자)은 상한 초과. 아티팩트 만료 ~12-04. `$STALKER_RESUME`가 비면 B 팔 명령은 종료 코드 3으로 바로 끝난다.
+- 각 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분), 5개 $18. **하나씩** 디스패치(#877). 평가(`tournament_ab`)·판정은 F6c.
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
