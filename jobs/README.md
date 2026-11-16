@@ -52,6 +52,9 @@
 - A 팔은 `resume_run` 없이, B 팔은 **`resume_run=41813684540`**(40k mid c1 mixn 현금 run, 시드 4)으로 디스패치한다. 런처가 결과를 `RESUME_FIELDS`로 다듬어도 `model`·`checkpoint`가 남아 `read_prior`가 읽는다. 체크포인트 b64 95,196,812자 → gzip 약 72MB로 95MB 상한 안(먼저 `dry_run=true`로 확인). 120k run 42591543123(b64 220,621,820자)은 상한 초과. 아티팩트 만료 ~12-04. `$STALKER_RESUME`가 비면 B 팔 명령은 종료 코드 3으로 바로 끝난다.
 - 각 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분), 5개 $18. **하나씩** 디스패치(#877). 평가(`tournament_ab`)·판정은 F6c.
 
+## F6c A/B 평가 잡 (`e3-sng-bubble-ab-eval.yaml`, #933, ADR 0027 결정 4)
+- cold(A)와 prior(B) 학습 결과 하나씩을 `tournament_ab --a "$STALKER_RESUME" --b "$STALKER_RESUME_B" --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --seed 10001`로 평가한다(`--games 400 --sym-games 200`, 로컬 참고: 정책 좌석 ~0.6초/판 → 9칸×두 팔 ≈ 108분). **`resume_run`=A, `resume_run_b`=B**(#929)로 디스패치하고, 둘 중 하나라도 비면 종료 코드 3으로 바로 끝난다. 쌍 3개(시드 i끼리)는 이 명세 하나에 두 값만 바꿔 디스패치한다(A 시드 1 = run 43735226442). 4 vCPU, `max_minutes 240`, `--deadline-s 12600`, 최악 $0.96. 단독 디스패치(#877). 결과는 `tournament_ab` JSON(`verdict`·`adopted`·`primary`). 디스패치·판정 기록은 F6c-2.
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
