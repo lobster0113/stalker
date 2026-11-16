@@ -1681,3 +1681,4 @@
 {"ts":"2026-11-16T10:05:29Z","role":"builder-b","outcome":"pr_opened","issue":933,"pr":936,"notes":"F6c-1 A/B eval job spec + tests + README; full gate passes locally","friction":"foreground tool auto-backgrounds at 120s so the 9-min wait loop in builder.md is not possible; full gate took ~40min"}
 {"ts":"2026-11-16T10:05:50Z","role":"reviewer","outcome":"skipped","issue":933,"pr":936,"notes":"not my parity","friction":""}
 {"ts":"2026-11-16T10:41:16Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already CHANGES at head d723a9c (no new commits); #936 is reviewer-b parity","friction":""}
+{"ts":"2026-11-16T10:41:36Z","role":"reviewer-b","outcome":"merged","issue":933,"pr":936,"notes":"F6c-1 A/B eval job spec; all checks green, merged squash d9259ca","friction":"CI gates (tests) took ~35 min; games/sym-games sized from #916 reference rather than a fresh local measurement as the AC asked (accepted, non-blocking)"}
