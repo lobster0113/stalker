@@ -1723,3 +1723,4 @@
 {"ts":"2026-11-16T19:53:09Z","role":"builder-b","outcome":"pr_opened","issue":946,"pr":947,"notes":"RunPod URLError retry on create (1/5/15min) and GET/DELETE; full gates pass locally","friction":"gates full local ~28min needs 3 chained waits; quick 164s vs 90s target"}
 {"ts":"2026-11-16T19:53:25Z","role":"reviewer-b","outcome":"skipped","issue":946,"pr":947,"notes":"not my parity","friction":""}
 {"ts":"2026-11-16T19:55:12Z","role":"reviewer","outcome":"changes","issue":946,"pr":947,"notes":"CHANGES: POST retry on all OSError can duplicate pods after post-send timeout/reset; no harness experiment record; GET retry untested","friction":"guard check in ci run fails when labels are added after PR open; latest-run rule resolves it but adds noise"}
+{"ts":"2026-11-16T20:11:53Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #599 already has CHANGES verdict for head d723a9c, no new commits","friction":""}
