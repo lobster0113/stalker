@@ -70,5 +70,11 @@
 - `_signal`이 404도 "아직 부팅 중"으로 보고 다시 시도한다. 파드 서버의 404는 런처가 보내지 않는 경로에만 나오므로 오인 위험이 없다. 재시도 상한은 파드 쪽 `RESUME_WAIT_S` 뒤 exit 97(EXITED)이다.
 - #356 이후 모든 파드 잡이 신호(`resume-none` 포함)를 보내므로 이 수정 전에는 파드 실행이 모두 시작 직후 실패했다. 이 run은 측정창의 `resume_failed` 건수에서 뺀다(수정 전 결함).
 
+## 정정 (#923, 2026-11-16)
+- 문제: 다듬기(`RESUME_FIELDS`)가 `train_env`를 버려, 토너먼트 결과의 `resume_run`이 `pod_train.load_resume_result`에서 `train_env None != {...}`로 모두 거부됐다(#899 비교 도입 뒤).
+- 변경: `RESUME_FIELDS`에 `train_env`를 추가했다. 캐시 게임 결과처럼 키가 없으면 만들지 않는다.
+- 측정/성공 기준: 머지 뒤 첫 토너먼트 `resume_run`(F7b·F6 체인)이 train_env 거부 없이 이어 학습을 시작한다(성공 = 거부 0건). 이 run은 위 `resume_failed` 건수에서 수정 전 결함으로 뺀다.
+- 롤백: `RESUME_FIELDS`에서 `train_env`를 제거한다(토너먼트 resume는 다시 거부 상태로 돌아간다).
+
 ## 결과
 (측정창 종료 후 auditor가 기록)
