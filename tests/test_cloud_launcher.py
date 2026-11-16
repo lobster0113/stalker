@@ -3,8 +3,11 @@ import importlib.util
 import json
 import re
 import sys
+import urllib.error
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import socket
 
 import pytest
 
@@ -1344,3 +1347,112 @@ def test_cloud_workflow_export_mode(tmp_path):
     files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
                            capture_output=True, text=True, encoding="utf-8").stdout.split()
     assert "cloud/policies/5/index.json" in files
+
+
+# ---- #946: DNS/connect failures retry with waits, HTTP answers do not ----
+
+class FlakyCreate(FakeRunPod):
+    def __init__(self, fail_posts, exc=None, **kw):
+        super().__init__(**kw)
+        self.fail_posts, self.exc = fail_posts, exc or urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))
+
+    def __call__(self, method, url, body):
+        if method == "POST" and url.endswith("/pods") and self.fail_posts != 0:
+            self.fail_posts -= 1
+            self.calls.append((method, url, body))
+            raise self.exc
+        return super().__call__(method, url, body)
+
+
+def _posts(api):
+    return [c for c in api.calls if c[0] == "POST" and c[1].endswith("/pods")]
+
+
+def test_create_retries_network_error_then_succeeds_without_ledger_line(tmp_path):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), FlakyCreate(2, exit_after_polls=1)
+    res = _run(api, ledger, clock)
+    assert res["status"] == "completed"
+    assert len(_posts(api)) == 3 and len(api.pods) == 0
+    assert [e["event"] for e in L.read_ledger(ledger)] == ["start", "end"]  # failed tries leave no line, $0
+
+
+def test_create_network_waits_are_the_constants(tmp_path):
+    waits, clock, api = [], Clock(), FlakyCreate(2, exit_after_polls=1)
+    L.run_job(_job(), L.RunPod(api), tmp_path / "l.jsonl", "42", cap=100.0, now=clock,
+              sleep=lambda s: (waits.append(s), clock.sleep(s)), poll_s=60, log=lambda *_: None)
+    assert waits[:2] == [L.NETWORK_RETRY_MINUTES[0] * 60, L.NETWORK_RETRY_MINUTES[1] * 60]
+
+
+def test_create_gives_up_after_all_network_waits(tmp_path):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), FlakyCreate(-1)
+    with pytest.raises(L.LauncherError, match=r"cannot reach .*rest\.runpod\.io.*4 tries.*Name or service not known"):
+        _run(api, ledger, clock)
+    assert len(_posts(api)) == len(L.NETWORK_RETRY_MINUTES) + 1
+    assert not ledger.exists() or L.read_ledger(ledger) == []
+
+
+def test_create_does_not_retry_http_errors(tmp_path):
+    api = FlakyCreate(-1, exc=L.LauncherError("RunPod POST: HTTP 400 b'bad'"))
+    with pytest.raises(L.LauncherError, match="HTTP 400"):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1
+
+
+def test_create_gives_up_early_when_wait_would_pass_job_limit(tmp_path):
+    api = FlakyCreate(-1)
+    with pytest.raises(L.LauncherError, match="would pass the launcher"):
+        _run(api, tmp_path / "l.jsonl", Clock(), job=_job(max_minutes=L.MAX_JOB_MINUTES))
+    assert len(_posts(api)) == 1
+
+
+@pytest.mark.parametrize("exc", [TimeoutError("timed out"), ConnectionResetError("reset"),
+                                 urllib.error.URLError(TimeoutError("timed out"))])
+def test_create_does_not_retry_errors_that_may_follow_a_sent_request(tmp_path, exc):
+    # RunPod may already have created the pod; a retry would bill a second, untracked one
+    api = FlakyCreate(-1, exc=exc)
+    with pytest.raises(type(exc)):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1
+
+
+def test_post_that_creates_pod_then_times_out_leaves_at_most_one_pod(tmp_path):
+    class CreatesThenTimesOut(FakeRunPod):
+        done = False
+
+        def __call__(self, method, url, body):
+            r = super().__call__(method, url, body)
+            if method == "POST" and url.endswith("/pods") and not self.done:
+                self.done = True
+                raise TimeoutError("timed out")
+            return r
+    api = CreatesThenTimesOut(exit_after_polls=1)
+    with pytest.raises(TimeoutError):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1 and len(api.pods) <= 1
+
+
+class FlakyDelete(FakeRunPod):
+    def __init__(self, fail_deletes, **kw):
+        super().__init__(**kw)
+        self.fail_deletes = fail_deletes
+
+    def __call__(self, method, url, body):
+        if method == "DELETE" and self.fail_deletes != 0:
+            self.fail_deletes -= 1
+            self.calls.append((method, url, body))
+            raise urllib.error.URLError("blip")
+        return super().__call__(method, url, body)
+
+
+def test_terminate_retries_network_blips_so_no_pod_is_left_billing():
+    waits = []
+    api = FlakyDelete(2)
+    rp = L.RunPod(api, sleep=waits.append)
+    pod = rp.create(_job(), "n")
+    rp.terminate(pod["id"])
+    assert api.pods == {} and waits == list(L.NETWORK_RETRY_SECONDS)
+    api2 = FlakyDelete(-1)
+    rp2 = L.RunPod(api2, sleep=waits.append)
+    p2 = rp2.create(_job(), "n")
+    with pytest.raises(urllib.error.URLError):  # persistent failure surfaces; reap/cleanup finds the pod later
+        rp2.terminate(p2["id"])

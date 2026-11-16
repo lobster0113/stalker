@@ -50,6 +50,7 @@ import importlib.util
 import os
 import re
 import secrets
+import socket
 import subprocess
 import sys
 import time
@@ -143,6 +144,11 @@ FLAVOR_LIST_VCPU = 32
 SLOW_HOST_FRACTION = 0.6
 # RunPod HTTP 500 "no longer any instances available" costs nothing; wait and try the flavor list again
 CAPACITY_RETRY_MINUTES = (15, 30, 60)
+# DNS/connect failures (URLError/OSError, never an HTTP answer) happen before RunPod sees the request: a create that
+# hit one made no pod, so waiting and retrying is safe and costs $0 (#946: rest.runpod.io "Name or service not known")
+NETWORK_RETRY_MINUTES = (1, 5, 15)
+# GET/DELETE are cheap and idempotent; a short retry rides out a blip so a pod is not left running unterminated
+NETWORK_RETRY_SECONDS = (5, 15)
 CAPACITY_RE = re.compile(rb"no longer any instances available|no instances available", re.IGNORECASE)
 
 
@@ -355,9 +361,33 @@ def http_transport(api_key: str) -> Transport:
     return call
 
 
+def _is_network_error(e: BaseException) -> bool:
+    return isinstance(e, (urllib.error.URLError, OSError)) and not isinstance(e, urllib.error.HTTPError)
+
+
+def _is_prerequest_error(e: BaseException) -> bool:
+    """True only when RunPod cannot have seen the request (DNS or refused connect).
+
+    Timeouts and resets can happen after the POST was sent, so a retry could create a second pod."""
+    return (isinstance(e, urllib.error.URLError) and not isinstance(e, urllib.error.HTTPError)
+            and isinstance(e.reason, (socket.gaierror, ConnectionRefusedError)))
+
+
 class RunPod:
-    def __init__(self, transport: Transport):
+    def __init__(self, transport: Transport, sleep: Callable[[float], None] = time.sleep):
         self.t = transport
+        self.sleep = sleep
+
+    def _retry(self, method: str, url: str):
+        """GET/DELETE: retry network errors after NETWORK_RETRY_SECONDS; the last error propagates."""
+        for wait in NETWORK_RETRY_SECONDS:
+            try:
+                return self.t(method, url, None)
+            except (urllib.error.URLError, OSError) as e:
+                if not _is_network_error(e):
+                    raise
+                self.sleep(wait)
+        return self.t(method, url, None)
 
     def balance(self) -> float:
         r = self.t("POST", GRAPHQL_URL, {"query": "query { myself { clientBalance } }"})
@@ -382,14 +412,14 @@ class RunPod:
         return pod
 
     def get(self, pod_id: str) -> dict | None:
-        return self.t("GET", f"{REST_URL}/pods/{pod_id}", None)
+        return self._retry("GET", f"{REST_URL}/pods/{pod_id}")
 
     def list(self) -> list[dict]:
-        r = self.t("GET", f"{REST_URL}/pods", None) or []
+        r = self._retry("GET", f"{REST_URL}/pods") or []
         return r.get("pods", []) if isinstance(r, dict) else r
 
     def terminate(self, pod_id: str) -> None:
-        self.t("DELETE", f"{REST_URL}/pods/{pod_id}", None)
+        self._retry("DELETE", f"{REST_URL}/pods/{pod_id}")
 
 
 # The pod's result server (stdlib only, the image may have nothing else). GET serves status.json and
@@ -672,17 +702,39 @@ def _create(job: Job, api: RunPod, pod_name: str, token: str, ledger: Path, run_
     Each refused create is a zero-cost `create_failed` ledger line with the run id, so the record shows
     every try even though no pod (and no start/end pair) exists for it."""
     waits = list(CAPACITY_RETRY_MINUTES)
+    net_waits = list(NETWORK_RETRY_MINUTES)
     attempt = 0
     while True:
+        net_retry = False
         for entry in job.flavors:
             attempt += 1
             try:
                 return api.create(job, pod_name, token, entry[0]), entry
+            except (urllib.error.URLError, OSError) as e:
+                if not _is_prerequest_error(e):
+                    raise
+                # no pod exists and RunPod never answered: no ledger line, $0 (a test pins this)
+                tries = len(NETWORK_RETRY_MINUTES) + 1 - len(net_waits)
+                log(f"network error creating pod (try {tries}): {e}")
+                if not net_waits:
+                    raise LauncherError(f"run {run_id}: cannot reach {REST_URL} after {tries} tries over "
+                                        f"{'+'.join(map(str, NETWORK_RETRY_MINUTES))} min of waits (last: {e}); $0, no pod "
+                                        "created; dispatch again later") from e
+                wait = net_waits.pop(0)
+                if not fits(wait):
+                    raise LauncherError(f"run {run_id}: cannot reach {REST_URL} ({e}), and a {wait} min wait + "
+                                        f"max_minutes {job.max_minutes} would pass the launcher's {MAX_JOB_MINUTES} min "
+                                        "($0); dispatch again later") from e
+                sleep(wait * 60)
+                net_retry = True
+                break
             except CapacityError as e:
                 append_ledger(ledger, {"event": "create_failed", "ts": _iso(now()), "month": month,
                                        "job": job.name, "run_id": run_id, "flavor": entry[0], "attempt": attempt,
                                        "error": "capacity", "actual_usd": 0.0})
                 log(f"no capacity for {entry[0] or job.gpu_type} (try {attempt}): {e}")
+        if net_retry:
+            continue
         if not waits:
             raise CapacityExhausted(f"run {run_id}: no capacity for {', '.join(str(f) for f, _, _ in job.flavors)} after "
                                     f"{attempt} tries over {'+'.join(map(str, CAPACITY_RETRY_MINUTES))} min of waits "
