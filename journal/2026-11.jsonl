@@ -1669,3 +1669,4 @@
 {"ts":"2026-11-16T07:17:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs only #599 (odd parity, not mine)","friction":"should_run --sweep printed RUN though no even-numbered PR needed a verdict"}
 {"ts":"2026-11-16T07:21:21Z","role":"builder-b","outcome":"no_work","issue":null,"pr":null,"notes":"ready 2건(#916·#926) 모두 builder 소유 claim, 내 PR 없음, blocked 7건 언블록 불가(소유자/RFC/예산 사유)","friction":""}
 {"ts":"2026-11-16T07:38:42Z","role":"reviewer","outcome":"skipped","issue":916,"pr":932,"notes":"not my parity","friction":""}
+{"ts":"2026-11-16T07:41:58Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs — #599 already has CHANGES at head d723a9c; nothing to judge","friction":"should_run --sweep printed RUN though no odd PR lacked a verdict (sweep interval only)"}
