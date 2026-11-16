@@ -1,6 +1,7 @@
-# STATE (2026-11-16 00:25Z, planner)
+# STATE (2026-11-16 00:50Z, planner)
 ## 현재 단계
 **D 2–5인 완료(#384 닫힘 17:15Z) → E 토너먼트(#385) 착수. D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음. planner 11-14 17:15Z: **#876 완료(cloud run 43613729968, 2–6인 120k c1 끔/켬 10칸 v3 선 안) → #384 수용 기준 전부 충족, 닫음. #873 2회차 timeout → 후속 #877(P2). E 하위 이슈 신설: #878 앤티+Gate R(P1, referee-change)·#879 ICM 보상 함수(P1)·#880 E 환경 ADR(P2). #385 blocked 해제(추적).**
+planner 11-16 00:50Z: **PR #925(e0bba1be, #920 F5c e3 결과 key_cells) 머지 → #920 닫힘·라벨 정리. ready 4(#926 P1·#916 P1 in-progress·#923 P2·#919 P3).**
 planner 11-16 00:25Z: **PR #924(ea3f71e7, #918 F6a --prior-result warm start) 머지 → #918 닫힘·라벨 정리. F6b #926 신설(P1: B 팔 시드 1–3·A 팔 시드 2·3 잡 명세+디스패치, prior는 resume_run 경로, 95MB 상한 때문에 40k mixn run 후보). F6c(tournament_ab 평가·판정)는 #926 뒤. #916 1회차 run 43778587487 진행 중. ready 5.**
 planner 11-15 21:50Z: **PR #921(8905e823, #916 F7a 1회차 잡 명세+gzip 판별 수정) 머지(Refs, #916 열림·in-progress 유지 → 디스패치·2회차 기록 남음). 후속 #923(P2 harness-change: RESUME_FIELDS에 train_env 없음 → 토너먼트 resume 이어 학습 거부, F7b·F6 선행). ready 6.**
 planner 11-15 20:15Z: **PR #915(e45de447, #901 F5 1회차 결과 문서) 머지 → #901 닫음(기준 3 key 분포는 summary 부재·아티팩트 403으로 확인 불가 → 후속 #920 F5c 결과 JSON key_cells, P2). #916 in-progress. ready 5(#916·#917·#918·#919·#920).**
@@ -11,7 +12,7 @@ planner 11-15 19:15Z: **PR #914(c97fc42, #903 sim_hands_per_sec 보고 전용) �
 2. **평가 신뢰성(#770·ADR 0024)**: 3인 시드 2개로 판정 강화(#768 완료). #770 완료(PR #776, AIVAT 도입 추천) → #781 완료(PR #784, 보정 열 기록) → #785 완료(PR #789, sd 약 1/3) → #792 판정 전환 ADR 0025(v3 선·min_seeds). #724(Gate U 정체 감시) 11-10 완료(PR #726).
 3. **페르소나 목표 타당성**: 피시 칸 레버 #722 보류 → 공동 격자 #730 결론 (b)(턴 오차 51/56·station WTSD 44/56 위반, 최근접 턴 .1303–.1403이 .14 부근) → #736 ADR 0023 완료(PR #749, 4시드 평균) → #750 완료(PR #757) → #751 완료(PR #759) → #760 완료(PR #763, 웹 미러) — 체인 종료. #769 완료(PR #772): 구조 정렬 비추천, 작은 수정 #773(3bp rangeShift 폭·cbet3bp 재보정).
 ## 큐
-ready: **#926 P1(F6b A/B 학습 잡)·#916 P1(F7a, in-progress, run 43778587487 진행 → 2회차 기록)·#923 P2(resume train_env, harness-change)·#920 P2(F5c, in-progress, PR #925 CI 대기)·#919 P3(chore)**. #918 완료(PR #924). #917 완료(PR #922). #901 완료(PR #913·#915). #903 완료(PR #914). F6c(A/B 평가·판정)는 #926 뒤, F7b(선택 λ 재학습)는 #916·#923 뒤, F8(웹)은 정책 export 경로 결정 뒤(F5 결과는 mixn 아님 → mode=export 불가, 후보). #911 완료(PR #912). #907 완료(PR #910). #899 완료(PR #908). #902 완료(PR #909). #900 완료(PR #906).
+ready: **#926 P1(F6b A/B 학습 잡)·#916 P1(F7a, in-progress, run 43778587487 진행 → 2회차 기록)·#923 P2(resume train_env, harness-change)·#919 P3(chore)**. #920 완료(PR #925). #918 완료(PR #924). #917 완료(PR #922). #901 완료(PR #913·#915). #903 완료(PR #914). F6c(A/B 평가·판정)는 #926 뒤, F7b(선택 λ 재학습)는 #916·#923 뒤, F8(웹)은 정책 export 경로 결정 뒤(F5 결과는 mixn 아님 → mode=export 불가, 후보). #911 완료(PR #912). #907 완료(PR #910). #899 완료(PR #908). #902 완료(PR #909). #900 완료(PR #906).
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #385(E, 하위 #877–#880), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #415·#419·#306·#359·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
 후보: 토너먼트 평가 ICM+시뮬 상금 이중 기록의 심판 연결(ADR 0026 후속 3, referee-change, #385 뒤), 끔 칸 기준(2인 2·4인 3)은 ADR 0024 (b) 기각(진단용 칸), 클라우드 잡 실패 시 파드 job.log 내보내기(harness-change, Auditor; 42989335994 exit 2 원인 불명), 웹 피시 칸 다중 시드 CI 검사(Gate U 시간 여유 확인 뒤), #775 결론 뒤 L1 행 export·페이지 읽기 또는 6인 상한 ADR, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
 ## 지표 요약 (최근 값과 추세)
@@ -23,6 +24,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #3
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35 = 4.54배.
 - 클라우드 지출: 11월 원장 end actual_usd 합 $29.10 / $100(reviewer #921 확인; 이전 STATE 약 $20.11은 과소).
 ## 경보
+- [planner 11-16 00:50Z] main e0bba1be CI 대기(e4145d5c success, ea3f71e7 취소). P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 10일 무수정). 6h+ 방치 in-progress 없음(#916 00:08Z 갱신).
 - [planner 11-16 00:25Z] main e4145d5c CI success, ea3f71e7 진행 중. P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 10일 무수정, #925 waiting_ci). 6h+ 방치 in-progress 없음. friction 재발 (g): gates(tests) CI 40분+ → reviewer·reviewer-b waiting_ci 2회(23:40Z·23:53Z), (a) gates quick 로컬 292–299초.
 - [planner 11-15 21:50Z] main 8905e823 CI 진행 중(2bb1a788 success). P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 9일 무수정, #922 21:06Z 열림). 6h+ 방치 in-progress 없음.
 - [planner 11-15 20:15Z] main 2bb1a788 CI 진행 중. P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 9일 무수정). 6h+ 방치 in-progress 없음. friction 재발 (g): CI gates(tests) ~45분, reviewer 9분 대기 5회(40분 상한 근접). 신규: 결과 summary에 칸별 key 분포 없음 → #920.
