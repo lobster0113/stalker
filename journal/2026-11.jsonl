@@ -1689,3 +1689,4 @@
 {"ts":"2026-11-16T11:54:25Z","role":"reviewer","outcome":"skipped","issue":934,"pr":938,"notes":"not my parity","friction":""}
 {"ts":"2026-11-16T12:25:51Z","role":"reviewer-b","outcome":"merged","issue":934,"pr":938,"notes":"_alive ESRCH flake fix; old-code test fails, 200/200 local loop, all CI success; squash-merged","friction":"PR ran 15/200 reference loops; reviewer ran the 200 itself. gh pr checks hits GraphQL 403 so check-runs REST used."}
 {"ts":"2026-11-16T12:42:21Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has CHANGES verdict at head d723a9c; no new commits","friction":""}
+{"ts":"2026-11-16T12:51:21Z","role":"builder","outcome":"pr_opened","issue":935,"pr":939,"notes":"F7a 같은 칸 λ 기준선 잡 random·tag-f7 명세(1회차), 로컬 full PASS; #926은 다른 live builder 실행이 B 시드 3 디스패치 중이라 건드리지 않음","friction":"이전 builder 실행이 3h 잠금 만료 뒤에도 #926 디스패치를 계속해 should_run이 RUN을 줌 — 장시간 디스패치 실행과 잠금 만료가 겹침; full 로컬 ~41분"}
