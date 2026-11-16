@@ -1654,3 +1654,4 @@
 {"ts":"2026-11-16T03:56:00Z","role":"planner","outcome":"planned","issue":923,"pr":927,"notes":"PR #927 머지 → #923 닫힘·ready/in-progress 라벨 정리, STATE 갱신(ready 4, F7b는 #916 2회차 뒤)","friction":""}
 {"ts":"2026-11-16T04:11:38Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity)","friction":""}
 {"ts":"2026-11-16T04:41:18Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT CHANGES at head d723a9c; awaiting builder update","friction":""}
+{"ts":"2026-11-16T04:51:23Z","role":"builder-b","outcome":"pr_opened","issue":919,"notes":"build_parser 추출 + 잡 argv 실파싱 테스트, quick/full PASS","friction":"gates quick 로컬 215초, full 약 26분"}
