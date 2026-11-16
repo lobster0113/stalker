@@ -901,7 +901,8 @@ export function publicKey(s, seat, depth = "full") {
 // ---- c1 key (#583, ADR 0021 / tp_key.py "c1", KEY_VERSIONS.c1 = 1): the public part of the combined key ----
 export const C1_VERSION = 1;
 const EFF_EDGES_BB = [5, 10, 15, 25, 40, 60, 100];
-const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6] };
+const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6],
+  7: ["UTG", "LJ", "HJ", "CO", "BTN", "SB", "BB"], 8: ["UTG", "UTG1", "LJ", "HJ", "CO", "BTN", "SB", "BB"], 9: POSITIONS[9] };
 export function c1PositionNames(n) { return C1_POSITIONS[n] ? C1_POSITIONS[n].slice() : positionNames(n); }
 function effectiveStack(s, seat) {   // hand-start chips (behind + put in), capped by the deepest other player who can act
   const chips = s.stack.map((x, i) => x + s.total[i]);

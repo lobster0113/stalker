@@ -602,9 +602,12 @@ def position_group(n: int, seat: int) -> str:
 
 # c1 position names by player count (#486): the names players use at short tables, counted back from the button.
 # Heads-up the button posts the small blind (seat 0) and is called BTN, as players say; 6-max is game.POSITIONS[6],
-# so every 6-handed c1 key (each run before #486) is unchanged. Other counts fall back to game.position_names.
+# so every 6-handed c1 key (each run before #486) is unchanged. 7-9 players (#940, ADR 0027 F10) get the same
+# standard names (UTG, UTG1, LJ, HJ, CO ...), because game.position_names would give `EP0..` that nobody says.
 C1_POSITIONS = {2: ("BTN", "BB"), 3: ("BTN", "SB", "BB"), 4: ("CO", "BTN", "SB", "BB"),
-                5: ("HJ", "CO", "BTN", "SB", "BB"), 6: G.POSITIONS[6]}
+                5: ("HJ", "CO", "BTN", "SB", "BB"), 6: G.POSITIONS[6],
+                7: ("UTG", "LJ", "HJ", "CO", "BTN", "SB", "BB"),
+                8: ("UTG", "UTG1", "LJ", "HJ", "CO", "BTN", "SB", "BB"), 9: G.POSITIONS[9]}
 
 
 def c1_position_names(n: int) -> tuple[str, ...]:

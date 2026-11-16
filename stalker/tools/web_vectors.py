@@ -213,7 +213,7 @@ def c1_vectors(hands: int, seed: int) -> dict:
     for n in C1_PLAYERS:
         rng = np.random.default_rng([seed, 583, n])
         out.extend(_play_c1(n, rng) for _ in range(hands))
-    return {"version": K.KEY_VERSIONS["c1"], "positions": {str(n): list(K.c1_position_names(n)) for n in C1_PLAYERS},
+    return {"version": K.KEY_VERSIONS["c1"], "positions": {str(n): list(K.c1_position_names(n)) for n in range(2, 10)},
             "hands": out}
 
 
