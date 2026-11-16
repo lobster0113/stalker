@@ -59,6 +59,10 @@
 ## F6c A/B 평가 잡 (`e3-sng-bubble-ab-eval.yaml`, #933, ADR 0027 결정 4)
 - cold(A)와 prior(B) 학습 결과 하나씩을 `tournament_ab --a "$STALKER_RESUME" --b "$STALKER_RESUME_B" --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --seed 10001`로 평가한다(`--games 400 --sym-games 200`, 로컬 참고: 정책 좌석 ~0.6초/판 → 9칸×두 팔 ≈ 108분). **`resume_run`=A, `resume_run_b`=B**(#929)로 디스패치하고, 둘 중 하나라도 비면 종료 코드 3으로 바로 끝난다. 쌍 3개(시드 i끼리)는 이 명세 하나에 두 값만 바꿔 디스패치한다(A 시드 1 = run 43735226442). 4 vCPU, `max_minutes 240`, `--deadline-s 12600`, 최악 $0.96. 단독 디스패치(#877). 결과는 `tournament_ab` JSON(`verdict`·`adopted`·`primary`). 디스패치·판정 기록은 F6c-2.
 
+## 9인 SNG early c1 측정 잡 (`e3-tp-mid-c1-sng-early9-pod32.yaml`, #943, ADR 0027 F10)
+- 토너먼트 단계 4(9max SNG early) 준비 측정: 9인 c1(`te0` 슬롯, #940 위치 이름) 학습이 도는지와 it/s·key 수·메모리를 잰다. `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 같은 틀에 `--players 9 --stage e --stacks bubble:even --lbr-hands 600`(레벨 0에 생존자 9명 = 아직 아무도 탈락하지 않았으므로 같은 스택이 실제 초반 테이블). `tests/test_sng_early9_job.py`가 실제 `pod_train` 파서로 인자를 고정하고, 7·8·9인 소규모 로컬 실행(slow)으로 키에 `EP` 위치가 없고 `te0`인지 확인한다.
+- 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분). `median_iters_per_s`는 첫 run 실측 뒤 정한다(#941 방식). #937·#935 클라우드 run이 끝난 뒤 `resume_run` 없이 **단독** 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`(1MB 초과면 아티팩트만).
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
