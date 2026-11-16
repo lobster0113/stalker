@@ -1,7 +1,7 @@
 """#901: the first tournament measurement job follows ADR 0027 decision 5."""
-import shlex
-import sys
 from pathlib import Path
+
+import pytest
 
 from tests.test_c1_s4_long_job import _spec, _train_flags
 
@@ -20,12 +20,32 @@ def test_job_matches_the_adr_table():
     assert f["--out"] == spec.result_path == "/result/e3-tp-mid-c1-sng-bubble-pod32.json"
 
 
-def test_job_flags_parse_with_pod_train():
+def _argv(f):
+    return [x for k, v in f.items() for x in ([k] if v is True else [k, v])]
+
+
+def _parse(argv):
     from stalker.tools import pod_train as P
+    return P.build_parser().parse_args(argv)
+
+
+def test_job_flags_parse_with_pod_train():
     f = _train_flags(_spec(JOB).command)
-    argv = [x for k, v in f.items() if k not in ("--sha-file", "--resume-result") for x in ([k] if v is True else [k, v])]
-    # parse only (no run): the CLI refuses unknown flags and bad tournament arguments
-    import argparse
-    assert P.tournament_args(argparse.Namespace(payoff="icm", preset=f["--preset"], stage="b", level_index=0, lam=0.0,
-                                                ante=None, stacks="bubble:skewed", players=4)) [1]["stage"] == "b"
-    assert "--lbr-hands" in argv
+    a = _parse(_argv(f))
+    assert (a.payoff, a.preset, a.stage, a.lam, a.stacks, a.lbr_hands) == (
+        "icm", "9max_sng_503020", "b", 0.0, "bubble:skewed", 600)
+
+
+def test_unknown_job_flag_fails_to_parse(capsys):
+    import pytest
+    with pytest.raises(SystemExit):
+        _parse(_argv(_train_flags(_spec(JOB).command)) + ["--bogus"])
+    assert "--bogus" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("job", sorted(p.name for p in (Path(__file__).resolve().parent.parent / "jobs").glob("e3-*-pod32.yaml")))
+def test_every_pod_train_job_parses(job):
+    command = _spec("jobs/" + job).command
+    if "stalker.tools.pod_train" not in command:
+        pytest.skip("not a pod_train job")
+    _parse(_argv(_train_flags(command)))
