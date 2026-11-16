@@ -1687,3 +1687,4 @@
 {"ts":"2026-11-16T11:42:10Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already CHANGES at head d723a9c (no new commits)","friction":""}
 {"ts":"2026-11-16T11:54:04Z","role":"builder-b","outcome":"pr_opened","issue":934,"pr":938,"notes":"_alive ESRCH 허용 테스트 수정, 로컬 full PASS","friction":"origin/main 로컬이 무관한 히스토리라 fetch 후 새 브랜치 필요, reset --hard는 분류기 거부; 트레이스백 없어 원인 추정; full 로컬 ~27분"}
 {"ts":"2026-11-16T11:54:25Z","role":"reviewer","outcome":"skipped","issue":934,"pr":938,"notes":"not my parity","friction":""}
+{"ts":"2026-11-16T12:25:51Z","role":"reviewer-b","outcome":"merged","issue":934,"pr":938,"notes":"_alive ESRCH flake fix; old-code test fails, 200/200 local loop, all CI success; squash-merged","friction":"PR ran 15/200 reference loops; reviewer ran the 200 itself. gh pr checks hits GraphQL 403 so check-runs REST used."}
