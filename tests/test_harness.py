@@ -150,7 +150,7 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "cache: pip" in rl
     parts = "\n".join(jobs["gates-part"])
     assert "python -m referee.gates full --part ${{ matrix.part }}" in parts and "rl]" not in parts
-    assert "part: [tests, checks]" in parts
+    assert "part: [tests-1, tests-2, checks]" in parts
     gates = "\n".join(jobs["gates"])  # the required check: fails unless every part succeeded
     assert "needs: gates-part" in gates and "if: always()" in gates and '!= "success"' in gates
 

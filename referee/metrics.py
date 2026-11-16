@@ -29,15 +29,19 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_counts(junit: str | None = None) -> dict:
-    """Counts from the gates (tests) job's JUnit report when CI hands one over (METRICS_JUNIT, #312):
+    """Counts from the gates (tests) job's JUnit report when CI hands one over (METRICS_JUNIT, #312; a directory sums every shard's junit*.xml, #949):
     the suite already ran on this sha, and rerunning it serially took most of the 30-minute budget.
     Without a report it runs the suite with the same workers as `gates full`."""
     junit = junit or os.environ.get("METRICS_JUNIT")
     if junit:
-        if not Path(junit).is_file():
-            raise SystemExit(f"METRICS_JUNIT={junit} not found; check the junit artifact step of gates (tests)")
-        root = ET.parse(junit).getroot()
-        suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+        path = Path(junit)
+        files = sorted(path.glob("junit*.xml")) if path.is_dir() else [path] if path.is_file() else []
+        if not files:
+            raise SystemExit(f"METRICS_JUNIT={junit} not found; check the junit artifact steps of gates (tests-1, tests-2)")
+        suites = []
+        for f in files:
+            root = ET.parse(f).getroot()
+            suites += [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
         n = {k: sum(int(s.get(k, 0)) for s in suites) for k in ("tests", "failures", "errors", "skipped")}
         return {"tests_passed": n["tests"] - n["failures"] - n["errors"] - n["skipped"],
                 "tests_failed": n["failures"] + n["errors"]}
