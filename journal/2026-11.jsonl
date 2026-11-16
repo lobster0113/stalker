@@ -1655,3 +1655,4 @@
 {"ts":"2026-11-16T04:11:38Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity)","friction":""}
 {"ts":"2026-11-16T04:41:18Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT CHANGES at head d723a9c; awaiting builder update","friction":""}
 {"ts":"2026-11-16T04:51:23Z","role":"builder-b","outcome":"pr_opened","issue":919,"notes":"build_parser 추출 + 잡 argv 실파싱 테스트, quick/full PASS","friction":"gates quick 로컬 215초, full 약 26분"}
+{"ts":"2026-11-16T04:51:52Z","role":"reviewer","outcome":"skipped","issue":null,"pr":930,"notes":"not my parity","friction":""}
