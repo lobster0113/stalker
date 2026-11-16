@@ -47,6 +47,10 @@
 - 런처가 넘기는 파일은 `RESUME_FIELDS`만 남긴 gzip이고 이름이 `resume.bin`이다. `stalker.jsonio.read_json`은 gzip을 이름이 아니라 앞 두 바이트로 알아본다(#916).
 - 정책 좌석은 c1 키의 에퀴티 계산 때문에 느리다(로컬 참고: numba로 게임당 ~0.6초, 없이 ~3.5초) → `.[fast]` 설치, 9칸×1000판 ≈ 90분 단일 프로세스. `max_minutes: 240`, `run_stages --deadline-s 12600`(상한 30분 전), 4 vCPU(메모리 여유), 최악 $0.96(탐침 상한 $1). 단독 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`, `stalker.icm.lambda-grid-pair`의 단일 에이전트 `policy`.
 
+## F7a 같은 칸 기준선 잡 (`icm-lambda-grid-{random,tag}-f7.yaml`, #935)
+- 위 λ 선택 정책 잡과 **`icm_grid` 플래그가 `--agents`·`--out`만 다르다**(503020 · remaining 4 · 9칸 · seed 10001, `tests/test_icm_lambda_grid_f7_jobs.py`가 실제 CLI 파서로 고정). 같은 시드라 배치(스택)가 같아 정책/random/tag를 칸 단위로 비교할 수 있다. #877 기준선 잡(seed 0, 54칸)은 그대로 둔다.
+- 골격은 #877 잡과 같다(t0 기록, `run_stages` 측정 단계 + `icm_grid_pair`). 단일 프로세스 2 vCPU(`cpu3c`, 로컬 참고: tag 9칸 8분 55초), `max_minutes: 90`, `run_stages --deadline-s 3600`(상한 30분 전), 각 최악 $0.18. `resume_run` 없이 **하나씩** 디스패치(#877 429). 결과: `ops:cloud/results/<run id>.json`, 단일 에이전트 `random` 또는 `tag`.
+
 ## warm start A/B 학습 잡 (`e3-tp-mid-c1-sng-bubble-{s2,s3,prior-s1,prior-s2,prior-s3}-pod32.yaml`, #926, ADR 0027 F6b)
 - A 팔(cold) 시드 2·3과 B 팔(prior) 시드 1–3. 모두 `e3-tp-mid-c1-sng-bubble-pod32.yaml`(#901, A 시드 1 = run 43735226442)과 같은 명령이고 `--seed`·출력 이름만 다르며, B 팔은 재개 플래그 자리에 `--prior-result "$STALKER_RESUME"`가 들어간다(`tests/test_sng_bubble_ab_jobs.py`가 고정). prior 읽기는 `--minutes` 시계 안이다(같은 연산).
 - A 팔은 `resume_run` 없이, B 팔은 **`resume_run=41813684540`**(40k mid c1 mixn 현금 run, 시드 4)으로 디스패치한다. 런처가 결과를 `RESUME_FIELDS`로 다듬어도 `model`·`checkpoint`가 남아 `read_prior`가 읽는다. 체크포인트 b64 95,196,812자 → gzip 약 72MB로 95MB 상한 안(먼저 `dry_run=true`로 확인). 120k run 42591543123(b64 220,621,820자)은 상한 초과. 아티팩트 만료 ~12-04. `$STALKER_RESUME`가 비면 B 팔 명령은 종료 코드 3으로 바로 끝난다.
