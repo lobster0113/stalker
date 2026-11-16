@@ -73,13 +73,26 @@ def quick() -> bool:
     return ok
 
 
+PARTS = ("all", "tests", "tests-1", "tests-2", "checks")
+
+
+def shard_files(shard: int, n: int = 2) -> list[str]:
+    """Deterministic split by test file: sorted paths dealt round-robin, so neighbours (often one
+    feature's heavy files) land in different shards and no randomness is involved (#949)."""
+    files = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "tests").rglob("test_*.py"))
+    return files[shard - 1 :: n]
+
+
 def full(part: str = "all") -> bool:
-    """`part` lets CI run the test suite and the registered checks as parallel jobs (#203)."""
-    if part not in ("all", "tests", "checks"):
-        raise SystemExit(f"unknown part {part!r}; use all, tests or checks")
+    """`part` lets CI run the test suite (whole or as 2 shards) and the registered checks as parallel jobs (#203, #949)."""
+    if part not in PARTS:
+        raise SystemExit(f"unknown part {part!r}; use {', '.join(PARTS)}")
     ok = _run("compile", [PY, "-m", "compileall", "-q", "stalker", "referee", "harness"])
+    pytest_argv = [PY, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *FULL_TEST_WORKERS]
     if part in ("all", "tests"):
-        ok &= _run("tests", [PY, "-m", "pytest", "-q", "--no-header", "-p", "no:cacheprovider", *FULL_TEST_WORKERS])
+        ok &= _run("tests", pytest_argv)
+    elif part.startswith("tests-"):
+        ok &= _run("tests", pytest_argv + shard_files(int(part[-1])))
     if part in ("all", "checks"):
         for name, argv in FULL_CHECKS:
             ok &= _run(name, argv)
@@ -94,12 +107,12 @@ def _parse(argv: list[str]) -> tuple[str, str]:
     if "--part" in argv:
         i = argv.index("--part")
         if mode != "full":
-            raise SystemExit("--part works with full only: python -m referee.gates full --part tests|checks")
+            raise SystemExit("--part works with full only: python -m referee.gates full --part tests|tests-1|tests-2|checks")
         if i + 1 >= len(argv):
-            raise SystemExit("--part needs a value; use all, tests or checks")
+            raise SystemExit(f"--part needs a value; use {', '.join(PARTS)}")
         part = argv[i + 1]
-        if part not in ("all", "tests", "checks"):
-            raise SystemExit(f"unknown part {part!r}; use all, tests or checks")
+        if part not in PARTS:
+            raise SystemExit(f"unknown part {part!r}; use {', '.join(PARTS)}")
     return mode, part
 
 

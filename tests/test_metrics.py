@@ -162,6 +162,12 @@ def test_test_counts_read_the_junit_report_of_the_tests_job(tmp_path):
     assert metrics.test_counts(str(tmp_path / "junit.xml")) == {"tests_passed": 14, "tests_failed": 3}
 
 
+def test_test_counts_sum_every_shard_junit_in_a_directory(tmp_path):
+    (tmp_path / "junit-tests-1.xml").write_text(JUNIT, encoding="utf-8")
+    (tmp_path / "junit-tests-2.xml").write_text(JUNIT, encoding="utf-8")
+    assert metrics.test_counts(str(tmp_path)) == {"tests_passed": 28, "tests_failed": 6}
+
+
 def test_test_counts_missing_junit_report_fails_loudly(tmp_path):
     with pytest.raises(SystemExit, match="METRICS_JUNIT"):
         metrics.test_counts(str(tmp_path / "none.xml"))
