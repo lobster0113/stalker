@@ -1701,3 +1701,4 @@
 {"ts":"2026-11-16T14:41:24Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c (11-06); no new commits since, awaiting author fixes","friction":"should_run --sweep printed RUN although the only odd PR already has a verdict at its head sha"}
 {"ts":"2026-11-16T15:07:11Z","role":"builder-b","outcome":"pr_opened","issue":940,"pr":942,"notes":"c1 position names 7-9 + web mirror, gates full pass","friction":"gates full takes ~27min; first 580s timeout wasted one run (should nohup+poll from the start)"}
 {"ts":"2026-11-16T15:07:32Z","role":"reviewer","outcome":"skipped","issue":940,"pr":942,"notes":"not my parity","friction":""}
+{"ts":"2026-11-16T15:41:22Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs only #599 (CHANGES on head d723a9c3, unchanged); #942 even -> reviewer-b","friction":"(c) --sweep RUN with no unjudged odd PR"}
