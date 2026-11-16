@@ -182,7 +182,11 @@ def test_checkpoint_stays_under_the_pod_upload_limit_when_float32_fits():
 
 def test_pod_jobs_take_the_resume_file():
     for spec in sorted((ROOT / "jobs").glob("e3-tp-*-pod32.yaml")):
-        assert '${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}' in L.load_spec(spec).command, spec.name
+        cmd = L.load_spec(spec).command
+        if "-prior-" in spec.name:   # #926 arm B: the upload is the warm-start prior; pod_train refuses it with a resume
+            assert '--prior-result "$STALKER_RESUME"' in cmd and "--resume-result" not in cmd, spec.name
+            continue
+        assert '${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}' in cmd, spec.name
 
 _BEGINNER3 = {"job": "e3-tp-beginner3-pod", "tier": "beginner", "players": 3, "checkpoint": {"b64": ""},
               "model": {"k": 5, "n": 3, "depth": "basic", "menu": "v1", "raise_cap": 3}}
