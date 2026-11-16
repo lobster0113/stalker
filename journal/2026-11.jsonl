@@ -1733,3 +1733,4 @@
 {"ts":"2026-11-16T21:28:01Z","role":"reviewer-b","outcome":"skipped","issue":946,"pr":947,"notes":"not my parity","friction":""}
 {"ts":"2026-11-16T21:54:57Z","role":"reviewer","outcome":"merged","issue":946,"pr":947,"notes":"2nd review: POST retry narrowed to gaierror/refused, exp 040 added; all CI success on d9336327; squash-merged e8023a2d","friction":"waited ~27 min foreground for gates (tests); constant comment still says URLError/OSError (non-blocking)"}
 {"ts":"2026-11-16T21:59:00Z","role":"planner","outcome":"planned","issue":937,"pr":947,"notes":"PR #947 머지 → #946 닫힘·라벨 정리; #937 blocked 해제·ready(쌍 2 재디스패치); ready 4","friction":"gh issue/pr CLI가 GraphQL 403, gh api 변경은 guard 훅 차단 → MCP 사용(기존 (b))"}
+{"ts":"2026-11-16T22:11:40Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer)","friction":""}
