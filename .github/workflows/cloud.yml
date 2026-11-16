@@ -22,6 +22,9 @@ on:
       resume_run:
         description: "mode=run: run id of an earlier cloud.yml run of the same job; the pod continues its result (#354)"
         default: ""
+      resume_run_b:
+        description: "mode=run: a second earlier run id (needs resume_run); its result is $STALKER_RESUME_B (#929)"
+        default: ""
       export_run:
         description: "mode=export: run id of an earlier mixn c1 cloud.yml run; its result becomes 2-6 handed web policy files (#588)"
         default: ""
@@ -55,7 +58,7 @@ concurrency:
 
 permissions:
   contents: write  # push ledger lines and results to ops
-  actions: read    # mode=collect / export / resume_run: download an earlier run's cloud-result artifact (#264, #354, #588)
+  actions: read    # mode=collect / export / resume_run(_b): download an earlier run's cloud-result artifact (#264, #354, #588)
 
 defaults:
   run:
@@ -75,6 +78,7 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
       COLLECT_RUN: ${{ inputs.collect_run }}
       RESUME_RUN: ${{ inputs.resume_run }}
+      RESUME_RUN_B: ${{ inputs.resume_run_b }}
       EXPORT_RUN: ${{ inputs.export_run }}
       TIER: ${{ inputs.tier }}
       EXPORT_STRATEGY: ${{ inputs.export_strategy }}
@@ -104,6 +108,20 @@ jobs:
           run-id: ${{ env.RESUME_RUN }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/resume/
+      - name: check resume_run_b
+        if: env.MODE == 'run'
+        run: |
+          [[ -z "$RESUME_RUN_B" || "$RESUME_RUN_B" =~ ^[0-9]+$ ]] || { echo "resume_run_b must be a cloud.yml run id, got '$RESUME_RUN_B'"; exit 1; }
+          [[ -z "$RESUME_RUN_B" || -n "$RESUME_RUN" ]] || { echo "resume_run_b needs resume_run: put the first policy's run id in resume_run (or move this one there)"; exit 1; }
+      - name: fetch resume_b result
+        # same path as resume_run: artifact on the runner, handed to the pod by the launcher upload
+        if: env.MODE == 'run' && env.RESUME_RUN_B != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: cloud-result-${{ env.RESUME_RUN_B }}
+          run-id: ${{ env.RESUME_RUN_B }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/resume_b/
       - name: launcher
         run: |
           case "$MODE" in
@@ -117,6 +135,7 @@ jobs:
                     --result-out "$RUNNER_TEMP/cloud-result/result.json" --journal "$GITHUB_WORKSPACE/ops/journal")
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
               [[ -n "$RESUME_RUN" ]] && args+=(--resume-file "$RUNNER_TEMP/resume/result.json" --resume-run "$RESUME_RUN")
+              [[ -n "$RESUME_RUN_B" ]] && args+=(--resume-file-b "$RUNNER_TEMP/resume_b/result.json" --resume-run-b "$RESUME_RUN_B")
               python harness/cloud/launcher.py "${args[@]}" ;;
             collect) [[ "$COLLECT_RUN" =~ ^[0-9]+$ ]] || { echo "collect_run must be a cloud.yml run id, got '$COLLECT_RUN'"; exit 1; } ;;
             export)

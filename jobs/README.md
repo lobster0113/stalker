@@ -69,6 +69,7 @@
 - 파드의 잡 명령은 받은 파일을 `$STALKER_RESUME`으로 본다(없으면 빈 값). pod 잡은 `${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}`로 `pod_train`에 넘긴다. `pod_train`은 잡·tier·인원·`nut_k`가 다르면 거부한다(실패로 끝남). 결과에 `resumed_from_run`과 누적 `iters`가 남는다.
 - 업로드 상한 95 MB(`RESUME_MAX_BYTES`): RunPod 프록시 앞의 Cloudflare가 요청 본문을 100 MB에서 끊는다. 서버도 그보다 큰 `Content-Length`는 413으로 거부하고, 런처는 상한을 넘는 결과로는 파드를 만들지 않는다. `pod_train`은 체크포인트를 이 상한 안에 두려고 float64가 넘치면 float32로 저장한다. float32로도 넘치면 결과에는 남지만(`--unpack`용) 이어 달릴 수 없다는 `checkpoint_note`가 붙는다.
 - 상태: 파드가 업로드를 거부하거나 받은 내용이 다르면 `resume_failed`.
+- 두 번째 입력 `resume_run_b`(#929): 정책 두 개가 필요한 잡(F6c `tournament_ab --a … --b …`)용. `resume_run`과 함께만 쓴다(B만 주면 `check resume_run_b` 단계가 거부). 러너가 `cloud-result-<resume_run_b>`를 `resume_b/`로 받고, 런처가 같은 다듬기(`RESUME_FIELDS`)·gzip·95 MB 상한을 **파일마다** 적용해 `PUT /<토큰>/resume-b`로 **먼저** 보낸 다음 기존 `resume`을 보낸다. `resume-b`는 신호가 아니어서 잡은 A의 신호로 시작하고, 그때 받은 B를 `$STALKER_RESUME_B`로 본다(안 보냈으면 빈 값). 오류·413 메시지에는 `resume_run_b`가 나온다. 예: `--a "$STALKER_RESUME" --b "$STALKER_RESUME_B"`. 두 파일 합 최대 190 MB는 기본 `disk_gb` 20 안이고, `RESUME_WAIT_S`(1200초) 안에 0.16 MB/s면 둘 다 도착한다.
 
 ## 용량과 느린 호스트 (#401, ADR 0019 §6)
 - **flavor 대체.** 런처는 목록 순서대로 하나씩 pod를 만든다. RunPod가 HTTP 500 "no longer any instances available"(용량 부족, 비용 0)로 거절하면 다음 flavor로 바로 다시 만든다. 단가 검사는 실제로 잡힌 flavor의 `flavor_hourly_usd`로 한다.
