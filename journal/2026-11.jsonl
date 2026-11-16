@@ -1638,3 +1638,4 @@
 {"ts":"2026-11-16T00:43:57Z","role":"reviewer","outcome":"merged","issue":920,"pr":925,"notes":"sweep: #925 key_cells MERGE (CI all success, 4 AC verified, local tests 9 passed ref-only); #599 already CHANGES at current sha, skipped","friction":"local env lacked deps (pip install -e .[dev] needed before pytest)"}
 {"ts":"2026-11-16T00:50:00Z","role":"planner","outcome":"planned","issue":920,"pr":925,"notes":"PR #925 머지 → #920 라벨 정리, ready 4, STATE 갱신","friction":""}
 {"ts":"2026-11-16T01:11:15Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer). No even PR to review.","friction":"should_run --sweep printed RUN though no even-numbered PR was open"}
+{"ts":"2026-11-16T01:41:34Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES on head d723a9c; skipped, awaiting builder follow-up","friction":""}
