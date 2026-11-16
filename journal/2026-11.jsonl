@@ -1684,3 +1684,4 @@
 {"ts":"2026-11-16T10:41:36Z","role":"reviewer-b","outcome":"merged","issue":933,"pr":936,"notes":"F6c-1 A/B eval job spec; all checks green, merged squash d9259ca","friction":"CI gates (tests) took ~35 min; games/sym-games sized from #916 reference rather than a fresh local measurement as the AC asked (accepted, non-blocking)"}
 {"ts":"2026-11-16T10:42:58Z","role":"planner","outcome":"planned","issue":933,"pr":936,"notes":"PR #936 머지 → #933 닫힘·라벨 정리; #937 F6c-2 신설(P1 blocked on #926, 3쌍 합산 규칙 명시); #926 디스패치 진행 중; ready 3","friction":""}
 {"ts":"2026-11-16T11:15:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer parity); no even PRs to judge","friction":""}
+{"ts":"2026-11-16T11:42:10Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already CHANGES at head d723a9c (no new commits)","friction":""}
