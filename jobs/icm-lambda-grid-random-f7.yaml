@@ -2,7 +2,7 @@
 # equal jobs/e3-sng-bubble-lambda-policy.yaml (run 43778587487) except --agents/--out, so the F7a doc can compare
 # policy / random / tag cell by cell (same seed 10001 -> same stacks). The #877 baselines used seed 0 and 54 cells.
 # One preset x remaining 4 x 3 profiles x 3 layouts = 9 cells, 9000 games, single process -> 2 vCPU.
-# Local reference (not CI): tag 9 cells ~6 min; random is faster. max_minutes 90 is generous for a slow host.
+# Local reference (not CI): tag 9 cells 8m55s single process (#935); random is faster. max_minutes 90 is generous for a slow host.
 # run_stages --deadline-s 3600 (= 90*60 - 1800 s) stops the grid 30 min before the pod limit so a slow pod still
 # yields a stage-failure result; the measurement stage first prints `t0=... stage_start=...` to stderr.
 # Worst case = 0.12 * 90 / 60 = $0.18. Dispatch alone, one job at a time (#877: two jobs at once got a 429).

@@ -49,7 +49,7 @@
 
 ## F7a 같은 칸 기준선 잡 (`icm-lambda-grid-{random,tag}-f7.yaml`, #935)
 - 위 λ 선택 정책 잡과 **`icm_grid` 플래그가 `--agents`·`--out`만 다르다**(503020 · remaining 4 · 9칸 · seed 10001, `tests/test_icm_lambda_grid_f7_jobs.py`가 실제 CLI 파서로 고정). 같은 시드라 배치(스택)가 같아 정책/random/tag를 칸 단위로 비교할 수 있다. #877 기준선 잡(seed 0, 54칸)은 그대로 둔다.
-- 골격은 #877 잡과 같다(t0 기록, `run_stages` 측정 단계 + `icm_grid_pair`). 단일 프로세스 2 vCPU(`cpu3c`), `max_minutes: 90`, `run_stages --deadline-s 3600`(상한 30분 전), 각 최악 $0.18. `resume_run` 없이 **하나씩** 디스패치(#877 429). 결과: `ops:cloud/results/<run id>.json`, 단일 에이전트 `random` 또는 `tag`.
+- 골격은 #877 잡과 같다(t0 기록, `run_stages` 측정 단계 + `icm_grid_pair`). 단일 프로세스 2 vCPU(`cpu3c`, 로컬 참고: tag 9칸 8분 55초), `max_minutes: 90`, `run_stages --deadline-s 3600`(상한 30분 전), 각 최악 $0.18. `resume_run` 없이 **하나씩** 디스패치(#877 429). 결과: `ops:cloud/results/<run id>.json`, 단일 에이전트 `random` 또는 `tag`.
 
 ## warm start A/B 학습 잡 (`e3-tp-mid-c1-sng-bubble-{s2,s3,prior-s1,prior-s2,prior-s3}-pod32.yaml`, #926, ADR 0027 F6b)
 - A 팔(cold) 시드 2·3과 B 팔(prior) 시드 1–3. 모두 `e3-tp-mid-c1-sng-bubble-pod32.yaml`(#901, A 시드 1 = run 43735226442)과 같은 명령이고 `--seed`·출력 이름만 다르며, B 팔은 재개 플래그 자리에 `--prior-result "$STALKER_RESUME"`가 들어간다(`tests/test_sng_bubble_ab_jobs.py`가 고정). prior 읽기는 `--minutes` 시계 안이다(같은 연산).
