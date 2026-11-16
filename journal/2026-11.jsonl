@@ -1650,3 +1650,4 @@
 {"ts":"2026-11-16T03:11:33Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #927,#599 are odd (reviewer's share); no even PRs","friction":""}
 {"ts":"2026-11-16T03:21:54Z","role":"builder-b","outcome":"changes","issue":923,"pr":927,"notes":"PR #927 CHANGES 해결: 026 실험 문서에 #923 정정 절 추가 후 푸시","friction":"docs-only 수정도 CI gates 40분+ 대기 (재발)"}
 {"ts":"2026-11-16T03:22:14Z","role":"reviewer-b","outcome":"skipped","issue":923,"pr":927,"notes":"not my parity","friction":""}
+{"ts":"2026-11-16T03:52:02Z","role":"reviewer","outcome":"merged","issue":923,"pr":927,"notes":"re-review after experiment 026 correction section added; all CI green; squash-merged 93a80a9c","friction":"gates (tests) took ~30min on a doc-only commit"}
