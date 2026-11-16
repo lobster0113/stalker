@@ -416,7 +416,7 @@ test("BB ante (#887): deal, passive and shove lines, side-pot payoff and c1 key 
 test("c1 keys (#583): public key string equals Python at every depth; every c1 element appears for 2, 4 and 6 players", () => {
   const C = V.c1_keys, DEPTHS = ["basic", "full", "pro"];
   assert.equal(C.version, T.C1_VERSION, "KEY_VERSIONS.c1 differs: update tpgto.js to stalker/e3/tp_key.py");
-  for (const n of [2, 4, 6]) assert.deepEqual(T.c1PositionNames(n), C.positions[String(n)]);
+  for (const n of [2, 3, 4, 5, 6, 7, 8, 9]) assert.deepEqual(T.c1PositionNames(n), C.positions[String(n)]);   // #940: 7-9 too
   const parts = {};
   let total = 0, bad = 0;
   const first = [];

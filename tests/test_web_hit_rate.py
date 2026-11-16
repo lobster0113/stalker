@@ -629,3 +629,10 @@ def test_l1_extra_rows_are_found_at_l1_and_empty_or_none_changes_nothing():
             break
     assert sum(c["L1"] for c in bb["by_street"].values()) >= 1
     assert sum(c["exact"] for c in bb["by_street"].values()) == 0
+
+
+def test_position_group_of_handles_every_7_to_9_player_name():
+    from stalker.e3 import tp_key as TK
+    for n in (7, 8, 9):
+        for seat, name in enumerate(TK.C1_POSITIONS[n]):
+            assert H.position_group_of(name, f"n{n}") == TK.position_group(n, seat)
