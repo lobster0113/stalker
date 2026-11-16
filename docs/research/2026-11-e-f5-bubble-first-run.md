@@ -33,3 +33,4 @@
 - F4b: ICM 단위 LBR(착수 조건 충족), F6·F7(λ 선택)은 이 결과를 입력으로 사용.
 - 2회차 재디스패치는 불필요(exit 0, stopped_by max_iters).
 - 리뷰어 메모: `test_job_flags_parse_with_pod_train`이 argv만 만들고 파싱하지 않음(비차단, 별도 이슈 후보).
+- 다음 run부터 결과 summary의 `key_cells`(`t`: 토너먼트 칸별·`n`: 인원별 정보집합 수, #920)로 학습한 칸을 확인한다.
