@@ -47,6 +47,7 @@ import importlib.util
 import os
 import re
 import secrets
+import socket
 import subprocess
 import sys
 import time
@@ -355,6 +356,14 @@ def http_transport(api_key: str) -> Transport:
 
 def _is_network_error(e: BaseException) -> bool:
     return isinstance(e, (urllib.error.URLError, OSError)) and not isinstance(e, urllib.error.HTTPError)
+
+
+def _is_prerequest_error(e: BaseException) -> bool:
+    """True only when RunPod cannot have seen the request (DNS or refused connect).
+
+    Timeouts and resets can happen after the POST was sent, so a retry could create a second pod."""
+    return (isinstance(e, urllib.error.URLError) and not isinstance(e, urllib.error.HTTPError)
+            and isinstance(e.reason, (socket.gaierror, ConnectionRefusedError)))
 
 
 class RunPod:
@@ -679,7 +688,7 @@ def _create(job: Job, api: RunPod, pod_name: str, token: str, ledger: Path, run_
             try:
                 return api.create(job, pod_name, token, entry[0]), entry
             except (urllib.error.URLError, OSError) as e:
-                if not _is_network_error(e):
+                if not _is_prerequest_error(e):
                     raise
                 # no pod exists and RunPod never answered: no ledger line, $0 (a test pins this)
                 tries = len(NETWORK_RETRY_MINUTES) + 1 - len(net_waits)

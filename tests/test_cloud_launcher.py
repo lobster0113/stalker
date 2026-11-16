@@ -7,6 +7,8 @@ import urllib.error
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import socket
+
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -1222,7 +1224,7 @@ def test_cloud_workflow_export_mode(tmp_path):
 class FlakyCreate(FakeRunPod):
     def __init__(self, fail_posts, exc=None, **kw):
         super().__init__(**kw)
-        self.fail_posts, self.exc = fail_posts, exc or urllib.error.URLError("[Errno -2] Name or service not known")
+        self.fail_posts, self.exc = fail_posts, exc or urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))
 
     def __call__(self, method, url, body):
         if method == "POST" and url.endswith("/pods") and self.fail_posts != 0:
@@ -1273,6 +1275,32 @@ def test_create_gives_up_early_when_wait_would_pass_job_limit(tmp_path):
     assert len(_posts(api)) == 1
 
 
+@pytest.mark.parametrize("exc", [TimeoutError("timed out"), ConnectionResetError("reset"),
+                                 urllib.error.URLError(TimeoutError("timed out"))])
+def test_create_does_not_retry_errors_that_may_follow_a_sent_request(tmp_path, exc):
+    # RunPod may already have created the pod; a retry would bill a second, untracked one
+    api = FlakyCreate(-1, exc=exc)
+    with pytest.raises(type(exc)):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1
+
+
+def test_post_that_creates_pod_then_times_out_leaves_at_most_one_pod(tmp_path):
+    class CreatesThenTimesOut(FakeRunPod):
+        done = False
+
+        def __call__(self, method, url, body):
+            r = super().__call__(method, url, body)
+            if method == "POST" and url.endswith("/pods") and not self.done:
+                self.done = True
+                raise TimeoutError("timed out")
+            return r
+    api = CreatesThenTimesOut(exit_after_polls=1)
+    with pytest.raises(TimeoutError):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1 and len(api.pods) <= 1
+
+
 class FlakyDelete(FakeRunPod):
     def __init__(self, fail_deletes, **kw):
         super().__init__(**kw)
@@ -1286,7 +1314,7 @@ class FlakyDelete(FakeRunPod):
         return super().__call__(method, url, body)
 
 
-def test_terminate_and_get_retry_network_blips_so_no_pod_is_left_billing():
+def test_terminate_retries_network_blips_so_no_pod_is_left_billing():
     waits = []
     api = FlakyDelete(2)
     rp = L.RunPod(api, sleep=waits.append)
