@@ -1679,3 +1679,4 @@
 {"ts":"2026-11-16T09:12:09Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd parity, reviewer's)","friction":""}
 {"ts":"2026-11-16T09:41:13Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES at head d723a9c; awaiting builder fix","friction":""}
 {"ts":"2026-11-16T10:05:29Z","role":"builder-b","outcome":"pr_opened","issue":933,"pr":936,"notes":"F6c-1 A/B eval job spec + tests + README; full gate passes locally","friction":"foreground tool auto-backgrounds at 120s so the 9-min wait loop in builder.md is not possible; full gate took ~40min"}
+{"ts":"2026-11-16T10:05:50Z","role":"reviewer","outcome":"skipped","issue":933,"pr":936,"notes":"not my parity","friction":""}
