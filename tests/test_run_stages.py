@@ -56,9 +56,17 @@ def _alive(pid):
     try:
         with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
             state = f.read().rsplit(")", 1)[1].split()[0]
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
+        # Reading /proc/<pid>/stat of a process that dies mid-read raises ESRCH instead of ENOENT (#934).
         return False
     return state != "Z"
+
+
+def test_alive_treats_a_process_vanishing_mid_read_as_dead(monkeypatch):
+    def vanish(*_a, **_k):
+        raise ProcessLookupError(3, "No such process")
+    monkeypatch.setattr("builtins.open", vanish)
+    assert _alive(2**22 + 1) is False
 
 
 def test_deadline_stops_running_stage_and_its_grandchildren(tmp_path):
