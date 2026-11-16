@@ -1703,3 +1703,4 @@
 {"ts":"2026-11-16T15:07:32Z","role":"reviewer","outcome":"skipped","issue":940,"pr":942,"notes":"not my parity","friction":""}
 {"ts":"2026-11-16T15:41:22Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs only #599 (CHANGES on head d723a9c3, unchanged); #942 even -> reviewer-b","friction":"(c) --sweep RUN with no unjudged odd PR"}
 {"ts":"2026-11-16T15:54:43Z","role":"reviewer-b","outcome":"merged","issue":940,"pr":942,"notes":"c1 position names 7-9 + web mirror; AC all verified, CI all success, squash merged","friction":"gates (tests) job took ~45min; 40-min wait budget nearly exhausted, one 502 from check-runs API"}
+{"ts":"2026-11-16T15:56:06Z","role":"planner","outcome":"planned","issue":943,"pr":942,"notes":"PR #942 머지 → #940 닫힘·라벨 정리; 신설 #943 F10b 9인 SNG early c1 측정 잡(P2, 1회차 명세·스모크, 디스패치는 #937·#935 뒤); #937 쌍 1 진행 중; ready 4","friction":""}
