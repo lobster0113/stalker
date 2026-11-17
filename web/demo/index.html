@@ -2223,7 +2223,12 @@ function tpgLoad(tier, n = 6) {
 }
 // ---- tournament policies (ADR 0029 decisions 3-4, #956): one (env_id, stage, ante) file, read when the table needs it.
 // The page's formats name the presets the policies are trained on; MTT is the 180-player preset at a 6-max table.
-const TOUR_ENV = { "6": "6max_sng_topheavy", "9": "9max_sng_503020", mtt: "mtt180_bbante" };
+// The index is keyed by EnvSpec.env_id (a hash of the preset's rules, `from_tournament(load_preset(name)).env_id`),
+// not by the preset name, so a name here would never find an exported policy (#969). tests/test_web_tournament_policy.py
+// recomputes these from the Python presets.
+const TOUR_PRESET = { "6": "6max_sng_topheavy", "9": "9max_sng_503020", mtt: "mtt180_bbante" };
+const TOUR_ENV_ID = { "6max_sng_topheavy": "0ea12574372e3e94", "9max_sng_503020": "1261657cabcdc1ad", "mtt180_bbante": "1f615e0c44968b32" };
+const TOUR_ENV = Object.fromEntries(Object.entries(TOUR_PRESET).map(([f, name]) => [f, TOUR_ENV_ID[name]]));
 // Policy stage letters (ADR 0027 decision 2) as the badge names them; the setup select's names are for the mock teacher.
 const TOUR_STAGE_NAMES = { e: "버블 전", b: "버블", m: "머니인", f: "파이널 테이블" };
 const UNTRAINED_TITLE = "이 단계의 TP-GTO는 아직 학습 중이에요. 상대·정답은 규칙 기반입니다.";

@@ -1536,7 +1536,7 @@ wd.section("13 #956");
 // (d) 정책이 없는 프리셋(9인 SNG)은 규칙 봇이며 캐시 정책 파일을 요청하지 않는다.
 {
   const { tourPolicy } = await import("./tour-fixture.mjs");
-  const ENV = "6max_sng_topheavy";
+  const ENV = "0ea12574372e3e94";   // env_id of 6max_sng_topheavy (TOUR_ENV_ID in index.html)
   const fixes = { e1: tourPolicy({ players: 6, stage: "e", ante: 1 }), e0: tourPolicy({ players: 6, stage: "e", ante: 0, hands: 200 }) };
   const open = async (delayMs = 0) => {
     const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -1647,7 +1647,7 @@ wd.section("14 #968");
 {
   const { tourPolicy } = await import("./tour-fixture.mjs");
   // Without the rows for calling an all-in (`call|` keys) those spots have no row at any backoff level: the misses of (b).
-  const ENV = "6max_sng_topheavy", FILE = `t-${ENV}-e1.json`, full = tourPolicy({ players: 6, stage: "e", ante: 1 }).doc;
+  const ENV = "0ea12574372e3e94" /* 6max_sng_topheavy */, FILE = `t-${ENV}-e1.json`, full = tourPolicy({ players: 6, stage: "e", ante: 1 }).doc;
   const policy = Object.fromEntries(Object.entries(full.policy).filter(([k]) => !k.startsWith("call|")));
   const fixDoc = { ...full, policy, keys: Object.keys(policy).length }, fix = { doc: fixDoc, bytes: Buffer.from(JSON.stringify(fixDoc)) };
   const UNTRAINED = "이 단계의 TP-GTO는 아직 학습 중이에요. 상대·정답은 규칙 기반입니다.";
@@ -1756,7 +1756,7 @@ wd.section("14 #968");
   {
     // (e) no tournament policy for this preset (the index has one for another preset only): today's wording, unchanged.
     // 6-max, because the 9-max phone table already overflows by a persona tag (follow-up of #968, not this badge).
-    const { pg, errs } = await open(null, "9max_sng_503020");
+    const { pg, errs } = await open(null, "1261657cabcdc1ad" /* 9max_sng_503020 */);
     await pg.selectOption("#t-format", "6");
     await pg.click("#start-btn");
     await pg.waitForSelector(QUICK);
@@ -1794,6 +1794,52 @@ wd.section("14 #968");
   }
   console.log("토너먼트 pill·복기 ok");
 }
+
+wd.section("15 #969");
+// 15. #969 (ADR 0029 H4) 실제 토너먼트 정책(run 43735226442, 9max_sng_503020 버블 4인, `t-1261657cabcdc1ad-b0.json`)과
+// 실제 index.json(라우팅 없음)으로 9인 SNG에 들어간다. (a) 인덱스가 페이지의 env_id(TOUR_ENV["9"])·버블·앤티 0으로 그 항목을 찾는다.
+// (b) 시작(9명, 버블 전)은 정책 파일을 요청하지 않는다(그 단계 정책 없음 → 미학습). (c) 버블(생존 4)에서 페이지 테이블은 9석 그대로라
+// 4인 정책을 쓸 수 없다(`players_mismatch`): 파일 요청 0, 캐시 정책으로 대신하지 않음, pill은 `토너먼트 · 버블 · 미학습(규칙 봇)`.
+// (c)는 수용 기준 4("정확히 1건")와 다르다 — 웹 SNG는 탈락 좌석을 다른 테이블 인원으로 채워 4인 테이블이 생기지 않는다(PR #969 본문 "후속").
+{
+  const FILE = "t-1261657cabcdc1ad-b0.json";
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await autoContinue(pg);
+  pg.setDefaultTimeout(60_000);
+  const errs = [], reqs = [];
+  pg.on("pageerror", e => errs.push(e.message));
+  pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+  pg.on("request", r => { const m = /\/policy\/([^/?]+)$/.exec(r.url()); if (m) reqs.push(m[1]); });
+  await pg.goto(url);
+  await pg.waitForSelector("#set-mode [data-v='tournament']");
+  await pg.click("#set-mode [data-v='tournament']");
+  await pg.click("#set-play [data-v='quick']");
+  await pg.selectOption("#t-format", "9");
+  await pg.selectOption("#t-ante", "none");
+  reqs.length = 0;
+  await pg.click("#start-btn");
+  await pg.waitForSelector(QUICK);
+  const a = await pg.evaluate(f => {
+    const r = TPG.mod.tournamentPolicyFor(TPG.index, { envId: TOUR_ENV["9"], players: 4, paid: 3, field: 9, tableSize: 9, ante: 0 });
+    return { idxV: TPG.index.schema_version, env: TOUR_ENV["9"], stage: r.stage, file: r.entry?.file ?? null, run: r.entry?.run_id ?? null, players: r.entry?.players ?? null,
+      start: { ...G.tpol }, pill: $("#svc-pill").textContent, eng: !!G.eng, want: f };
+  }, FILE);
+  must(a.idxV === 2 && a.env === "1261657cabcdc1ad" && a.stage === "b" && a.file === FILE && a.run === "43735226442" && a.players === 4,
+    `실제 토너먼트 정책: 인덱스가 9인 SNG 버블 항목을 찾지 못함 (${JSON.stringify(a)})`);
+  must(a.start.stage === "e" && !a.start.file && !a.eng && a.pill === "토너먼트 · 버블 전 · 미학습(규칙 봇)",
+    `실제 토너먼트 정책: 버블 전은 정책 없는 단계(미학습)여야 함 (${JSON.stringify(a)})`);
+  must(!reqs.some(r => r !== "index.json"), `실제 토너먼트 정책: 버블 전에 정책 파일을 요청함 (${reqs.join(", ")})`);
+  await pg.evaluate(() => { G.players = 4; tourSelect(); });
+  await pg.waitForTimeout(300);
+  const b = await pg.evaluate(() => ({ tpol: { ...G.tpol }, eng: !!G.eng, polTable: G.polTable, pill: $("#svc-pill").textContent }));
+  must(b.tpol.stage === "b" && b.tpol.reason === "players_mismatch" && !b.eng && !b.polTable && b.pill === "토너먼트 · 버블 · 미학습(규칙 봇)",
+    `실제 토너먼트 정책: 9석 테이블 버블은 4인 정책을 쓰지 않는 미학습이어야 함 (${JSON.stringify(b)})`);
+  must(!reqs.some(r => r !== "index.json"), `실제 토너먼트 정책: 쓸 수 없는 정책 파일이나 캐시 정책을 요청함 (${reqs.join(", ")})`);
+  must(!errs.length, `실제 토너먼트 정책: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+  console.log(`실제 토너먼트 정책: 인덱스 항목 ${FILE} 찾음, 9석 버블은 players_mismatch(요청 0)`);
+  await pg.close();
+}
+
 
 wd.stop();
 await browser.close();
