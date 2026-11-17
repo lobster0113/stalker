@@ -131,6 +131,7 @@
 - 구현: `referee/e3/tournament_thresholds.py`(`python -m referee.e3.tournament_thresholds [--json] <tournament_ab result.json>...`), 표 `tournament_thresholds_v1.json`(sha256 고정, 바꾸려면 새 버전 파일).
 - 지표 `primary`(학습 좌석 시뮬 상금 − ICM 에퀴티, B − A, 상금 풀 비율). 독립 학습 쌍마다 결과 1개, 쌍 수 ≥ `min_seeds`(3). `m` = 쌍 평균의 평균, `se = sqrt(Σ se_i²)/k`, `ci_low = m − 1.96·se`. `ci_low > −δ`(δ = 0.0075)면 pass, 아니면 fail, 쌍이 모자라면 insufficient(실패 아님, exit 0). 같은 쌍 중복·`primary` 없음·평가 설정(preset·remaining·games·seed 등) 불일치는 오류.
 - 아직 CI를 실패시키지 않는다(배선은 후속 이슈). `lbr_icm`·`bubble_mean_rel`·`gate_t_*`는 record-only 유지.
+- history 키 (#976, [ADR 0030](../docs/decisions/0030-tournament-eval-thresholds.md) 결정 4 후속 2): CI 지표 스냅샷(`referee/metrics.py` `tournament_ab`)이 `ops:cloud/results/`의 `tournament_ab` 결과를 이 judge로 판정해 `tournament_primary_ci_low`·`tournament_primary_mean`·`tournament_pairs`·`tournament_verdict`(pass|fail|insufficient)와 판정에 쓴 run 목록 `tournament_runs`를 남긴다. 결과 고르기: 가장 최신 run의 평가 설정(`CONFIG_KEYS`)과 같은 결과만, 학습 쌍(A·B sha256)마다 최신 run 1개. 결과가 없거나 judge 오류면 값은 `null`이고 `tournament_error`(300자 이하) 메모 — 스냅샷은 실패하지 않는다. 기록 전용(CI를 실패시키지 않음). 키 없는 이전 행과 섞인 history는 `metrics.tournament_trend()`가 판정 있는 행만 골라 읽는다.
 
 ## Gate X — 설명 충실도 (정의만, 구현은 D4)
 - TP 입력을 조금 바꿨을 때, 설명이 말한 대로 행동이 바뀌는가(설명과 실제 출력 변화의 일치).
