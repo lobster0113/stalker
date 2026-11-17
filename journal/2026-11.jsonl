@@ -1844,3 +1844,4 @@
 {"ts":"2026-11-17T22:42:15Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #981,#599 already have VERDICT on current head","friction":""}
 {"ts":"2026-11-17T22:49:32Z","role":"builder-b","outcome":"changes","issue":977,"pr":981,"notes":"PR #981 CHANGES 해결: 820 9인 세로형 링+skipOverlap 제거+검사 추가, 로컬 full PASS, 푸시","friction":"gates full 약 36분(기존 (a)); 새 컨테이너에 numpy 미설치라 첫 full이 즉시 실패(pip install 선행 필요)"}
 {"ts":"2026-11-17T22:49:49Z","role":"reviewer-b","outcome":"skipped","issue":977,"pr":981,"notes":"not my parity","friction":""}
+{"ts":"2026-11-17T23:11:41Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #981, #599 both odd parity (reviewer); no even PR to judge","friction":""}
