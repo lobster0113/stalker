@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Two parts in parallel (#203): the test suite and the registered checks each take ~15 minutes.
+  # Parts in parallel (#203, #949): the test suite in two file shards, and the registered checks.
   gates-part:
     name: gates (${{ matrix.part }})
     runs-on: ubuntu-latest
@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [tests, checks]
+        part: [tests-1, tests-2, checks]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,12 +32,12 @@ jobs:
       - run: python -m referee.gates full --part ${{ matrix.part }}
         env:
           # record-metrics reads the counts from this report instead of rerunning the suite (#312).
-          PYTEST_ADDOPTS: ${{ matrix.part == 'tests' && '--junitxml=junit.xml' || '' }}
+          PYTEST_ADDOPTS: ${{ startsWith(matrix.part, 'tests') && format('--junitxml=junit-{0}.xml', matrix.part) || '' }}
       - uses: actions/upload-artifact@v4
-        if: matrix.part == 'tests' && always()
+        if: startsWith(matrix.part, 'tests') && always()
         with:
-          name: junit
-          path: junit.xml
+          name: junit-${{ matrix.part }}
+          path: junit-${{ matrix.part }}.xml
           if-no-files-found: warn
 
   # The required check keeps its name; it fails unless every part succeeded (a skipped or
@@ -200,14 +200,15 @@ jobs:
       - uses: actions/download-artifact@v4
         if: steps.inputs.outputs.run
         with:
-          name: junit
+          pattern: junit-*
+          merge-multiple: true
           path: /tmp/junit
       - name: snapshot
         if: steps.inputs.outputs.run
         timeout-minutes: 20
         env:
           METRICS_SOURCE: ci
-          METRICS_JUNIT: /tmp/junit/junit.xml
+          METRICS_JUNIT: /tmp/junit
         run: python -m referee.metrics > /tmp/snap.json
       - name: append to ops branch
         if: github.event_name == 'push'

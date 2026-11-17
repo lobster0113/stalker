@@ -50,10 +50,12 @@ import importlib.util
 import os
 import re
 import secrets
+import socket
 import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -67,7 +69,8 @@ REAP_GRACE_MIN = 10
 # GitHub-hosted runners stop any job at 360 min; keep the launcher's own deadline, terminate
 # and ledger push well inside that, or the runner limit kills the job before its finally runs.
 MAX_JOB_MINUTES = 330
-REST_URL = "https://rest.runpod.io/v1"
+# REST v1 (rest.runpod.io/v1) retired 2026-11-15 and stopped resolving (#952); v2 lives on the GraphQL host
+REST_URL = "https://api.runpod.io/v2"
 # RunPod sits behind Cloudflare, which rejects urllib's default "Python-urllib" agent with 403/1010.
 USER_AGENT = "stalker-launcher/1 (+https://github.com/lobster0113/stalker)"
 GRAPHQL_URL = "https://api.runpod.io/graphql"
@@ -143,7 +146,16 @@ FLAVOR_LIST_VCPU = 32
 SLOW_HOST_FRACTION = 0.6
 # RunPod HTTP 500 "no longer any instances available" costs nothing; wait and try the flavor list again
 CAPACITY_RETRY_MINUTES = (15, 30, 60)
-CAPACITY_RE = re.compile(rb"no longer any instances available|no instances available", re.IGNORECASE)
+# DNS/connect failures (URLError/OSError, never an HTTP answer) happen before RunPod sees the request: a create that
+# hit one made no pod, so waiting and retrying is safe and costs $0 (#946: rest.runpod.io "Name or service not known")
+NETWORK_RETRY_MINUTES = (1, 5, 15)
+# GET/DELETE are cheap and idempotent; a short retry rides out a blip so a pod is not left running unterminated
+NETWORK_RETRY_SECONDS = (5, 15)
+# v1 said "no longer any instances available" with HTTP 500; v2 answers 400 with only a human-readable detail
+# (no machine code), the same status as a broken rule, so the text decides (#952)
+CAPACITY_RE = re.compile(rb"no longer any instances available|no instances available|no capacity|"
+                         rb"insufficient capacity|could not be placed", re.IGNORECASE)
+CAPACITY_CODES = (400, 500)
 
 
 @dataclass(frozen=True)
@@ -346,8 +358,8 @@ def http_transport(api_key: str) -> Transport:
                 return None
             full = e.read()
             body = full[:300]
-            if e.code == 500 and CAPACITY_RE.search(full):
-                raise CapacityError(f"RunPod {method} {url}: HTTP 500 {body!r}") from e
+            if e.code in CAPACITY_CODES and CAPACITY_RE.search(full):
+                raise CapacityError(f"RunPod {method} {url}: HTTP {e.code} {body!r}") from e
             hint = (" — Cloudflare rejected the client signature; check USER_AGENT in harness/cloud/launcher.py"
                     if e.code == 403 and b"1010" in body else "")
             raise LauncherError(f"RunPod {method} {url}: HTTP {e.code} {body!r}{hint}") from e
@@ -355,9 +367,33 @@ def http_transport(api_key: str) -> Transport:
     return call
 
 
+def _is_network_error(e: BaseException) -> bool:
+    return isinstance(e, (urllib.error.URLError, OSError)) and not isinstance(e, urllib.error.HTTPError)
+
+
+def _is_prerequest_error(e: BaseException) -> bool:
+    """True only when RunPod cannot have seen the request (DNS or refused connect).
+
+    Timeouts and resets can happen after the POST was sent, so a retry could create a second pod."""
+    return (isinstance(e, urllib.error.URLError) and not isinstance(e, urllib.error.HTTPError)
+            and isinstance(e.reason, (socket.gaierror, ConnectionRefusedError)))
+
+
 class RunPod:
-    def __init__(self, transport: Transport):
+    def __init__(self, transport: Transport, sleep: Callable[[float], None] = time.sleep):
         self.t = transport
+        self.sleep = sleep
+
+    def _retry(self, method: str, url: str):
+        """GET/DELETE: retry network errors after NETWORK_RETRY_SECONDS; the last error propagates."""
+        for wait in NETWORK_RETRY_SECONDS:
+            try:
+                return self.t(method, url, None)
+            except (urllib.error.URLError, OSError) as e:
+                if not _is_network_error(e):
+                    raise
+                self.sleep(wait)
+        return self.t(method, url, None)
 
     def balance(self) -> float:
         r = self.t("POST", GRAPHQL_URL, {"query": "query { myself { clientBalance } }"})
@@ -367,29 +403,53 @@ class RunPod:
             raise LauncherError(f"RunPod balance query: unexpected response {str(r)[:300]}") from e
 
     def create(self, job: Job, pod_name: str, token: str | None = None, flavor: str | None = None) -> dict:
-        body = {"name": pod_name, "imageName": job.image, "cloudType": job.cloud,
-                "containerDiskInGb": job.disk_gb, "dockerStartCmd": ["bash", "-lc", pod_command(job)]}
+        # v2 rejects unknown fields with 422; `cmd` is v1's dockerStartCmd (the CMD, image ENTRYPOINT kept)
+        body = {"name": pod_name, "image": job.image, "cloud": job.cloud, "disk": job.disk_gb,
+                "cmd": ["bash", "-lc", pod_command(job)]}
         if job.result_path:
             # the token goes in env, never in the command, so it stays out of logs that echo the spec
             body |= {"ports": [f"{RESULT_PORT}/http"], "env": {TOKEN_ENV: token}}
         if job.gpu_type:
-            body |= {"computeType": "GPU", "gpuTypeIds": [job.gpu_type], "gpuCount": job.gpu_count}
+            body |= {"gpu": {"id": job.gpu_type, "count": job.gpu_count}}
         else:
-            body |= {"computeType": "CPU", "cpuFlavorIds": [flavor or job.flavors[0][0]], "vcpuCount": job.vcpu}
+            body |= {"cpu": {"id": flavor or job.flavors[0][0], "vcpuCount": job.vcpu}}
         pod = self.t("POST", f"{REST_URL}/pods", body)
         if not pod or "id" not in pod:
             raise LauncherError(f"RunPod create: no pod id in response {str(pod)[:300]}")
         return pod
 
     def get(self, pod_id: str) -> dict | None:
-        return self.t("GET", f"{REST_URL}/pods/{pod_id}", None)
+        return self._retry("GET", f"{REST_URL}/pods/{pod_id}")
 
     def list(self) -> list[dict]:
-        r = self.t("GET", f"{REST_URL}/pods", None) or []
-        return r.get("pods", []) if isinstance(r, dict) else r
+        """Every page: v2 answers {pods, pagination} newest first and filters nothing server-side."""
+        pods: list[dict] = []
+        url = f"{REST_URL}/pods"
+        for _ in range(100):  # 1000 pods a page; a cursor that never ends must not hang the reap
+            r = self._retry("GET", url) or {}
+            if isinstance(r, list):
+                return pods + r
+            pods += r.get("pods") or []
+            page = r.get("pagination") or {}
+            if not page.get("hasNextPage") or not page.get("nextCursor"):
+                return pods
+            url = f"{REST_URL}/pods?cursor={urllib.parse.quote(str(page['nextCursor']), safe='')}"
+        raise LauncherError(f"RunPod list: more than 100 pages from {REST_URL}/pods; stopping")
+
+    def reach(self) -> None:
+        """`check`: the REST host answers an authenticated list (the GraphQL balance says nothing about it, #952)."""
+        try:
+            r = self.t("GET", f"{REST_URL}/pods?limit=1", None)
+        except (urllib.error.URLError, OSError, LauncherError) as e:
+            raise LauncherError(f"RunPod REST unreachable: GET {REST_URL}/pods failed ({e}). If the host does not resolve "
+                                "or answers 404/410, RunPod moved the REST API: update REST_URL and the pod fields in "
+                                "harness/cloud/launcher.py from RunPod's current API reference") from e
+        if not isinstance(r, dict) or "pods" not in r:
+            raise LauncherError(f"RunPod REST: GET {REST_URL}/pods answered {str(r)[:200]} without a `pods` list; the "
+                                "API changed — update REST_URL and the pod fields in harness/cloud/launcher.py")
 
     def terminate(self, pod_id: str) -> None:
-        self.t("DELETE", f"{REST_URL}/pods/{pod_id}", None)
+        self._retry("DELETE", f"{REST_URL}/pods/{pod_id}")
 
 
 # The pod's result server (stdlib only, the image may have nothing else). GET serves status.json and
@@ -593,7 +653,7 @@ def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int | No
 
 
 def _cost_per_hr(pod: dict | None) -> float | None:
-    v = (pod or {}).get("costPerHr")
+    v = (pod or {}).get("cost")
     return float(v) if v is not None else None
 
 
@@ -672,17 +732,39 @@ def _create(job: Job, api: RunPod, pod_name: str, token: str, ledger: Path, run_
     Each refused create is a zero-cost `create_failed` ledger line with the run id, so the record shows
     every try even though no pod (and no start/end pair) exists for it."""
     waits = list(CAPACITY_RETRY_MINUTES)
+    net_waits = list(NETWORK_RETRY_MINUTES)
     attempt = 0
     while True:
+        net_retry = False
         for entry in job.flavors:
             attempt += 1
             try:
                 return api.create(job, pod_name, token, entry[0]), entry
+            except (urllib.error.URLError, OSError) as e:
+                if not _is_prerequest_error(e):
+                    raise
+                # no pod exists and RunPod never answered: no ledger line, $0 (a test pins this)
+                tries = len(NETWORK_RETRY_MINUTES) + 1 - len(net_waits)
+                log(f"network error creating pod (try {tries}): {e}")
+                if not net_waits:
+                    raise LauncherError(f"run {run_id}: cannot reach {REST_URL} after {tries} tries over "
+                                        f"{'+'.join(map(str, NETWORK_RETRY_MINUTES))} min of waits (last: {e}); $0, no pod "
+                                        "created; dispatch again later") from e
+                wait = net_waits.pop(0)
+                if not fits(wait):
+                    raise LauncherError(f"run {run_id}: cannot reach {REST_URL} ({e}), and a {wait} min wait + "
+                                        f"max_minutes {job.max_minutes} would pass the launcher's {MAX_JOB_MINUTES} min "
+                                        "($0); dispatch again later") from e
+                sleep(wait * 60)
+                net_retry = True
+                break
             except CapacityError as e:
                 append_ledger(ledger, {"event": "create_failed", "ts": _iso(now()), "month": month,
                                        "job": job.name, "run_id": run_id, "flavor": entry[0], "attempt": attempt,
                                        "error": "capacity", "actual_usd": 0.0})
                 log(f"no capacity for {entry[0] or job.gpu_type} (try {attempt}): {e}")
+        if net_retry:
+            continue
         if not waits:
             raise CapacityExhausted(f"run {run_id}: no capacity for {', '.join(str(f) for f, _, _ in job.flavors)} after "
                                     f"{attempt} tries over {'+'.join(map(str, CAPACITY_RETRY_MINUTES))} min of waits "
@@ -734,7 +816,11 @@ def _run_pod(job: Job, api: RunPod, pod: dict, flavor: str | None, rate_cap: flo
         speed_checked = not median
         while True:
             info = api.get(pod_id)
-            if info is None or info.get("desiredStatus") in ("EXITED", "TERMINATED"):
+            if info is not None and info.get("status") == "ERROR":
+                status = "pod_error"  # v2 reports the container's unrecoverable state; it will not finish
+                log(f"pod {pod_id} status ERROR; terminating")
+                break
+            if info is None or info.get("status") in ("EXITED", "TERMINATED"):
                 # a result job idles after publishing, so exiting on its own means it never did
                 status = "no_result" if job.result_path else "completed"
                 break
@@ -996,7 +1082,10 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if a.cmd == "check":
-            print(f"RunPod key ok; balance ${api().balance():.2f}; cap ${load_cap():.2f}/month")
+            rp = api()
+            balance = rp.balance()
+            rp.reach()
+            print(f"RunPod key ok; balance ${balance:.2f}; REST {REST_URL} ok; cap ${load_cap():.2f}/month")
         elif a.cmd == "run":
             job = load_spec(a.spec)
             if bool(a.resume_file) != bool(a.resume_run):

@@ -97,3 +97,20 @@ def test_xdist_maxfail_stops_after_first_failure(tmp_path):
                         str(tmp_path)], capture_output=True, text=True, encoding="utf-8", cwd=tmp_path)
     assert r.returncode != 0
     assert "stopping after 1 failures" in r.stdout and "3 failed" not in r.stdout, r.stdout
+
+
+def test_test_shards_partition_collected_test_files_deterministically(monkeypatch):
+    import subprocess
+    import sys
+
+    out = subprocess.run([sys.executable, "-m", "pytest", "--co", "-q", "-p", "no:cacheprovider"],
+                         cwd=gates.ROOT, capture_output=True, text=True, encoding="utf-8").stdout
+    collected = {line.split("::")[0] for line in out.splitlines() if "::" in line}
+    a, b = gates.shard_files(1), gates.shard_files(2)
+    # Files that skip at collection (torch-only rl tests without the extra) are in a shard but not in `--co`.
+    assert not set(a) & set(b) and collected and collected <= set(a) | set(b)
+    assert a == gates.shard_files(1) and abs(len(a) - len(b)) <= 1
+    calls = []
+    monkeypatch.setattr(gates, "_run", lambda name, argv: calls.append((name, argv)) or True)
+    assert gates.full("tests-2") and calls[-1][1][-len(b):] == b
+    assert gates._parse(["gates", "full", "--part", "tests-1"]) == ("full", "tests-1")

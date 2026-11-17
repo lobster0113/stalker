@@ -20,7 +20,7 @@
 | `result_path` | | 잡이 쓰는 결과 JSON의 절대 경로(`[A-Za-z0-9._/-]`). 설정하면 런처가 회수한다(아래 "결과 회수") |
 
 ## 실행 (MCP `actions_run_trigger`, workflow `cloud.yml`, ref `main`)
-- `mode=check`: 키 유효성·잔액 조회(비용 0). 키 이상이면 `ops:NEEDS_HUMAN.md`에 재등록 요청.
+- `mode=check`: 키 유효성·잔액 조회(GraphQL)와 REST 도달 검사(`GET https://api.runpod.io/v2/pods?limit=1`, #952), 비용 0. REST가 안 닿으면 종료 코드 1과 `REST_URL` 고치는 법을 낸다. 키 이상이면 `ops:NEEDS_HUMAN.md`에 재등록 요청.
 - `mode=run job=jobs/x.yaml dry_run=true`: 예산 검사만, pod 생성 없음.
 - `mode=run job=jobs/x.yaml`: 실제 실행. pod 생성 직후 start(예약) 줄을 ops에 push하고, push가 실패하면 pod를 종료하고 실패로 끝난다. 월 누적(종료분은 실제, 진행분은 최악 예약) + 최악 비용 > `harness/budget.json` 상한이면 거부(exit 2).
 - `mode=run job=jobs/x.yaml resume_run=<run id>`: 앞선 같은 잡 실행의 결과(아티팩트 `cloud-result-<run id>`)에서 이어 학습한다(#354, 아래 "이어 달리기"). `dry_run=true`와 함께 쓰면 받은 결과가 넘길 수 있는 크기인지만 본다.
@@ -59,6 +59,10 @@
 ## F6c A/B 평가 잡 (`e3-sng-bubble-ab-eval.yaml`, #933, ADR 0027 결정 4)
 - cold(A)와 prior(B) 학습 결과 하나씩을 `tournament_ab --a "$STALKER_RESUME" --b "$STALKER_RESUME_B" --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --seed 10001`로 평가한다(`--games 400 --sym-games 200`, 로컬 참고: 정책 좌석 ~0.6초/판 → 9칸×두 팔 ≈ 108분). **`resume_run`=A, `resume_run_b`=B**(#929)로 디스패치하고, 둘 중 하나라도 비면 종료 코드 3으로 바로 끝난다. 쌍 3개(시드 i끼리)는 이 명세 하나에 두 값만 바꿔 디스패치한다(A 시드 1 = run 43735226442). 4 vCPU, `max_minutes 240`, `--deadline-s 12600`, 최악 $0.96. 단독 디스패치(#877). 결과는 `tournament_ab` JSON(`verdict`·`adopted`·`primary`). 디스패치·판정 기록은 F6c-2.
 
+## 9인 SNG early c1 측정 잡 (`e3-tp-mid-c1-sng-early9-pod32.yaml`, #943, ADR 0027 F10)
+- 토너먼트 단계 4(9max SNG early) 준비 측정: 9인 c1(`te0` 슬롯, #940 위치 이름) 학습이 도는지와 it/s·key 수·메모리를 잰다. `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 같은 틀에 `--players 9 --stage e --stacks bubble:even --lbr-hands 600`(레벨 0에 생존자 9명 = 아직 아무도 탈락하지 않았으므로 같은 스택이 실제 초반 테이블). `tests/test_sng_early9_job.py`가 실제 `pod_train` 파서로 인자를 고정하고, 7·8·9인 소규모 로컬 실행(slow)으로 키에 `EP` 위치가 없고 `te0`인지 확인한다.
+- 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분). `median_iters_per_s`는 첫 run 실측 뒤 정한다(#941 방식). #937·#935 클라우드 run이 끝난 뒤 `resume_run` 없이 **단독** 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`(1MB 초과면 아티팩트만).
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
@@ -79,9 +83,10 @@
 - 두 번째 입력 `resume_run_b`(#929): 정책 두 개가 필요한 잡(F6c `tournament_ab --a … --b …`)용. `resume_run`과 함께만 쓴다(B만 주면 `check resume_run_b` 단계가 거부). 러너가 `cloud-result-<resume_run_b>`를 `resume_b/`로 받고, 런처가 같은 다듬기(`RESUME_FIELDS`)·gzip·95 MB 상한을 **파일마다** 적용해 `PUT /<토큰>/resume-b`로 **먼저** 보낸 다음 기존 `resume`을 보낸다. `resume-b`는 신호가 아니어서 잡은 A의 신호로 시작하고, 그때 받은 B를 `$STALKER_RESUME_B`로 본다(안 보냈으면 빈 값). 오류·413 메시지에는 `resume_run_b`가 나온다. 예: `--a "$STALKER_RESUME" --b "$STALKER_RESUME_B"`. 두 파일 합 최대 190 MB는 기본 `disk_gb` 20 안이고, `RESUME_WAIT_S`(1200초) 안에 0.16 MB/s면 둘 다 도착한다.
 
 ## 용량과 느린 호스트 (#401, ADR 0019 §6)
-- **flavor 대체.** 런처는 목록 순서대로 하나씩 pod를 만든다. RunPod가 HTTP 500 "no longer any instances available"(용량 부족, 비용 0)로 거절하면 다음 flavor로 바로 다시 만든다. 단가 검사는 실제로 잡힌 flavor의 `flavor_hourly_usd`로 한다.
+- **flavor 대체.** 런처는 목록 순서대로 하나씩 pod를 만든다. RunPod가 용량 부족(비용 0)으로 거절하면 — REST v1은 HTTP 500 "no longer any instances available", v2(`api.runpod.io/v2`, #952)는 HTTP 400 + `detail` 문구(기계용 코드 없음, `CAPACITY_RE`로 판별) — 다음 flavor로 바로 다시 만든다. 단가 검사는 실제로 잡힌 flavor의 `flavor_hourly_usd`로 한다.
 - **지연 재시도.** 목록이 모두 용량 부족이면 15·30·60분 기다렸다가 목록을 다시 돈다(최대 3회). 거절마다 원장에 `create_failed` 줄(`run_id`·`flavor`·`attempt`, `actual_usd` 0)이 남는다. 다 실패하면 run id가 든 메시지로 종료 코드 3. 다음 디스패치 판단은 그 줄을 보고 한다.
 - **느린 호스트 재발급.** `result_path` 잡의 stderr는 파드 안 `job.log`로도 복사되고, 결과 서버가 첫 진행 줄의 `iters_per_s` 숫자 하나만 `/<토큰>/progress.json`으로 내준다(로그 본문은 나가지 않는다). `median_iters_per_s`가 있고 그 값이 중앙값의 0.6배 미만이면 그 pod를 종료(원장 end `status: slow_host`, 실제 비용)하고 예산을 다시 검사한 뒤 **한 번만** 다시 만든다. 새 pod도 느리면 그대로 돌린다. 결과에 `replaced_pods`가 남는다.
+- sng-bubble 학습 잡 6개(`e3-tp-mid-c1-sng-bubble-*-pod32`, #941)는 `median_iters_per_s: [12]`를 선언한다(임계 7.2 it/s, F6b 느린 호스트 6.25–7.09·정상 11.36–11.84). 런처는 첫 진행 줄 it/s로 판단해 최종 평균과 다를 수 있다.
 - **벽시계 한도.** 기다림과 재발급은 그 뒤 pod가 `max_minutes`를 다 써도 런처 시작부터 330분(`MAX_JOB_MINUTES`) 안에 끝날 때만 한다. GitHub 러너가 360분에 잡을 죽이면 종료·원장 기록이 안 되기 때문이다. 그래서 `max_minutes: 320` 잡은 flavor 대체만 하고 지연 재시도는 못 한다(15분 대기도 넘친다). 재발급은 pod 시작 후 약 10분 안에 결정될 때만 들어간다.
 
 원장: `ops:budget/ledger.jsonl` (start/end 이벤트, 용량 거절은 `create_failed`). 상한(`harness/budget.json`)을 올리는 PR은 사용자 결정 없이는 금지(reviewer.md).

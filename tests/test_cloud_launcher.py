@@ -3,8 +3,11 @@ import importlib.util
 import json
 import re
 import sys
+import urllib.error
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import socket
 
 import pytest
 
@@ -37,7 +40,7 @@ class Clock:
 
 
 class FakeRunPod:
-    """Mock of the RunPod REST/GraphQL surface the launcher uses."""
+    """Mock of the RunPod REST v2/GraphQL surface the launcher uses (shapes from api.runpod.io/v2/openapi.json)."""
 
     def __init__(self, cost=0.34, exit_after_polls=None, fail_get=False):
         self.pods, self.calls = {}, []
@@ -50,17 +53,17 @@ class FakeRunPod:
         path = url.removeprefix(L.REST_URL)
         if method == "POST" and path == "/pods":
             pid = f"p{len(self.pods) + 1}"
-            self.pods[pid] = {"id": pid, "name": body["name"], "costPerHr": self.cost, "desiredStatus": "RUNNING"}
+            self.pods[pid] = {"id": pid, "name": body["name"], "cost": self.cost, "status": "RUNNING"}
             return dict(self.pods[pid])
-        if method == "GET" and path == "/pods":
-            return list(self.pods.values())
+        if method == "GET" and path.split("?")[0] == "/pods":
+            return {"pods": list(self.pods.values()), "pagination": {"nextCursor": None, "hasNextPage": False}}
         pid = path.split("/")[-1]
         if method == "GET":
             if self.fail_get:
                 raise L.LauncherError("network down")
             self.polls += 1
             if self.exit_after is not None and self.polls > self.exit_after:
-                self.pods[pid]["desiredStatus"] = "EXITED"
+                self.pods[pid]["status"] = "EXITED"
             return self.pods.get(pid)
         if method == "DELETE":
             self.pods.pop(pid, None)
@@ -150,7 +153,7 @@ def test_run_completes_terminates_and_records_actual_cost(tmp_path):
     res = _run(api, ledger, clock)
     assert res["status"] == "completed" and api.terminated() == ["p1"]
     create = next(b for m, u, b in api.calls if m == "POST")
-    assert create["name"] == "stalker-train-a-42" and create["gpuTypeIds"] == ["NVIDIA GeForce RTX 4090"]
+    assert create["name"] == "stalker-train-a-42" and create["gpu"] == {"id": "NVIDIA GeForce RTX 4090", "count": 1}
     start, end = L.read_ledger(ledger)
     assert start["event"] == "start" and start["reserved_usd"] == 0.40
     assert end["status"] == "completed" and end["minutes"] == 30.0
@@ -227,7 +230,7 @@ def test_reap_never_double_bills_ended_pod(tmp_path):
     ledger, clock, api = tmp_path / "l.jsonl", Clock(), FakeRunPod(exit_after_polls=2)
     _run(api, ledger, clock)
     before = L.month_total(L.read_ledger(ledger), "2026-11")
-    api.pods["p1"] = {"id": "p1", "name": "stalker-train-a-42", "costPerHr": 0.34}  # list lags the DELETE
+    api.pods["p1"] = {"id": "p1", "name": "stalker-train-a-42", "cost": 0.34}  # list lags the DELETE
     L.reap(L.RunPod(api), ledger, pod_name="stalker-train-a-42", force=True, now=clock, log=lambda *_: None)
     L.reap(L.RunPod(api), ledger, now=clock, log=lambda *_: None)
     assert L.month_total(L.read_ledger(ledger), "2026-11") == before
@@ -259,6 +262,81 @@ def test_reservation_is_synced_before_polling_and_sync_failure_terminates(tmp_pa
 
 def test_check_reads_balance():
     assert L.RunPod(FakeRunPod()).balance() == 99.5
+
+
+# RunPod REST v2 contract (#952): v1 rest.runpod.io/v1 retired 2026-11-15; v2 rejects unknown body fields with 422
+V1_ONLY = {"imageName", "cloudType", "containerDiskInGb", "dockerStartCmd", "computeType", "gpuTypeIds", "gpuCount",
+           "cpuFlavorIds", "vcpuCount", "interruptible"}
+
+
+def test_rest_url_is_v2():
+    assert L.REST_URL == "https://api.runpod.io/v2"
+
+
+def test_create_body_uses_v2_fields_for_cpu_and_gpu():
+    bodies = []
+    rp = L.RunPod(lambda m, u, b: bodies.append((m, u, b)) or {"id": "x"})
+    rp.create(L.load_spec(ROOT / "jobs" / "smoke-cpu.yaml"), "n", flavor="cpu5c")
+    rp.create(_job(), "g")
+    (m, u, cpu), (_, _, gpu) = bodies
+    assert (m, u) == ("POST", "https://api.runpod.io/v2/pods")
+    assert not (set(cpu) | set(gpu)) & V1_ONLY
+    assert cpu["cpu"] == {"id": "cpu5c", "vcpuCount": L.load_spec(ROOT / "jobs" / "smoke-cpu.yaml").vcpu}
+    assert "gpu" not in cpu and "cpu" not in gpu  # v2: exactly one of gpu or cpu
+    assert gpu["gpu"] == {"id": "NVIDIA GeForce RTX 4090", "count": 1}
+    assert gpu["image"] == "ghcr.io/x/y:1" and gpu["cloud"] == "COMMUNITY" and gpu["disk"] == 20
+    assert gpu["cmd"][:2] == ["bash", "-lc"]
+
+
+def test_list_follows_v2_pagination():
+    pages = {
+        "https://api.runpod.io/v2/pods": {"pods": [{"id": "a"}], "pagination": {"nextCursor": "c/1", "hasNextPage": True}},
+        "https://api.runpod.io/v2/pods?cursor=c%2F1": {"pods": [{"id": "b"}],
+                                                       "pagination": {"nextCursor": None, "hasNextPage": False}},
+    }
+    seen = []
+    assert [p["id"] for p in L.RunPod(lambda m, u, b: seen.append(u) or pages[u]).list()] == ["a", "b"]
+    assert seen == list(pages)
+    assert L.RunPod(lambda m, u, b: None).list() == []  # 404 → nothing to reap
+
+
+def test_get_delete_paths_and_terminal_status(tmp_path):
+    api = FakeRunPod(exit_after_polls=1)
+    assert _run(api, tmp_path / "l.jsonl", Clock())["status"] == "completed"
+    paths = {(m, u) for m, u, _ in api.calls if u != L.GRAPHQL_URL}
+    assert ("GET", "https://api.runpod.io/v2/pods/p1") in paths and ("DELETE", "https://api.runpod.io/v2/pods/p1") in paths
+
+
+def test_pod_error_status_terminates(tmp_path):
+    class Err(FakeRunPod):
+        def __call__(self, method, url, body):
+            r = super().__call__(method, url, body)
+            if method == "GET" and url.endswith("/pods/p1"):
+                return {**r, "status": "ERROR"}
+            return r
+
+    api, ledger = Err(), tmp_path / "l.jsonl"
+    assert _run(api, ledger, Clock())["status"] == "pod_error"
+    assert api.terminated() == ["p1"] and L.read_ledger(ledger)[-1]["status"] == "pod_error"
+
+
+def test_check_needs_rest_reachable(monkeypatch, capsys):
+    monkeypatch.setenv("RUNPOD_API_KEY", "k")
+    monkeypatch.setattr(L, "load_cap", lambda: 100.0)
+    monkeypatch.setattr(L, "http_transport", lambda key: FakeRunPod())
+    assert L.main(["check"]) == 0
+    assert "REST https://api.runpod.io/v2 ok" in capsys.readouterr().out
+
+    def dns_down(method, url, body):
+        if url == L.GRAPHQL_URL:
+            return {"data": {"myself": {"clientBalance": 1.0}}}
+        raise urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))
+
+    for broken in (dns_down, lambda m, u, b: {"data": {"myself": {"clientBalance": 1.0}}} if u == L.GRAPHQL_URL else None):
+        monkeypatch.setattr(L, "http_transport", lambda key, t=broken: t)
+        assert L.main(["check"]) == 1
+        err = capsys.readouterr().err
+        assert "REST_URL" in err and "launcher.py" in err
 
 
 def test_main_dry_run_and_budget_exit_codes(tmp_path, capsys, monkeypatch):
@@ -405,14 +483,14 @@ def test_result_job_create_body_and_command(tmp_path):
     res, api, entries, out = _run_result(tmp_path, FakeProxy())
     create = next(b for m, u, b in api.calls if m == "POST")
     assert create["ports"] == [f"{L.RESULT_PORT}/http"] and create["env"] == {L.TOKEN_ENV: TOKEN}
-    script = create["dockerStartCmd"][2]
+    script = create["cmd"][2]
     assert TOKEN not in script and "python -m stalker.rl.train --steps 10" in script
     assert script.splitlines()[-1] == "sleep infinity" and L.POD_SERVER.strip() in script
     plain = _run(FakeRunPod(exit_after_polls=1), tmp_path / "l2.jsonl", Clock())
     assert plain["status"] == "completed"  # jobs without result_path behave as before
     body = []
     L.RunPod(lambda m, u, b: body.append(b) or {"id": "x"}).create(_job(), "n")
-    assert "ports" not in body[0] and "env" not in body[0] and body[0]["dockerStartCmd"][2] == _job().command
+    assert "ports" not in body[0] and "env" not in body[0] and body[0]["cmd"][2] == _job().command
 
 
 def test_result_is_pulled_saved_and_recorded(tmp_path):
@@ -1055,7 +1133,7 @@ class FlavorRunPod(FakeRunPod):
 
     def __call__(self, method, url, body):
         if method == "POST" and url.endswith("/pods"):
-            flavor = (body.get("cpuFlavorIds") or [None])[0]
+            flavor = (body.get("cpu") or {}).get("id")
             self.creates.append(flavor)
             if (len(self.creates), flavor) in self.full or ("*", flavor) in self.full:
                 raise L.CapacityError("RunPod POST: HTTP 500 b'There are no longer any instances available'")
@@ -1063,7 +1141,7 @@ class FlavorRunPod(FakeRunPod):
             self.made += 1
             pid = f"p{self.made}"  # unique even after a delete (the base fake reuses p1)
             self.calls.append((method, url, body))
-            self.pods[pid] = {"id": pid, "name": body["name"], "costPerHr": self.cost, "desiredStatus": "RUNNING"}
+            self.pods[pid] = {"id": pid, "name": body["name"], "cost": self.cost, "status": "RUNNING"}
             return dict(self.pods[pid])
         return super().__call__(method, url, body)
 
@@ -1220,6 +1298,26 @@ def test_http_transport_raises_capacity_error_only_for_no_instances(monkeypatch)
     assert not isinstance(e.value, L.CapacityError)
 
 
+
+@pytest.mark.parametrize("code, body, capacity", [
+    (400, b'{"title":"Bad Request","status":400,"detail":"no capacity for the requested GPU in any data center"}', True),
+    (400, b'{"title":"Bad Request","status":400,"detail":"this GPU and data center combination could not be placed"}',
+     True),
+    (400, b'{"title":"Bad Request","status":400,"detail":"supply exactly one of gpu or cpu"}', False),
+    (422, b'{"title":"Unprocessable Entity","status":422,"detail":"no capacity"}', False),  # contract error: never retry
+])
+def test_http_transport_v2_capacity_is_400_with_detail(monkeypatch, code, body, capacity):
+    import io
+
+    def urlopen(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, code, "x", {}, io.BytesIO(body))
+
+    monkeypatch.setattr(L.urllib.request, "urlopen", urlopen)
+    with pytest.raises(L.LauncherError) as e:
+        L.http_transport("k")("POST", L.REST_URL + "/pods", {})
+    assert isinstance(e.value, L.CapacityError) == capacity
+
+
 def test_slow_host_is_replaced_once_and_both_pods_are_billed(tmp_path):
     # p1 is a 0.45x host (cpu5c median 161), p2 is slow too: replaced only once, p2 runs to the end
     api = FlavorRunPod(costs={"cpu5c": 1.12})
@@ -1344,3 +1442,112 @@ def test_cloud_workflow_export_mode(tmp_path):
     files = subprocess.run(["git", "ls-tree", "-r", "--name-only", "ops"], cwd=remote, check=True,
                            capture_output=True, text=True, encoding="utf-8").stdout.split()
     assert "cloud/policies/5/index.json" in files
+
+
+# ---- #946: DNS/connect failures retry with waits, HTTP answers do not ----
+
+class FlakyCreate(FakeRunPod):
+    def __init__(self, fail_posts, exc=None, **kw):
+        super().__init__(**kw)
+        self.fail_posts, self.exc = fail_posts, exc or urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))
+
+    def __call__(self, method, url, body):
+        if method == "POST" and url.endswith("/pods") and self.fail_posts != 0:
+            self.fail_posts -= 1
+            self.calls.append((method, url, body))
+            raise self.exc
+        return super().__call__(method, url, body)
+
+
+def _posts(api):
+    return [c for c in api.calls if c[0] == "POST" and c[1].endswith("/pods")]
+
+
+def test_create_retries_network_error_then_succeeds_without_ledger_line(tmp_path):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), FlakyCreate(2, exit_after_polls=1)
+    res = _run(api, ledger, clock)
+    assert res["status"] == "completed"
+    assert len(_posts(api)) == 3 and len(api.pods) == 0
+    assert [e["event"] for e in L.read_ledger(ledger)] == ["start", "end"]  # failed tries leave no line, $0
+
+
+def test_create_network_waits_are_the_constants(tmp_path):
+    waits, clock, api = [], Clock(), FlakyCreate(2, exit_after_polls=1)
+    L.run_job(_job(), L.RunPod(api), tmp_path / "l.jsonl", "42", cap=100.0, now=clock,
+              sleep=lambda s: (waits.append(s), clock.sleep(s)), poll_s=60, log=lambda *_: None)
+    assert waits[:2] == [L.NETWORK_RETRY_MINUTES[0] * 60, L.NETWORK_RETRY_MINUTES[1] * 60]
+
+
+def test_create_gives_up_after_all_network_waits(tmp_path):
+    ledger, clock, api = tmp_path / "l.jsonl", Clock(), FlakyCreate(-1)
+    with pytest.raises(L.LauncherError, match=r"cannot reach .*api\.runpod\.io/v2.*4 tries.*Name or service not known"):
+        _run(api, ledger, clock)
+    assert len(_posts(api)) == len(L.NETWORK_RETRY_MINUTES) + 1
+    assert not ledger.exists() or L.read_ledger(ledger) == []
+
+
+def test_create_does_not_retry_http_errors(tmp_path):
+    api = FlakyCreate(-1, exc=L.LauncherError("RunPod POST: HTTP 400 b'bad'"))
+    with pytest.raises(L.LauncherError, match="HTTP 400"):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1
+
+
+def test_create_gives_up_early_when_wait_would_pass_job_limit(tmp_path):
+    api = FlakyCreate(-1)
+    with pytest.raises(L.LauncherError, match="would pass the launcher"):
+        _run(api, tmp_path / "l.jsonl", Clock(), job=_job(max_minutes=L.MAX_JOB_MINUTES))
+    assert len(_posts(api)) == 1
+
+
+@pytest.mark.parametrize("exc", [TimeoutError("timed out"), ConnectionResetError("reset"),
+                                 urllib.error.URLError(TimeoutError("timed out"))])
+def test_create_does_not_retry_errors_that_may_follow_a_sent_request(tmp_path, exc):
+    # RunPod may already have created the pod; a retry would bill a second, untracked one
+    api = FlakyCreate(-1, exc=exc)
+    with pytest.raises(type(exc)):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1
+
+
+def test_post_that_creates_pod_then_times_out_leaves_at_most_one_pod(tmp_path):
+    class CreatesThenTimesOut(FakeRunPod):
+        done = False
+
+        def __call__(self, method, url, body):
+            r = super().__call__(method, url, body)
+            if method == "POST" and url.endswith("/pods") and not self.done:
+                self.done = True
+                raise TimeoutError("timed out")
+            return r
+    api = CreatesThenTimesOut(exit_after_polls=1)
+    with pytest.raises(TimeoutError):
+        _run(api, tmp_path / "l.jsonl", Clock())
+    assert len(_posts(api)) == 1 and len(api.pods) <= 1
+
+
+class FlakyDelete(FakeRunPod):
+    def __init__(self, fail_deletes, **kw):
+        super().__init__(**kw)
+        self.fail_deletes = fail_deletes
+
+    def __call__(self, method, url, body):
+        if method == "DELETE" and self.fail_deletes != 0:
+            self.fail_deletes -= 1
+            self.calls.append((method, url, body))
+            raise urllib.error.URLError("blip")
+        return super().__call__(method, url, body)
+
+
+def test_terminate_retries_network_blips_so_no_pod_is_left_billing():
+    waits = []
+    api = FlakyDelete(2)
+    rp = L.RunPod(api, sleep=waits.append)
+    pod = rp.create(_job(), "n")
+    rp.terminate(pod["id"])
+    assert api.pods == {} and waits == list(L.NETWORK_RETRY_SECONDS)
+    api2 = FlakyDelete(-1)
+    rp2 = L.RunPod(api2, sleep=waits.append)
+    p2 = rp2.create(_job(), "n")
+    with pytest.raises(urllib.error.URLError):  # persistent failure surfaces; reap/cleanup finds the pod later
+        rp2.terminate(p2["id"])
