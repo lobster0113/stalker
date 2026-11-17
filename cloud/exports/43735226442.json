@@ -1,0 +1,37 @@
+{
+ "schema": "stalker.web.policy-export",
+ "schema_version": 3,
+ "export_kind": "tournament",
+ "export_run": "43735226442",
+ "artifact": "web-policy-43735226442",
+ "job": "e3-tp-mid4-c1-pod",
+ "tier": "mid",
+ "iterations": 20000,
+ "strategy": "current",
+ "min_visits": 10,
+ "max_bytes": 3145728,
+ "total_bytes": 3145723,
+ "total_max_bytes": 12582912,
+ "files": [
+  {
+   "file": "t-1261657cabcdc1ad-b0.json",
+   "players": 4,
+   "min_visits": 10,
+   "keys": 15936,
+   "keys_dropped": 636875,
+   "bytes": 3145723,
+   "sha256": "197050c28cceb92769f267aad3e23374778fdcc2d48061bf42766ce4c732b782",
+   "within_page_budget": true,
+   "env_id": "1261657cabcdc1ad",
+   "stage": "b",
+   "ante": 0,
+   "lbr_bb": 3.161,
+   "lbr_stderr_bb": 0.6711
+  }
+ ],
+ "index": {
+  "file": "index.json",
+  "bytes": 5376,
+  "sha256": "ea51883b5556244e289cd701b91513d04bb9fab914febf8ff2b052e076c45100"
+ }
+}
