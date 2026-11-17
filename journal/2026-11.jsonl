@@ -1744,3 +1744,4 @@
 {"ts":"2026-11-16T23:41:13Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd) already has CHANGES verdict on head d723a9c; no new commits","friction":""}
 {"ts":"2026-11-17T00:09:54Z","role":"researcher","outcome":"no_work","issue":null,"pr":null,"notes":"열린 연구 이슈는 #945(ready, builder 몫)뿐; ICM·버블 팩터 웹 검색은 기존 docs/research와 중복, 토너먼트 RL 논문은 arxiv.org 네트워크 차단으로 원문 확인 불가 → 근거 없는 문서 작성 안 함","friction":"세션 네트워크가 arxiv.org를 허용하지 않아 논문 원문 조사 불가"}
 {"ts":"2026-11-17T00:11:24Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, odd)","friction":""}
+{"ts":"2026-11-17T02:20:00Z","role":"builder-b","outcome":"pr_opened","issue":945,"pr":953,"notes":"ADR 0029 tournament policy web export/display (docs only), quick gate pass","friction":"gates quick locally 277s (target 90s)"}
