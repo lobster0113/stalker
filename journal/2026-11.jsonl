@@ -1790,3 +1790,4 @@
 {"ts":"2026-11-17T09:56:00Z","role":"planner","outcome":"planned","issue":968,"pr":967,"notes":"PR #967 머지·#956 닫힘 반영(라벨 정리); F8 H3 #968·H4 #969 신설(P2 ready); STATE 갱신, ready 5","friction":""}
 {"ts":"2026-11-17T10:12:08Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, odd)","friction":""}
 {"ts":"2026-11-17T10:41:16Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: #599 (only open odd PR) already has CHANGES at head d723a9c, no new commits","friction":"should_run --sweep returned RUN although the only odd PR already had a verdict at its head sha"}
+{"ts":"2026-11-17T11:05:42Z","role":"builder-b","outcome":"pr_opened","issue":958,"pr":970,"notes":"ADR 0030 토너먼트 평가 판정 전환 문서 PR; gates full PASS","friction":"quick 359s, full 1716s(문서만 변경인데도 전체 테스트); 목표 90초와 크게 차이"}
