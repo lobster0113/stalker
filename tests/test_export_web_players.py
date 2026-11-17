@@ -590,6 +590,20 @@ def test_tournament_export_refuses_a_total_over_12mib_and_replaces_its_own_slot(
     assert _export_t(tmp_path, res, big, out="again")[0] == 0
 
 
+@pytest.mark.slow
+def test_tournament_export_refuses_another_tier_and_writes_the_ops_policies_dir(tmp_path):
+    res, env, _ = _tournament_result(tmp_path)
+    with pytest.raises(SystemExit, match="tier"):
+        _export_t(tmp_path, res, extra=["--tier", "pro"])   # the later --tier wins
+    ops = tmp_path / "ops-policies"
+    assert _export_t(tmp_path, res, extra=["--policies-out", str(ops)])[0] == 0
+    name = f"t-{env['env_id']}-b0.json"
+    assert sorted(p.name for p in ops.iterdir()) == sorted([name, "index.json"])
+    idx = json.loads((ops / "index.json").read_text(encoding="utf-8"))
+    assert idx["tournament"][env["env_id"]]["b"]["ante"]["0"]["file"] == name
+    assert idx["tiers"] == _shipped()["tiers"]
+
+
 def test_index_v1_reads_as_v2_without_tournament_and_cash_upsert_changes_only_the_version():
     X = W.X
     v1 = _shipped()

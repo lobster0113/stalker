@@ -46,3 +46,10 @@ PR #590을 revert한다(`export` 케이스·입력 4개·export 스텝 4개·`pu
 - 롤백: PR #818 revert. 입력 2개·env 2개·검증 2줄·`extra` 배열이 되돌아간다.
 
 ## 결과 (측정창 종료 후 기록)
+
+## 확장 (#955, PR #959, 2026-11-17)
+- 변경: 입력 `export_kind`(cash|tournament, 기본 cash), export 스텝이 `--kind`를 넘김. tournament는 `train_env`가 있는 ICM run만 받고 `t-<env_id>-<stage><ante>.json`과 인덱스 v2를 `ops:cloud/policies/<run>/`로 낸다. `tier` 입력은 tournament에서도 다른 등급 결과를 거부한다.
+- 가설: 토너먼트 정책을 코드 수정 없이 디스패치만으로 ops에 내고, 에이전트가 거기서 웹 정책 PR을 만들 수 있다(ADR 0029).
+- 지표·측정창: `export_kind=tournament` 디스패치 3건 또는 14일. (a) 성공 run의 `ops:cloud/policies/<run>/`에 `t-*.json`과 v2 `index.json`이 올라간 비율 100%, (b) `export_kind=cash` 디스패치의 회귀 0건.
+- 성공 기준: (a) 3/3, (b) 0건. 실패는 첫 오류 줄이 원인과 고치는 방법을 말해야 한다.
+- 롤백: PR #959 revert. 입력 1개·`--kind` 플래그·tournament 분기가 되돌아가고 `ops:cloud/policies/` 파일은 남지만 읽는 코드가 없어 지울 필요 없다.

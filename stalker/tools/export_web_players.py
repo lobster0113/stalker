@@ -339,7 +339,7 @@ def tournament_file_name(env_id: str, stage: str, ante: int) -> str:
 
 
 def export_tournament(st: dict, summary: dict, run: str, out_dir: Path, index_base: dict | None = None,
-                      strategy: str = "current", min_visits: int = 0, sha: str = "", max_bytes: int = X.MAX_BYTES,
+                      tier: str = "", strategy: str = "current", min_visits: int = 0, sha: str = "", max_bytes: int = X.MAX_BYTES,
                       total_max_bytes: int = X.TOURNAMENT_MAX_BYTES) -> dict:
     """`export_kind=tournament` (ADR 0029 decision 2): one ICM tournament run -> `t-<env_id>-<stage><ante>.json` and the v2
     `index.json` (`tournament[env_id][stage].ante[0|1]`). The entry's env_id/stage/lam/stacks/level_index come from `train_env`
@@ -358,6 +358,9 @@ def export_tournament(st: dict, summary: dict, run: str, out_dir: Path, index_ba
     visits = dict(m.visits)
     full = m.policy() if strategy == "average" else m.current_policy()
     doc = X.policy_doc(m, st, summary, run, sha, strategy, False, None, min_visits, full)
+    if tier and doc["tier"] != tier:
+        raise SystemExit(f"run {run} is tier {doc['tier']!r}, not {tier!r}: pass tier={doc['tier']} "
+                         "or pick a run of that tier")
     doc.update(env_id=env["env_id"], stage=env["stage"], ante=ante, payoff="icm", lam=env["lam"], stacks=env["stacks"],
                level_index=env["level_index"],
                trained_on={"game": "tournament", "env_id": env["env_id"], "stage": env["stage"], "players": doc["players"]})
@@ -450,7 +453,7 @@ def main(argv=None) -> int:
     players = tuple(int(p) for p in a.players.split(",") if p.strip())
     by_n = parse_min_visits_by_players(a.min_visits_by_players, st.get("player_mix"))
     if a.kind == "tournament":
-        out = export_tournament(st, summary, a.run, a.out_dir, base, a.strategy, a.min_visits)
+        out = export_tournament(st, summary, a.run, a.out_dir, base, a.tier, a.strategy, a.min_visits)
     else:
         out = export_all_players(st, summary, a.run, a.out_dir, a.tier, base, players, a.strategy, a.min_visits,
                                  min_visits_by_players=by_n, hit_rate_hands=a.hit_rate_hands,
