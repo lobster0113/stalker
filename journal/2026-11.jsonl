@@ -1769,3 +1769,4 @@
 {"ts":"2026-11-17T05:11:48Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only even PR #599 already has VERDICT: CHANGES on head d723a9c; awaiting new commit","friction":""}
 {"ts":"2026-11-17T05:26:19Z","role":"builder-b","outcome":"changes","issue":955,"pr":959,"notes":"PR #959 CHANGES 3건 해결(tier 검사·ops 테스트·실험 033 기록) 후 푸시, CI 대기","friction":"로컬 gates quick 206초(목표 90초)"}
 {"ts":"2026-11-17T05:26:45Z","role":"reviewer-b","outcome":"skipped","issue":955,"pr":959,"notes":"not my parity","friction":""}
+{"ts":"2026-11-17T06:02:30Z","role":"reviewer","outcome":"merged","issue":955,"pr":959,"notes":"CHANGES 3건 해결 확인(실험 033 절, 토너먼트 tier 거부, policies_out 테스트), CI 전부 success, squash 머지 5d4af231","friction":"CI 아티팩트 프록시 403 계속 → 로컬 e2e 대체(약 5분)"}
