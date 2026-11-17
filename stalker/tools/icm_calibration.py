@@ -63,14 +63,19 @@ class PolicyAgents:
     def counts(self) -> dict:
         """Decisions, policy hits and backoffs summed over the agents made since `reset`; `backoff_rate` =
         backoffs / decisions (None before any decision)."""
-        out = {"decisions": 0, "policy_hits": 0, "backoffs": 0, "backoff_reasons": {}}
+        out = {"decisions": 0, "policy_hits": 0, "backoffs": 0, "backoff_reasons": {}, "by_street": {}}
         for a in self.agents:
             c = a.counts()
             for k in ("decisions", "policy_hits", "backoffs"):
                 out[k] += c[k]
             for r, n in c["backoff_reasons"].items():
                 out["backoff_reasons"][r] = out["backoff_reasons"].get(r, 0) + n
+            for st, cell in c.get("by_street", {}).items():   # older agents lack it (#961)
+                tot = out["by_street"].setdefault(st, {"decisions": 0, "policy_hits": 0})
+                tot["decisions"] += cell["decisions"]
+                tot["policy_hits"] += cell["policy_hits"]
         out["backoff_reasons"] = dict(sorted(out["backoff_reasons"].items()))
+        out["by_street"] = dict(sorted(out["by_street"].items()))
         out["backoff_rate"] = out["backoffs"] / out["decisions"] if out["decisions"] else None
         return out
 

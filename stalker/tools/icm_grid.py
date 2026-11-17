@@ -15,7 +15,9 @@ leaves every other cell's output byte-identical, so a partial rerun can be compa
 `icm_calibration.agents_factory`). The default writes no `agents` field, so outputs from before the option existed stay
 byte-identical (#845). `policy:PATH` (#900: a pod result, checkpoint or web policy file of a c1 E3 table, or a folder
 holding one) seats `stalker.agents.e3_policy.E3PolicyAgent` everywhere, `persona:tag` where the table has no row; each
-cell then carries `policy` = {decisions, policy_hits, backoffs, backoff_rate, backoff_reasons} over its games.
+cell then carries `policy` = {decisions, policy_hits, backoffs, backoff_rate, backoff_reasons, by_street} over its games
+(`backoff_reasons` splits `no_key` = key not in the table from `arity_mismatch` = row length != legal actions;
+`by_street` = {street: {decisions, policy_hits}}, 0 preflop .. 3 river; #961).
 
 `--level-index 0,6` starts the cells at each blind level and `--layouts N` draws N independent survivor/stack layouts
 per cell (#858). Level 0 / layout 0 keeps the pre-option seed and output; any other choice writes schema_version 2 with
