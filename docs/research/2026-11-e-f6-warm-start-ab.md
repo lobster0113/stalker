@@ -42,3 +42,5 @@ ADR 0027 결정 4: 쌍마다 주 지표 B−A의 95% CI 하한 > 0이면 그 쌍
 
 ## 운영 메모
 - 쌍 2 첫 디스패치 run 43911033715(16:45Z)·재디스패치 43925339150(18:06Z): 둘 다 포드 생성 전 `POST https://rest.runpod.io/v1/pods`에서 `URLError [Errno -2] Name or service not known`으로 실패(과금 0). 같은 시각 `mode=check` run 43925589474(GraphQL `api.runpod.io`)는 정상.
+- 쌍 2 세 번째 시도 run 43930925362(18:38Z)·네 번째 시도 43966801216(22:06Z, #947 DNS 재시도 포함)도 같은 `rest.runpod.io` 이름 해석 실패로 포드 생성 전 종료(과금 0). 원인: launcher의 REST v1 기준 URL → #952(PR #954)가 REST v2 `https://api.runpod.io/v2`로 옮기고 `mode=check`에 REST 도달 검사를 넣었다.
+- 11-17 02:07Z `mode=check` run 44000604735 success(`REST https://api.runpod.io/v2 ok`) 뒤 쌍 2 run 44000780867 디스패치, 포드 생성 정상(02:08:54Z 원장 start).
