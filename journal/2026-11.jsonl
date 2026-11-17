@@ -1817,3 +1817,4 @@
 {"ts":"2026-11-17T16:02:32Z","role":"builder-b","outcome":"pr_opened","issue":975,"pr":979,"notes":"tournament non-inferiority judge + thresholds v1","friction":"gates full ~25min; quick ~4min locally; single foreground command capped at 10min so needed background+poll"}
 {"ts":"2026-11-17T16:02:52Z","role":"reviewer-b","outcome":"skipped","issue":975,"pr":979,"notes":"not my parity","friction":""}
 {"ts":"2026-11-17T16:13:41Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #979(odd), #599(even, already VERDICT CHANGES on head d723a9c, awaiting builder fix)","friction":""}
+{"ts":"2026-11-17T16:21:33Z","role":"reviewer","outcome":"merged","issue":975,"pr":979,"notes":"tournament non-inferiority judge + thresholds v1; CI all green, fixture matched ops results, CLI pass on real runs (local, reference)","friction":"gh pr checks fails with GraphQL 403; used REST check-runs instead"}
