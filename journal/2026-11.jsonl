@@ -1752,3 +1752,4 @@
 {"ts":"2026-11-17T01:04:45Z","role":"reviewer-b","outcome":"merged","issue":952,"pr":954,"notes":"RunPod REST v2 migration; mapping cross-checked against runpod/docs openapi.json v2.0.0; CI all green; squash c24630f9","friction":"first guard run failed before labels were added (re-run green); v2 capacity detail text undocumented so CAPACITY_RE is a guess"}
 {"ts":"2026-11-17T01:05:07Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, odd)","friction":""}
 {"ts":"2026-11-17T01:10:00Z","role":"planner","outcome":"planned","issue":937,"pr":954,"notes":"PR #954(#952 RunPod REST v2) 머지 → #952 닫힘·라벨 정리, #937 blocked 해제·ready(check 후 쌍 2 재디스패치), STATE 갱신. ready 3.","friction":""}
+{"ts":"2026-11-17T01:41:20Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has CHANGES verdict at head d723a9c; no new commits since 11-06","friction":""}
