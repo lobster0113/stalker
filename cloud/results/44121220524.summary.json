@@ -1,0 +1,347 @@
+{
+ "job": "e3-tp-mid3-c1-pod",
+ "tier": "mid",
+ "players": 3,
+ "seed": 1,
+ "workers": 16,
+ "batch": 500,
+ "iters": 20000,
+ "resumed_from_run": null,
+ "chunk_iters": 20000,
+ "max_iters": 20000,
+ "stopped_by": "max_iters",
+ "resumed_from": 0,
+ "train_seconds": 3195.6,
+ "iters_per_s": 6.26,
+ "sync_frac": 0.007,
+ "field": null,
+ "field_seconds": 0.0,
+ "infosets": 657984,
+ "coverage": {
+  "fc": {
+   "keys": 352,
+   "under10": 0
+  },
+  "fca": {
+   "keys": 143326,
+   "under10": 134862
+  },
+  "kb20b33b50b75a": {
+   "keys": 25405,
+   "under10": 24110
+  },
+  "kb20b33b50a": {
+   "keys": 25046,
+   "under10": 22994
+  },
+  "fcr25rr4r5r7r10a": {
+   "keys": 54548,
+   "under10": 54080
+  },
+  "kb20b33a": {
+   "keys": 24606,
+   "under10": 22661
+  },
+  "fcr25a": {
+   "keys": 35327,
+   "under10": 35072
+  },
+  "kb20a": {
+   "keys": 25068,
+   "under10": 23007
+  },
+  "fcr25rr35r4r5a": {
+   "keys": 3583,
+   "under10": 2706
+  },
+  "fcr25rr4r5a": {
+   "keys": 40332,
+   "under10": 40041
+  },
+  "fcr25rr4a": {
+   "keys": 34008,
+   "under10": 33797
+  },
+  "fcr2r22r25ra": {
+   "keys": 3579,
+   "under10": 2376
+  },
+  "kb20b33b50b75b100b150a": {
+   "keys": 22164,
+   "under10": 21151
+  },
+  "fcr25rr4r5r7a": {
+   "keys": 33643,
+   "under10": 33433
+  },
+  "fcr25ra": {
+   "keys": 46340,
+   "under10": 45853
+  },
+  "ka": {
+   "keys": 36058,
+   "under10": 32228
+  },
+  "kb20b33b50b75b100b150b200b300a": {
+   "keys": 41278,
+   "under10": 39570
+  },
+  "kb20b33b50b75b100a": {
+   "keys": 29844,
+   "under10": 28042
+  },
+  "fcr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 1002,
+   "under10": 455
+  },
+  "fcr25rr35r4a": {
+   "keys": 714,
+   "under10": 714
+  },
+  "fcr2r22a": {
+   "keys": 1263,
+   "under10": 1214
+  },
+  "kb20b33b50b75b100b150b200a": {
+   "keys": 25890,
+   "under10": 24847
+  },
+  "fcr2a": {
+   "keys": 1067,
+   "under10": 1024
+  },
+  "fcr2r22r25a": {
+   "keys": 1478,
+   "under10": 1376
+  },
+  "fcr25rr35a": {
+   "keys": 444,
+   "under10": 444
+  },
+  "fcr2r22rr3r35r4r5r6a": {
+   "keys": 111,
+   "under10": 106
+  },
+  "fcr2r22rr3r35r4r5r6r8a": {
+   "keys": 182,
+   "under10": 182
+  },
+  "fcr2r22rr3r35r4a": {
+   "keys": 93,
+   "under10": 92
+  },
+  "kb20b50b75b100b150b200b300a": {
+   "keys": 366,
+   "under10": 366
+  },
+  "fcr2r22rr3r35a": {
+   "keys": 78,
+   "under10": 78
+  },
+  "cr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 154,
+   "under10": 153
+  },
+  "fcr2r22rr3r35r4r5a": {
+   "keys": 102,
+   "under10": 102
+  },
+  "fcr2r22rr3a": {
+   "keys": 69,
+   "under10": 69
+  },
+  "fcr2r22ra": {
+   "keys": 81,
+   "under10": 81
+  },
+  "kb20b75b100b150b200b300a": {
+   "keys": 297,
+   "under10": 297
+  },
+  "cr2r22rr3r35a": {
+   "keys": 7,
+   "under10": 7
+  },
+  "cr2r22rr3r35r4r5r6a": {
+   "keys": 5,
+   "under10": 5
+  },
+  "kb20b75b100b150a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "kb20b50b75b100b150a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "cr2r22rr3r35r4a": {
+   "keys": 4,
+   "under10": 4
+  },
+  "ca": {
+   "keys": 11,
+   "under10": 11
+  },
+  "kb20b50b75b100b150b200a": {
+   "keys": 5,
+   "under10": 5
+  },
+  "kb20b75b100b150b200a": {
+   "keys": 18,
+   "under10": 18
+  },
+  "kb20b50b75b100a": {
+   "keys": 7,
+   "under10": 7
+  },
+  "cr2r22rr3a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "kb20b50b75a": {
+   "keys": 4,
+   "under10": 4
+  },
+  "cr2r22a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "kb20b75b100a": {
+   "keys": 6,
+   "under10": 6
+  },
+  "cr2r22rr3r35r4r5a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "cr2a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "cr2r22ra": {
+   "keys": 2,
+   "under10": 2
+  },
+  "cr2r22rr3r35r4r5r6r8a": {
+   "keys": 4,
+   "under10": 4
+  },
+  "kb20b75a": {
+   "keys": 2,
+   "under10": 2
+  },
+  "kb20b50a": {
+   "keys": 1,
+   "under10": 1
+  }
+ },
+ "lbr": {
+  "lbr_bb": 4.8744,
+  "stderr_bb": 0.5391,
+  "by_seat": {
+   "BTN": 3.6563,
+   "SB": 3.0641,
+   "BB": 7.9027
+  },
+  "hands": 2000
+ },
+ "lbr_average": {
+  "lbr_bb": 3.8477,
+  "stderr_bb": 0.5661,
+  "by_seat": {
+   "BTN": 3.2168,
+   "SB": 2.8923,
+   "BB": 5.434
+  },
+  "hands": 2000
+ },
+ "lbr_offmenu": {
+  "lbr_bb": 4.9406,
+  "stderr_bb": 0.5404,
+  "by_seat": {
+   "BTN": 3.8238,
+   "SB": 3.2677,
+   "BB": 7.7302
+  },
+  "hands": 2000
+ },
+ "lbr_seconds": 470.5,
+ "policy_sha256": "a1bbc0a4f07f163f671ab632f0452121740b9a59b08b8a3add93fad260566e7e",
+ "model": {
+  "k": 11,
+  "n": 3,
+  "depth": "full",
+  "iterations": 20000,
+  "nodes": 13674248,
+  "menu": "real",
+  "raise_cap": null,
+  "avg_rule": "own",
+  "rng": {
+   "bit_generator": "PCG64",
+   "state": {
+    "state": 207037337047313282661142340656591920366,
+    "inc": 194290289479364712180083596243593368443
+   },
+   "has_uint32": 0,
+   "uinteger": 0
+  },
+  "key_variant": "c1",
+  "stacks": "bubble:skewed",
+  "key_version": 1,
+  "train_env": {
+   "env_id": "1261657cabcdc1ad",
+   "stage": "m",
+   "level_index": 0,
+   "lam": 0.0,
+   "stacks": "bubble:skewed"
+  },
+  "ante": 0,
+  "stage": "m",
+  "player_mix": [],
+  "payoff": "icm",
+  "payouts": [
+   0.5,
+   0.3,
+   0.2
+  ],
+  "lam": 0.0,
+  "stack_preset": "9max_sng_503020",
+  "stack_remaining": 3,
+  "stack_level": 0,
+  "ranges": "average",
+  "range_every": 2000,
+  "snap_at": 16000
+ },
+ "train_env": {
+  "env_id": "1261657cabcdc1ad",
+  "stage": "m",
+  "level_index": 0,
+  "lam": 0.0,
+  "stacks": "bubble:skewed"
+ },
+ "checkpoint": {
+  "format": "npz",
+  "dtype": "float64",
+  "b64": {
+   "omitted_chars": 50877508,
+   "sha256": "d50013d7e96a8690120da3c14497643e52426fb0227fd38cc8f3676cff1d55b6"
+  }
+ },
+ "max_rss_mb": 2309.0,
+ "max_child_rss_mb": 1059.0,
+ "machine": {
+  "cpu_model": "AMD EPYC 9754 128-Core Processor",
+  "cpu_count": 256,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "",
+  "mem_total_mb": 773271,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.41"
+ },
+ "regret_sha256": "f4d8efc5732c93953c6e235400dd4950cc4de9e160f199adddc50b63041ae997",
+ "sha": "d098ba07d64d7ce4ebbece4dfd218eac554c9c33",
+ "_summary_of": {
+  "result_bytes": 50882296,
+  "result_sha256": "e45ead4d1dadaf8dd16531532b1ab8d7d9325a9fe8feee301b8ca8073fb5be5b"
+ }
+}
