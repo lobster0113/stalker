@@ -20,6 +20,9 @@ plays the policy; the policy reads the `t<stage><ante>` slot of the cell. A foun
 one-step LBR decisions, prize-unit reward), never a certificate. Without the option the output is byte-identical to
 schema 1; with it `schema_version` is 2.
 
+`policy.by_street` (#964) adds the per-street split of decisions/policy hits. It is an added key only and nothing reads
+these files yet, so `schema_version` stays (a reader that ignores unknown keys is unaffected).
+
 No threshold, no verdict: F5 shows the distribution first, then a separate issue sets thresholds (GATES.md).
 
 Cell seeds are children of `SeedSequence(seed)` keyed by the cell (crc32 of the preset name keeps it stable), so
@@ -83,16 +86,26 @@ def field_factory(spec: str) -> Callable[[np.random.Generator], object]:
 
 
 def _counts(agents: Sequence[E3PolicyAgent]) -> dict:
-    """#900 meaning: decisions, policy hits, backoffs (rule bot instead of the policy) and their reasons."""
+    """#900 meaning: decisions, policy hits, backoffs (rule bot instead of the policy) and their reasons.
+
+    `by_street` (#964) sums each agent's per-street decisions/policy hits (0 preflop .. 3 river); `hit_rate` is None
+    without decisions. Counts from agents that predate it just contribute nothing there."""
     out = {"decisions": 0, "policy_hits": 0, "backoffs": 0, "backoff_reasons": {}}
+    streets: dict[str, dict[str, int]] = {}
     for a in agents:
         c = a.counts()
         for k in ("decisions", "policy_hits", "backoffs"):
             out[k] += c[k]
         for r, n in c["backoff_reasons"].items():
             out["backoff_reasons"][r] = out["backoff_reasons"].get(r, 0) + n
+        for st, cell in c.get("by_street", {}).items():
+            tot = streets.setdefault(str(st), {"decisions": 0, "policy_hits": 0})
+            tot["decisions"] += cell["decisions"]
+            tot["policy_hits"] += cell["policy_hits"]
     out["backoff_reasons"] = dict(sorted(out["backoff_reasons"].items()))
     out["backoff_rate"] = out["backoffs"] / out["decisions"] if out["decisions"] else None
+    out["by_street"] = {st: {**t, "hit_rate": t["policy_hits"] / t["decisions"] if t["decisions"] else None}
+                        for st, t in sorted(streets.items())}
     return out
 
 
