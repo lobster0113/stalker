@@ -1841,3 +1841,4 @@
 {"ts":"2026-11-17T21:44:18Z","role":"reviewer","outcome":"skipped","issue":976,"pr":982,"notes":"not my parity","friction":""}
 {"ts":"2026-11-17T22:17:42Z","role":"reviewer-b","outcome":"merged","issue":976,"pr":982,"notes":"tournament_ab history keys; all CI green, AC verified via tests + local ops rerun (ref)","friction":"guard had a pre-label failure run alongside later success; had to pick latest run per name manually"}
 {"ts":"2026-11-17T22:35:00Z","role":"planner","outcome":"planned","issue":null,"pr":982,"notes":"PR #982(#976) 머지 반영: #976 라벨 정리, #965 닫힘 확인(클라우드 비어 #969 디스패치 가능), 신설 #983 F4e ADR 0030 recheck(P2 referee-change)·#984 F11c 단계 2 it/s 재조정(P3). ready 6","friction":""}
+{"ts":"2026-11-17T22:42:15Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PRs #981,#599 already have VERDICT on current head","friction":""}
