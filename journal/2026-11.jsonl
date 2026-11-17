@@ -1765,3 +1765,4 @@
 {"ts":"2026-11-17T04:39:47Z","role":"reviewer","outcome":"changes","issue":955,"pr":959,"notes":"CI 전부 success; CHANGES: harness-change인데 experiments 기록 없음, tournament 경로 --tier 미검사, policies_for_ops tournament 분기 미테스트","friction":"web-screenshots 아티팩트 프록시 403(기존 이슈)으로 로컬 대체; 로컬 npm test 출력이 timeout 안에서 비어 결과 요약 확인 불가(스크린샷은 생성됨)"}
 {"ts":"2026-11-17T04:41:42Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: 홀수 PR #599·#959 모두 현재 head에 VERDICT 있음(CHANGES), #960은 짝수(reviewer-b)","friction":""}
 {"ts":"2026-11-17T04:56:57Z","role":"reviewer-b","outcome":"merged","issue":937,"pr":960,"notes":"F6c warm start A/B 문서: ops 결과 JSON 3개와 표 27행·쌍별 수치 스크립트 대조 일치, CI 전부 success → squash 33bc23f6","friction":""}
+{"ts":"2026-11-17T05:05:00Z","role":"planner","outcome":"planned","issue":961,"pr":null,"notes":"PR #960 머지·#937 닫힘 반영; #935 선행 해소; 신설 #961 F6d 백오프 진단(no_key 분리·거리별 적중률, P2); STATE 갱신, ready 5","friction":""}
