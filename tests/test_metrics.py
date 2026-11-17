@@ -100,6 +100,7 @@ def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "tournament_ab", lambda: {})  # reads ops; covered below
     monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
@@ -111,6 +112,7 @@ def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
     monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "tournament_ab", lambda: {})  # reads ops; covered below
     monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
@@ -187,6 +189,8 @@ PARTS = {
            "e1_tp_pro_exploitability", "e1_nash_fp_exploitability", "e1_tp_uniform_beginner_exploitability"},
     "gate_f_e1": {f"gate_f_e1_{t}_{k}" for t in ("beginner", "mid", "pro") for k in ("nash_loss", "nash_loss_added")},
     "e3_web_lbr": {"e3_web_lbr"},
+    "tournament_ab": {"tournament_primary_ci_low", "tournament_primary_mean", "tournament_pairs", "tournament_verdict",
+                      "tournament_runs"},
 }
 
 
@@ -442,3 +446,107 @@ def test_e3_web_lbr_skips_a_v2_stage_failure_result(ops_clone):
     _pages(clone, p2="p2", p3="p2")
     got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
     assert got["run"] == 200 and got["fresh"] is True
+
+
+# --- tournament_ab (#976, ADR 0030 follow-up 2) ---------------------------------------------------------
+
+AB_ARGS = {"a": "/a.bin", "b": "/b.bin", "presets": ["9max_sng_503020"], "remaining": [4],
+           "profiles": ["even", "random", "skewed"], "level_indexes": [0], "layouts": 3, "games": 400,
+           "sym_games": 200, "seed": 10001, "field": "persona:tag"}
+
+
+def _ab_result(a, b, mean, se=0.0029, **args):
+    return {"schema_version": 1, "args": {**AB_ARGS, **args}, "agents": {"A": {"sha256": a}, "B": {"sha256": b}},
+            "unit": "prize_pool_fraction", "verdict": "A", "adopted": "cold", "cells": [],
+            "primary": {"metric": "learner sim prize - ICM equity (B - A)", "mean": mean, "se": se, "cells": 9}}
+
+
+def _ops_results(tmp_path, docs: dict):
+    """A clone whose origin's ops branch has `cloud/results/<name>` = docs[name]."""
+    origin = tmp_path / "origin"
+    res = origin / "cloud" / "results"
+    res.mkdir(parents=True)
+    _git(origin, "init", "-q", "-b", "ops")
+    for name, doc in docs.items():
+        (res / name).write_text(doc if isinstance(doc, str) else json.dumps(doc), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "ops")
+    clone = tmp_path / "clone"
+    _git(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
+    return clone
+
+
+def test_tournament_ab_pass_over_newest_run_per_pair(tmp_path):
+    clone = _ops_results(tmp_path, {
+        "100.json": _ab_result("a1", "b1", -0.05),           # pair 1, superseded by run 400
+        "200.json": _ab_result("a2", "b2", 0.0007),
+        "300.json": _ab_result("a3", "b3", -0.0019),
+        "400.json": _ab_result("a1", "b1", 0.0013),
+        "50.json": _ab_result("a9", "b9", 0.001, games=100),  # older setup: not mixed in
+        "500.json": _lbr_result("p", 4.0),                   # other schemas are ignored
+        "600.summary.json": _ab_result("a8", "b8", -0.9),    # not a result file
+        "700.json": "{not json",
+    })
+    got = metrics.tournament_ab(repo=clone)
+    assert got["tournament_verdict"] == "pass" and got["tournament_pairs"] == 3
+    assert got["tournament_runs"] == [200, 300, 400]
+    assert got["tournament_primary_mean"] == round((0.0013 + 0.0007 - 0.0019) / 3, 7)
+    assert -0.0075 < got["tournament_primary_ci_low"] < got["tournament_primary_mean"]
+    assert "tournament_error" not in got
+
+
+def test_tournament_ab_newest_setup_decides_and_few_pairs_are_insufficient(tmp_path):
+    clone = _ops_results(tmp_path, {"100.json": _ab_result("a1", "b1", 0.001),
+                                    "200.json": _ab_result("a2", "b2", 0.001),
+                                    "300.json": _ab_result("a3", "b3", 0.002, remaining=[3])})
+    got = metrics.tournament_ab(repo=clone)
+    assert got["tournament_verdict"] == "insufficient" and got["tournament_pairs"] == 1
+    assert got["tournament_runs"] == [300] and got["tournament_primary_ci_low"] is not None
+
+
+def test_tournament_ab_fail_verdict_is_recorded_not_raised():
+    docs = {i: _ab_result(f"a{i}", f"b{i}", -0.0075) for i in (1, 2, 3)}
+    got = metrics.tournament_judge(docs)
+    assert got["tournament_verdict"] == "fail" and got["tournament_pairs"] == 3
+
+
+def test_tournament_ab_judge_error_is_a_note_and_none():
+    def broken(results):
+        raise ValueError("x" * 1000)
+
+    got = metrics.tournament_judge({1: _ab_result("a", "b", 0.0)}, judge=broken)
+    assert all(got[k] is None for k in metrics.TOURNAMENT_KEYS) and got["tournament_runs"] is None
+    assert got["tournament_error"].startswith("ValueError: x") and len(got["tournament_error"]) <= 300
+
+
+def test_tournament_ab_real_judge_error_on_missing_primary_se():
+    doc = _ab_result("a", "b", 0.0)
+    del doc["primary"]["se"]
+    got = metrics.tournament_judge({1: doc})
+    assert got["tournament_verdict"] is None and "ThresholdError" in got["tournament_error"]
+
+
+def test_tournament_ab_without_results_or_ops_is_none(tmp_path):
+    clone = _ops_results(tmp_path, {"100.json": _lbr_result("p", 4.0)})
+    got = metrics.tournament_ab(repo=clone)
+    assert got["tournament_verdict"] is None and "no tournament_ab" in got["tournament_error"]
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    _git(bare, "init", "-q")
+    got = metrics.tournament_ab(repo=bare)
+    assert all(got[k] is None for k in metrics.TOURNAMENT_KEYS) and got["tournament_error"]
+    got = metrics.tournament_ab(repo=tmp_path / "missing")
+    assert got["tournament_verdict"] is None and got["tournament_error"]
+
+
+def test_tournament_trend_reads_history_mixed_with_rows_before_976():
+    old = {"ts": "2026-11-16T00:00:00Z", "sha": "old", "tests_passed": 1, "e3_web_lbr": None}
+    empty = {"ts": "2026-11-17T00:00:00Z", "sha": "empty", **dict.fromkeys(metrics.TOURNAMENT_KEYS),
+             "tournament_runs": None, "tournament_error": "no tournament_ab result in ops:cloud/results"}
+    new = {"ts": "2026-11-18T00:00:00Z", "sha": "new", **metrics.tournament_judge(
+        {i: _ab_result(f"a{i}", f"b{i}", 0.001) for i in (1, 2, 3)})}
+    lines = "\n".join(json.dumps(r) for r in (old, empty, new)) + "\n"
+    rows = [json.loads(line) for line in lines.splitlines()]
+    trend = metrics.tournament_trend(rows)
+    assert [t["sha"] for t in trend] == ["new"] and trend[0]["tournament_verdict"] == "pass"
+    assert metrics.tournament_trend([old]) == []

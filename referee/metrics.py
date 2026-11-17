@@ -12,6 +12,11 @@ Its `v3` / `all_pass_v3` (#797) judge the result's service cells with the ADR 00
 `gate_t_pass_rate` / `gate_t_checks` (#902, ADR 0028 decision 1) record Gate T T1~T4 over the REGISTRY.
 `sim_hands_per_sec` (#903, ADR 0028 decision 2) is report-only: runner speed varies too much to gate on it,
 so no gate reads it; it exists for the 4-week slope.
+`tournament_primary_ci_low` / `tournament_primary_mean` / `tournament_pairs` / `tournament_verdict`
+(#976, ADR 0030 decision 4 follow-up 2, docs/decisions/0030-tournament-eval-thresholds.md) judge the
+`tournament_ab` results in `ops:cloud/results/` with the #975 non-inferiority judge: the newest result's
+evaluation setup, newest run per trained pair. Record-only (never fails the snapshot); no result or a judge
+error gives None values and a `tournament_error` note. `tournament_runs` names the judged runs.
 """
 from __future__ import annotations
 
@@ -283,11 +288,88 @@ def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -
     return {"e3_web_lbr": None}
 
 
+TOURNAMENT_KEYS = ("tournament_primary_ci_low", "tournament_primary_mean", "tournament_pairs", "tournament_verdict")
+
+
+def _is_tournament_ab(doc) -> bool:
+    """`tournament_ab` output has no `schema` field; it is recognised by its `primary` metric and A/B agents."""
+    if not isinstance(doc, dict) or "schema" in doc:
+        return False
+    primary, agents = doc.get("primary"), doc.get("agents")
+    return (isinstance(primary, dict) and str(primary.get("metric", "")).startswith("learner sim prize - ICM equity")
+            and isinstance(agents, dict) and {"A", "B"} <= set(agents))
+
+
+def tournament_judge(docs: dict, judge=None) -> dict:
+    """ADR 0030 verdict over `{run id: tournament_ab result}`: the newest run fixes the evaluation setup,
+    each trained pair (A, B sha256) counts once with its newest run. `judge` lets tests inject a failing judge."""
+    from referee.e3 import tournament_thresholds as tt
+
+    out = dict.fromkeys(TOURNAMENT_KEYS)
+    out["tournament_runs"] = None
+    try:
+        judge = judge or tt.judge
+        runs = sorted((r for r, d in docs.items() if _is_tournament_ab(d)), reverse=True)
+        if not runs:
+            return {**out, "tournament_error": "no tournament_ab result in ops:cloud/results"}
+        setup = lambda d: json.dumps({k: (d.get("args") or {}).get(k) for k in tt.CONFIG_KEYS}, sort_keys=True)
+        want = setup(docs[runs[0]])
+        picked: dict = {}
+        for r in runs:
+            d = docs[r]
+            if setup(d) != want:
+                continue
+            pair = tuple((d["agents"].get(n) or {}).get("sha256") for n in ("A", "B"))
+            picked.setdefault(pair, r)  # runs are newest first
+        chosen = sorted(picked.values())
+        res = judge([docs[r] for r in chosen])
+        out.update({"tournament_primary_ci_low": round(float(res["ci_low"]), 7),
+                    "tournament_primary_mean": round(float(res["mean"]), 7),
+                    "tournament_pairs": int(res["pairs"]), "tournament_verdict": res["verdict"],
+                    "tournament_runs": chosen})
+        return out
+    except Exception as e:  # noqa: BLE001 - one broken part must not drop the whole history row
+        return {**dict.fromkeys(TOURNAMENT_KEYS), "tournament_runs": None,
+                "tournament_error": f"{type(e).__name__}: {e}"[:300]}
+
+
+def tournament_ab(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:
+    """`tournament_judge` over every `cloud/results/<run id>.json` on ops, read with `git show` like `e3_web_lbr`."""
+    docs: dict = {}
+    try:
+        if fetch:
+            _git(repo, "fetch", "-q", "origin", "ops")
+        ls = _git(repo, "ls-tree", "--name-only", f"{ref}:cloud/results")
+        if ls.returncode != 0:
+            return {**dict.fromkeys(TOURNAMENT_KEYS), "tournament_runs": None,
+                    "tournament_error": f"no {ref}:cloud/results"}
+        for n in ls.stdout.split():
+            if not (m := _RESULT_PATH.match(f"cloud/results/{n}")):
+                continue
+            shown = _git(repo, "show", f"{ref}:cloud/results/{n}")
+            try:
+                docs[int(m.group(1))] = json.loads(shown.stdout) if shown.returncode == 0 else None
+            except json.JSONDecodeError:
+                continue
+    except (OSError, subprocess.SubprocessError) as e:
+        return {**dict.fromkeys(TOURNAMENT_KEYS), "tournament_runs": None,
+                "tournament_error": f"{type(e).__name__}: {e}"[:300]}
+    return tournament_judge(docs)
+
+
+def tournament_trend(rows) -> list[dict]:
+    """History rows that carry a tournament verdict, oldest first. Rows from before #976 (no keys) and rows
+    whose judge had no result (`tournament_verdict` None) are skipped, so mixed history reads cleanly."""
+    return [{"sha": r.get("sha"), "ts": r.get("ts"), **{k: r.get(k) for k in TOURNAMENT_KEYS}}
+            for r in rows if isinstance(r, dict) and r.get("tournament_verdict") is not None]
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    for part in (test_counts, code_size, sim_throughput, gate_r, gate_t, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr):
+    for part in (test_counts, code_size, sim_throughput, gate_r, gate_t, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr,
+                 tournament_ab):
         t0 = time.monotonic()
         snap.update(part())
         print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)
