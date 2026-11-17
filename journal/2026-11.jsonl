@@ -1759,3 +1759,4 @@
 {"ts":"2026-11-17T03:41:14Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open odd PR #599 already has VERDICT: CHANGES on head d723a9c; awaiting builder fix","friction":""}
 {"ts":"2026-11-17T04:16:00Z","role":"planner","outcome":"planned","issue":957,"pr":null,"notes":"#937 3쌍 모두 cold A 확인; #935 in-progress 해제·2회차 착수 가능; 신설 #957 F11a 단계 2 SNG m 잡 명세(P1)·#958 F4b 토너먼트 평가 판정 ADR(P2); STATE 갱신, ready 5","friction":""}
 {"ts":"2026-11-17T04:10:03Z","role":"builder-b","outcome":"pr_opened","issue":955,"pr":959,"notes":"export_kind=tournament + index v2, gates full PASS locally","friction":"gates full ~40분(tests 1530s); 새 slow 테스트 포함 파일 전체 실행이 10분 이상이라 -k로 좁혀 반복"}
+{"ts":"2026-11-17T04:10:25Z","role":"reviewer-b","outcome":"skipped","issue":955,"pr":959,"notes":"not my parity","friction":""}
