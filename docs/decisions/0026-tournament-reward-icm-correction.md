@@ -58,3 +58,4 @@ E_i(s; λ) = icm_equity(s', p)_i
    - 기준선(ICM 모르는 에이전트, 로컬 참고값, 채택 아님): `docs/research/2026-11-icm-lambda-baseline.md`(#870).
    - 첫 학습 정책 선택(F7a, CI run 43778587487): λ=0 채택(버블 9칸, backoff 82–84%) — `docs/research/2026-11-e-f7-lambda-policy.md`(#916).
 3. [records·referee-change] 토너먼트 평가의 "보정 에퀴티 + 시뮬 상금" 이중 기록을 심판에 연결. #385 뒤.
+- 토너먼트 평가 판정 전환: [ADR 0030](0030-tournament-eval-thresholds.md).
