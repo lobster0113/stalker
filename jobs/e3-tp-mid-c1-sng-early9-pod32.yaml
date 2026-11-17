@@ -3,17 +3,19 @@
 # Same frame as e3-tp-mid-c1-sng-bubble-pod32 (#901): 16 workers, real menu, ranges average, avg-rule own.
 # --stacks bubble:even because 9 survivors at level 0 means nobody has busted yet, so equal stacks are the real early table.
 # --lbr-hands 600 = E3_BY_PLAYERS_LBR_HANDS (the size for n >= 4); the pod_train default would be 1000.
-# --minutes 60 / --max-iters 20000 are assumptions; the result's stopped_by says which one ended training.
-# No median_iters_per_s yet: the 9-player it/s is unmeasured, it is set from the first run (#941 way).
+# --minutes 60 ends training first: --max-iters 80000 is above 18 it/s * 3600 s ~= 65000 (#971). run 44061938004 (#950) measured
+# 18.05 it/s and hit the old 20000 cap after 1108 s, so most of the 60 min budget went unused.
+# median_iters_per_s 18 = that run's 18.05 it/s, a bit under it so a normal host passes the 0.6x slow-host check (#941 way).
 # Dispatch alone (#877) and only after the #937 and #935 cloud runs finish.
 # Worst case = hourly_usd * max_minutes / 60 = 1.2 * 180 / 60 = $3.60 (<= $4.00).
 # Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
 name: e3-tp-mid-c1-sng-early9-pod32
 image: python:3.12-slim
-command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 9 --workers 16 --minutes 60 --max-iters 20000 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --payoff icm --preset 9max_sng_503020 --stage e --level-index 0 --lam 0 --stacks bubble:even --lbr-hands 600 --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-sng-early9-pod32.json
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 9 --workers 16 --minutes 60 --max-iters 80000 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --payoff icm --preset 9max_sng_503020 --stage e --level-index 0 --lam 0 --stacks bubble:even --lbr-hands 600 --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-sng-early9-pod32.json
 cpu_flavor: cpu3c
 vcpu: 32
 disk_gb: 10
 max_minutes: 180
 hourly_usd: 1.2
+median_iters_per_s: [18]
 result_path: /result/e3-tp-mid-c1-sng-early9-pod32.json

@@ -61,7 +61,7 @@
 
 ## 9인 SNG early c1 측정 잡 (`e3-tp-mid-c1-sng-early9-pod32.yaml`, #943, ADR 0027 F10)
 - 토너먼트 단계 4(9max SNG early) 준비 측정: 9인 c1(`te0` 슬롯, #940 위치 이름) 학습이 도는지와 it/s·key 수·메모리를 잰다. `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 같은 틀에 `--players 9 --stage e --stacks bubble:even --lbr-hands 600`(레벨 0에 생존자 9명 = 아직 아무도 탈락하지 않았으므로 같은 스택이 실제 초반 테이블). `tests/test_sng_early9_job.py`가 실제 `pod_train` 파서로 인자를 고정하고, 7·8·9인 소규모 로컬 실행(slow)으로 키에 `EP` 위치가 없고 `te0`인지 확인한다.
-- 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분). `median_iters_per_s`는 첫 run 실측 뒤 정한다(#941 방식). #937·#935 클라우드 run이 끝난 뒤 `resume_run` 없이 **단독** 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`(1MB 초과면 아티팩트만).
+- 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분). `median_iters_per_s: [18]`(#950 run 44061938004 실측 18.05 it/s, #941 방식), `--max-iters 80000`(18 it/s × 3600초 ≈ 65000이라 `--minutes 60`이 먼저 끝난다; 이전 20000은 1108초에 도달해 예산을 못 썼다, #971). #937·#935 클라우드 run이 끝난 뒤 `resume_run` 없이 **단독** 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`(1MB 초과면 아티팩트만).
 
 ## SNG 단계 2(m) 학습 잡 (`e3-tp-mid-c1-sng-mid3-pod32.yaml`·`e3-tp-mid-c1-sng-mid2-pod32.yaml`, #957, ADR 0027 결정 2 단계 2)
 - 9max 50/30/20 SNG 상금권 안 생존자 3명·2명(c1 `tm0` 슬롯, 순수 ICM `--lam 0`: 버블이 아니라 g = 0). #937 단계 1 A/B가 쌍 3개 모두 cold A였으므로 warm start 없이 cold(ADR 0027 결정 4). `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 같은 명령에서 `--players 3|2 --stage m --lbr-hands 2000`(`E3_BY_PLAYERS_LBR_HANDS_BY_N`, #556)과 출력 이름만 다르다. `--minutes 60 --max-iters 20000`·`--stacks bubble:skewed`는 버블 잡 그대로. `tests/test_sng_mid_jobs.py`가 실제 launcher·`pod_train` 파서로 차이를 고정하고, 2반복 소규모 실행(slow)으로 `model.train_env.stage == "m"`·key `tm0`를 확인한다.
