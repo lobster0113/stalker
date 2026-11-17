@@ -28,6 +28,9 @@ on:
       export_run:
         description: "mode=export: run id of an earlier mixn c1 cloud.yml run; its result becomes 2-6 handed web policy files (#588)"
         default: ""
+      export_kind:
+        description: "mode=export: cash (a mixn c1 run, default) | tournament (one ICM run with train_env -> t-<env_id>-<stage><ante>.json, ADR 0029)"
+        default: cash
       tier:
         description: "mode=export: the run's tier (beginner | mid | pro); another tier's result is refused"
         default: ""
@@ -80,6 +83,7 @@ jobs:
       RESUME_RUN: ${{ inputs.resume_run }}
       RESUME_RUN_B: ${{ inputs.resume_run_b }}
       EXPORT_RUN: ${{ inputs.export_run }}
+      EXPORT_KIND: ${{ inputs.export_kind }}
       TIER: ${{ inputs.tier }}
       EXPORT_STRATEGY: ${{ inputs.export_strategy }}
       EXPORT_MIN_VISITS: ${{ inputs.export_min_visits }}
@@ -140,6 +144,7 @@ jobs:
             collect) [[ "$COLLECT_RUN" =~ ^[0-9]+$ ]] || { echo "collect_run must be a cloud.yml run id, got '$COLLECT_RUN'"; exit 1; } ;;
             export)
               [[ "$EXPORT_RUN" =~ ^[0-9]+$ ]] || { echo "export_run must be a cloud.yml run id, got '$EXPORT_RUN'"; exit 1; }
+              [[ -z "$EXPORT_KIND" || "$EXPORT_KIND" =~ ^(cash|tournament)$ ]] || { echo "export_kind must be cash|tournament, got '$EXPORT_KIND'"; exit 1; }
               [[ "$TIER" =~ ^(beginner|mid|pro)$ ]] || { echo "tier must be beginner|mid|pro, got '$TIER'"; exit 1; }
               [[ "$EXPORT_STRATEGY" =~ ^(current|average)$ ]] || { echo "export_strategy must be current|average, got '$EXPORT_STRATEGY'"; exit 1; }
               [[ "$EXPORT_MIN_VISITS" =~ ^[0-9]+$ ]] || { echo "export_min_visits must be a whole number, got '$EXPORT_MIN_VISITS'"; exit 1; }
@@ -202,6 +207,7 @@ jobs:
         if: env.MODE == 'export'
         run: |
           extra=()
+          [[ "$EXPORT_KIND" == tournament ]] && extra+=(--kind tournament)
           [[ -n "$EXPORT_HIT_RATE_HANDS" ]] && extra+=(--hit-rate-hands "$EXPORT_HIT_RATE_HANDS")
           [[ -n "$EXPORT_HIT_RATE_SEEDS" ]] && extra+=(--hit-rate-seeds "$EXPORT_HIT_RATE_SEEDS")
           python -m stalker.tools.export_web_players export "${extra[@]}" --pod-result "$RUNNER_TEMP/export-src/result.json" \
