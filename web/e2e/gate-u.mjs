@@ -107,7 +107,7 @@ function tableOverlaps() {
 }
 
 // focus: 화면에 들여 놓고 보이는지 검사할 요소. 찍는 동안 데모 진행을 멈춘다.
-async function inspect(tag, focus, pg = page, skipOverlap = []) {
+async function inspect(tag, focus, pg = page) {
   await pg.evaluate(() => { window.__hold = true; });
   for (const [name, width, height] of VIEWPORTS) {
     await pg.setViewportSize({ width, height });
@@ -130,7 +130,7 @@ async function inspect(tag, focus, pg = page, skipOverlap = []) {
     }
     await pg.screenshot({ path: `${shots}/${tag}-${name}.png` });
     const ov = await pg.evaluate(tableOverlaps);
-    must(!ov.length || skipOverlap.includes(name), `${tag} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 카드·칩·딜러 버튼 위치를 고치세요 (#445)`);
+    must(!ov.length, `${tag} ${width}x${height}: 테이블 요소 겹침 ${ov.slice(0, 4).join(", ")} — 카드·칩·딜러 버튼 위치를 고치세요 (#445)`);
     const { sw, iw } = await pg.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
     must(sw <= iw, `${tag} ${width}x${height}: 가로 스크롤 (scrollWidth ${sw} > ${iw}). 넘치는 요소를 줄이세요`);
   }
@@ -1790,12 +1790,23 @@ wd.section("14 #968");
       await pg.click("#start-btn");
       await pg.waitForSelector(QUICK);
       const tag = `tour-9max-${withPolicy ? "policy" : "nopolicy"}`;
-      // 820 + policy: a bet chip can sit on a neighbour's card back in the cramped 440px two-column table (separate layout bug, follow-up of #977)
-      await inspect(tag, ".table-wrap", pg, withPolicy ? ["tablet"] : []);
+      await inspect(tag, ".table-wrap", pg);
       // persona tags: the full text is kept in title; clipped only on the phone, never on tablet/laptop
       for (const [name, width, height] of VIEWPORTS) {
         await pg.setViewportSize({ width, height });
         const r = await pg.evaluate(() => [...document.querySelectorAll(".seat .persona")].filter(e => e.offsetParent !== null).map(e => ({ t: e.textContent, title: e.title, clip: e.scrollWidth > e.clientWidth, out: e.getBoundingClientRect().right > e.closest(".seat").getBoundingClientRect().right + 1 })));
+        // 820 (two-column, 430px felt): every seat and tag stays inside the table, and tags never overlap each other
+        const geo = await pg.evaluate(() => {
+          const W = document.querySelector(".view.active .table-wrap").getBoundingClientRect(), R = e => e.getBoundingClientRect();
+          const seats = [...document.querySelectorAll(".view.active .seat")].filter(e => e.offsetParent !== null), tags = seats.map(s => s.querySelector(".persona"));
+          const inside = e => R(e).left >= W.left - 1 && R(e).right <= W.right + 1;   // sideways only: the hero seat hangs below the felt by design
+          const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+          const out = [...seats, ...tags].filter(e => !inside(e)).map(e => (e.querySelector(".nm") || e.closest(".seat").querySelector(".nm")).textContent);
+          const ov = []; tags.forEach((a, i) => tags.slice(i + 1).forEach(b => { if (hit(R(a), R(b))) ov.push(a.textContent + " / " + b.textContent); }));
+          return { out, ov };
+        });
+        if (name === "tablet") must(!geo.out.length, `${tag} ${width}: 좌석·페르소나 태그가 테이블 밖 ${geo.out.join(", ")}`);
+        if (name === "tablet") must(!geo.ov.length, `${tag} ${width}: 페르소나 태그끼리 겹침 ${geo.ov.join(", ")}`);
         must(r.length >= 8, `${tag} ${width}: 페르소나 태그가 ${r.length}개뿐`);
         must(r.every(x => x.title === x.t), `${tag} ${width}: 페르소나 태그 title이 전체 텍스트가 아님 ${JSON.stringify(r.find(x => x.title !== x.t))}`);
         if (name === "phone") must(r.every(x => !x.out), `${tag} ${width}: 페르소나 태그가 좌석 밖으로 넘침 ${JSON.stringify(r.find(x => x.out))}`);
