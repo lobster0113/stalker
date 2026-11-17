@@ -1,17 +1,18 @@
-# STATE (2026-11-17 08:10Z, planner)
+# STATE (2026-11-17 09:40Z, planner)
 ## 현재 단계
 **D 2–5인 완료 → E 토너먼트(#385, ADR 0027) 진행. 1단계(9max_sng_503020 버블 r=4) 판정 기록 완료: PR #960(33bc23f6) 머지, #937 닫힘 — cold A 채택, λ=0·cold 확정.** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음.
+planner 11-17 09:40Z: **PR #966(#935 F7a 같은 시드 CI 기준선, 채택 λ 정책0·random0·tag0.2) 머지 → #935 라벨 정리, #950 blocked 해제·ready(선행 #946·#937·#935 해소). #956 H2는 PR #967 판정 대기. ready 3(#950·#958·#964) + #956 PR 중.**
 planner 11-17 08:10Z: **PR #959(#955 H1)·#962(#957 F11a)·#963(#961 F6d) 머지 → 라벨 정리, #956 H2 blocked 해제·ready. 신설 #964 F6e `_counts` by_street 합산(P2 ready referee-change, #963 후속)·#965 F11b 단계 2 디스패치·기록(P2 blocked, #935·#950 뒤). ready 4(#935 P2·#956 P2·#958 P2·#964 P2).**
 planner 11-17 05:05Z: **PR #960 머지(#937 닫힘) → #935 선행 해소. 신설 #961 F6d 백오프 진단(no_key 분리·거리별 적중률, P2 ready, 클라우드 없음) — #937 74% 백오프가 A/B 희석·판정 신뢰성 위험. ready 5(#957 P1·#935·#955 PR #959 CHANGES·#958·#961).**
 planner 11-17 04:15Z: **#937 클라우드 3쌍 완료(43882446641 +0.0013·44000780867 +0.0007·44005595416 −0.0019, 모두 CI가 0 포함) → builder가 연구 문서·PR 진행 중. #935 2회차 착수 가능(in-progress 해제·ready). 신설 #957 F11a 단계 2 SNG m(r=3·2) cold 잡 명세(P1, ready, 클라우드 없음)·#958 F4b 토너먼트 평가 판정 전환 ADR(P2, ready, docs). ready 5(#937 PR 중·#955 builder-b 중·착수 가능 #935·#957·#958).**
 planner 11-17 01:10Z: PR #954(#952 RunPod REST v2) 머지 → #937 재개. 01:00Z: PR #953(ADR 0029) 머지 → #955 H1·#956 H2 신설.
 이전 기록(11-16, 클라우드 DNS 차단 #946→#952, CI 2샤드 #949)은 ops 히스토리의 이전 STATE 참고.
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. **E 단계 1 마무리 → 단계 2**: #935 기준선(클라우드 단독) → #950 9인 early 측정 → F11b 단계 2 디스패치(#957 뒤). 이유: 소유자 방향(실전 게임)의 마지막 단계이며, 클라우드 단독 디스패치 규칙(#877) 때문에 순서가 임계 경로다.
+1. **E 단계 1 마무리 → 단계 2**: #935 완료 → #950 9인 early 측정 → F11b 단계 2 디스패치(#957 뒤). 이유: 소유자 방향(실전 게임)의 마지막 단계이며, 클라우드 단독 디스패치 규칙(#877) 때문에 순서가 임계 경로다.
 2. **토너먼트 정책을 서비스에 노출(F8, ADR 0029)**: #955 H1 → #956 H2 → H3(표시·복기)·H4(첫 실제 export, 1단계 정책 43735226442 계열). 이유: 학습 결과가 Training Game에 닿아야 북극성 지표가 움직인다.
 3. **평가 판정화(#958) + 커버리지 진단(#961)**: 토너먼트 지표가 모두 record-only이고 결정 74%가 백오프라 진척을 판정할 수 없다. 심판 능력 부족은 최우선 원칙이므로 ADR과 진단을 먼저, 그 뒤 referee-change·커버리지 후속.
 ## 큐
-ready: #935 P2(2회차 디스패치, 임계 경로)·#956 P2(F8 H2)·#958 P2(F4b ADR)·#964 P2(F6e referee-change). blocked: #950 P2(#935 뒤)·#965 P2(#935·#950 뒤). 다음 후보: #964 뒤 클라우드 평가 재실행으로 거리별 백오프 확인 → 버블 key 커버리지 개선, F8 H3·H4(#956 뒤), F4b 후속 referee-change(#958 뒤), 단계 3 앤티 잡(F11 뒤), F10 7·8인 잡, #950 실측 뒤 median_iters_per_s.
+ready: #950 P2(9인 early 측정, 임계 경로)·#958 P2(F4b ADR)·#964 P2(F6e referee-change). in-progress: #956 P2(PR #967). blocked: #965 P2(#950 뒤). 다음 후보: #964 뒤 클라우드 평가 재실행으로 거리별 백오프 확인 → 버블 key 커버리지 개선, F8 H3·H4(#956 뒤), F4b 후속 referee-change(#958 뒤), 단계 3 앤티 잡(F11 뒤), F10 7·8인 잡, #950 실측 뒤 median_iters_per_s.
 보류/추적: #391(RFC-03)·#406·#427(예산, 소유자)·#387·#385(E 추적)·#410·#416·#105·#383·#389·#341·#415·#419·#306·#359·#321·#320·#409·#240·#327. 라벨 없음: #189(D3). #599 CHANGES 11일 무수정(research PR).
 ## 지표 요약 (최근 값과 추세)
 - CI history 84759fdb(11-17 07:56Z): tests 2215 통과/0 실패, stalker_loc 19924, gate_r·cash·e3·t·l 1.0 — 증가 추세(05:22Z 33bc23f6 2190).
@@ -21,6 +22,7 @@ ready: #935 P2(2회차 디스패치, 임계 경로)·#956 P2(F8 H2)·#958 P2(F4b
 - 토너먼트(클라우드 결과, record-only): #937 B−A se ≈0.0029, A bubble_mean_rel 0.030–0.034(유의 2–3/9), policy backoff_rate ≈0.74(주로 no_key) — 커버리지 낮음, 관찰.
 - 클라우드 지출: 11월 원장 합 $33.45 / $100. REST v2 이전 뒤 run 시간 단축(쌍 2 38분·쌍 3 65분 vs 쌍 1 157분), 원인은 포드 사양 추정.
 ## 경보
+- [planner 11-17 09:40Z] main 26ce3588 CI 진행 중(이전 84759fdb success), P0 없음, 24h+ 무판정 PR 없음(#599 CHANGES 11일 무수정), 6h+ in-progress 없음. friction 신규 없음(오래된 로컬 origin/main 참조 builder 2회 — 관찰).
 - [planner 11-17 08:10Z] main 84759fdb CI metrics 기록(실패 0), P0 없음, 24h+ 무판정 PR 없음(#599 CHANGES 11일 무수정), 6h+ in-progress 없음. friction 반복: `should_run --sweep`이 판정 끝난 PR·짝/홀 불일치에도 RUN(reviewer·reviewer-b 11-17 3회) → 기존 (c) 후보 강화, Auditor 결정.
 - [planner 11-17 05:05Z] main 33bc23f6 CI 진행 중(이전 c24630f9 success), P0 없음, 24h+ 무판정 PR 없음, 6h+ in-progress 없음(#955는 PR #959 활성), friction 신규: reviewer-b `--sweep` 홀짝 무시 RUN(1회, 관찰).
 - [planner 11-17 04:15Z] main c24630f9 CI success. P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 11일 무수정). 6h+ in-progress: #935 해제(의도된 대기 종료). 클라우드 차단 해소 확인(check 44000604735 REST v2 ok, 3 run success). policy backoff_rate 0.74(no_key)는 평가 신뢰성 위험 — #958 ADR에서 다룰 것. friction 신규 없음.
