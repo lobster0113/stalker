@@ -37,7 +37,8 @@ from stalker.jsonio import read_json
 SCHEMA = "stalker.web.policy"
 SCHEMA_VERSION = 2   # 2: optional `l1_rows` (#803); a v1 file is the same without it
 INDEX_SCHEMA = "stalker.web.policy-index"
-INDEX_SCHEMA_VERSION = 1
+INDEX_SCHEMA_VERSION = 2   # 2: top-level `tournament` map (ADR 0029 decision 1); a v1 index is the same with `tournament` = {}
+TOURNAMENT_MAX_BYTES = 12 * 1024 * 1024   # all tournament policy files together (ADR 0029 decision 3)
 Q = 255
 MAX_BYTES = 3 * 1024 * 1024  # one tier's file (#336): the page loads it before the first hand
 
@@ -75,6 +76,7 @@ def upsert_index(index: dict | None, entry: dict) -> dict:
     idx = index if index is not None else {"schema": INDEX_SCHEMA, "schema_version": INDEX_SCHEMA_VERSION, "tiers": {}}
     if idx.get("schema") != INDEX_SCHEMA:
         raise SystemExit(f"--index: schema {idx.get('schema')!r} is not {INDEX_SCHEMA}; point it at web/app/policy/index.json")
+    idx["schema_version"] = INDEX_SCHEMA_VERSION   # a v1 index is read as v2 with no `tournament`
     tier, n = entry["tier"], int(entry["players"])
     old = idx["tiers"].get(tier, {})
     if n == 6:
@@ -84,6 +86,28 @@ def upsert_index(index: dict | None, entry: dict) -> dict:
         by[str(n)] = entry
         idx["tiers"][tier] = {**old, "by_players": dict(sorted(by.items(), key=lambda kv: int(kv[0])))}
     return idx
+
+
+def upsert_tournament(index: dict | None, entry: dict) -> dict:
+    """Put a tournament policy under `tournament[env_id][stage].ante[<0|1>]` (ADR 0029 decision 1); `tiers` is not touched."""
+    idx = index if index is not None else {"schema": INDEX_SCHEMA, "schema_version": INDEX_SCHEMA_VERSION, "tiers": {}}
+    if idx.get("schema") != INDEX_SCHEMA:
+        raise SystemExit(f"--index: schema {idx.get('schema')!r} is not {INDEX_SCHEMA}; point it at web/app/policy/index.json")
+    idx["schema_version"] = INDEX_SCHEMA_VERSION
+    ante = idx.setdefault("tournament", {}).setdefault(entry["env_id"], {}).setdefault(entry["stage"], {}).setdefault("ante", {})
+    ante[str(int(entry["ante"]))] = entry
+    return idx
+
+
+def tournament_bytes(index: dict | None, skip: tuple | None = None) -> int:
+    """Sum of the `bytes` of the index's tournament policy files, except the (env_id, stage, ante) slot `skip` (it is being replaced)."""
+    total = 0
+    for env_id, stages in ((index or {}).get("tournament") or {}).items():
+        for stage, v in stages.items():
+            for ante, e in (v.get("ante") or {}).items():
+                if (env_id, stage, int(ante)) != skip:
+                    total += int(e.get("bytes", 0))
+    return total
 
 
 def write_index(path: Path, idx: dict) -> None:

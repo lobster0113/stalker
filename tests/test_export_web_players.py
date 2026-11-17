@@ -516,3 +516,93 @@ def test_cli_hit_rate_seeds_flag_reaches_the_export(tmp_path):
     assert W.main(args + ["--hit-rate-seeds", "2"]) == 0
     s = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
     assert s["files"][0]["hit_rate"]["seeds"] == 2
+
+
+# --- #955: export_kind=tournament (ADR 0029 decisions 1-3) ---
+
+def _tournament_result(tmp_path, name="t", stage="b", payoff="icm", with_env=True, iters=4):
+    kw, env = P.tournament_env("9max_sng_503020", 4, stage=stage, lam=0.1 if payoff == "icm" else 0.0, stacks="bubble:skewed", payoff=payoff)
+    m = E3MCCFR(1, 11, 4, "mid", key_variant="c1", menu="real", stacks=env["stacks"], **kw)
+    m.iterate(iters)
+    p = _pod_result(tmp_path, m, name)
+    res = json.loads(p.read_text(encoding="utf-8"))
+    res["tier"] = "mid"
+    res["model"].update(train_env=env, ante=m.ante, stage=m.stage, payoff=m.payoff, stacks=m.stacks, key_variant="c1",
+                        **({"payouts": list(m.payouts), "lam": m.lam} if m.payoff != "chip" else {}),
+                        **{k: getattr(m, k) for k in ("stack_preset", "stack_remaining", "stack_level")}, version=11)
+    if with_env:
+        res["train_env"] = env
+    p.write_text(json.dumps(res), encoding="utf-8")
+    return p, env, m
+
+
+def _export_t(tmp_path, res, base=None, out="out", extra=()):
+    base_path = tmp_path / "base-index.json"
+    base_path.write_text(json.dumps(base if base is not None else _shipped()), encoding="utf-8")
+    sm = tmp_path / f"{out}-sum.json"
+    args = ["export", "--kind", "tournament", "--pod-result", str(res), "--run", "77", "--tier", "mid",
+            "--index-base", str(base_path), "--out-dir", str(tmp_path / out), "--summary-out", str(sm), *extra]
+    return W.main(args), sm
+
+
+def _shipped():
+    return json.loads((Path(__file__).parents[1] / "web" / "app" / "policy" / "index.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.slow
+def test_tournament_export_names_file_and_copies_train_env_into_the_v2_index(tmp_path):
+    res, env, m = _tournament_result(tmp_path)
+    assert _export_t(tmp_path, res)[0] == 0
+    out = tmp_path / "out"
+    name = f"t-{env['env_id']}-b0.json"
+    assert sorted(p.name for p in out.iterdir()) == sorted([name, "index.json"])
+    idx = json.loads((out / "index.json").read_text(encoding="utf-8"))
+    e = idx["tournament"][env["env_id"]]["b"]["ante"]["0"]
+    assert idx["schema_version"] == 2 and set(idx["tournament"][env["env_id"]]["b"]["ante"]) == {"0"}
+    assert (e["file"], e["env_id"], e["stage"], e["ante"], e["payoff"]) == (name, env["env_id"], "b", 0, "icm")
+    assert (e["lam"], e["stacks"], e["level_index"], e["players"]) == (env["lam"], env["stacks"], env["level_index"], 4)
+    assert e["trained_on"]["game"] == "tournament" and e["bytes"] == (out / name).stat().st_size
+    assert idx["tiers"] == _shipped()["tiers"]   # cash entries are not touched
+
+
+@pytest.mark.slow
+def test_tournament_export_refuses_cash_and_non_icm_runs(tmp_path):
+    cash = _pod_result(tmp_path, E3MCCFR(3, 5, 6, "basic", key_variant="c1", player_mix=FIVE), "cash")
+    with pytest.raises(SystemExit, match="train_env"):
+        _export_t(tmp_path, cash)
+    chip, _, _ = _tournament_result(tmp_path, "chip", payoff="chip")
+    with pytest.raises(SystemExit, match="payoff"):
+        _export_t(tmp_path, chip)
+
+
+@pytest.mark.slow
+def test_tournament_export_refuses_a_total_over_12mib_and_replaces_its_own_slot(tmp_path):
+    res, env, _ = _tournament_result(tmp_path)
+    base = _shipped()
+    other = {"file": "t-x-m0.json", "bytes": W.X.TOURNAMENT_MAX_BYTES - 10, "env_id": "x", "stage": "m", "ante": 0}
+    base = W.X.upsert_tournament(base, other)
+    with pytest.raises(SystemExit, match="12|total"):
+        _export_t(tmp_path, res, base)
+    base["tournament"]["x"]["m"]["ante"]["0"]["bytes"] = 100
+    assert _export_t(tmp_path, res, base)[0] == 0
+    # the same slot again: its old bytes do not count twice
+    big = W.X.upsert_tournament(_shipped(), {"file": "old", "bytes": W.X.TOURNAMENT_MAX_BYTES, "env_id": env["env_id"], "stage": "b", "ante": 0})
+    assert _export_t(tmp_path, res, big, out="again")[0] == 0
+
+
+def test_index_v1_reads_as_v2_without_tournament_and_cash_upsert_changes_only_the_version():
+    X = W.X
+    v1 = _shipped()
+    assert v1["schema_version"] == 1 and "tournament" not in v1
+    entry = {"tier": "mid", "players": 3, "file": "mid-3.json"}
+    import copy
+    v2 = X.upsert_index(copy.deepcopy(v1), entry)
+    assert v2["schema_version"] == 2 and "tournament" not in v2
+    expect = copy.deepcopy(v1)
+    expect["tiers"]["mid"] = v2["tiers"]["mid"]
+    expect["schema_version"] = 2
+    assert v2 == expect
+    t = X.upsert_tournament(copy.deepcopy(v2), {"env_id": "e", "stage": "b", "ante": 1, "file": "f", "bytes": 5})
+    assert t["tiers"] == v2["tiers"] and t["tournament"]["e"]["b"]["ante"]["1"]["file"] == "f"
+    again = X.upsert_tournament(copy.deepcopy(t), {"env_id": "e", "stage": "b", "ante": 0, "file": "g", "bytes": 5})
+    assert set(again["tournament"]["e"]["b"]["ante"]) == {"0", "1"} and again["tiers"] == v2["tiers"]

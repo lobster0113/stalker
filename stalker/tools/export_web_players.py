@@ -334,6 +334,63 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
             "index": {"file": "index.json", "bytes": len(ib), "sha256": hashlib.sha256(ib).hexdigest()}}
 
 
+def tournament_file_name(env_id: str, stage: str, ante: int) -> str:
+    return f"t-{env_id}-{stage}{ante}.json"
+
+
+def export_tournament(st: dict, summary: dict, run: str, out_dir: Path, index_base: dict | None = None,
+                      strategy: str = "current", min_visits: int = 0, sha: str = "", max_bytes: int = X.MAX_BYTES,
+                      total_max_bytes: int = X.TOURNAMENT_MAX_BYTES) -> dict:
+    """`export_kind=tournament` (ADR 0029 decision 2): one ICM tournament run -> `t-<env_id>-<stage><ante>.json` and the v2
+    `index.json` (`tournament[env_id][stage].ante[0|1]`). The entry's env_id/stage/lam/stacks/level_index come from `train_env`
+    as recorded; a run without it, or whose payoff is not icm, is refused. Page budget order as for cash: `min_visits`, then `l1_rows`."""
+    env = summary.get("train_env") or st.get("train_env")
+    if not env:
+        raise SystemExit(f"run {run}: no train_env in this result (a cash run?); use export_kind=cash, "
+                         "or pass a tournament run from pod_train --preset")
+    if st.get("payoff") != "icm":
+        raise SystemExit(f"run {run}: payoff is {st.get('payoff', 'chip')!r}, export_kind=tournament takes payoff icm only; "
+                         "pick an ICM-trained run")
+    if st.get("player_mix"):
+        raise SystemExit(f"run {run}: this table has a player_mix; a tournament policy is one seat count")
+    ante = 1 if int(st.get("ante", 0)) > 0 else 0
+    m = X.load_model(st)
+    visits = dict(m.visits)
+    full = m.policy() if strategy == "average" else m.current_policy()
+    doc = X.policy_doc(m, st, summary, run, sha, strategy, False, None, min_visits, full)
+    doc.update(env_id=env["env_id"], stage=env["stage"], ante=ante, payoff="icm", lam=env["lam"], stacks=env["stacks"],
+               level_index=env["level_index"],
+               trained_on={"game": "tournament", "env_id": env["env_id"], "stage": env["stage"], "players": doc["players"]})
+    body = json.dumps(doc, separators=(",", ":")).encode()
+    base_bytes = len(body)
+    if min_visits > 0:
+        kept = {k: r for k, r in full.items() if visits.get(k, 0) >= min_visits}
+        fit = _top_fit(full, kept, visits, base_bytes, max_bytes)[2]
+        if fit:
+            doc[L1_FIELD] = fit
+            body = json.dumps(doc, separators=(",", ":")).encode()
+    name = tournament_file_name(env["env_id"], env["stage"], ante)
+    total = X.tournament_bytes(index_base, (env["env_id"], env["stage"], ante)) + len(body)
+    if total > total_max_bytes:
+        raise SystemExit(f"run {run}: tournament policy files would total {total} bytes > {total_max_bytes}; "
+                         "raise --min-visits or drop a stage (ADR 0029 decision 3)")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / name).write_bytes(body)
+    idx = X.upsert_tournament(copy.deepcopy(index_base), X.index_entry(doc, name, len(body)))
+    X.write_index(out_dir / "index.json", idx)
+    ib = (out_dir / "index.json").read_bytes()
+    print(f"{name}: {doc['keys']} keys, {len(body)} bytes")
+    return {"schema": SCHEMA, "schema_version": SCHEMA_VERSION, "export_kind": "tournament", "export_run": str(run),
+            "artifact": f"web-policy-{run}", "job": summary.get("job", ""), "tier": doc["tier"],
+            "iterations": st.get("iterations"), "strategy": strategy, "min_visits": min_visits, "max_bytes": max_bytes,
+            "total_bytes": total, "total_max_bytes": total_max_bytes,
+            "files": [{"file": name, "players": doc["players"], "min_visits": min_visits, "keys": doc["keys"],
+                       "keys_dropped": doc["keys_dropped"], "bytes": len(body), "sha256": hashlib.sha256(body).hexdigest(),
+                       "within_page_budget": len(body) <= max_bytes, "env_id": env["env_id"], "stage": env["stage"],
+                       "ante": ante, "lbr_bb": doc["lbr_bb"], "lbr_stderr_bb": doc["lbr_stderr_bb"]}],
+            "index": {"file": "index.json", "bytes": len(ib), "sha256": hashlib.sha256(ib).hexdigest()}}
+
+
 def policies_for_ops(summary: dict, out_dir: Path, index_base: dict | None = None) -> dict[str, bytes]:
     """{file name: bytes} for `ops:cloud/policies/<run>/`: the files within the page budget and an `index.json`
     that lists only them (over-budget files stay in the summary). Empty when none fits (#596)."""
@@ -344,7 +401,8 @@ def policies_for_ops(summary: dict, out_dir: Path, index_base: dict | None = Non
     for name in kept:
         body = (out_dir / name).read_bytes()
         doc = json.loads(body)
-        idx = X.upsert_index(idx, X.index_entry(doc, name, len(body)))
+        entry = X.index_entry(doc, name, len(body))
+        idx = X.upsert_tournament(idx, entry) if summary.get("export_kind") == "tournament" else X.upsert_index(idx, entry)
     files = {name: (out_dir / name).read_bytes() for name in kept}
     files["index.json"] = (json.dumps(idx, indent=1, ensure_ascii=False) + "\n").encode()
     return files
@@ -359,6 +417,8 @@ def main(argv=None) -> int:
     e = sub.add_parser("export", help="split a mixn c1 pod result into per-seat-count web policy files")
     e.add_argument("--pod-result", type=Path, required=True)
     e.add_argument("--run", required=True, help="the cloud.yml run id the result came from")
+    e.add_argument("--kind", choices=("cash", "tournament"), default="cash",
+                   help="cash: a mixn c1 run split per seat count; tournament: one ICM run (train_env) -> t-<env_id>-<stage><ante>.json")
     e.add_argument("--tier", default="", help="refuse a result of another tier")
     e.add_argument("--players", default=",".join(map(str, PLAYERS)), help="comma-separated seat counts")
     e.add_argument("--strategy", choices=("current", "average"), default="current")
@@ -389,9 +449,12 @@ def main(argv=None) -> int:
     base = json.loads(a.index_base.read_text(encoding="utf-8")) if a.index_base else None
     players = tuple(int(p) for p in a.players.split(",") if p.strip())
     by_n = parse_min_visits_by_players(a.min_visits_by_players, st.get("player_mix"))
-    out = export_all_players(st, summary, a.run, a.out_dir, a.tier, base, players, a.strategy, a.min_visits,
-                             min_visits_by_players=by_n, hit_rate_hands=a.hit_rate_hands,
-                             hit_rate_seeds=a.hit_rate_seeds)
+    if a.kind == "tournament":
+        out = export_tournament(st, summary, a.run, a.out_dir, base, a.strategy, a.min_visits)
+    else:
+        out = export_all_players(st, summary, a.run, a.out_dir, a.tier, base, players, a.strategy, a.min_visits,
+                                 min_visits_by_players=by_n, hit_rate_hands=a.hit_rate_hands,
+                                 hit_rate_seeds=a.hit_rate_seeds)
     if a.policies_out:
         kept = policies_for_ops(out, a.out_dir, base)
         for name, body in kept.items():
