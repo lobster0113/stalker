@@ -13,7 +13,7 @@ def test_job_flags_parse_with_pod_train():
     spec = _spec(JOB)
     f = _train_flags(spec.command)
     a = _parse(_argv(f))
-    assert (a.players, a.stage, a.key_variant, a.payoff, a.max_iters) == (9, "e", "c1", "icm", 20000)
+    assert (a.players, a.stage, a.key_variant, a.payoff, a.max_iters) == (9, "e", "c1", "icm", 80000)
     assert (a.preset, a.level_index, a.lam, a.stacks, a.menu, a.ranges, a.avg_rule, a.no_raise_cap) == (
         "9max_sng_503020", 0, 0.0, "bubble:even", "real", "average", "own", True)
     assert f["--out"] == spec.result_path == "/result/e3-tp-mid-c1-sng-early9-pod32.json"
@@ -22,6 +22,13 @@ def test_job_flags_parse_with_pod_train():
 def test_worst_case_cost_is_at_most_4_usd():
     spec = _spec(JOB)
     assert spec.hourly_usd * spec.max_minutes / 60 <= 4.00
+
+
+def test_median_it_s_declared_and_minutes_end_training_first():
+    spec = _spec(JOB)
+    assert list(spec.median_iters_per_s) == [18]
+    f = _train_flags(spec.command)
+    assert int(f["--max-iters"]) / spec.median_iters_per_s[0] >= int(f["--minutes"]) * 60, "raise --max-iters"
 
 
 def _small_argv(f, players, out):
