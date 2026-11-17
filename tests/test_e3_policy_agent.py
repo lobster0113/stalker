@@ -143,3 +143,54 @@ def test_small_trained_policy_finishes_ten_bubble_games():
         res, agents = play(table, seed=g, profile="random")
         assert sorted(res.ranks) == list(range(1, 10))
         assert all(a.counts()["decisions"] == a.counts()["policy_hits"] + a.counts()["backoffs"] for a in agents)
+
+
+def test_backoff_reason_splits_no_key_from_arity_mismatch(table):
+    """#961: a key missing from the table is `no_key`; a row of the wrong length is `arity_mismatch`."""
+    _, agents = play(EMPTY, cls=Recorder)
+    key, m = next((k, m) for a in agents for k, m in a.keys)
+    bad = PolicyTable({key: [1.0 / (m + 1)] * (m + 1)}, k=5, depth="basic", menu="v1", raise_cap=3)
+    _, ag = play(bad)
+    reasons = {}
+    for a in ag:
+        for r, n in a.counts()["backoff_reasons"].items():
+            reasons[r] = reasons.get(r, 0) + n
+    assert reasons.get("arity_mismatch", 0) > 0
+    assert reasons.get("no_key", 0) > 0   # other keys are still absent
+
+
+def test_by_street_sums_to_totals_and_keeps_old_keys():
+    _, agents = play(EMPTY)
+    for a in agents:
+        c = a.counts()
+        assert sum(v["decisions"] for v in c["by_street"].values()) == c["decisions"]
+        assert sum(v["policy_hits"] for v in c["by_street"].values()) == c["policy_hits"]
+        assert {"decisions", "policy_hits", "backoffs", "backoff_reasons"} <= set(c)
+        assert set(c["by_street"]) <= {"0", "1", "2", "3"}
+
+
+def test_tournament_eval_counts_pass_new_reasons_through():
+    """referee/e3/tournament_eval._counts sums backoff_reasons as a plain dict, so new reasons need no referee change."""
+    from referee.e3.tournament_eval import _counts
+
+    class Fake:
+        def counts(self):
+            return {"decisions": 3, "policy_hits": 1, "backoffs": 2,
+                    "backoff_reasons": {"arity_mismatch": 1, "no_key": 1}}
+
+    out = _counts([Fake(), Fake()])
+    assert out["backoff_reasons"] == {"arity_mismatch": 2, "no_key": 2}
+
+
+def test_policy_agents_sum_tolerates_counts_without_by_street():
+    """#961 compat: counts from an agent that predates `by_street` still sum."""
+    from stalker.tools.icm_calibration import PolicyAgents
+
+    class Old:
+        def counts(self):
+            return {"decisions": 2, "policy_hits": 1, "backoffs": 1, "backoff_reasons": {"no_key": 1}}
+
+    pa = PolicyAgents.__new__(PolicyAgents)
+    pa.agents = [Old()]
+    c = pa.counts()
+    assert c["decisions"] == 2 and c["by_street"] == {} and c["backoff_rate"] == 0.5

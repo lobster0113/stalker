@@ -14,10 +14,12 @@ real c1 key, `tp_key.key(public_key(variant="c1"), step)`, exactly as training r
   as `stalker.tools.web_hit_rate` and training do. The chosen E3 label goes back as a real chip amount (scaled,
   clamped to the legal range).
 
-Backoff: when the table has no row for the key, or the hand cannot be put on the E3 menu (classic antes, blinds
+Backoff: when the table has no row for the key (`no_key`) or the row length differs from the legal action count
+(`arity_mismatch`, #961), or the hand cannot be put on the E3 menu (classic antes, blinds
 not SB = BB / 2, a stack under 2 BB, blinds not just after the button, more than 9 seats, a replay out of step with
 the real hand), the decision goes to the fallback rule bot (`persona:tag` by default), which sees every event so
-its own state stays right. `decisions`, `policy_hits`, `backoffs` and `backoff_reasons` count what happened.
+its own state stays right. `decisions`, `policy_hits`, `backoffs` and `backoff_reasons` count what happened; `by_street`
+({street: {decisions, policy_hits}}, 0 preflop .. 3 river) splits decisions and hits by street.
 """
 from __future__ import annotations
 
@@ -35,6 +37,7 @@ from stalker.e3 import tp_key as K
 from stalker.e3 import translate as T
 
 FALLBACK = "tag"   # the rule bot a miss goes to (ADR 0027 decision 4 field)
+_STREET = {0: 0, 3: 1, 4: 2, 5: 3}   # board cards -> street (0 preflop .. 3 river), for `by_street`
 MAX_SEATS = 9      # E3 deals 2..9 players
 
 
@@ -115,6 +118,7 @@ class E3PolicyAgent(Agent):
         self.players, self.table_size = players, table_size
         self.decisions = self.policy_hits = self.backoffs = 0
         self.backoff_reasons: dict[str, int] = {}
+        self.by_street: dict[str, dict[str, int]] = {}
         self._new_hand: dict | None = None
         self._mirror: dict | None = None
 
@@ -134,12 +138,15 @@ class E3PolicyAgent(Agent):
     # ---- acting ----
     def act(self, obs: Observation) -> Action:
         self.decisions += 1
+        cell = self.by_street.setdefault(str(_STREET.get(len(obs.board), 0)), {"decisions": 0, "policy_hits": 0})
+        cell["decisions"] += 1
         try:
             action = self._policy_act(obs)
         except BackoffError as e:
             reason = str(e)
         else:
             self.policy_hits += 1
+            cell["policy_hits"] += 1
             return action
         self.backoffs += 1
         self.backoff_reasons[reason] = self.backoff_reasons.get(reason, 0) + 1
@@ -147,7 +154,8 @@ class E3PolicyAgent(Agent):
 
     def counts(self) -> dict:
         return {"decisions": self.decisions, "policy_hits": self.policy_hits, "backoffs": self.backoffs,
-                "backoff_reasons": dict(sorted(self.backoff_reasons.items()))}
+                "backoff_reasons": dict(sorted(self.backoff_reasons.items())),
+                "by_street": {k: dict(v) for k, v in sorted(self.by_street.items())}}
 
     def decision_key(self, obs: Observation) -> str:
         """The actor's real c1 key for this decision; raises `BackoffError` when the hand is off the E3 menu."""
@@ -167,8 +175,10 @@ class E3PolicyAgent(Agent):
         s = mir["s"]
         acts = G.legal(s)
         row = self.table.policy.get(key)
-        if row is None or len(row) != len(acts):
+        if row is None:
             raise BackoffError("no_key")
+        if len(row) != len(acts):
+            raise BackoffError("arity_mismatch")
         pr = np.asarray(row, dtype=float)
         label = acts[int(self.rng.choice(len(acts), p=pr / pr.sum()))]
         mir["mine"] = (len(obs.action_history), label)
