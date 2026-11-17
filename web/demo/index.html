@@ -691,6 +691,7 @@ details.why[open] > summary { margin-bottom: 8px; }
   .felt { inset: 2.6% 4%; }
   .felt::after { inset: 10% 14%; }
   .seat { width: clamp(78px, 25vw, 110px); }
+  .seat .persona { max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }   /* #977: 9-max tags are wider than the seat */
   .pod { padding: 4px 8px 4px 4px; gap: 6px; }
   .tp { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 45; border-radius: 18px 18px 0 0; max-height: 72vh; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); transform: translateY(calc(100% - 78px - env(safe-area-inset-bottom, 0px))); transition: transform .45s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -20px 50px rgba(0,0,0,.55); }
   .tp.open { transform: none; }
@@ -1581,7 +1582,8 @@ function renderSeats() {
     el.classList.toggle("folded", s.folded); el.classList.toggle("out", s.out);
     $(".nm", el).textContent = s.isHero ? "나 (Hero)" : s.name;
     $(".stk", el).textContent = s.out ? "—" : s.allin ? "올인" : bbf(s.stack) + " BB";
-    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag ? s.tag + (isPlaceholder(G.eng?.meta) ? " · 임시" : "") : PERSONAS[s.persona].name + " · 규칙 봇");
+    const ptxt = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag ? s.tag + (isPlaceholder(G.eng?.meta) ? " · 임시" : "") : PERSONAS[s.persona].name + " · 규칙 봇");
+    $(".persona", el).textContent = ptxt; $(".persona", el).title = ptxt;   // #977: the phone clips the tag with an ellipsis; title keeps it whole
     $(".persona", el).classList.toggle("gto", !!s.tag);
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";
