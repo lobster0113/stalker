@@ -1564,7 +1564,8 @@ wd.section("13 #956");
   const playHands = async (pg, hands) => {
     const from = await pg.evaluate(() => G.handNo);
     for (let g = 0; g < 80 && (await pg.evaluate(() => G.handNo)) < from + hands; g++) {
-      if (await pg.locator(QUICK).count()) { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click(); await pg.click("#tp-go"); }
+      // check or fold: a hero who calls every all-in busts out of the tournament (bust modal) before the stage checks
+      if (await pg.locator(QUICK).count()) { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); }
       else await pg.waitForTimeout(200);
     }
   };
@@ -1635,6 +1636,163 @@ wd.section("13 #956");
     await pg.close();
   }
   console.log("토너먼트 정책 ok");
+}
+
+wd.section("14 #968");
+// 14. #968 (ADR 0029 결정 4, H3) 토너먼트 pill·툴팁과 복기: 합성 6인 SNG 버블 전·BB앤티 정책(web/e2e/tour-fixture.mjs) 하나로
+// 결정 4 표의 다섯 경우를 한 장면씩 `#svc-pill`의 textContent·title로 검사한다.
+// (a) 정책 있음 → `토너먼트 · 버블 전 · TP-GTO`, 툴팁에 ICM 보상·modelLine. (b) 미스(파일에 없는 포스트플랍 키) → pill 그대로, 툴팁 n/m = botLog의 미스/전체.
+// (c) 생존자 수로 단계가 버블 → 머니인으로 바뀌면 전환 뒤 첫 AI 결정 시점의 pill이 `미학습(규칙 봇)`. (d) 복기: 판 당시 정책이 있던 핸드는 TP-GTO 비교,
+// 없던 핸드는 `복기 · 모의 정답`이고 화면 어디에도 "TP-GTO"가 없다. (e) 정책 없는 프리셋(9인)은 지금 문구. (f) 로드 실패 → 재시도·모의로 계속.
+{
+  const { tourPolicy } = await import("./tour-fixture.mjs");
+  // Without the rows for calling an all-in (`call|` keys) those spots have no row at any backoff level: the misses of (b).
+  const ENV = "6max_sng_topheavy", FILE = `t-${ENV}-e1.json`, full = tourPolicy({ players: 6, stage: "e", ante: 1 }).doc;
+  const policy = Object.fromEntries(Object.entries(full.policy).filter(([k]) => !k.startsWith("call|")));
+  const fixDoc = { ...full, policy, keys: Object.keys(policy).length }, fix = { doc: fixDoc, bytes: Buffer.from(JSON.stringify(fixDoc)) };
+  const UNTRAINED = "이 단계의 TP-GTO는 아직 학습 중이에요. 상대·정답은 규칙 기반입니다.";
+  const open = async (fileRoute, policyEnv = ENV) => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico|policy\/t-[^/]+\.json)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    await pg.route("**/policy/index.json", async r => {
+      const res = await r.fetch(), j = await res.json();
+      j.schema_version = 2;
+      j.tournament = { [policyEnv]: { e: { ante: { 1: { file: FILE, bytes: fix.bytes.length, env_id: policyEnv, stage: "e", ante: 1, payoff: "icm", players: 6, tier: "beginner", key_variant: "c1", run_id: fix.doc.run_id, iterations: 400, lbr_bb: null } } } } };
+      await r.fulfill({ response: res, json: j });
+    });
+    await pg.route(`**/policy/${FILE}`, fileRoute || (r => r.fulfill({ status: 200, contentType: "application/json", body: fix.bytes })));
+    await pg.goto(url);
+    await pg.waitForSelector("#set-mode [data-v='tournament']");
+    await pg.click("#set-mode [data-v='tournament']");
+    await pg.click("#set-play [data-v='quick']");
+    return { pg, errs };
+  };
+  const pill = pg => pg.evaluate(() => ({ text: $("#svc-pill").textContent, title: $("#svc-pill").title }));
+  // check when free, otherwise fold: calling everything busts the hero in a few tournament hands (bust modal)
+  const quickAct = async pg => { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); };
+  // pin: survivors to hold (a seat that busts lowers G.players, and a 6-seat policy then no longer fits: players_mismatch)
+  const playUntil = async (pg, done, what, pin = 0) => {
+    for (let g = 0; g < 400; g++) {
+      if (pin) await pg.evaluate(p => { G.players = p; }, pin);
+      if (await pg.evaluate(done)) return true;
+      if (await pg.locator(QUICK).count()) await quickAct(pg); else await pg.waitForTimeout(150);
+    }
+    must(false, `토너먼트 pill: ${what}까지 진행하지 못함`);
+    return false;
+  };
+  // The badge at the first AI decision of the first hand after `players` changes the stage.
+  const pillAfterStage = async (pg, players, what) => {
+    await pg.evaluate(p => {
+      window.__pillAt = null; window.__pillFrom = G.handNo; G.players = p;
+      if (!window.__botWrapped) { const orig = botTurn; window.__botWrapped = true; window.botTurn = s => { if (!window.__pillAt && G.handNo > window.__pillFrom) window.__pillAt = { hand: G.handNo, text: $("#svc-pill").textContent, title: $("#svc-pill").title, stage: G.tpol?.stage }; return orig(s); }; }
+    }, players);
+    await playUntil(pg, () => !!window.__pillAt, what, players);
+    return pg.evaluate(() => window.__pillAt);
+  };
+  {
+    const { pg, errs } = await open();
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    // (a)
+    const a = await pill(pg);
+    must(a.text === "토너먼트 · 버블 전 · TP-GTO" && a.title.includes("버블 전(ICM 보상)") && a.title.includes("반복 400회") && a.title.includes(`run ${fix.doc.run_id}`) && !a.title.includes("대신했어요"),
+      `토너먼트 pill 정책 있음: ${JSON.stringify(a)}`);
+    await inspect("tour-pill-policy", "#infobar", pg);
+    // (b) postflop keys are not in the file: each such AI decision is the rule bot's and counted
+    await playUntil(pg, () => TPG.botLog.some(d => d.miss) && G.handNo >= 3, "정책 미스", 6);
+    await pg.evaluate(() => { window.__hold = true; });
+    const b = await pill(pg), cnt = await pg.evaluate(f => { const l = TPG.botLog.filter(d => d.file === f); return { n: l.filter(d => d.miss).length, m: l.length, rowsHit: l.filter(d => !d.miss).length }; }, FILE);
+    must(b.text === "토너먼트 · 버블 전 · TP-GTO" && b.title.includes(`일부 스팟은 규칙 봇이 대신했어요(${cnt.n}/${cnt.m}).`) && cnt.n >= 1 && cnt.rowsHit >= 1,
+      `토너먼트 pill 미스: 툴팁 n/m이 실제 미스 ${cnt.n}/${cnt.m}와 다름 (${JSON.stringify(b)})`);
+    await pg.evaluate(() => { window.__hold = false; });
+    await inspect("tour-pill-miss", "#infobar", pg);
+    // (c) bubble (3 left, 2 paid: the 6-seat policy cannot drive it) then in the money (2 left)
+    const c1 = await pillAfterStage(pg, 3, "버블 전환");
+    must(c1?.stage === "b" && c1.text === "토너먼트 · 버블 · 미학습(규칙 봇)" && c1.title === UNTRAINED, `토너먼트 pill 단계 전환(버블): 첫 AI 결정 때 ${JSON.stringify(c1)}`);
+    const c2 = await pillAfterStage(pg, 2, "머니인 전환");
+    must(c2?.stage === "m" && c2.text === "토너먼트 · 머니인 · 미학습(규칙 봇)" && c2.title === UNTRAINED, `토너먼트 pill 단계 전환(머니인): 첫 AI 결정 때 ${JSON.stringify(c2)}`);
+    must(!(await pg.evaluate(() => !!G.eng)), "토너먼트 pill 단계 전환: 정책 없는 단계인데 정책 좌석이 남음");
+    await inspect("tour-pill-untrained", "#infobar", pg);
+    // the hand being played when the stage changed back is saved too; finish it so both kinds are on record
+    await playUntil(pg, () => { const d = JSON.parse(localStorage.getItem("stalker.games") || "null"); const hs = d?.games?.[0]?.hands || []; return hs.some(h => h.tour?.policy && h.acts.some(a => a.hero && a.an?.p != null)) && hs.some(h => h.tour?.stage === "m" && !h.tour.policy && h.acts.some(a => a.hero)); }, "정책 있는/없는 핸드 저장", 2);
+    must(!errs.length, `토너먼트 pill: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    // (d) review: each saved hand is compared with the policy of its own stage
+    const recs = await pg.evaluate(() => { const g = JSON.parse(localStorage.getItem("stalker.games")).games[0]; return { v: JSON.parse(localStorage.getItem("stalker.games")).schema_version,
+      pol: g.hands.find(h => h.tour?.policy && h.acts.some(a => a.hero && a.an?.p != null)), none: g.hands.find(h => h.tour?.stage === "m" && !h.tour.policy && h.acts.some(a => a.hero)) }; });
+    must(recs.v === 2 && recs.pol?.tour.env === ENV && recs.pol.tour.stage === "e" && recs.pol.tour.ante === 1 && recs.pol.tour.policy.file === FILE && recs.pol.tour.policy.run_id === fix.doc.run_id,
+      `토너먼트 복기 기록: 정책 핸드의 tour가 판 당시 값이 아님 (${JSON.stringify(recs.pol?.tour)})`);
+    must(recs.none?.tour.stage === "m" && recs.none.tour.policy === null && recs.none.acts.every(a => !a.an), `토너먼트 복기 기록: 정책 없는 단계 핸드 (${JSON.stringify(recs.none?.tour)})`);
+    await pg.evaluate(() => { G.dead = true; gameToken++; });
+    await pg.click("[data-view='review']");
+    await pg.waitForSelector("[data-mg-game]");
+    await pg.click("[data-mg-game]");
+    const showHand = async h => {
+      await pg.click(`[data-mg-hand='${h.no}']`);
+      const k = h.acts.findIndex(a => a.hero && a.an?.p != null);
+      await pg.click(`[data-mg-step='${(k >= 0 ? k : h.acts.findIndex(a => a.hero)) + 1}']`);
+      return pg.evaluate(() => ({ text: $("#svc-pill").textContent, title: $("#svc-pill").title, body: $("#mg-body").innerText }));
+    };
+    const rp = await showHand(recs.pol);
+    must(rp.text === "복기 · 토너먼트 버블 전 · TP-GTO 비교" && rp.title.includes("버블 전(ICM 보상)") && rp.title.includes(`run ${fix.doc.run_id}`) && /정책/.test(rp.body),
+      `토너먼트 복기(정책 있는 단계): ${JSON.stringify({ text: rp.text, title: rp.title })}`);
+    await pg.click("[data-mg-back]");
+    const rn = await showHand(recs.none);
+    must(rn.text === "복기 · 모의 정답" && !rn.title.includes("TP-GTO") && !rn.body.includes("TP-GTO") && /규칙 봇이 상대/.test(rn.body),
+      `토너먼트 복기(정책 없는 단계): "TP-GTO"가 보임 ${JSON.stringify({ text: rn.text, title: rn.title, body: rn.body.slice(0, 300) })}`);
+    await inspect("tour-review-untrained", "[data-mg-table]", pg);
+    await pg.click("[data-mg-back]");
+    await pg.click("[data-mg-back]");
+    const rv = await pill(pg);
+    must(rv.text === "복기 · 모의 정답" || rv.text.startsWith("복기 · TP-GTO"), `토너먼트 복기: 핸드를 닫으면 기존 복기 문구로 돌아와야 함 (${rv.text})`);
+    console.log(`토너먼트 pill: 정책·미스 ${cnt.n}/${cnt.m}·버블/머니인 미학습·복기 정책 핸드 #${recs.pol.no}/정책 없는 핸드 #${recs.none.no}`);
+    await pg.close();
+  }
+  {
+    // (e) no tournament policy for this preset (the index has one for another preset only): today's wording, unchanged.
+    // 6-max, because the 9-max phone table already overflows by a persona tag (follow-up of #968, not this badge).
+    const { pg, errs } = await open(null, "9max_sng_503020");
+    await pg.selectOption("#t-format", "6");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const e = await pill(pg);
+    must(e.text === "토너먼트 · 모의 정답" && e.title === "이 설정의 TP-GTO는 아직 학습 중이에요. 정답은 규칙 기반 모의값입니다.", `토너먼트 pill 정책 없는 프리셋: 지금 문구가 아님 ${JSON.stringify(e)}`);
+    await inspect("tour-pill-noenv", "#infobar", pg);
+    must(!errs.length, `토너먼트 pill 정책 없는 프리셋: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  {
+    // (f) the policy file 404s: same retry / mock choice as the cash path; the retry loads it, mock plays without it
+    let fail = true;
+    const { pg, errs } = await open(r => fail ? r.fulfill({ status: 404, body: "" }) : r.fulfill({ status: 200, contentType: "application/json", body: fix.bytes }));
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    await pg.click("#start-btn");
+    await pg.waitForSelector("#tpg-again");
+    const f = await pill(pg);
+    must(f.text === "모의 정답 · 정책 연결 실패" && f.title.includes("응답 404") && (await pg.locator("#tpg-mock").isVisible()), `토너먼트 pill 로드 실패: ${JSON.stringify(f)}`);
+    await inspect("tour-pill-error", "#tpg-again", pg);
+    fail = false;
+    await pg.click("#tpg-again");
+    await pg.waitForSelector(QUICK);
+    const g = await pill(pg);
+    must(g.text === "토너먼트 · 버블 전 · TP-GTO" && (await pg.evaluate(() => !!G.eng)), `토너먼트 로드 실패 → 다시 시도: 정책으로 시작하지 않음 ${JSON.stringify(g)}`);
+    fail = true;
+    await pg.evaluate(() => { TPG.tpol = {}; G.dead = true; G = null; startGame(); });
+    await pg.waitForSelector("#tpg-mock");
+    await pg.click("#tpg-mock");
+    await pg.waitForSelector(QUICK);
+    const h = await pg.evaluate(() => ({ eng: !!G.eng, mock: G.mock, tags: G.seats.filter(s => !s.isHero).map(s => s.tag || "") }));
+    must(!h.eng && h.mock && h.tags.every(t => !t.includes("TP-GTO")), `토너먼트 로드 실패 → 모의로 계속: 정책 없이 진행해야 함 ${JSON.stringify(h)}`);
+    must(!errs.length, `토너먼트 pill 로드 실패: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  console.log("토너먼트 pill·복기 ok");
 }
 
 wd.stop();
