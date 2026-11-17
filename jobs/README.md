@@ -63,6 +63,12 @@
 - 토너먼트 단계 4(9max SNG early) 준비 측정: 9인 c1(`te0` 슬롯, #940 위치 이름) 학습이 도는지와 it/s·key 수·메모리를 잰다. `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 같은 틀에 `--players 9 --stage e --stacks bubble:even --lbr-hands 600`(레벨 0에 생존자 9명 = 아직 아무도 탈락하지 않았으므로 같은 스택이 실제 초반 테이블). `tests/test_sng_early9_job.py`가 실제 `pod_train` 파서로 인자를 고정하고, 7·8·9인 소규모 로컬 실행(slow)으로 키에 `EP` 위치가 없고 `te0`인지 확인한다.
 - 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분). `median_iters_per_s`는 첫 run 실측 뒤 정한다(#941 방식). #937·#935 클라우드 run이 끝난 뒤 `resume_run` 없이 **단독** 디스패치(#877). 결과: `ops:cloud/results/<run id>.json`(1MB 초과면 아티팩트만).
 
+## SNG 단계 2(m) 학습 잡 (`e3-tp-mid-c1-sng-mid3-pod32.yaml`·`e3-tp-mid-c1-sng-mid2-pod32.yaml`, #957, ADR 0027 결정 2 단계 2)
+- 9max 50/30/20 SNG 상금권 안 생존자 3명·2명(c1 `tm0` 슬롯, 순수 ICM `--lam 0`: 버블이 아니라 g = 0). #937 단계 1 A/B가 쌍 3개 모두 cold A였으므로 warm start 없이 cold(ADR 0027 결정 4). `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 같은 명령에서 `--players 3|2 --stage m --lbr-hands 2000`(`E3_BY_PLAYERS_LBR_HANDS_BY_N`, #556)과 출력 이름만 다르다. `--minutes 60 --max-iters 20000`·`--stacks bubble:skewed`는 버블 잡 그대로. `tests/test_sng_mid_jobs.py`가 실제 launcher·`pod_train` 파서로 차이를 고정하고, 2반복 소규모 실행(slow)으로 `model.train_env.stage == "m"`·key `tm0`를 확인한다.
+- 헤즈업(r = 2)은 50/30/20에서 ICM = 0.3 + 0.2 × 칩 비율이라 보상이 0.2 × 칩 변화 / 테이블 칩, 즉 정의상 칩 EV의 상수배다(테스트로 고정). 3명은 칩 비례가 아니다.
+- `median_iters_per_s`: 3인 `[10]`·2인 `[9]`. 근거는 로컬 1워커 동시 측정(참고값, 150반복): 4인 0.36·3인 0.29·2인 0.27 it/s → 0.81·0.75배를 F6b 정상 호스트 11.36–11.84에 곱하면 9.2–9.6·8.5–8.9. 생존자가 적으면 같은 칩을 나눠 BB 기준 스택이 깊어져 핸드가 길다. 첫 run 실측으로 다시 정한다.
+- 각 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분), 둘 $7.20. `resume_run` 없이 **단독** 디스패치, 순서 #935 → #950 → mid3 → mid2(#877). 디스패치·기록은 F11b.
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
