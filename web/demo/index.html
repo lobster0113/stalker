@@ -1853,7 +1853,7 @@ let GM = null;
 function recSnap() {
   return { pot: G.pot + G.seats.reduce((a, x) => a + x.bet, 0), bets: G.seats.map(x => x.bet), stacks: G.seats.map(x => x.stack), folded: G.seats.map(x => !!x.folded) };
 }
-function recStart() { G.showdownSeen = null; G.rec = { tier: G.tier, start: recSnap(), acts: [] }; }
+function recStart() { G.showdownSeen = null; G.rec = { tier: G.tier, start: recSnap(), acts: [], ...(G.tour && G.tfmt ? { tour: tourRec() } : {}) }; }
 // The hero's decision as numbers: how often the policy plays my action, how the opponent's public range
 // answers it, and the TP items I missed most. Computed from the engine state before the action moves it.
 function heroAnalysis(a, L) {
@@ -1889,7 +1889,7 @@ function saveHandRec(me, net) {
   try {
     if (!GM || !G.rec || !G.rec.acts.length) return;
     const shown = G.showdownSeen?.shown || [];
-    const hand = { no: G.handNo, tier: G.rec.tier, cards: me.cards.map(cardTxt).join(" "), net, folded: !!me.folded, board: G.board.map(cardTxt), start: G.rec.start, acts: G.rec.acts,
+    const hand = { no: G.handNo, tier: G.rec.tier, cards: me.cards.map(cardTxt).join(" "), net, folded: !!me.folded, board: G.board.map(cardTxt), start: G.rec.start, acts: G.rec.acts, ...(G.rec.tour ? { tour: G.rec.tour } : {}),
       seats: G.seats.map(s => ({ i: s.i, name: s.name, pos: posName(s), hero: !!s.isHero, cards: s.isHero || shown.includes(s.i) ? s.cards.map(cardTxt) : null })) };
     G.gameId ||= "g" + Date.now().toString(36);
     const meta = { id: G.gameId, ts: Date.now(), tier: G.tier, mode: G.tour ? "토너먼트" : "캐시게임", n: G.n };
@@ -1899,10 +1899,16 @@ function saveHandRec(me, net) {
   } catch (e) { console.warn("[games] save failed", e?.message || e); }
 }
 const MG = { gid: null, no: null, step: 0 };
+// The saved hand open in the replay, if any: the review badge follows it (ADR 0029 decision 4, #968).
+function mgHand() {
+  if (!GM || !MG.gid || MG.no == null) return null;
+  return GM.loadGames(store.get("games", null)).find(x => x.id === MG.gid)?.hands.find(x => x.no === MG.no) || null;
+}
 const cx = t => `<span class="mc${/[♦♥]/.test(t) ? " red" : ""}">${t[0] === "T" ? "10" : t[0]}${t.slice(1)}</span>`;
 const bbc = c => (Math.round(c / 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 });   // saved chips (BB = 100)
 function renderGames() {
   const el = $("#mg-body"); if (!el) return;
+  if (VIEW === "review") renderModelStatus();
   if (!GM) { el.innerHTML = `<p class="rp-note">저장 기능을 불러오는 중이에요…</p>`; return; }
   const games = GM.loadGames(store.get("games", null)), sgn = x => (x > 0 ? "+" : "") + bbc(x);
   const g = games.find(x => x.id === MG.gid), hd = g?.hands.find(x => x.no === MG.no);
@@ -1931,7 +1937,8 @@ function renderGames() {
     return `${hdr}<li><button data-mg-step="${i + 1}" data-mg-act class="${i + 1 === st ? "cur" : ""}">${a.txt}${v ? ` <span class="mg-badge ${v.key}">${v.text}</span>` : ""}</button></li>`; }).join("");
   let an = "";
   if (cur && cur.hero) {
-    const v = GM.verdict(cur.an), rs = GM.reasons(cur.an, cur, { items: SHORT, verb: cur.st === 0 ? "레이즈" : "벳" });
+    const v = GM.verdict(cur.an), rs = GM.reasons(cur.an, cur, { items: SHORT, verb: cur.st === 0 ? "레이즈" : "벳",
+      ...(hd.tour && !hd.tour.policy ? { noModel: `이 판은 학습 정책이 없는 단계(${TOUR_STAGE_NAMES[hd.tour.stage] || ""})라 규칙 봇이 상대였어요. 계산할 수 있는 것(액션 기록)만 보여요.` } : {}) });
     an = `<div class="mg-an" data-mg-analysis>${v ? `<div><span class="mg-badge ${v.key}" data-mg-verdict>${v.text}</span> <span class="num">${cur.an.p != null ? Math.round(cur.an.p * 100) + "%" : ""}</span></div>` : ""}<ul>${rs.map(r => `<li class="${r.kind === "bad" || r.kind === "good" ? r.kind : ""}">${r.text}</li>`).join("")}</ul></div>`;
   } else if (cur) an = `<p class="rp-note">내 결정을 고르면 이유가 보여요.</p>`;
   el.innerHTML = `<div class="mg-bar"><button class="cta ghost small" data-mg-back>← 핸드 목록</button><b>#${hd.no}</b><span class="num ${hd.net > 0 ? "good" : hd.net < 0 ? "bad" : ""}">${sgn(hd.net)} BB</span></div>
@@ -2217,6 +2224,25 @@ function tpgLoad(tier, n = 6) {
 // ---- tournament policies (ADR 0029 decisions 3-4, #956): one (env_id, stage, ante) file, read when the table needs it.
 // The page's formats name the presets the policies are trained on; MTT is the 180-player preset at a 6-max table.
 const TOUR_ENV = { "6": "6max_sng_topheavy", "9": "9max_sng_503020", mtt: "mtt180_bbante" };
+// Policy stage letters (ADR 0027 decision 2) as the badge names them; the setup select's names are for the mock teacher.
+const TOUR_STAGE_NAMES = { e: "버블 전", b: "버블", m: "머니인", f: "파이널 테이블" };
+const UNTRAINED_TITLE = "이 단계의 TP-GTO는 아직 학습 중이에요. 상대·정답은 규칙 기반입니다.";
+// ADR 0029 decision 4: the badge of the tournament table in front of us; null keeps the mock wording (no policy for this preset).
+function tourPill() {
+  const t = G.tpol;
+  if (!t || t.reason === "no_env") return null;
+  const nm = TOUR_STAGE_NAMES[t.stage];
+  if (!t.file) return { text: `토너먼트 · ${nm} · 미학습(규칙 봇)`, title: UNTRAINED_TITLE };
+  if (G.eng?.rulesKey !== t.file) return { text: `토너먼트 · ${nm} · TP-GTO 준비 중`, title: "이 단계의 정책을 불러오는 중이에요. 다 받으면 다음 핸드부터 TP-GTO가 상대해요." };
+  const c = G.tmiss?.[t.file], miss = c?.n ? ` 일부 스팟은 규칙 봇이 대신했어요(${c.n}/${c.m}).` : "";
+  return { text: `토너먼트 · ${nm} · TP-GTO`, title: `이 설정의 ${nm}(ICM 보상)에서 학습한 정책이에요. ${modelLine(G.eng.meta)}.${miss}` };
+}
+// What a saved tournament hand was compared with: the preset and stage it was played at and the policy that was serving.
+function tourRec() {
+  const E = G.eng, m = E?.meta;
+  return { env: tourShape(G.tfmt, G.n).envId, stage: G.tpol?.stage ?? null, ante: G.ante > 0 ? 1 : 0,
+    policy: E ? { file: E.rulesKey, stage: E.env.stage, ante: E.env.ante ? 1 : 0, run_id: m.run_id, iterations: m.iterations, lbr_bb: m.lbr_bb ?? null, lbr_stderr_bb: m.lbr_stderr_bb ?? null } : null };
+}
 const tourShape = (fmt, n) => fmt === "mtt" ? { envId: TOUR_ENV.mtt, players: 47, paid: 27, field: 180, tableSize: n } : { envId: TOUR_ENV[fmt], players: n, paid: n === 9 ? 3 : 2, field: n, tableSize: n };
 // What the table in front of us is served: the index entry for (preset, stage by survivors, ante), or why none.
 function tourResolve() {
@@ -2253,7 +2279,8 @@ async function tpgLoadTour(entry) {
 }
 // Each hand: serve the policy of the stage we are in. A stage with a file that is still loading keeps the previous
 // policy (or the rule bot) so the table never waits; a stage without one goes back to the rule bot at once.
-function tourSelect() {
+function tourSelect() { tourServe(); renderModelStatus(); }
+function tourServe() {
   const r = tourResolve();
   G.tpol = { stage: r.stage, reason: r.reason, file: r.entry?.file || null };
   if (!r.entry) { setTableTier(S.tier, null); return; }
@@ -2271,12 +2298,18 @@ function renderModelStatus() {
     else if (TPG.state === "error") { pill.textContent = "모의 정답 · 정책 연결 실패"; pill.title = TPG.err || ""; }
     // #445: the learning drills and the review have their own answer source, so the badge follows the screen.
     else if (VIEW === "learn") { pill.textContent = "학습 문제 · 모의 정답"; pill.title = "학습 섹션 문제의 정답은 규칙 기반 모의값이에요. 훈련 게임의 TP-GTO 비교와 다릅니다."; }
+    else if (VIEW === "review" && mgHand()?.tour) {
+      const t = mgHand().tour, nm = TOUR_STAGE_NAMES[t.stage] || "";
+      pill.textContent = t.policy ? `복기 · 토너먼트 ${nm} · TP-GTO 비교` : "복기 · 모의 정답";
+      pill.title = t.policy ? `판 당시 정책: ${TOUR_STAGE_NAMES[t.policy.stage]}(ICM 보상) · ${modelLine(t.policy)}` : `이 판은 학습 정책이 없는 단계(${nm})에서 치렀어요. 규칙 기반 모의값으로 비교해요.`;
+    }
     else if (VIEW === "review") {
       const rm = RV.mode === "cash" && RV.stack === 100 && TPG.pol[polKey(S.tier)] ? modelMeta(S.tier) : null;
       pill.textContent = rm ? `복기 · TP-GTO ${TIERS[S.tier].name} 비교` : "복기 · 모의 정답";
       pill.title = rm ? modelLine(rm) : "학습된 TP-GTO는 캐시게임 6인 100BB 핸드에서만 비교할 수 있어요. 이 복기는 규칙 기반 모의값으로 비교해요.";
     }
     else if (S.mode === "cash" && m) { pill.textContent = `TP-GTO ${TIERS[S.tier].name} · 학습 중간본`; pill.title = modelLine(m); }
+    else if (S.mode === "tournament" && VIEW === "train" && G?.tour && !G.dead && tourPill()) { const t = tourPill(); pill.textContent = t.text; pill.title = t.title; }
     else { pill.textContent = S.mode === "cash" ? `${TIERS[S.tier].name} 정책 학습 중 · 모의 정답` : "토너먼트 · 모의 정답"; pill.title = "이 설정의 TP-GTO는 아직 학습 중이에요. 정답은 규칙 기반 모의값입니다."; }
   }
   const diff = $("#set-diff-row");
@@ -2361,12 +2394,30 @@ function engBotAct(s) {
   const E = G.eng, tg = TPG.mod;
   try {
     const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier, keyVariant(E.meta), E.env);
+    // ADR 0029 decision 4: on a tournament table a key with no row at any backoff level is played by the rule bot,
+    // not the uniform row, and counted so the badge can say how many spots the policy did not answer.
+    if (G.tour) {
+      const c = (G.tmiss ||= {})[E.rulesKey] ||= { n: 0, m: 0 };
+      c.m++;
+      const miss = ap.fromTable === false;
+      if (miss) c.n++;
+      renderModelStatus();
+      if (miss) {
+        E.pending = { d: ap };
+        TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: false, file: E.rulesKey, miss: true, chosen: null });
+        if (TPG.botLog.length > 500) TPG.botLog.shift();
+        // A policy seat has no rule-bot profile of its own ("gto"): the miss is played by the TAG regular's rules.
+        const keep = s.persona;
+        s.persona = "tag";
+        try { return ruleBot(s); } finally { s.persona = keep; }
+      }
+    }
     const tot = ap.probs.reduce((a, b) => a + b, 0);
     let u = rand() * tot, i = 0;
     while (i < ap.probs.length - 1 && (u -= ap.probs[i]) > 0) i++;
     const a = ap.acts[i], L = legal(s);
     E.pending = { d: ap };
-    TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: ap.fromTable, chosen: a });
+    TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: ap.fromTable, file: E.rulesKey || null, chosen: a });
     if (TPG.botLog.length > 500) TPG.botLog.shift();
     if (a === "f") return { type: L.canCheck ? "check" : "fold", menu: a };
     if (a === "k") return { type: "check", menu: a };

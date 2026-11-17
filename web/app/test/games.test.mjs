@@ -71,3 +71,19 @@ test("handStats counts hero decisions and compared ones", () => {
   const h = hand(1, [act({ an: { p: 0.3 } }), act({ hero: false }), act()]);
   assert.deepEqual(G.handStats(h), { decisions: 2, compared: 1 });
 });
+
+test("schema v2 (#968): a v1 record loads unchanged, a tournament hand keeps its stage and serving policy", () => {
+  const v1 = { schema: "stalker.games", schema_version: 1, games: [{ id: "g1", ts: 1, hands: [hand(1)] }] };
+  assert.deepEqual(G.loadGames(JSON.stringify(v1)), v1.games, "v1 is read as is");
+  assert.equal(G.loadGames({ ...v1, schema_version: 3 }).length, 0, "an unknown future version is not guessed at");
+  const tour = { env: "6max_sng_topheavy", stage: "e", ante: 1, policy: { file: "t-6max_sng_topheavy-e1.json", stage: "e", ante: 1, run_id: "r", iterations: 400, lbr_bb: null, lbr_stderr_bb: null } };
+  const raw = G.serialize(G.addHand([], { id: "g2", ts: 2, mode: "토너먼트" }, { ...hand(1), tour }));
+  assert.equal(JSON.parse(raw).schema_version, 2);
+  assert.deepEqual(G.loadGames(raw)[0].hands[0].tour, tour);
+});
+
+test("reasons: an untrained tournament stage names its own note (no policy name)", () => {
+  const t = G.reasons(null, act(), { noModel: "이 판은 학습 정책이 없는 단계(버블)라 규칙 봇이 상대였어요." });
+  assert.equal(t.length, 1);
+  assert.doesNotMatch(t[0].text, /TP-GTO/);
+});
