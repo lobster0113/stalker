@@ -1,0 +1,1094 @@
+{
+  "adopted": "cold",
+  "agents": {
+    "A": {
+      "path": "/stalker-resume/resume.bin",
+      "sha256": "2e9d38f96ce9b75aeeafca7b6ea85a137719cb2abfbd34550cba9366107351d0"
+    },
+    "B": {
+      "path": "/stalker-resume/resume_b.bin",
+      "sha256": "b0f26a24a5c6854e547b12100c5082d29c49e045dd510de161902418d7884c86"
+    }
+  },
+  "args": {
+    "a": "/stalker-resume/resume.bin",
+    "b": "/stalker-resume/resume_b.bin",
+    "field": "persona:tag",
+    "games": 400,
+    "layouts": 3,
+    "level_indexes": [
+      0
+    ],
+    "presets": [
+      "9max_sng_503020"
+    ],
+    "profiles": [
+      "even",
+      "random",
+      "skewed"
+    ],
+    "remaining": [
+      4
+    ],
+    "seed": 10001,
+    "sym_games": 200
+  },
+  "cells": [
+    {
+      "arms": {
+        "A": {
+          "mean": -0.07075000000000001,
+          "policy": {
+            "backoff_rate": 0.7520972436226674,
+            "backoff_reasons": {
+              "no_key": 8060,
+              "short_stack": 726
+            },
+            "backoffs": 8786,
+            "decisions": 11682,
+            "policy_hits": 2896
+          },
+          "sd": 0.18283327793046045,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.016499999999999994,
+                "max_abs_z": 1.290575661672628,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 14.849999999999994,
+            "max_abs_diff_rel": 0.016499999999999994,
+            "max_abs_z": 1.290575661672628,
+            "policy": {
+              "backoff_rate": 0.8503507986266607,
+              "backoff_reasons": {
+                "no_key": 21493,
+                "short_stack": 1293
+              },
+              "backoffs": 22786,
+              "decisions": 26796,
+              "policy_hits": 4010
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.077,
+          "policy": {
+            "backoff_rate": 0.7495017213263272,
+            "backoff_reasons": {
+              "no_key": 7606,
+              "short_stack": 667
+            },
+            "backoffs": 8273,
+            "decisions": 11038,
+            "policy_hits": 2765
+          },
+          "sd": 0.1811160056946845,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.025,
+                "max_abs_z": 1.9753381442967493,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 22.5,
+            "max_abs_diff_rel": 0.025,
+            "max_abs_z": 1.9753381442967493,
+            "policy": {
+              "backoff_rate": 0.8477876771549941,
+              "backoff_reasons": {
+                "no_key": 21124,
+                "short_stack": 1428
+              },
+              "backoffs": 22552,
+              "decisions": 26601,
+              "policy_hits": 4049
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": -0.006250000000000001,
+        "sd": 0.17482088936507556,
+        "se": 0.008741044468253778
+      },
+      "games": 400,
+      "layout": 0,
+      "learner": 2,
+      "learner_icm_rel": 0.25,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        6,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "even",
+      "remaining": 4,
+      "stacks": [
+        3375,
+        3375,
+        3375,
+        3375
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.0765,
+          "policy": {
+            "backoff_rate": 0.7360958653494328,
+            "backoff_reasons": {
+              "no_key": 7517,
+              "out_of_sync": 1,
+              "short_stack": 529
+            },
+            "backoffs": 8047,
+            "decisions": 10932,
+            "policy_hits": 2885
+          },
+          "sd": 0.18744489582923052,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.015499999999999988,
+                "max_abs_z": 1.2007500476891964,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 13.949999999999989,
+            "max_abs_diff_rel": 0.015499999999999988,
+            "max_abs_z": 1.2007500476891964,
+            "policy": {
+              "backoff_rate": 0.8431416092975054,
+              "backoff_reasons": {
+                "no_key": 20995,
+                "short_stack": 1785
+              },
+              "backoffs": 22780,
+              "decisions": 27018,
+              "policy_hits": 4238
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.074,
+          "policy": {
+            "backoff_rate": 0.7452980256386263,
+            "backoff_reasons": {
+              "no_key": 7385,
+              "short_stack": 580
+            },
+            "backoffs": 7965,
+            "decisions": 10687,
+            "policy_hits": 2722
+          },
+          "sd": 0.18195265020684154,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.022000000000000013,
+                "max_abs_z": 1.8410591717470337,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 19.80000000000001,
+            "max_abs_diff_rel": 0.022000000000000013,
+            "max_abs_z": 1.8410591717470337,
+            "policy": {
+              "backoff_rate": 0.8427860696517413,
+              "backoff_reasons": {
+                "no_key": 21366,
+                "short_stack": 1503
+              },
+              "backoffs": 22869,
+              "decisions": 27135,
+              "policy_hits": 4266
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.0025,
+        "sd": 0.18090208376294187,
+        "se": 0.009045104188147093
+      },
+      "games": 400,
+      "layout": 1,
+      "learner": 2,
+      "learner_icm_rel": 0.25,
+      "level_index": 0,
+      "players": [
+        0,
+        2,
+        5,
+        8
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "even",
+      "remaining": 4,
+      "stacks": [
+        3375,
+        3375,
+        3375,
+        3375
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.08375,
+          "policy": {
+            "backoff_rate": 0.7124451498459528,
+            "backoff_reasons": {
+              "no_key": 7018,
+              "short_stack": 613
+            },
+            "backoffs": 7631,
+            "decisions": 10711,
+            "policy_hits": 3080
+          },
+          "sd": 0.17639082120255373,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.03549999999999999,
+                "max_abs_z": 2.819848448451758,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 31.94999999999999,
+            "max_abs_diff_rel": 0.03549999999999999,
+            "max_abs_z": 2.819848448451758,
+            "policy": {
+              "backoff_rate": 0.8488326361328614,
+              "backoff_reasons": {
+                "no_key": 22087,
+                "short_stack": 1654
+              },
+              "backoffs": 23741,
+              "decisions": 27969,
+              "policy_hits": 4228
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.07675000000000001,
+          "policy": {
+            "backoff_rate": 0.7321748984795543,
+            "backoff_reasons": {
+              "no_key": 7060,
+              "short_stack": 693
+            },
+            "backoffs": 7753,
+            "decisions": 10589,
+            "policy_hits": 2836
+          },
+          "sd": 0.18410370157150785,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.029500000000000012,
+                "max_abs_z": 2.4594600715156414,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 26.55000000000001,
+            "max_abs_diff_rel": 0.029500000000000012,
+            "max_abs_z": 2.4594600715156414,
+            "policy": {
+              "backoff_rate": 0.8467245240761478,
+              "backoff_reasons": {
+                "no_key": 22351,
+                "out_of_sync": 2,
+                "short_stack": 1843
+              },
+              "backoffs": 24196,
+              "decisions": 28576,
+              "policy_hits": 4380
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.007000000000000001,
+        "sd": 0.18257693129089173,
+        "se": 0.009128846564544586
+      },
+      "games": 400,
+      "layout": 2,
+      "learner": 2,
+      "learner_icm_rel": 0.25,
+      "level_index": 0,
+      "players": [
+        1,
+        2,
+        6,
+        8
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "even",
+      "remaining": 4,
+      "stacks": [
+        3375,
+        3375,
+        3375,
+        3375
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.0828970043433943,
+          "policy": {
+            "backoff_rate": 0.7562675046109707,
+            "backoff_reasons": {
+              "no_key": 10434,
+              "short_stack": 637
+            },
+            "backoffs": 11071,
+            "decisions": 14639,
+            "policy_hits": 3568
+          },
+          "sd": 0.18474123337325285,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.013061024757976315,
+                "max_abs_z": 1.015501277147646,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 11.754922282178683,
+            "max_abs_diff_rel": 0.013061024757976315,
+            "max_abs_z": 1.015501277147646,
+            "policy": {
+              "backoff_rate": 0.8355214083246307,
+              "backoff_reasons": {
+                "no_key": 20851,
+                "short_stack": 1551
+              },
+              "backoffs": 22402,
+              "decisions": 26812,
+              "policy_hits": 4410
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.0791470043433943,
+          "policy": {
+            "backoff_rate": 0.7617792199013047,
+            "backoff_reasons": {
+              "no_key": 10473,
+              "short_stack": 796
+            },
+            "backoffs": 11269,
+            "decisions": 14793,
+            "policy_hits": 3524
+          },
+          "sd": 0.18216172687159646,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.017561024757976326,
+                "max_abs_z": 1.3461182763208699,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 15.804922282178694,
+            "max_abs_diff_rel": 0.017561024757976326,
+            "max_abs_z": 1.3461182763208699,
+            "policy": {
+              "backoff_rate": 0.8481987485652931,
+              "backoff_reasons": {
+                "no_key": 21297,
+                "short_stack": 1612
+              },
+              "backoffs": 22909,
+              "decisions": 27009,
+              "policy_hits": 4100
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.0037500000000000007,
+        "sd": 0.1907929305710506,
+        "se": 0.00953964652855253
+      },
+      "games": 400,
+      "layout": 0,
+      "learner": 7,
+      "learner_icm_rel": 0.3168970043433943,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        5,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "random",
+      "remaining": 4,
+      "stacks": [
+        2238,
+        4122,
+        2229,
+        4911
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.0701142330960632,
+          "policy": {
+            "backoff_rate": 0.7645977011494253,
+            "backoff_reasons": {
+              "no_key": 10871,
+              "short_stack": 770
+            },
+            "backoffs": 11641,
+            "decisions": 15225,
+            "policy_hits": 3584
+          },
+          "sd": 0.19356421483104233,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.018807342672549604,
+                "max_abs_z": 1.5320249934768344,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 16.926608405294644,
+            "max_abs_diff_rel": 0.018807342672549604,
+            "max_abs_z": 1.5320249934768344,
+            "policy": {
+              "backoff_rate": 0.8181753964609897,
+              "backoff_reasons": {
+                "no_key": 21682,
+                "short_stack": 1483
+              },
+              "backoffs": 23165,
+              "decisions": 28313,
+              "policy_hits": 5148
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.08061423309606319,
+          "policy": {
+            "backoff_rate": 0.7645024971187092,
+            "backoff_reasons": {
+              "no_key": 11066,
+              "short_stack": 874
+            },
+            "backoffs": 11940,
+            "decisions": 15618,
+            "policy_hits": 3678
+          },
+          "sd": 0.19101873702528988,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.008475579121673668,
+                "max_abs_z": 0.6764167347568268,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 7.628021209506301,
+            "max_abs_diff_rel": 0.008475579121673668,
+            "max_abs_z": 0.6764167347568268,
+            "policy": {
+              "backoff_rate": 0.821119658434245,
+              "backoff_reasons": {
+                "no_key": 20332,
+                "short_stack": 1977
+              },
+              "backoffs": 22309,
+              "decisions": 27169,
+              "policy_hits": 4860
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": -0.0105,
+        "sd": 0.1673612094724767,
+        "se": 0.008368060473623835
+      },
+      "games": 400,
+      "layout": 1,
+      "learner": 5,
+      "learner_icm_rel": 0.3288642330960632,
+      "level_index": 0,
+      "players": [
+        0,
+        2,
+        3,
+        5
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "random",
+      "remaining": 4,
+      "stacks": [
+        3508,
+        2188,
+        2483,
+        5321
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.06723887214628083,
+          "policy": {
+            "backoff_rate": 0.6435714285714286,
+            "backoff_reasons": {
+              "no_key": 5017,
+              "short_stack": 389
+            },
+            "backoffs": 5406,
+            "decisions": 8400,
+            "policy_hits": 2994
+          },
+          "sd": 0.1616718341421511,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.01728996296331584,
+                "max_abs_z": 1.4215399666341166,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 15.560966666984257,
+            "max_abs_diff_rel": 0.01728996296331584,
+            "max_abs_z": 1.4215399666341166,
+            "policy": {
+              "backoff_rate": 0.8169232473142097,
+              "backoff_reasons": {
+                "no_key": 20698,
+                "out_of_sync": 6,
+                "short_stack": 1424
+              },
+              "backoffs": 22128,
+              "decisions": 27087,
+              "policy_hits": 4959
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.05923887214628083,
+          "policy": {
+            "backoff_rate": 0.6506234704579886,
+            "backoff_reasons": {
+              "no_key": 5076,
+              "out_of_sync": 2,
+              "short_stack": 505
+            },
+            "backoffs": 5583,
+            "decisions": 8581,
+            "policy_hits": 2998
+          },
+          "sd": 0.16751893619815764,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.010511127853719163,
+                "max_abs_z": 0.8507808650984945,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 9.460015068347246,
+            "max_abs_diff_rel": 0.010511127853719163,
+            "max_abs_z": 0.8507808650984945,
+            "policy": {
+              "backoff_rate": 0.82426457153298,
+              "backoff_reasons": {
+                "no_key": 20853,
+                "short_stack": 1703
+              },
+              "backoffs": 22556,
+              "decisions": 27365,
+              "policy_hits": 4809
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.007999999999999998,
+        "sd": 0.1652400092339294,
+        "se": 0.00826200046169647
+      },
+      "games": 400,
+      "layout": 2,
+      "learner": 6,
+      "learner_icm_rel": 0.17448887214628084,
+      "level_index": 0,
+      "players": [
+        0,
+        4,
+        6,
+        8
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "random",
+      "remaining": 4,
+      "stacks": [
+        5695,
+        2419,
+        1874,
+        3512
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": 0.0038115399344479865,
+          "policy": {
+            "backoff_rate": 0.7170524326877658,
+            "backoff_reasons": {
+              "no_key": 3991,
+              "short_stack": 563
+            },
+            "backoffs": 4554,
+            "decisions": 6351,
+            "policy_hits": 1797
+          },
+          "sd": 0.12138610491388796,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.070811539934448,
+                "max_abs_z": 6.772103487036066,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 63.73038594100319,
+            "max_abs_diff_rel": 0.070811539934448,
+            "max_abs_z": 6.772103487036066,
+            "policy": {
+              "backoff_rate": 0.853847580196551,
+              "backoff_reasons": {
+                "no_key": 21125,
+                "out_of_sync": 3,
+                "short_stack": 1896
+              },
+              "backoffs": 23024,
+              "decisions": 26965,
+              "policy_hits": 3941
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": 0.0053115399344479865,
+          "policy": {
+            "backoff_rate": 0.7001114827201784,
+            "backoff_reasons": {
+              "no_key": 3865,
+              "out_of_sync": 1,
+              "short_stack": 530
+            },
+            "backoffs": 4396,
+            "decisions": 6279,
+            "policy_hits": 1883
+          },
+          "sd": 0.12166761080417828,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.04481153993444798,
+                "max_abs_z": 4.885286534631464,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 40.330385941003186,
+            "max_abs_diff_rel": 0.04481153993444798,
+            "max_abs_z": 4.885286534631464,
+            "policy": {
+              "backoff_rate": 0.8402955929088334,
+              "backoff_reasons": {
+                "no_key": 19924,
+                "short_stack": 2022
+              },
+              "backoffs": 21946,
+              "decisions": 26117,
+              "policy_hits": 4171
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.0015000000000000007,
+        "sd": 0.11803635649084603,
+        "se": 0.005901817824542301
+      },
+      "games": 400,
+      "layout": 0,
+      "learner": 7,
+      "learner_icm_rel": 0.07268846006555202,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        6,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "skewed",
+      "remaining": 4,
+      "stacks": [
+        5467,
+        6403,
+        1192,
+        438
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.05935854997816646,
+          "policy": {
+            "backoff_rate": 0.7065078271143054,
+            "backoff_reasons": {
+              "no_key": 6858,
+              "short_stack": 318
+            },
+            "backoffs": 7176,
+            "decisions": 10157,
+            "policy_hits": 2981
+          },
+          "sd": 0.17934980731369254,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.006891450021833521,
+                "max_abs_z": 0.5593210414123418,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 6.202305019650169,
+            "max_abs_diff_rel": 0.006891450021833521,
+            "max_abs_z": 0.5593210414123418,
+            "policy": {
+              "backoff_rate": 0.8161154676667803,
+              "backoff_reasons": {
+                "no_key": 20155,
+                "short_stack": 1388
+              },
+              "backoffs": 21543,
+              "decisions": 26397,
+              "policy_hits": 4854
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.06560854997816647,
+          "policy": {
+            "backoff_rate": 0.694272681196148,
+            "backoff_reasons": {
+              "no_key": 6440,
+              "short_stack": 409
+            },
+            "backoffs": 6849,
+            "decisions": 9865,
+            "policy_hits": 3016
+          },
+          "sd": 0.17151470267321897,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.023828693462076306,
+                "max_abs_z": 1.832976420159717,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 21.445824115868675,
+            "max_abs_diff_rel": 0.023828693462076306,
+            "max_abs_z": 1.832976420159717,
+            "policy": {
+              "backoff_rate": 0.823780002078066,
+              "backoff_reasons": {
+                "no_key": 22097,
+                "out_of_sync": 3,
+                "short_stack": 1685
+              },
+              "backoffs": 23785,
+              "decisions": 28873,
+              "policy_hits": 5088
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": -0.00625,
+        "sd": 0.16217796314334235,
+        "se": 0.008108898157167118
+      },
+      "games": 400,
+      "layout": 1,
+      "learner": 5,
+      "learner_icm_rel": 0.21310854997816647,
+      "level_index": 0,
+      "players": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "skewed",
+      "remaining": 4,
+      "stacks": [
+        1692,
+        2352,
+        5866,
+        3590
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.054309160042268934,
+          "policy": {
+            "backoff_rate": 0.8000794010889292,
+            "backoff_reasons": {
+              "no_key": 13265,
+              "short_stack": 842
+            },
+            "backoffs": 14107,
+            "decisions": 17632,
+            "policy_hits": 3525
+          },
+          "sd": 0.17427238640029616,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.07897643779004697,
+                "max_abs_z": 8.304528346881751,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 71.07879401104228,
+            "max_abs_diff_rel": 0.07897643779004697,
+            "max_abs_z": 8.304528346881751,
+            "policy": {
+              "backoff_rate": 0.8205631958087753,
+              "backoff_reasons": {
+                "no_key": 19423,
+                "short_stack": 1878
+              },
+              "backoffs": 21301,
+              "decisions": 25959,
+              "policy_hits": 4658
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.047559160042268935,
+          "policy": {
+            "backoff_rate": 0.8039120594891691,
+            "backoff_reasons": {
+              "no_key": 13904,
+              "short_stack": 1015
+            },
+            "backoffs": 14919,
+            "decisions": 18558,
+            "policy_hits": 3639
+          },
+          "sd": 0.16524531774786838,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.07697643779004697,
+                "max_abs_z": 7.859718261075898,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 69.27879401104227,
+            "max_abs_diff_rel": 0.07697643779004697,
+            "max_abs_z": 7.859718261075898,
+            "policy": {
+              "backoff_rate": 0.8285386737362519,
+              "backoff_reasons": {
+                "no_key": 20939,
+                "out_of_sync": 2,
+                "short_stack": 2186
+              },
+              "backoffs": 23127,
+              "decisions": 27913,
+              "policy_hits": 4786
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.006750000000000001,
+        "sd": 0.1695621295852163,
+        "se": 0.008478106479260814
+      },
+      "games": 400,
+      "layout": 2,
+      "learner": 0,
+      "learner_icm_rel": 0.39405916004226893,
+      "level_index": 0,
+      "players": [
+        0,
+        1,
+        2,
+        4
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "skewed",
+      "remaining": 4,
+      "stacks": [
+        7513,
+        547,
+        2880,
+        2560
+      ]
+    }
+  ],
+  "policy": {
+    "A": {
+      "backoff_rate": 0.7416981149921025,
+      "backoff_reasons": {
+        "no_key": 73031,
+        "out_of_sync": 1,
+        "short_stack": 5387
+      },
+      "backoffs": 78419,
+      "decisions": 105729,
+      "policy_hits": 27310
+    },
+    "B": {
+      "backoff_rate": 0.7447268130707116,
+      "backoff_reasons": {
+        "no_key": 72875,
+        "out_of_sync": 3,
+        "short_stack": 6069
+      },
+      "backoffs": 78947,
+      "decisions": 106008,
+      "policy_hits": 27061
+    }
+  },
+  "primary": {
+    "cells": 9,
+    "ci_high": 0.006245737658406038,
+    "ci_low": -0.004801293213961594,
+    "mean": 0.0007222222222222222,
+    "metric": "learner sim prize - ICM equity (B - A)",
+    "se": 0.002818171905072033
+  },
+  "schema_version": 1,
+  "skipped": [],
+  "symmetric_summary": {
+    "A": {
+      "bubble_cells": 9,
+      "bubble_mean_rel": 0.030370862015574467,
+      "bubble_significant": 2,
+      "i_bubble_significant": 2,
+      "ii_bubble_mean_rel": 0.030370862015574467,
+      "in_prize_cells": 0,
+      "in_prize_significant": 0,
+      "lambda": 0.0
+    },
+    "B": {
+      "bubble_cells": 9,
+      "bubble_mean_rel": 0.02874048921332671,
+      "bubble_significant": 2,
+      "i_bubble_significant": 2,
+      "ii_bubble_mean_rel": 0.02874048921332671,
+      "in_prize_cells": 0,
+      "in_prize_significant": 0,
+      "lambda": 0.0
+    }
+  },
+  "unit": "prize_pool_fraction",
+  "verdict": "A"
+}
