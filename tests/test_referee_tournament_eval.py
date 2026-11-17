@@ -111,3 +111,27 @@ def test_cli_rejects_low_seed(tmp_path, capsys):
     with pytest.raises(SystemExit) as e:
         TE.main(["--policy", str(pol), "--seed", "1"])
     assert e.value.code == 2 and "10001" in capsys.readouterr().err
+
+
+class _Agent:
+    def __init__(self, c):
+        self._c = c
+
+    def counts(self):
+        return self._c
+
+
+def test_counts_sums_by_street_and_tolerates_old_agents():
+    a = {"decisions": 5, "policy_hits": 3, "backoffs": 2, "backoff_reasons": {"no_key": 2},
+         "by_street": {"0": {"decisions": 3, "policy_hits": 2}, "1": {"decisions": 2, "policy_hits": 1}}}
+    b = {"decisions": 2, "policy_hits": 2, "backoffs": 0, "backoff_reasons": {},
+         "by_street": {"0": {"decisions": 2, "policy_hits": 2}}}
+    out = TE._counts([_Agent(a), _Agent(b)])
+    bs = out["by_street"]
+    assert bs["0"] == {"decisions": 5, "policy_hits": 4, "hit_rate": 0.8}
+    assert bs["1"]["hit_rate"] == 0.5
+    assert sum(v["decisions"] for v in bs.values()) == out["decisions"]
+    assert sum(v["policy_hits"] for v in bs.values()) == out["policy_hits"]
+    old = {k: v for k, v in a.items() if k != "by_street"}
+    o2 = TE._counts([_Agent(old)])
+    assert o2["by_street"] == {} and o2["backoff_rate"] == 0.4
