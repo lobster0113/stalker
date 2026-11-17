@@ -1528,6 +1528,115 @@ wd.section("12 #604");
   console.log("c1 인원별 중수 정책 ok");
 }
 
+wd.section("13 #956");
+// 13. #956 (ADR 0029 H2) 토너먼트 정책 로드·단계 매핑: 합성 인덱스 v2(tournament 맵)와 6인 SNG 초반·BB앤티 정책 파일 하나(web/e2e/tour-fixture.mjs)를 내준다.
+// (a) 정책 있는 단계: 시작할 때 그 파일 하나만 요청하고, AI 결정은 t<단계><앤티> 키로 파일 행을 읽는다(미스는 백오프).
+// (b) 생존자 수가 바뀌어 정책 없는 단계(버블)가 되면 규칙 봇, 돌아오면 이미 받은 정책으로(재요청 없음).
+// (c) 다음 핸드의 정책 파일이 로드 중이면 이전 정책으로 계속하고, 로드가 끝나면 전환한다.
+// (d) 정책이 없는 프리셋(9인 SNG)은 규칙 봇이며 캐시 정책 파일을 요청하지 않는다.
+{
+  const { tourPolicy } = await import("./tour-fixture.mjs");
+  const ENV = "6max_sng_topheavy";
+  const fixes = { e1: tourPolicy({ players: 6, stage: "e", ante: 1 }), e0: tourPolicy({ players: 6, stage: "e", ante: 0, hands: 200 }) };
+  const open = async (delayMs = 0) => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [], reqs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    pg.on("request", r => { const m = /\/policy\/([^/?]+)$/.exec(r.url()); if (m) reqs.push(m[1]); });
+    await pg.route("**/policy/index.json", async r => {
+      const res = await r.fetch(), j = await res.json();
+      j.schema_version = 2;
+      j.tournament = { [ENV]: { e: { ante: Object.fromEntries(Object.entries(fixes).map(([k, f]) => [k[1], { file: `t-${ENV}-${k}.json`, bytes: f.bytes.length, env_id: ENV, stage: "e", ante: +k[1], payoff: "icm", players: 6, tier: "beginner", key_variant: "c1", run_id: f.doc.run_id, iterations: 400, lbr_bb: null }])) } } };
+      await r.fulfill({ response: res, json: j });
+    });
+    for (const [k, f] of Object.entries(fixes)) await pg.route(`**/policy/t-${ENV}-${k}.json`, async r => { if (k === "e0" && delayMs) await new Promise(res => setTimeout(res, delayMs)); await r.fulfill({ status: 200, contentType: "application/json", body: f.bytes }); });
+    await pg.goto(url);
+    await pg.waitForSelector("#set-mode [data-v='tournament']");
+    await pg.click("#set-mode [data-v='tournament']");
+    await pg.click("#set-play [data-v='quick']");
+    return { pg, errs, reqs };
+  };
+  const state = pg => pg.evaluate(() => ({ n: G.n, players: G.players, eng: !!G.eng, env: G.eng?.env ?? null, run: G.eng?.meta?.run_id ?? null, polTable: G.polTable,
+    tags: G.seats.filter(s => !s.isHero).map(s => s.tag || "") }));
+  const playHands = async (pg, hands) => {
+    const from = await pg.evaluate(() => G.handNo);
+    for (let g = 0; g < 80 && (await pg.evaluate(() => G.handNo)) < from + hands; g++) {
+      if (await pg.locator(QUICK).count()) { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click(); await pg.click("#tp-go"); }
+      else await pg.waitForTimeout(200);
+    }
+  };
+  {
+    const { pg, errs, reqs } = await open();
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    reqs.length = 0;   // the start screen reads the cash tier's policy for its model list; this check is about what the table asks for
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const a = await state(pg);
+    must(a.eng && a.env?.stage === "e" && a.env?.ante === true && a.run === "fixture-e1" && a.tags.every(t => t.includes("TP-GTO")), `토너먼트 정책: 정책 있는 단계인데 AI가 정책 좌석이 아님 (${JSON.stringify(a)})`);
+    must(reqs.filter(r => r !== "index.json").join() === `t-${ENV}-e1.json`, `토너먼트 정책: 시작 때 해당 파일 하나만 요청해야 함 (${reqs.join(", ")})`);
+    await playHands(pg, 2);
+    const file = fixes.e1.doc, log = await pg.evaluate(() => TPG.botLog.slice());
+    let hit = 0;
+    for (const d of log) {
+      must(d.key.startsWith("call|") || /\|te1\|/.test(d.key), `토너먼트 정책: AI 결정 키에 te1 칸이 없음 (${d.key})`);
+      const row = file.policy[d.key];
+      if (!row) continue;
+      hit++;
+      must(row.every((v, j) => Math.abs(v / 255 - d.probs[j]) < 1e-9), `토너먼트 정책: 페이지가 쓴 확률이 파일 행과 다름 (${d.key})`);
+    }
+    must(log.length >= 6 && hit >= 1, `토너먼트 정책: 검사할 AI 결정이 모자람 (전체 ${log.length}, 파일 키 ${hit})`);
+    // (b) bubble: no policy for the stage -> rule bot; back to the table -> the loaded policy, no new request
+    const n0 = reqs.length;
+    await pg.evaluate(() => { G.players = 3; });
+    await playHands(pg, 1);
+    const b = await state(pg);
+    must(!b.eng && !b.polTable && b.tags.every(t => !t.includes("TP-GTO")), `토너먼트 정책: 정책 없는 단계(버블)인데 규칙 봇이 아님 (${JSON.stringify(b)})`);
+    await pg.evaluate(() => { G.players = 6; });
+    await playHands(pg, 1);
+    const c = await state(pg);
+    must(c.eng && c.env?.stage === "e" && reqs.length === n0, `토너먼트 정책: 정책 있는 단계로 돌아왔는데 전환·재사용이 아님 (${JSON.stringify(c)}, 새 요청 ${reqs.length - n0})`);
+    must(!errs.length, `토너먼트 정책: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await inspect("tour-policy", "#infobar", pg);
+    console.log(`토너먼트 정책: 파일 1개 요청, AI 결정 ${log.length}개(파일 키 ${hit}) 모두 te1 키, 버블 규칙 봇 → 복귀`);
+    await pg.close();
+  }
+  {
+    // (c) the next hand's file (ante 0) is slow: the table keeps the ante-1 policy until it is in
+    const { pg, errs } = await open(2500);
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    await pg.evaluate(() => { window.__hold = true; G.ante = 0; tourSelect(); });
+    const mid = await state(pg);
+    must(mid.eng && mid.env?.ante === true, `토너먼트 정책: 로드 중에 이전 정책을 유지하지 않음 (${JSON.stringify(mid)})`);
+    await pg.waitForFunction(() => !!TPG.tpol[Object.keys(TPG.tpol).find(k => k.endsWith("e0.json"))], null, { timeout: 20_000 });
+    await pg.evaluate(() => { tourSelect(); window.__hold = false; });
+    const done = await state(pg);
+    must(done.eng && done.env?.ante === false && done.run === "fixture-e0", `토너먼트 정책: 로드가 끝났는데 새 정책으로 전환하지 않음 (${JSON.stringify(done)})`);
+    must(!errs.length, `토너먼트 정책 로드 중 전환: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  {
+    // (d) no tournament policy for this preset: rule bot, and the cash tiers are not read for it
+    const { pg, errs, reqs } = await open();
+    await pg.selectOption("#t-format", "9");
+    reqs.length = 0;
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const d = await state(pg);
+    must(!d.eng && !d.polTable && d.tags.every(t => !t.includes("TP-GTO")), `토너먼트 정책 없는 프리셋: 규칙 봇이 아님 (${JSON.stringify(d)})`);
+    must(!reqs.some(r => r !== "index.json"), `토너먼트 정책 없는 프리셋: 정책 파일을 요청함 — 캐시 정책으로 대신하면 안 됨 (${reqs.join(", ")})`);
+    must(!errs.length, `토너먼트 정책 없는 프리셋: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  console.log("토너먼트 정책 ok");
+}
+
 wd.stop();
 await browser.close();
 server.close();
