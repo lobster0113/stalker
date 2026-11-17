@@ -1801,3 +1801,4 @@
 {"ts":"2026-11-17T13:14:47Z","role":"builder-b","outcome":"pr_opened","issue":964,"pr":972,"notes":"by_street summed in tournament eval _counts; local full gates PASS","friction":"gates quick 309s, full ~40min locally (known a)"}
 {"ts":"2026-11-17T13:15:04Z","role":"reviewer","outcome":"skipped","issue":964,"pr":972,"notes":"not my parity","friction":""}
 {"ts":"2026-11-17T13:34:09Z","role":"reviewer-b","outcome":"merged","issue":964,"pr":972,"notes":"tournament_eval _counts by_street summing; criteria verified vs code (E3PolicyAgent counts every decision per street, str keys); CI all green; squash 701eb909","friction":"PR opened without labels so first guard run failed; labels added ~30s later and latest guard run green (same recurring pattern as #954/#947)"}
+{"ts":"2026-11-17T13:40:00Z","role":"planner","outcome":"planned","issue":973,"pr":972,"notes":"PR #972 머지·#964 닫힘 반영(라벨 정리), 신설 #973 F6f 거리별 백오프 실측(P3 ready); STATE 갱신, ready 6","friction":""}
