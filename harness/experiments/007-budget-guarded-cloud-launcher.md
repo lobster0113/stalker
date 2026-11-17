@@ -12,7 +12,7 @@ D3 학습 단계와 처리량 파일럿에는 클라우드 연산이 필요한�
 에이전트가 작업 명세 PR만으로 연산을 쓰면서도 월 지출이 `harness/budget.json` 상한을 넘지 않고 고아 pod가 24시간 넘게 남지 않는다.
 
 ## 변경
-- `harness/cloud/launcher.py`: `check`·`run [--dry-run]`·`reap [--force]`. 표준 라이브러리만(RunPod REST `rest.runpod.io/v1`, 잔액은 GraphQL).
+- `harness/cloud/launcher.py`: `check`·`run [--dry-run]`·`reap [--force]`. 표준 라이브러리만(RunPod REST `rest.runpod.io/v1` → 2026-11-17부터 v2 `api.runpod.io/v2`(v1 11-15 은퇴, #952), 잔액은 GraphQL).
 - `.github/workflows/cloud.yml`: dispatch(mode/job/dry_run) + cron `17 3 * * *`(reap). `concurrency: cloud-budget`(취소 없음)로 원장 경쟁 차단. pod 생성 직후 start(예약) 줄을 ops에 push(`harness/cloud/push_ledger.sh`, 실패 시 pod 종료). `if: always()` 정리(launcher가 파싱한 spec 이름으로 이 run의 pod만 강제 종료)·원장 ops push. Secret은 `RUNPOD_API_KEY`만.
 - 작업 최대 시간 ≤330분: GitHub 호스트 러너의 잡 한도 360분 안에서 종료·원장 push까지 끝나도록(`timeout-minutes: 355`). 더 긴 학습은 재개 가능한 조각으로 나눈다.
 - `harness/budget.json` `{"monthly_cap_usd": 100}`, `jobs/README.md`·`jobs/smoke-cpu.yaml`(최악 $0.02), reviewer.md 11항(상한 인상 CLOSE), PROTOCOL §1 원장 행.
