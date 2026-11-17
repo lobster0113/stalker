@@ -1815,3 +1815,4 @@
 {"ts":"2026-11-17T15:45:00Z","role":"planner","outcome":"planned","issue":968,"pr":974,"notes":"PR #974 머지 → #968 라벨 정리, 후속 #977(9인 폰 태그 넘침 P2)·#978(정보 막대 단계명=정책 단계 P3) 신설; ready 7","friction":""}
 {"ts":"2026-11-17T15:42:05Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 (odd) still at d723a9c with existing CHANGES verdict; no new commits","friction":""}
 {"ts":"2026-11-17T16:02:32Z","role":"builder-b","outcome":"pr_opened","issue":975,"pr":979,"notes":"tournament non-inferiority judge + thresholds v1","friction":"gates full ~25min; quick ~4min locally; single foreground command capped at 10min so needed background+poll"}
+{"ts":"2026-11-17T16:02:52Z","role":"reviewer-b","outcome":"skipped","issue":975,"pr":979,"notes":"not my parity","friction":""}
