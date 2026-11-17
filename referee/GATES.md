@@ -127,6 +127,11 @@
 - 왜 판정에 쓰지 않나: 첫 토너먼트 정책(F5)의 분포와 셀 간 분산을 아직 모른다. 분포 없이 정한 임계값은 근거가 없으므로 F5 결과를 본 뒤 별도 이슈에서 임계값·history 등록을 정한다. ICM 단위 LBR(착취 가능도)은 아래 F4b 항목이고, 같은 이유로 판정에 쓰지 않는다.
 - ICM 단위 LBR (record-only, #917·ADR 0027 F4b): `--lbr-hands N`(기본 0 = 끔)을 주면 셀마다 `lbr_pool`(평균·SE·핸드 수·단계·앤티)을 더하고 `schema_version`은 2가 된다(옵션 없으면 출력은 1 그대로, 바이트 동일). 학습 좌석이 LBR(`referee/e3/lbr.py`의 `lbr_icm`), 나머지 좌석은 정책이다. 보상은 핸드 끝 `bubble_corrected_equity`(λ = 정책 `train_env.lam`) 변화를 **상금 풀 비율**로 잰 값이고(bb 아님), 정책은 셀의 `t<단계><앤티>` 키 칸을 읽는다. LBR의 행동 선택은 칩 한 수 앞 가치 그대로라 이 값은 하한이지 증명이 아니다(Gate Q3). 칩 LBR(F5 1회차 3.16bb)은 단위가 달라 토너먼트 정책 판단에 못 쓰므로 이 값이 대신 분포를 보여 준다. 임계값은 F5 분포를 본 뒤 별도 이슈에서 정한다.
 
+## 토너먼트 비열등 판정 (오프라인 judge, #975, ADR 0030 결정 1–3)
+- 구현: `referee/e3/tournament_thresholds.py`(`python -m referee.e3.tournament_thresholds [--json] <tournament_ab result.json>...`), 표 `tournament_thresholds_v1.json`(sha256 고정, 바꾸려면 새 버전 파일).
+- 지표 `primary`(학습 좌석 시뮬 상금 − ICM 에퀴티, B − A, 상금 풀 비율). 독립 학습 쌍마다 결과 1개, 쌍 수 ≥ `min_seeds`(3). `m` = 쌍 평균의 평균, `se = sqrt(Σ se_i²)/k`, `ci_low = m − 1.96·se`. `ci_low > −δ`(δ = 0.0075)면 pass, 아니면 fail, 쌍이 모자라면 insufficient(실패 아님, exit 0). 같은 쌍 중복·`primary` 없음·평가 설정(preset·remaining·games·seed 등) 불일치는 오류.
+- 아직 CI를 실패시키지 않는다(배선은 후속 이슈). `lbr_icm`·`bubble_mean_rel`·`gate_t_*`는 record-only 유지.
+
 ## Gate X — 설명 충실도 (정의만, 구현은 D4)
 - TP 입력을 조금 바꿨을 때, 설명이 말한 대로 행동이 바뀌는가(설명과 실제 출력 변화의 일치).
 - 설명이 상관관계를 원인처럼 말하지 않는가(반사실적 검사).
