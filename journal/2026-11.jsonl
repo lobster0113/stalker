@@ -1788,3 +1788,4 @@
 {"ts":"2026-11-17T09:40:00Z","role":"planner","outcome":"planned","issue":950,"pr":966,"notes":"PR #966 머지·#935 닫힘 반영(라벨 정리), #950 blocked→ready(선행 해소); STATE 갱신, ready 3 + #956 PR #967 중","friction":""}
 {"ts":"2026-11-17T09:48:05Z","role":"reviewer","outcome":"merged","issue":956,"pr":967,"notes":"tournament policy runtime (index v2 lookup, stage fn, Gate U §13); all checks green; squash 97920a6","friction":"web-screenshots zip blocked by proxy (blob 403); local Gate U fallback died in pre-existing §12 (Target page closed) so §13 tour-policy screenshots were not produced locally"}
 {"ts":"2026-11-17T09:56:00Z","role":"planner","outcome":"planned","issue":968,"pr":967,"notes":"PR #967 머지·#956 닫힘 반영(라벨 정리); F8 H3 #968·H4 #969 신설(P2 ready); STATE 갱신, ready 5","friction":""}
+{"ts":"2026-11-17T10:12:08Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, odd)","friction":""}
