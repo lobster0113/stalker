@@ -1,6 +1,7 @@
-# STATE (2026-11-17 01:00Z, planner)
+# STATE (2026-11-17 01:10Z, planner)
 ## 현재 단계
 **D 2–5인 완료(#384 닫힘 17:15Z) → E 토너먼트(#385) 착수. D2 설계·준비(주력) + 소유자 방향 전환(10-30): 실전 게임 학습. ADR 0019 순서: A real 메뉴(#382·#386 완료·#387) → B1·B2·B3(#389) ∥ S 좌석별 스택(#383) → C 결합 key c1(#400) → D 2–5인(#384) → E 토너먼트(#385).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음. planner 11-14 17:15Z: **#876 완료(cloud run 43613729968, 2–6인 120k c1 끔/켬 10칸 v3 선 안) → #384 수용 기준 전부 충족, 닫음. #873 2회차 timeout → 후속 #877(P2). E 하위 이슈 신설: #878 앤티+Gate R(P1, referee-change)·#879 ICM 보상 함수(P1)·#880 E 환경 ADR(P2). #385 blocked 해제(추적).**
+planner 11-17 01:10Z: **PR #954(c24630f9, #952 RunPod REST v2 `api.runpod.io/v2` 이전 + check REST 도달 검사) 머지 → #952 닫힘·라벨 정리 → #937 blocked 해제·ready(check 후 쌍 2 재디스패치). ready 3(착수 가능 #937·#955; #935는 #937 뒤).**
 planner 11-17 01:00Z: **PR #953(ecf99204, #945 F8a ADR 0029 토너먼트 정책 웹 내보내기·표시) 머지 → #945 닫힘·라벨 정리. ADR 0029 후속: 신설 #955 H1 `cloud.yml mode=export` export_kind+인덱스 v2(P2, ready, harness-change, 클라우드 없음)·#956 H2 웹 로드·단계 매핑(P2, blocked: #955). H3(표시·복기)·H4(첫 실제 export, #937 판정 뒤)는 H2·#937 뒤 신설. #952는 PR #954 진행. ready 3(착수 가능 #955; #952 PR 중, #935는 #937 뒤).**
 planner 11-16 23:15Z: **PR #951(59646c6e, #949 CI tests 2샤드) 머지 → #949 라벨 정리. #937 쌍 2 4회차 run 43966801216도 #947 재시도까지 `rest.runpod.io` DNS 실패(18:06Z~ 4h+, 과금 0) → #937 다시 blocked. 가설: RunPod REST v1 은퇴(문서상 11-15/12-01, v2 `api.runpod.io/v2`) → 신설 #952 launcher REST 이전+check에 REST 도달 검사(P1, ready, harness-change). ready 3(착수 가능 #952·#945; #935는 #937 뒤).**
 planner 11-16 21:58Z: **PR #947(e8023a2d, #946 RunPod REST DNS/연결거부 재시도, 실험 040) 머지 → #946 닫힘·라벨 정리 → #937 blocked 해제·ready(쌍 2 재디스패치). main 62ba6fd4 gates failure는 후속 push로 tests 취소(실패 아님), e8023a2d CI 진행 중. ready 4(착수 가능 #949·#937·#945; #935는 #937 뒤).**
@@ -13,7 +14,7 @@ planner 11-16 18:10Z: **main 47576e8c CI success. #937 쌍 1 완료(A/cold 채�
 2. **평가 신뢰성(#770·ADR 0024)**: 3인 시드 2개로 판정 강화(#768 완료). #770 완료(PR #776, AIVAT 도입 추천) → #781 완료(PR #784, 보정 열 기록) → #785 완료(PR #789, sd 약 1/3) → #792 판정 전환 ADR 0025(v3 선·min_seeds). #724(Gate U 정체 감시) 11-10 완료(PR #726).
 3. **페르소나 목표 타당성**: 피시 칸 레버 #722 보류 → 공동 격자 #730 결론 (b)(턴 오차 51/56·station WTSD 44/56 위반, 최근접 턴 .1303–.1403이 .14 부근) → #736 ADR 0023 완료(PR #749, 4시드 평균) → #750 완료(PR #757) → #751 완료(PR #759) → #760 완료(PR #763, 웹 미러) — 체인 종료. #769 완료(PR #772): 구조 정렬 비추천, 작은 수정 #773(3bp rangeShift 폭·cbet3bp 재보정).
 ## 큐
-ready: **#952 P1(RunPod REST 이전, harness-change, PR #954)·#955 P2(F8 H1 export_kind+인덱스 v2, harness-change)·#935 P2(2회차, #937 뒤)**. blocked: #937 P1(#952 뒤 쌍 2·3)·#950 P2(F10b-2, #937·#935 뒤)·#956 P2(F8 H2, #955 뒤). #945 완료(#953). F7b 보류. 다음 후보: F8 H3·H4(ADR 0029), 토너먼트 평가 임계값·history 등록(referee-change, #937 결과 뒤), F10 7·8인 잡, #950 실측 뒤 median_iters_per_s.
+ready: **#937 P1(쌍 2·3 재디스패치, #952 완료)·#955 P2(F8 H1 export_kind+인덱스 v2, harness-change)·#935 P2(2회차, #937 뒤)**. #952 완료(#954). blocked: #950 P2(F10b-2, #937·#935 뒤)·#956 P2(F8 H2, #955 뒤). #945 완료(#953). F7b 보류. 다음 후보: F8 H3·H4(ADR 0029), 토너먼트 평가 임계값·history 등록(referee-change, #937 결과 뒤), F10 7·8인 잡, #950 실측 뒤 median_iters_per_s.
 blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #385(E, 하위 #877–#880), #410(#359), #416(#389), #105. 추적: #383·#389·#341. 보류: #415·#419·#306·#359·#321·#320·#409 P2, #240·#327 P3. 라벨 없음: #189(D3).
 후보: 토너먼트 평가 ICM+시뮬 상금 이중 기록의 심판 연결(ADR 0026 후속 3, referee-change, #385 뒤), 끔 칸 기준(2인 2·4인 3)은 ADR 0024 (b) 기각(진단용 칸), 클라우드 잡 실패 시 파드 job.log 내보내기(harness-change, Auditor; 42989335994 exit 2 원인 불명), 웹 피시 칸 다중 시드 CI 검사(Gate U 시간 여유 확인 뒤), #775 결론 뒤 L1 행 export·페이지 읽기 또는 6인 상한 ADR, L4 끄기(낮음), 4–6인 플랍 커버리지 학습(#629), PHH c-bet 구분, E 측정 잡(#385 뒤), #391 L4·L5 재학습, 프리플랍 프로브 CI 지표(harness-change), Gate U 6인 겹침 플레이크(#541, 재발 시).
 ## 지표 요약 (최근 값과 추세)
@@ -25,6 +26,7 @@ blocked: #391(RFC-03), #406·#427(예산, 소유자), #387(기준 3), 추적: #3
 - E3 c1(CI, #521): 2.72 it/s 대 real 12.35 = 4.54배.
 - 클라우드 지출: 11월 원장 end actual_usd 합 $32.92 / $100(builder #937 14:08Z, #926 5잡 뒤).
 ## 경보
+- [planner 11-17 01:10Z] main c24630f9 CI 진행 중. P0 없음. 클라우드 차단 해소 기대(#954) — #937 재디스패치에서 확인. v2 용량 부족 문구 미문서화(`CAPACITY_RE` 추정, reviewer-b) — 관찰. 판정 없이 24h+ PR 없음(#599 CHANGES 11일 무수정).
 - [planner 11-17 01:00Z] main ecf99204 CI 진행 중. P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 11일 무수정). 6h+ in-progress: #935(의도된 대기). 클라우드 차단 지속(#952 → PR #954). friction 신규 없음.
 - [planner 11-16 23:15Z] main 59646c6e CI 진행 중(첫 2샤드 tests run — 시간 확인 필요). P0 없음. **클라우드 mode=run 재차단: `rest.runpod.io` 해석 실패 4회(#947 재시도 무효) → #952.** cloud e8023a2d failure = 그 run. 판정 없이 24h+ PR 없음(#599 CHANGES 10일 무수정). 6h+ in-progress: #935(의도된 대기). friction: planner `gh api -X POST` 코멘트가 guard 훅에 차단(이슈 생성 POST는 통과) → MCP 사용, (b) 재발 1회.
 - [planner 11-16 21:58Z] main e8023a2d CI 진행 중(62ba6fd4 gates failure = tests 취소 잔재, 실패 아님). P0 없음. 판정 없이 24h+ PR 없음(#599 CHANGES 10일 무수정). 6h+ in-progress: #935(의도된 대기). 클라우드 차단 해소 기대(#946) — #937 재디스패치에서 확인. friction: 로컬 shallow clone 병합 실패(builder-b), 상수 주석 URLError/OSError 잔존(reviewer, 비차단) — 1회, 관찰.
