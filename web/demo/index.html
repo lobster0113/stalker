@@ -1448,21 +1448,32 @@ function newSeat(i, isHero, stackBB) {
   seatPlayer(s);
   return s;
 }
+// The tournament table's first file: index and engine, then the one policy file of the stage the table starts in.
+function tourStartEntry() {
+  const fmt = $("#t-format").value, n = fmt === "9" ? 9 : 6, sh = tourShape(fmt, n);
+  if (!TPG.mod || !TPG.index) return { need: true, entry: null };
+  const r = TPG.mod.tournamentPolicyFor(TPG.index, { ...sh, ante: $("#t-ante").value === "bb" ? 1 : 0 });
+  return { need: !!r.entry && !TPG.tpol[r.entry.file], entry: r.entry };
+}
+let FORCE_MOCK = false;   // "모의 정답으로 계속" on a tournament table: no policy for this game
 async function startGame() {
-  if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier, seatsNow()) && !TPG.pol[polKey(S.tier, seatsNow())]))) {
-    const tok = ++gameToken;
-    $("#infobar").innerHTML = `<span class="pill">캐시게임 · ${seatsNow()}인</span><span>TP-GTO 준비 중</span>`;
+  const cash = S.mode === "cash";
+  if (cash ? (!TPG.index || (modelMeta(S.tier, seatsNow()) && !TPG.pol[polKey(S.tier, seatsNow())])) : tourStartEntry().need) {
+    const tok = ++gameToken, title = cash ? `캐시게임 · ${seatsNow()}인` : "토너먼트";
+    $("#infobar").innerHTML = `<span class="pill">${title}</span><span>TP-GTO 준비 중</span>`;
     $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp-strip").hidden = true; $("#tp").classList.add("open");
     const paint = () => { if (tok !== gameToken) return; $("#tp-body").innerHTML = TPG.state === "error" ? "" : `<div class="loadbox" role="status"><div>TP-GTO 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
     const iv = setInterval(paint, 120); paint();
-    const ok = await tpgLoad(S.tier, seatsNow());
+    let ok;
+    if (cash) ok = await tpgLoad(S.tier, seatsNow());
+    else { ok = await tpgLoad(null); if (ok) { const e = tourStartEntry().entry; if (e) ok = await tpgLoadTour(e); } }
     clearInterval(iv);
     if (tok !== gameToken || !$("#view-train").classList.contains("active")) return;
     if (!ok) {
-      $("#infobar").innerHTML = `<span class="pill">캐시게임 · ${seatsNow()}인</span><span>TP-GTO 연결 실패</span>`;
+      $("#infobar").innerHTML = `<span class="pill">${title}</span><span>TP-GTO 연결 실패</span>`;
       $("#tp-body").innerHTML = `<div class="loadbox" role="alert"><div>${TPG.err}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta small" id="tpg-again">다시 시도</button><button class="cta small ghost" id="tpg-mock">모의 정답으로 계속</button></div></div>`;
       $("#tpg-again").onclick = () => startGame();
-      $("#tpg-mock").onclick = () => startTable();
+      $("#tpg-mock").onclick = () => { FORCE_MOCK = !cash; startTable(); };
       return;
     }
   }
@@ -1475,6 +1486,7 @@ function startTable() {
   const avg = tour ? +$("#t-stack").value : +$("#c-stack").value;
   G = { tour, n, avg, bb: 100, sb: 50, ante: tour && $("#t-ante").value === "bb" ? 100 : 0, stage: $("#t-stage").value, seats: [], button: Math.floor(rand() * n),
     handNo: 0, board: [], pot: 0, street: 0, log: [], level: 7, levelLeft: 252, players: 47, field: 180, paid: 27, lastGrade: null };
+  if (tour) { G.tfmt = $("#t-format").value; G.mock = FORCE_MOCK; FORCE_MOCK = false; }
   if (tour && $("#t-format").value !== "mtt") { G.players = n; G.field = n; G.paid = n === 9 ? 3 : 2; }
   // Cash 100BB with a trained policy for (tier, seats): every opponent plays that policy (#337, #541).
   G.polTable = polCovers(S.tier, n);
@@ -1490,9 +1502,9 @@ function startTable() {
   buildTable(); runLoop();
 }
 // One hand = one tier (#364): questions, grading, the opponents' policy, seat tags and the header switch together.
-function setTableTier(tier, pol) {
+function setTableTier(tier, pol, tour = null) {
   G.tier = tier;
-  G.eng = pol ? { tier, pol, meta: modelMeta(tier, G.n), ok: false } : null;
+  G.eng = pol ? { tier, pol, meta: tour ? tour.meta : modelMeta(tier, G.n), env: tour?.env, rulesKey: tour?.rulesKey, ok: false } : null;
   for (const s of G.seats) {
     if (s.isHero) continue;
     if (G.eng) { s.persona = "gto"; s.tag = `TP-GTO ${TIERS[tier].name}`; }
@@ -1506,6 +1518,7 @@ const tierNextMsg = () => `다음 핸드부터 ${TIERS[S.tier].name} 정책으�
 // retry / mock choice as the game start.
 async function switchTier(alive) {
   const tier = S.tier;
+  if (G.tour) { G.tier = tier; tourSelect(); return; }
   G.polTable = polCovers(tier, G.n);
   if (!G.polTable) { setTableTier(tier, null); return; }
   const pk = polKey(tier, G.n);
@@ -1763,10 +1776,11 @@ async function runLoop() {
 }
 async function playHand(token) {
   const alive = () => G && token === gameToken;
-  if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
+  if (G.tour) tourSelect();
+  else if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
   G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.potRaises = 0; G.flopPlayers = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
   // TP-GTO tables: every seat starts each hand at 100BB (top-up, excess banked into the session result)
-  if (G.eng) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
+  if (G.eng && !G.tour) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
   // replenish
   for (const s of G.seats) {
     if (s.stack <= 0) {
@@ -1853,7 +1867,7 @@ function heroAnalysis(a, L) {
     const E = G.eng, tg = TPG.mod, seat = E.s.toAct, r3 = x => x == null ? null : Math.round(x * 1000) / 1000;
     const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
     const label = engLabelAt(E.s, a.type, to, engReadRng(E.ent, E.s)).label;
-    const rr = tg.rangeResponse(E.pol, E.s, E.ranges, E.tier, seat, label, keyVariant(E.meta));
+    const rr = tg.rangeResponse(E.pol, E.s, E.ranges, E.tier, seat, label, keyVariant(E.meta), E.env);
     const bs = rr.beats.filter(x => x.beats != null);
     if (bs.length) an.beats = r3(bs.reduce((x, y) => x + y.beats, 0) / bs.length);
     an.opps = rr.beats.length;
@@ -2127,7 +2141,7 @@ function ruleBot(s) {
    off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
 const APP_BASE = window.STALKER_APP_BASE || "../app/";
 import(APP_BASE + "games.js").then(m => { GM = m; if (VIEW === "review") renderGames(); }).catch(e => console.warn("[games] load failed; hands are not saved", e));
-const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
+const TPG = { mod: null, index: null, eq: false, pol: {}, tpol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 // #541: a tier's 6-max entry is tiers[tier]; other seat counts live in tiers[tier].by_players[n]. Loaded
 // policies, rules and leaks are cached per (tier, seats).
@@ -2164,6 +2178,7 @@ function tpgLoad(tier, n = 6) {
   if (TPG.busy) return TPG.busy.then(() => tier && modelMeta(tier, n) && !TPG.pol[pk] ? tpgLoad(tier, n) : TPG.state === "ready");
   TPG.busy = (async () => {
     try {
+      await 0;   // everything cached (tier null): without a turn the finally below would run before TPG.busy is assigned and leave it set forever
       if (!TPG.mod) { tpgSet("loading", "계산 엔진", 5); TPG.mod = await import(APP_BASE + "tpgto.js"); }
       if (!TPG.index) { tpgSet("loading", "모델 목록", 15); TPG.index = await fetchJSON(APP_BASE + "policy/index.json"); }
       if (!TPG.eq) { tpgSet("loading", "프리플랍 에퀴티 표", 25); TPG.mod.setEquityTable(await fetchJSON(APP_BASE + "assets/hu_equity.json")); TPG.eq = true; }
@@ -2198,6 +2213,56 @@ function tpgLoad(tier, n = 6) {
     } finally { TPG.busy = null; }
   })();
   return TPG.busy;
+}
+// ---- tournament policies (ADR 0029 decisions 3-4, #956): one (env_id, stage, ante) file, read when the table needs it.
+// The page's formats name the presets the policies are trained on; MTT is the 180-player preset at a 6-max table.
+const TOUR_ENV = { "6": "6max_sng_topheavy", "9": "9max_sng_503020", mtt: "mtt180_bbante" };
+const tourShape = (fmt, n) => fmt === "mtt" ? { envId: TOUR_ENV.mtt, players: 47, paid: 27, field: 180, tableSize: n } : { envId: TOUR_ENV[fmt], players: n, paid: n === 9 ? 3 : 2, field: n, tableSize: n };
+// What the table in front of us is served: the index entry for (preset, stage by survivors, ante), or why none.
+function tourResolve() {
+  const sh = G.tfmt ? tourShape(G.tfmt, G.n) : null;
+  if (!sh || G.mock || !TPG.mod || !TPG.index) return { entry: null, reason: "no_env" };
+  const r = TPG.mod.tournamentPolicyFor(TPG.index, { ...sh, players: G.players, paid: G.paid, field: G.field, ante: G.ante > 0 ? 1 : 0 });
+  // The mirror engine plays the seats of this table, so a policy for another seat count cannot drive it.
+  return r.entry && r.entry.players !== G.n ? { stage: r.stage, entry: null, reason: "players_mismatch" } : r;
+}
+// The server-side file for one entry; tournament policy files never stand in for cash tiers and vice versa.
+async function tpgLoadTour(entry) {
+  if (TPG.tpol[entry.file]) return true;
+  if (TPG.busy) return TPG.busy.then(() => tpgLoadTour(entry));
+  TPG.busy = (async () => {
+    try {
+      await 0;
+      const step = `토너먼트 정책 ${(entry.bytes / 1e6).toFixed(1)}MB`;
+      tpgSet("loading", step, 35);
+      const doc = await fetchJSON(APP_BASE + "policy/" + entry.file, f => tpgSet("loading", step, 35 + Math.round(f * 60)));
+      TPG.mod.checkNutK?.(doc.nut_k);
+      const q = doc.q || 255, pol = new Map();
+      for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
+      if (doc.l1_rows) TPG.mod.setL1Rows(pol, doc.l1_rows, q);
+      if (entry.key_variant === "c1") TPG.mod.coarseTables(pol);
+      TPG.tpol[entry.file] = { pol, rules: TPG.mod.menuOf(doc) };
+      TPG.err = null; tpgSet("ready", "", 100); return true;
+    } catch (e) {
+      console.warn("[tpgto] tournament policy load failed", e);
+      TPG.err = e instanceof TypeError ? "정책을 불러오지 못했어요. 연결이 끊겼어요. 네트워크를 확인하고 다시 시도하세요." : `정책을 불러오지 못했어요. ${e.message}`;
+      tpgSet("error"); return false;
+    } finally { TPG.busy = null; }
+  })();
+  return TPG.busy;
+}
+// Each hand: serve the policy of the stage we are in. A stage with a file that is still loading keeps the previous
+// policy (or the rule bot) so the table never waits; a stage without one goes back to the rule bot at once.
+function tourSelect() {
+  const r = tourResolve();
+  G.tpol = { stage: r.stage, reason: r.reason, file: r.entry?.file || null };
+  if (!r.entry) { setTableTier(S.tier, null); return; }
+  const L = TPG.tpol[r.entry.file];
+  if (!L) { tpgLoadTour(r.entry).catch(() => {}); return; }
+  if (G.eng?.rulesKey === r.entry.file && G.eng.env.stage === r.entry.stage && G.eng.env.ante === (r.entry.ante === 1)) return;
+  TPG.rules[r.entry.file] = L.rules;
+  const tier = r.entry.tier || S.tier;
+  setTableTier(tier, L.pol, { meta: r.entry, env: { stage: r.entry.stage, ante: r.entry.ante === 1 }, rulesKey: r.entry.file });
 }
 function renderModelStatus() {
   const n = seatsNow(), box = $("#model-status"), pill = $("#svc-pill"), m = modelMeta(S.tier, n);
@@ -2273,7 +2338,10 @@ function engStart() {
     for (const s of G.seats) holes[engSeatOf(s.i)] = s.cards.slice();
     const pool = G.deck.slice(), board = [];
     for (let i = 0; i < 5; i++) board.push(G.rigBoard?.[i] ?? pool.pop()); // the order the table deals them
-    E.s = tg.newHand({ n: G.n, holes, board, ...(TPG.rules[polKey(E.tier, G.n)] || tg.menuOf(E.meta)) });
+    const stacks = new Array(G.n);
+    for (const s of G.seats) stacks[engSeatOf(s.i)] = s.stack + s.contrib;   // chips at the deal (blinds and ante already posted)
+    const tourRules = G.tour ? { stacks, ante: G.ante } : {};
+    E.s = tg.newHand({ n: G.n, holes, board, ...(TPG.rules[E.rulesKey || polKey(E.tier, G.n)] || tg.menuOf(E.meta)), ...tourRules });
     E.ent = engEntropy(holes, board); E.reads = [];
     E.ranges = tg.initialRanges(G.n); E.ok = true;
   } catch (e) { engBreak(e); }
@@ -2292,7 +2360,7 @@ function engBotAct(s) {
   if (!engTurn(s)) return null;
   const E = G.eng, tg = TPG.mod;
   try {
-    const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier, keyVariant(E.meta));
+    const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier, keyVariant(E.meta), E.env);
     const tot = ap.probs.reduce((a, b) => a + b, 0);
     let u = rand() * tot, i = 0;
     while (i < ap.probs.length - 1 && (u -= ap.probs[i]) > 0) i++;
@@ -2317,7 +2385,7 @@ function engApply(s, a, L) {
   if (!engTurn(s)) return;
   const E = G.eng, tg = TPG.mod;
   try {
-    const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier, keyVariant(E.meta));
+    const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier, keyVariant(E.meta), E.env);
     const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
     const { label, tr } = engLabel(d, a, to);
     if (tr) E.reads.push({ hand: G.handNo, at: E.s.history.length, to, split: tr.split, label, s: E.s });
@@ -2347,8 +2415,8 @@ function engMenuName(a, to, toCallNow, opening, cur = 0) {
   return `레이즈 ${(Math.round(to / cur * 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}x · ${bbx(to)}BB`;
 }
 // The policy's view of the actor at engine state s: mixed strategy over the menu, equity vs the public ranges.
-function engModelAt(s, ranges, pol, tier, meta) {
-  const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier, keyVariant(meta)), toCallNow = tg.toCall(s);
+function engModelAt(s, ranges, pol, tier, meta, env) {
+  const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier, keyVariant(meta), env), toCallNow = tg.toCall(s);
   const opening = s.street === 0 && s.raises === 1, cur = Math.max(...s.bet);
   const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
   const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening, cur) }; });
@@ -2382,7 +2450,7 @@ function engHeroTruth(hero, g) {
   if (!engTurn(hero)) return;
   const E = G.eng, tg = TPG.mod;
   try {
-    const md = engModelAt(E.s, E.ranges, E.pol, E.tier, E.meta), toCallNow = tg.toCall(E.s), eq = md.eq;
+    const md = engModelAt(E.s, E.ranges, E.pol, E.tier, E.meta, E.env), toCallNow = tg.toCall(E.s), eq = md.eq;
     E.pending = { d: md.d };
     const cat = { fold: 0, check: 0, call: 0, raise: 0 };
     for (const m of md.mix) cat[m.a === "f" ? "fold" : m.a === "k" || (m.a === "c" && !toCallNow) ? "check" : m.a === "c" ? "call" : "raise"] += m.p;

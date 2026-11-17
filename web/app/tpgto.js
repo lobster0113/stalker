@@ -1332,12 +1332,12 @@ function variantOf(variant) {
  * public key, and postflop its steps also carry the b1 hand fields (tp_key.equity_steps: steps + B1_BASE *
  * (1 + b1_code) on live combos), so key() appends the "o..v..k.." label as tp_key.key does.
  */
-export function decisionKey(s, ranges, tier, variant = "") {
+export function decisionKey(s, ranges, tier, variant = "", env = undefined) {
   const { k, depth } = tierOf(tier);
   const v = variantOf(variant);
   const seat = s.toAct;
   const steps = equitySteps(s, seat, ranges, k);
-  const pub = v === "c1" ? publicKeyC1(s, seat, depth) : publicKey(s, seat, depth);
+  const pub = v === "c1" ? publicKeyC1(s, seat, depth, env) : publicKey(s, seat, depth);
   if (v === "c1" && s.street > 0) {
     const code = b1CodeCached(s, seat, ranges, depth);
     for (let i = 0; i < N; i++) if (steps[i] >= 0) steps[i] += B1_BASE * (1 + code[i]);
@@ -1386,8 +1386,8 @@ export function seatProbs(policy, pub, steps, m, variant = "", top = Infinity) {
  * mean row of the same coarse key, ADR 0022), "L4" (the L3 rows at the neighboring equity steps, #652), or false
  * (no row at any level: uniform).
  */
-export function actionProbs(policy, s, ranges, tier, variant = "") {
-  const d = decisionKey(s, ranges, tier, variant);
+export function actionProbs(policy, s, ranges, tier, variant = "", env = undefined) {
+  const d = decisionKey(s, ranges, tier, variant, env);
   const m = d.acts.length;
   const { row, from } = backoffRow(policy, d.key, m, d.variant, tierOf(tier).k - 1);
   return { ...d, probs: row ? Array.from(row) : new Array(m).fill(1.0 / m), fromTable: from };
@@ -1402,6 +1402,40 @@ export function updateRanges(policy, d, ranges, action) {
   const col = new Float64Array(N);
   for (let i = 0; i < N; i++) col[i] = P[i * m + a];
   return updateRange(ranges, d.seat, col);
+}
+
+// ---------------------------------------------------------------- tournament policies (ADR 0029 decisions 1, 4; #956)
+// Which (env_id, stage, ante) policy the page should serve is pure logic over the index and the table state.
+
+/** ADR 0027 decision 2: e = early (r >= K+2), b = bubble (r = K+1), m = in the money, f = MTT final table (one table, r <= table size, in the money). SNG (field = table size) never uses f. */
+export function tournamentStage({ players, paid, field, tableSize }) {
+  if (!(players >= 2 && paid >= 1)) throw new Error(`tournamentStage: players ${players}, paid ${paid}: need players >= 2 and paid >= 1`);
+  if (players >= paid + 2) return "e";
+  if (players === paid + 1) return "b";
+  return field > tableSize && players <= tableSize ? "f" : "m";
+}
+
+/** The page's `G.stage` select (early|mid|bubble|itm|ft) against the policy stage letters. A `mid` table is still before the bubble, so it reads `e`. */
+export const WEB_STAGE_LETTER = Object.freeze({ early: "e", mid: "e", bubble: "b", itm: "m", ft: "f" });
+
+/** index.tournament[env][stage].ante[0|1]; a v1 index (no `tournament`) and anything missing give null. */
+export function tournamentEntry(index, envId, stage, ante) {
+  const e = index && index.schema_version >= 2 ? index.tournament?.[envId]?.[stage]?.ante?.[ante ? 1 : 0] : null;
+  return e || null;
+}
+
+/**
+ * The policy entry for a table, or why there is none: "no_env" (no tournament policy for this preset: keep the
+ * current mock wording), "no_stage" (this stage or ante is not trained: rule bot, "미학습"), "players_mismatch"
+ * (trained for another survivor count r; the n<players> key slot would never match). The cash tiers are never a fallback.
+ */
+export function tournamentPolicyFor(index, { envId, players, paid, field, tableSize, ante }) {
+  const stage = tournamentStage({ players, paid, field, tableSize });
+  if (!index?.tournament?.[envId] || index.schema_version < 2) return { stage, entry: null, reason: "no_env" };
+  const entry = tournamentEntry(index, envId, stage, ante);
+  if (!entry) return { stage, entry: null, reason: "no_stage" };
+  if (entry.players !== players) return { stage, entry: null, reason: "players_mismatch" };
+  return { stage, entry, reason: "ok" };
 }
 
 // ---------------------------------------------------------------- teacher answers (web only, no Python twin)
@@ -1473,7 +1507,7 @@ const TIE_EPS = 1e-9;
  * is ahead of; ties count half. `reply` is null when the action ends the street/hand or the next to act is
  * the seat itself. Pure function of its arguments.
  */
-export function rangeResponse(policy, s, ranges, tier, seat, action = null, variant = "") {
+export function rangeResponse(policy, s, ranges, tier, seat, action = null, variant = "", env = undefined) {
   const hi = comboIndex(s.hole[seat]), dead = boardDead(s.board);
   const mine = new Float64Array(N); mine[hi] = 1;
   const vsMe = equityVs(s.board, mine);      // each combo's equity against my exact hand
@@ -1503,7 +1537,7 @@ export function rangeResponse(policy, s, ranges, tier, seat, action = null, vari
   if (action != null) {
     const ns = apply(s, action);
     if (!ns.done && ns.street === s.street && ns.toAct !== seat && !ns.folded[ns.toAct]) {
-      const opp = ns.toAct, d = decisionKey(ns, ranges, tier, variant), m = d.acts.length;
+      const opp = ns.toAct, d = decisionKey(ns, ranges, tier, variant, env), m = d.acts.length;
       const P = seatProbs(policy, d.public, d.steps, m, d.variant, tierOf(d.tier).k - 1);
       const kinds = d.acts.map((a) => (a === "f" ? "fold" : a === "k" || a === "c" ? "pass" : "raise"));
       const w = wOf(opp);
