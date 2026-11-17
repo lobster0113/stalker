@@ -679,6 +679,13 @@ details.why[open] > summary { margin-bottom: 8px; }
   .rk-pair, .exs { grid-template-columns: minmax(0, 1fr); }
   .rk-opts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@media (max-width: 1080px) {
+  .table-wrap.tall { aspect-ratio: 3 / 4; max-height: none; }
+  .tall .rail { inset: 4% 7%; }
+  .tall .felt { inset: 2.6% 4%; }
+  .tall .felt::after { inset: 10% 14%; }
+  .tall .seat .persona { font-size: 9px; padding: 1px 3px; }   /* the tag must fit inside the 430px felt, centred on a 98px seat */
+}
 @media (max-width: 760px) {
   :root { --cw: clamp(26px, 7.6vw, 42px); }
   .topbar { gap: 10px; flex-wrap: wrap; }
@@ -691,6 +698,7 @@ details.why[open] > summary { margin-bottom: 8px; }
   .felt { inset: 2.6% 4%; }
   .felt::after { inset: 10% 14%; }
   .seat { width: clamp(78px, 25vw, 110px); }
+  .seat .persona { max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }   /* #977: 9-max tags are wider than the seat */
   .pod { padding: 4px 8px 4px 4px; gap: 6px; }
   .tp { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 45; border-radius: 18px 18px 0 0; max-height: 72vh; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); transform: translateY(calc(100% - 78px - env(safe-area-inset-bottom, 0px))); transition: transform .45s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -20px 50px rgba(0,0,0,.55); }
   .tp.open { transform: none; }
@@ -1550,10 +1558,13 @@ const potTotal = () => G.pot + G.seats.reduce((a, s) => a + s.bet, 0);
 
 /* ---------- table rendering ---------- */
 const P = {}; // positions in % per seat: {x,y,bx,by,cx,cy}
-const seatPos = k => ringPos(k, G.n, matchMedia("(max-width: 760px)").matches);
+// #977: a 7+ seat table in the two-column layout (<=1080px) is only ~430px wide at 820: it gets the phone's tall ring, or seats leave the felt.
+const tallTable = () => matchMedia("(max-width: 760px)").matches || (G.n >= 7 && matchMedia("(max-width: 1080px)").matches);
+const seatPos = k => ringPos(k, G.n, tallTable());
 function buildTable() {
   const layer = $("#layer");
   $$(".seat, .bet, .dealer, .fly, .banner", layer).forEach(e => e.remove());
+  $("#table").classList.toggle("tall", tallTable());
   for (const s of G.seats) {
     const p = P[s.i] = seatPos(s.i);
     const el = h("div", "seat" + (s.isHero ? " hero" : ""));
@@ -1567,7 +1578,7 @@ function buildTable() {
   $("#board").innerHTML = '<div class="slot"></div>'.repeat(5);
   renderSeats(); renderInfo();
 }
-addEventListener("resize", () => { if (!G) return; for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30); const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
+addEventListener("resize", () => { if (!G) return; $("#table").classList.toggle("tall", tallTable()); for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30); const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
 function chipStack(amount, bb = G.bb) {
   const colors = ["--chip-black", "--chip-blue", "--chip-green", "--chip-red"];
   const n = clamp(Math.ceil(Math.log2(amount / bb + 1)), 1, 5);
@@ -1581,7 +1592,8 @@ function renderSeats() {
     el.classList.toggle("folded", s.folded); el.classList.toggle("out", s.out);
     $(".nm", el).textContent = s.isHero ? "나 (Hero)" : s.name;
     $(".stk", el).textContent = s.out ? "—" : s.allin ? "올인" : bbf(s.stack) + " BB";
-    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag ? s.tag + (isPlaceholder(G.eng?.meta) ? " · 임시" : "") : PERSONAS[s.persona].name + " · 규칙 봇");
+    const ptxt = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag ? s.tag + (isPlaceholder(G.eng?.meta) ? " · 임시" : "") : PERSONAS[s.persona].name + " · 규칙 봇");
+    $(".persona", el).textContent = ptxt; $(".persona", el).title = ptxt;   // #977: the phone clips the tag with an ellipsis; title keeps it whole
     $(".persona", el).classList.toggle("gto", !!s.tag);
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";

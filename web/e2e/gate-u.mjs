@@ -1767,6 +1767,55 @@ wd.section("14 #968");
     await pg.close();
   }
   {
+    // (g) #977: the 9-max SNG table at phone width. A seat's persona tag ("UTG · 콜링 스테이션 · 규칙 봇") is wider than the seat:
+    // it must ellipsize inside the seat (full text stays in title) instead of pushing the page sideways. With and without a policy.
+    const ENV9 = "9max_sng_503020", FILE9 = `t-${ENV9}-e1.json`, fix9 = tourPolicy({ players: 9, stage: "e", ante: 1 });
+    for (const withPolicy of [true, false]) {
+      const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      await autoContinue(pg);
+      pg.setDefaultTimeout(60_000);
+      await pg.route("**/policy/index.json", async r => {
+        const res = await r.fetch(), j = await res.json();
+        j.schema_version = 2;
+        j.tournament = withPolicy ? { [ENV9]: { e: { ante: { 1: { file: FILE9, bytes: fix9.bytes.length, env_id: ENV9, stage: "e", ante: 1, payoff: "icm", players: 9, tier: "beginner", key_variant: "c1", run_id: fix9.doc.run_id, iterations: 400, lbr_bb: null } } } } } : {};
+        await r.fulfill({ response: res, json: j });
+      });
+      await pg.route(`**/policy/${FILE9}`, r => r.fulfill({ status: 200, contentType: "application/json", body: fix9.bytes }));
+      await pg.goto(url);
+      await pg.waitForSelector("#set-mode [data-v='tournament']");
+      await pg.click("#set-mode [data-v='tournament']");
+      await pg.click("#set-play [data-v='quick']");
+      await pg.selectOption("#t-format", "9");
+      await pg.selectOption("#t-ante", "bb");
+      await pg.click("#start-btn");
+      await pg.waitForSelector(QUICK);
+      const tag = `tour-9max-${withPolicy ? "policy" : "nopolicy"}`;
+      await inspect(tag, ".table-wrap", pg);
+      // persona tags: the full text is kept in title; clipped only on the phone, never on tablet/laptop
+      for (const [name, width, height] of VIEWPORTS) {
+        await pg.setViewportSize({ width, height });
+        const r = await pg.evaluate(() => [...document.querySelectorAll(".seat .persona")].filter(e => e.offsetParent !== null).map(e => ({ t: e.textContent, title: e.title, clip: e.scrollWidth > e.clientWidth, out: e.getBoundingClientRect().right > e.closest(".seat").getBoundingClientRect().right + 1 })));
+        // 820 (two-column, 430px felt): every seat and tag stays inside the table, and tags never overlap each other
+        const geo = await pg.evaluate(() => {
+          const W = document.querySelector(".view.active .table-wrap").getBoundingClientRect(), R = e => e.getBoundingClientRect();
+          const seats = [...document.querySelectorAll(".view.active .seat")].filter(e => e.offsetParent !== null), tags = seats.map(s => s.querySelector(".persona"));
+          const inside = e => R(e).left >= W.left - 1 && R(e).right <= W.right + 1;   // sideways only: the hero seat hangs below the felt by design
+          const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+          const out = [...seats, ...tags].filter(e => !inside(e)).map(e => (e.querySelector(".nm") || e.closest(".seat").querySelector(".nm")).textContent);
+          const ov = []; tags.forEach((a, i) => tags.slice(i + 1).forEach(b => { if (hit(R(a), R(b))) ov.push(a.textContent + " / " + b.textContent); }));
+          return { out, ov };
+        });
+        if (name === "tablet") must(!geo.out.length, `${tag} ${width}: 좌석·페르소나 태그가 테이블 밖 ${geo.out.join(", ")}`);
+        if (name === "tablet") must(!geo.ov.length, `${tag} ${width}: 페르소나 태그끼리 겹침 ${geo.ov.join(", ")}`);
+        must(r.length >= 8, `${tag} ${width}: 페르소나 태그가 ${r.length}개뿐`);
+        must(r.every(x => x.title === x.t), `${tag} ${width}: 페르소나 태그 title이 전체 텍스트가 아님 ${JSON.stringify(r.find(x => x.title !== x.t))}`);
+        if (name === "phone") must(r.every(x => !x.out), `${tag} ${width}: 페르소나 태그가 좌석 밖으로 넘침 ${JSON.stringify(r.find(x => x.out))}`);
+        if (name !== "phone") must(r.every(x => !x.clip), `${tag} ${width}: 말줄임이 없어야 함 ${JSON.stringify(r.find(x => x.clip))}`);
+      }
+      await pg.close();
+    }
+  }
+  {
     // (f) the policy file 404s: same retry / mock choice as the cash path; the retry loads it, mock plays without it
     let fail = true;
     const { pg, errs } = await open(r => fail ? r.fulfill({ status: 404, body: "" }) : r.fulfill({ status: 200, contentType: "application/json", body: fix.bytes }));
