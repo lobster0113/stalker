@@ -15,3 +15,4 @@
 ## 롤백 방법
 `NETWORK_RETRY_MINUTES`를 `()`로 두거나 PR #947을 revert한다.
 ## 결과 (측정창 종료 후 기록)
+- 11-17 중간 기록(#952): 11-16 실패의 원인은 일시 장애가 아니라 RunPod REST v1(`rest.runpod.io/v1`) 은퇴(2026-11-15, 공식 v1→v2 이전 안내)였다. 재시도로는 회복할 수 없어 launcher를 v2 `api.runpod.io/v2`로 옮겼다. 측정창의 DNS 실패 run은 이 원인으로 분류하고, 재시도 효과는 이전 뒤 run으로만 판단한다.
