@@ -1672,6 +1672,8 @@ wd.section("14 #968");
     return { pg, errs };
   };
   const pill = pg => pg.evaluate(() => ({ text: $("#svc-pill").textContent, title: $("#svc-pill").title }));
+  // #978: the info bar's first pill ("토너먼트 · <단계>") with the setup select's stage name for comparison.
+  const infoStage = pg => pg.evaluate(() => ({ text: $("#infobar .pill").textContent, setup: `토너먼트 · ${STAGE_NAMES[G.stage]}` }));
   // check when free, otherwise fold: calling everything busts the hero in a few tournament hands (bust modal)
   const quickAct = async pg => { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); };
   // pin: survivors to hold (a seat that busts lowers G.players, and a 6-seat policy then no longer fits: players_mismatch)
@@ -1703,6 +1705,8 @@ wd.section("14 #968");
     const a = await pill(pg);
     must(a.text === "토너먼트 · 버블 전 · TP-GTO" && a.title.includes("버블 전(ICM 보상)") && a.title.includes("반복 400회") && a.title.includes(`run ${fix.doc.run_id}`) && !a.title.includes("대신했어요"),
       `토너먼트 pill 정책 있음: ${JSON.stringify(a)}`);
+    const ia = await infoStage(pg);
+    must(ia.text === "토너먼트 · 버블 전" && ia.text !== ia.setup, `정보 막대 단계명(#978): 정책 단계 '버블 전'이어야 함 (${JSON.stringify(ia)})`);
     await inspect("tour-pill-policy", "#infobar", pg);
     // (b) postflop keys are not in the file: each such AI decision is the rule bot's and counted
     await playUntil(pg, () => TPG.botLog.some(d => d.miss) && G.handNo >= 3, "정책 미스", 6);
@@ -1718,6 +1722,7 @@ wd.section("14 #968");
     const c2 = await pillAfterStage(pg, 2, "머니인 전환");
     must(c2?.stage === "m" && c2.text === "토너먼트 · 머니인 · 미학습(규칙 봇)" && c2.title === UNTRAINED, `토너먼트 pill 단계 전환(머니인): 첫 AI 결정 때 ${JSON.stringify(c2)}`);
     must(!(await pg.evaluate(() => !!G.eng)), "토너먼트 pill 단계 전환: 정책 없는 단계인데 정책 좌석이 남음");
+    must((await infoStage(pg)).text === "토너먼트 · 머니인", `정보 막대 단계명(#978): 머니인 전환 뒤 '머니인'이어야 함 (${JSON.stringify(await infoStage(pg))})`);
     await inspect("tour-pill-untrained", "#infobar", pg);
     // the hand being played when the stage changed back is saved too; finish it so both kinds are on record
     await playUntil(pg, () => { const d = JSON.parse(localStorage.getItem("stalker.games") || "null"); const hs = d?.games?.[0]?.hands || []; return hs.some(h => h.tour?.policy && h.acts.some(a => a.hero && a.an?.p != null)) && hs.some(h => h.tour?.stage === "m" && !h.tour.policy && h.acts.some(a => a.hero)); }, "정책 있는/없는 핸드 저장", 2);
@@ -1762,6 +1767,8 @@ wd.section("14 #968");
     await pg.waitForSelector(QUICK);
     const e = await pill(pg);
     must(e.text === "토너먼트 · 모의 정답" && e.title === "이 설정의 TP-GTO는 아직 학습 중이에요. 정답은 규칙 기반 모의값입니다.", `토너먼트 pill 정책 없는 프리셋: 지금 문구가 아님 ${JSON.stringify(e)}`);
+    const ie = await infoStage(pg);
+    must(ie.text === ie.setup, `정보 막대 단계명(#978): 정책 없는 프리셋은 설정 단계명이어야 함 (${JSON.stringify(ie)})`);
     await inspect("tour-pill-noenv", "#infobar", pg);
     must(!errs.length, `토너먼트 pill 정책 없는 프리셋: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
     await pg.close();
