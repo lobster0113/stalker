@@ -106,7 +106,20 @@ def load_table(path: Path, strategy: str = "current") -> PolicyTable:
 
 
 class BackoffError(Exception):
-    """This hand cannot be mirrored on the E3 menu; the message is the backoff reason."""
+    """This hand cannot be mirrored on the E3 menu; the message is the backoff reason. `key` is the unvisited c1 key
+    of a `no_key` backoff (#990)."""
+
+    def __init__(self, reason: str, key: str | None = None) -> None:
+        super().__init__(reason)
+        self.key = key
+
+
+def top_missing(missing: dict[str, dict[str, int]], n: int = 20) -> dict[str, list[dict]]:
+    """Per street the `n` most frequent unvisited keys, each split on `|` into its components (position, stack
+    bucket, stage, action history ...). Sorted by count descending, then key, so the output is deterministic."""
+    return {st: [{"key": k, "n": c, "parts": k.split("|")}
+                 for k, c in sorted(m.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+            for st, m in sorted(missing.items())}
 
 
 class E3PolicyAgent(Agent):
@@ -119,6 +132,7 @@ class E3PolicyAgent(Agent):
         self.decisions = self.policy_hits = self.backoffs = 0
         self.backoff_reasons: dict[str, int] = {}
         self.by_street: dict[str, dict[str, int]] = {}
+        self._missing: dict[str, dict[str, int]] = {}   # street -> unvisited key -> count (#990)
         self._new_hand: dict | None = None
         self._mirror: dict | None = None
 
@@ -138,24 +152,36 @@ class E3PolicyAgent(Agent):
     # ---- acting ----
     def act(self, obs: Observation) -> Action:
         self.decisions += 1
-        cell = self.by_street.setdefault(str(_STREET.get(len(obs.board), 0)), {"decisions": 0, "policy_hits": 0})
+        cell = self.by_street.setdefault(str(_STREET.get(len(obs.board), 0)),
+                                         {"decisions": 0, "policy_hits": 0, "backoff_reasons": {}})
         cell["decisions"] += 1
+        street = str(_STREET.get(len(obs.board), 0))
         try:
             action = self._policy_act(obs)
         except BackoffError as e:
             reason = str(e)
+            if e.key is not None:
+                miss = self._missing.setdefault(street, {})
+                miss[e.key] = miss.get(e.key, 0) + 1
         else:
             self.policy_hits += 1
             cell["policy_hits"] += 1
             return action
         self.backoffs += 1
         self.backoff_reasons[reason] = self.backoff_reasons.get(reason, 0) + 1
+        cell["backoff_reasons"][reason] = cell["backoff_reasons"].get(reason, 0) + 1
         return self.fallback.act(obs)
+
+    def missing_counts(self) -> dict[str, dict[str, int]]:
+        """Full street -> {unvisited key: count}; `counts()` carries only the top N of it."""
+        return {st: dict(m) for st, m in self._missing.items()}
 
     def counts(self) -> dict:
         return {"decisions": self.decisions, "policy_hits": self.policy_hits, "backoffs": self.backoffs,
                 "backoff_reasons": dict(sorted(self.backoff_reasons.items())),
-                "by_street": {k: dict(v) for k, v in sorted(self.by_street.items())}}
+                "by_street": {k: {**v, "backoff_reasons": dict(sorted(v["backoff_reasons"].items()))}
+                              for k, v in sorted(self.by_street.items())},
+                "missing_keys": top_missing(self.missing_counts())}
 
     def decision_key(self, obs: Observation) -> str:
         """The actor's real c1 key for this decision; raises `BackoffError` when the hand is off the E3 menu."""
@@ -176,7 +202,7 @@ class E3PolicyAgent(Agent):
         acts = G.legal(s)
         row = self.table.policy.get(key)
         if row is None:
-            raise BackoffError("no_key")
+            raise BackoffError("no_key", key)
         if len(row) != len(acts):
             raise BackoffError("arity_mismatch")
         pr = np.asarray(row, dtype=float)
