@@ -4,12 +4,11 @@
 # --out/result_path/name, --lbr-hands and median_iters_per_s. --stacks bubble:skewed kept (the bubble job's profile).
 # Three survivors, two paid gaps (0.5/0.3/0.2): ICM is not proportional to chips (tests/test_sng_mid_jobs.py).
 # --minutes 60 / --max-iters 20000 kept from the bubble job (same budget per stage); the result's stopped_by says which
-# one ended training. Estimated 9.2-9.6 it/s on a normal host -> 20000 iters in ~35-40 min, a slow host hits --minutes.
+# one ended training. Measured (#965, run 44121220524): 6.26 it/s, 20000 iters in 3195.6 s (~53 min, stopped_by max_iters).
 # --lbr-hands 2000 = train_jobs.E3_BY_PLAYERS_LBR_HANDS_BY_N[3] (#556: at 600 the 2-3 seat LBR se was the seed sd).
-# median_iters_per_s 10: local 1-worker it/s at the same flags (non-CI reference, 3 runs side by side, 150 iters):
-# 4p 0.36, 3p 0.29, 2p 0.27; 3/4 = 0.29/0.36 = 0.81. Fewer survivors share the same chips, so stacks are deeper in BB and
-# hands longer. 0.81 x the F6b normal-host range 11.36-11.84 = 9.2-9.6; 10 sits just above it like the bubble job's
-# 12 (#941), so the launcher's 0.6x threshold (6.0 it/s; F6b slow hosts 6.25-7.09 x 0.81 = 5.1-5.7 fall under it) is under the slowest normal host. Set from the first run.
+# median_iters_per_s 6: measured, not estimated (#984). #965 run 44121220524 trained at 6.26 it/s (train_seconds 3195.6).
+# The first estimate (10) was too high: a normal host's first pod ran 4.7 it/s and the launcher's 0.6x threshold
+# (3.6 it/s at median 6) is under the measured normal rate, so a normal host is no longer discarded as slow.
 # Dispatch alone (#877), after the #935 and #950 runs. Worst case = 1.2 * 180 / 60 = $3.60.
 # Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
 name: e3-tp-mid-c1-sng-mid3-pod32
@@ -20,5 +19,5 @@ vcpu: 32
 disk_gb: 10
 max_minutes: 180
 hourly_usd: 1.2
-median_iters_per_s: [10]
+median_iters_per_s: [6]
 result_path: /result/e3-tp-mid-c1-sng-mid3-pod32.json
