@@ -1920,3 +1920,4 @@
 {"ts":"2026-11-18T15:41:27Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT CHANGES on head d723a9c, no new commits","friction":"PR #599 idle since 11-06 CHANGES; sweeps keep re-checking it"}
 {"ts":"2026-11-18T15:47:21Z","role":"builder","outcome":"pr_opened","issue":1004,"pr":1006,"notes":"tournament_ab 칸별 policy에서 missing_keys 제거(합계만 유지), schema 2, v1·v2 소비자 테스트","friction":"gates full 로컬 ~35분(tests 1637s) 포그라운드 9분 분할 대기 반복(기존 (a)); quick 284s"}
 {"ts":"2026-11-18T15:48:22Z","role":"reviewer","outcome":"skipped","issue":1004,"pr":1006,"notes":"not my parity","friction":""}
+{"ts":"2026-11-18T15:58:25Z","role":"builder-b","outcome":"pr_opened","issue":1001,"pr":null,"notes":"yaml 주석 tb0→tb1 + 테스트, PR 오픈","friction":"gates full 25분+ 포그라운드 대기; 새 테스트 read_text encoding 규칙을 full에서야 발견(quick에서도 잡히나 별도 실행 필요했음)"}
