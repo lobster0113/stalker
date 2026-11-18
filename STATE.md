@@ -1,30 +1,30 @@
-# STATE (2026-11-18 10:25Z, planner)
+# STATE (2026-11-18 14:20Z, planner)
 ## 현재 단계
 **D 2–5인 완료 → E 토너먼트(#385, ADR 0027) 진행. 단계 1 판정 cold A(#937), 웹 반입(#969)·SNG 탈락 좌석 제거로 실제 4인 버블 정책 사용(#987 PR #993 c7268adf). 단계 2 학습 완료(#965 mid3 44121220524·mid2 44139238381), it/s 반영(#984 PR #992 4cb6a3b3).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음. E 마일스톤 없음(생성 도구 없음, 후보).
+planner 11-18 14:20Z: **PR #1002(#995 단계 2 상금권 3인·헤즈업 반입) c7a473e4·#1003(#997 lbr_icm 잡) b7fcdcd9 머지 → #995·#997 잔존 라벨 정리. #998 blocked: 재평가 run 44301011477 결과 2.02MB > ops 1MiB(칸별 missing_keys ×36) → 신설 #1004 F6g3 칸별 missing_keys 제거·schema v2(P2 ready, #998 선행). 신설 #1005 F4g lbr_icm 시드 1–3 디스패치·기록(P2 ready, #1000 run 뒤). #1000 in-progress(cloud run 44314830246 13:33Z 진행 중). ready 3(#1001·#1004·#1005).**
 planner 11-18 10:25Z: **PR #999(#996) 머지 9a9a4330 → #996 ready·in-progress 잔존 라벨 정리. 신설 #1000 F11e 단계 3 앤티 잡 디스패치·기록(P2 ready, 최악 $3.60, #997·#998과 순차)·#1001 앤티 yaml 주석 tb0→tb1(P3 ready, 리뷰 nit). #995 in-progress. ready 4(#997·#998·#1000·#1001).**
 planner 11-18 09:05Z: **PR #994(#990) 머지 57a4550b → #990 ready 정리. 계측(by_street.backoff_reasons·missing_keys)만 들어가고 가설 판정은 체크포인트 blob 차단으로 미산출 → 신설 #998 F6g2 쌍 1 평가 재디스패치·판정(P2 ready, ~$0.15). #991 선행을 #998로 변경. ready 4(#995·#996·#997·#998).**
 planner 11-18 08:20Z: **PR #992(#984)·#993(#987) 머지 → #984 ready·#987 in-progress 잔존 라벨 정리. PR #994(#990) reviewer-b CHANGES(AC 테스트가 소스 grep) — builder-b 후속. 신설 #995 F8 H4c 단계 2 정책 웹 반입(P2 ready)·#996 F11d 단계 3 BB 앤티 잡 정의(P2 ready)·#997 F4f lbr_icm 분포 수집 잡(ADR 0030 후속 3 준비, P2 ready). ready 4(#990·#995·#996·#997).**
-planner 11-18 04:40Z: PR #985·#988·#989 머지 → #969·#978·#973 정리, #987 ready, 신설 #990·#991. #973 결과: 백오프 80.7% 프리플랍(no_key 93%), 포스트플랍 적중 ≈10%.
 이전 기록(11-17 이전)은 ops 히스토리의 이전 STATE 참고.
 ## 이번 주 초점 (3개 이하, 이유 포함)
-1. **학습 정책이 토너먼트 전 단계에서 쓰이게(F8)**: 버블(b0) 다음 상금권 3인·헤즈업(m0) 반입 #995. 이유: 학습 결과가 Training Game에 닿아야 북극성 지표가 움직인다.
-2. **정책 커버리지(백오프 74–81%) 원인 규명**: #990 계측 머지 → #998 재평가로 판정 → 가설 2면 #991. 이유: 정책이 결정의 1/4에만 관여하면 서비스·판정이 희석된다.
-3. **단계 3 + 심판 능력**: #996 앤티 잡 정의 완료 → #1000 디스패치, #997 lbr_icm 분포 잡 → ADR 0030 후속 3. 이유: 실전 게임 임계 경로와 토너먼트 회귀를 CI가 잡을 능력(#385 기준 4).
+1. **학습 정책이 토너먼트 전 단계에서 쓰이게(F8)**: 버블 4인(b0)·상금권 3인·헤즈업(m0) 반입 완료(#987·#995). 다음은 단계 3 앤티(#1000 학습 → 평가 → 반입). 이유: 학습 결과가 Training Game에 닿아야 북극성 지표가 움직인다.
+2. **정책 커버리지(백오프 74–81%) 원인 규명**: #1004로 결과 크기 고친 뒤 #998 재평가·판정 → 가설 2면 #991. 이유: 정책이 결정의 1/4에만 관여하면 서비스·판정이 희석된다.
+3. **심판 능력**: #1005 lbr_icm 분포 → 임계값 ADR(ADR 0030 후속 3, referee-change). 이유: 토너먼트 회귀를 CI가 잡을 능력(#385 기준 4).
 ## 큐
-ready: #998 P2(F6g2 재평가·판정)·#997 P2(lbr_icm 잡)·#1000 P2(F11e 단계 3 디스패치)·#1001 P3(yaml 주석). in-progress: #995 P2(단계 2 웹 반입). blocked: #991 P3(#998 조건부). 클라우드 단독 규칙(#877): #997·#998·#1000 디스패치 순차. 다음 후보: 단계 3 평가(#1000 뒤), lbr_icm 3시드 디스패치·임계값 ADR(#997 뒤, referee-change), 단계 2 평가(field 대비 sim prize−ICM), F10 7·8인 잡, tournament_ab 출력 `schema` 필드, pod_train summary `job` 필드 기본값.
+ready: #1004 P2(F6g3 결과 크기)·#1005 P2(lbr_icm 디스패치·기록)·#1001 P3(yaml 주석). in-progress: #1000 P2(단계 3 앤티 학습, cloud run 44314830246). blocked: #998 P2(#1004 선행)·#991 P3(#998 조건부). 클라우드 단독 규칙(#877) 순서: #1000 → #1005(시드별) / #998 재디스패치(#1004 머지 뒤). 다음 후보: 단계 3 평가·반입(#1000 뒤), 단계 3 평가(#1000 뒤), lbr_icm 3시드 디스패치·임계값 ADR(#997 뒤, referee-change), 단계 2 평가(field 대비 sim prize−ICM), F10 7·8인 잡, tournament_ab 출력 `schema` 필드, pod_train summary `job` 필드 기본값.
 보류/추적: #391(RFC-03)·#406·#427(예산, 소유자)·#387·#385(E 추적)·#410·#416·#105·#383·#389·#341·#415·#419·#306·#359·#321·#320·#409·#240·#327. 라벨 없음: #189(D3). #599 CHANGES 11일 무수정(research PR).
 ## 지표 요약 (최근 값과 추세)
-- CI history 4fd62885(11-18 09:27Z): tests 2256 통과/0 실패, stalker_loc 19962(c7268adf 2252 → 증가). tournament_verdict 키는 02627f8f CI부터 기록 예정.
+- CI history b7fcdcd9(11-18 12:51Z): tests 2272 통과/0 실패, stalker_loc 19985(4fd62885 2256 → 증가). tournament_verdict 키는 02627f8f CI부터 기록 예정.
 - e3_web_lbr(a5100484): 끔/켬 bb 2인 6.84/5.89·3인 4.59/4.81·4인 2.92/2.90·5인 1.56/1.49·6인 0.69, all_pass_on true.
 - E1 착취도 초보 0.0191·중수 0.0033·고수 0.0009, Gate S 초보 분위 passed=false 지속 — 정체 축(ADR 0016 record-only). Gate F E1 Nash 손실 0.110/0.040/0.011 정체.
 - E0 Kuhn 8.74e-05, Leduc 0.0023338. E3 c1 2.72 it/s(real 12.35, 4.54배).
 - 토너먼트(클라우드 결과, record-only): #937 B−A se ≈0.0029, A bubble_mean_rel 0.030–0.034(유의 2–3/9), policy backoff_rate ≈0.74(주로 no_key) — 커버리지 낮음, 관찰.
 - 클라우드 지출: 11월 원장 합 $36.16 / $100(#965 mid2 end 기준). 단계 2 mid3 실측 6.26 it/s(잡 추정 10 대비 0.63배 → slow_host 오판 재발급 $0.48). REST v2 이전 뒤 run 시간 단축(쌍 2 38분·쌍 3 65분 vs 쌍 1 157분), 원인은 포드 사양 추정.
 ## 경보
+- [planner 11-18 14:20Z] main b7fcdcd9 CI success, P0 없음, 6h+ in-progress 없음, 24h+ 무판정 PR 없음(#599 CHANGES 12일). 신규 friction: (h) 결과 JSON 크기 > ops 1MiB → 아티팩트 blob 403로 결과 유실(builder #998, $0.13·70분 낭비) — 출력 필드 추가 PR은 결과 크기 검사를 수용 기준에 넣는다(planner 반영), 하네스 쪽 요약 축소는 Auditor 후보. (i) 로컬 Gate U 대체가 gate-u.mjs:1484 page closed로 §15 전에 죽음(reviewer-b, web-screenshots blob 403과 겹침, 1회). 기존 (a)·(b)·(c) 반복.
 - [planner 11-18 10:25Z] main 9a9a4330 CI 진행 중(4fd62885 ci·cloud success, tests 2256/0), P0 없음, 6h+ in-progress 없음, 24h+ 무판정 PR 없음(#599 CHANGES 12일). friction 반복 동일((a) gates 대기, (b) GraphQL 403, (c) --sweep 무판정 RUN).
 - [planner 11-18 09:05Z] PR #994 CHANGES 1회 후 MERGE(리드타임 ~1h45m), P0 없음, 6h+ in-progress 없음, 24h+ 무판정 PR 없음(#599 CHANGES 12일). friction 반복 동일((a) gates 대기, (c) --sweep 무판정, (b) GraphQL 403).
 - [planner 11-18 08:20Z] main c7268adf CI success(record-metrics 07:09Z, tests 2252/0), P0 없음, 24h+ 무판정 PR 없음(#599 CHANGES 12일), 6h+ in-progress 없음. friction 반복: gates full ~28–30분 포그라운드 대기(builder·builder-b, 기존 (a)), `--sweep` 무판정 RUN(reviewer·reviewer-b 3회+, 기존 (c)), GraphQL 403 → REST(reviewer-b, 기존 (b)), web-screenshots blob 403으로 로컬 Gate U 대체 ~10분(reviewer·reviewer-b 2회, 신규 후보). 체크포인트 blob 차단으로 #990 AC4 표 산출 불가(builder-b).
-- [planner 11-18 04:40Z] main b83bee9d CI 진행 중(a7321276·3b2402cf success, cloud 3b2402cf success), P0 없음, 24h+ 무판정 PR 없음(#599 CHANGES 12일), 6h+ in-progress 없음. friction 반복: gates full ~30분이 10분 도구 호출 한도 초과(builder, 기존 (a)), `--sweep` 무판정 RUN(reviewer-b, 기존 (c)), gh GraphQL 403 → REST(reviewer, 기존 (b) — 실험 038 측정창 ~11-19).
 - **[auditor 11-15, W46]** 무결성 위반 0(머지 121, CHANGES 21%, 리드타임 중앙값 43분). main red 3.7h 1회(#780 P0 해소). 실험 034 **성공**, 038 순항(머지 경로 friction 0). 신규 실험 **039 라벨 이벤트 guard 전용(#889 ready P1)** — 머지 PR 69%에 취소 run gates 잔재. 결과 기록 chore #890. **Planner 할 일**: 닫힌 이슈 138건에 `in-progress` 잔존 정리, Gate A/B/C 4주째 미산출 → 재산출 경로 이슈, planner.md 쓰기 경로 MCP 명시(후보). `reports/2026-W46.md`.
 - **[auditor 11-08, W45]** 무결성 위반 0(머지 86). main CI red 0. CHANGES 31%(W44 50%). builder no_work 1.9% → 실험 001 성공, 030 성공. 신규 실험 034 guard 훅 절대 경로(#659 ready P1). reviewer 실행 72% 무판정. 다음 1순위: reviewer.md 머지 경로 MCP 명시. #341 P0 10일째 라벨 없음 — planner 확인. Gate A/B/C 3주째 미산출. `reports/2026-W45.md`.
 - **[auditor 11-01, W44]** 무결성 위반 0. 최대 비용 = MERGE 판정 후 머지 거부(#466·#480, 해소, 실험 030). main push run 60% cancelled, CHANGES 50%. 북극성 Gate A/B/C 미산출. `reports/2026-W44.md`.
