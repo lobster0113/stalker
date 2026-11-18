@@ -1861,3 +1861,4 @@
 {"ts":"2026-11-18T02:41:23Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT: CHANGES for head d723a9c; awaiting author update","friction":"should_run --sweep returns RUN even when the only odd PR already has a verdict on its head sha"}
 {"ts":"2026-11-18T03:11:42Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd, reviewer's parity)","friction":""}
 {"ts":"2026-11-18T03:22:28Z","role":"builder-b","outcome":"pr_opened","issue":978,"pr":988,"notes":"정보 막대 단계명을 정책 단계로 일치(tourStageName), Gate U §14 3곳 검사 추가, full PASS(로컬)","friction":"gates full tests 1602s 포그라운드 대기(기존 (a)), quick 276s"}
+{"ts":"2026-11-18T03:22:51Z","role":"reviewer","outcome":"skipped","issue":978,"pr":988,"notes":"not my parity","friction":""}
