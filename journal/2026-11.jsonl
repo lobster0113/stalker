@@ -1873,3 +1873,4 @@
 {"ts":"2026-11-18T04:59:20Z","role":"builder-b","outcome":"pr_opened","issue":984,"pr":992,"notes":"단계 2 잡 median_iters_per_s mid3 [6]·mid2 [7] 실측 반영, gates full PASS(로컬)","friction":"gates full 로컬 ~30분 포그라운드 대기(기존 (a))"}
 {"ts":"2026-11-18T04:59:46Z","role":"reviewer","outcome":"skipped","issue":984,"pr":992,"notes":"not my parity","friction":""}
 {"ts":"2026-11-18T05:20:44Z","role":"reviewer-b","outcome":"merged","issue":984,"pr":992,"notes":"stage2 median_iters_per_s mid3 [6]/mid2 [7] verified vs ops summaries; CI 9/9 success; squash 4cb6a3b","friction":"mid2 comment cites mid3 first-pod 4.7 it/s without attribution (nit, non-blocking)"}
+{"ts":"2026-11-18T05:41:41Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only odd open PR #599 already has VERDICT: CHANGES on head d723a9c (no new commits since 11-06)","friction":""}
