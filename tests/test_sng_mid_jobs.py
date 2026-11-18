@@ -48,6 +48,10 @@ def test_worst_case_cost_and_slow_host_median(players):
     assert job.hourly_usd * job.max_minutes / 60 <= 3.60
     (_, _, median), = job.flavors
     assert median > 0, "median_iters_per_s missing: slow-host replacement stays off (#941)"
+    # measured in #965 (#984): 6.26 and 7.28 it/s; max_iters must end training before --minutes on a normal host
+    assert median == {3: 6, 2: 7}[players]
+    f = _train_flags(_spec(JOBS[players]).command)
+    assert int(f["--max-iters"]) / median <= int(f["--minutes"]) * 60
 
 
 @pytest.mark.parametrize("players", sorted(JOBS))

@@ -66,7 +66,7 @@
 ## SNG 단계 2(m) 학습 잡 (`e3-tp-mid-c1-sng-mid3-pod32.yaml`·`e3-tp-mid-c1-sng-mid2-pod32.yaml`, #957, ADR 0027 결정 2 단계 2)
 - 9max 50/30/20 SNG 상금권 안 생존자 3명·2명(c1 `tm0` 슬롯, 순수 ICM `--lam 0`: 버블이 아니라 g = 0). #937 단계 1 A/B가 쌍 3개 모두 cold A였으므로 warm start 없이 cold(ADR 0027 결정 4). `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 같은 명령에서 `--players 3|2 --stage m --lbr-hands 2000`(`E3_BY_PLAYERS_LBR_HANDS_BY_N`, #556)과 출력 이름만 다르다. `--minutes 60 --max-iters 20000`·`--stacks bubble:skewed`는 버블 잡 그대로. `tests/test_sng_mid_jobs.py`가 실제 launcher·`pod_train` 파서로 차이를 고정하고, 2반복 소규모 실행(slow)으로 `model.train_env.stage == "m"`·key `tm0`를 확인한다.
 - 헤즈업(r = 2)은 50/30/20에서 ICM = 0.3 + 0.2 × 칩 비율이라 보상이 0.2 × 칩 변화 / 테이블 칩, 즉 정의상 칩 EV의 상수배다(테스트로 고정). 3명은 칩 비례가 아니다.
-- `median_iters_per_s`: 3인 `[10]`·2인 `[9]`. 근거는 로컬 1워커 동시 측정(참고값, 150반복): 4인 0.36·3인 0.29·2인 0.27 it/s → 0.81·0.75배를 F6b 정상 호스트 11.36–11.84에 곱하면 9.2–9.6·8.5–8.9. 생존자가 적으면 같은 칩을 나눠 BB 기준 스택이 깊어져 핸드가 길다. 첫 run 실측으로 다시 정한다.
+- `median_iters_per_s`: 3인 `[6]`·2인 `[7]`. 근거는 #965 실측(#984): mid3 run 44121220524 6.26 it/s(train_seconds 3195.6)·mid2 run 44139238381 7.28 it/s(2745.9), 둘 다 `stopped_by: max_iters`로 60분 전에 끝났다. 처음 추정 10·9는 정상 호스트(첫 pod 4.7 it/s)를 slow_host(0.6배 = 6.0)로 오판해 재발급($0.48)했다. 새 slow_host 기준은 3.6·4.2 it/s.
 - 각 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분), 둘 $7.20. `resume_run` 없이 **단독** 디스패치, 순서 #935 → #950 → mid3 → mid2(#877). 디스패치·기록은 F11b.
 
 ## 결과 회수 (`result_path`, #184, ADR 0014)
