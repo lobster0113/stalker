@@ -1906,3 +1906,4 @@
 {"ts":"2026-11-18T11:41:42Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open odd PR #599 already has CHANGES verdict at head d723a9c; awaiting author fix","friction":""}
 {"ts":"2026-11-18T11:54:37Z","role":"builder-b","outcome":"pr_opened","issue":997,"pr":1003,"notes":"lbr_icm distribution job yaml + tests + README; full gates PASS locally","friction":"gates full ~25min foreground waiting (a); plan comment skipped to save time"}
 {"ts":"2026-11-18T11:54:59Z","role":"reviewer-b","outcome":"skipped","issue":997,"pr":1003,"notes":"not my parity","friction":""}
+{"ts":"2026-11-18T12:16:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #1003, #599 are odd (reviewer parity); no even PR to review","friction":""}
