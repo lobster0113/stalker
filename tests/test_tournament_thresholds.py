@@ -76,3 +76,69 @@ def test_cli_exit_codes(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["verdict"] == "pass"
     assert tt.main(write(REAL[:1])) == 0
     assert tt.main(write([res(f"a{i}", f"b{i}", -0.0075, 0.0029) for i in range(3)])) == 1
+
+
+# --- recheck (#983, ADR 0030 되돌리는 조건) ---
+def _three(means, se=0.003):
+    return [res(f"a{i}", f"b{i}", m, se) for i, m in enumerate(means)]
+
+
+def test_recheck_ok_inside_boundary():
+    out = tt.recheck(_three([0.001, 0.0, -0.001]))
+    assert out["status"] == "ok" and out["overlap"] is True and out["ratio"] < 2 and out["pairs"] == 3
+
+
+def test_recheck_sd_above_twice_se():
+    out = tt.recheck(_three([0.02, 0.0, -0.02], se=0.003))
+    assert out["status"] == "recheck" and out["between_sd"] > 2 * out["within_se"]
+
+
+def test_recheck_disjoint_cis_with_small_sd():
+    # sd 0.0075 < 2*se 0.0076 but pair 0 and 1 CIs (+-1.96*0.0038) are disjoint (gap 0.015 > 0.0149)
+    out = tt.recheck(_three([0.0075, -0.0075, 0.0], se=0.0038))
+    assert out["between_sd"] <= 2 * out["within_se"] and out["overlap"] is False and out["status"] == "recheck"
+
+
+def test_recheck_two_pairs_insufficient():
+    assert tt.recheck(REAL[:2])["status"] == "insufficient"
+
+
+def test_recheck_real_runs_ok():
+    assert tt.recheck(REAL)["status"] == "ok"
+
+
+def test_recheck_input_errors():
+    with pytest.raises(tt.ThresholdError):
+        tt.recheck([REAL[0], REAL[0], REAL[1]])
+
+
+def _ops(tmp_path, docs, history):
+    import subprocess
+    origin = tmp_path / "origin"
+    (origin / "cloud" / "results").mkdir(parents=True)
+    (origin / "metrics").mkdir()
+    for n, d in docs.items():
+        (origin / "cloud" / "results" / f"{n}.json").write_text(json.dumps(d), encoding="utf-8")
+    (origin / "metrics" / "history.jsonl").write_text(history, encoding="utf-8")
+    run = lambda cwd, *a: subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+    run(origin, "init", "-q", "-b", "ops")
+    run(origin, "add", "-A")
+    run(origin, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ops")
+    clone = tmp_path / "clone"
+    run(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
+    return clone
+
+
+def test_recheck_cli_reads_history_and_ops(tmp_path, capsys):
+    docs = {100 + i: dict(r, primary={"metric": "learner sim prize - ICM equity (B - A)", **r["primary"]})
+            for i, r in enumerate(REAL)}
+    row = json.dumps({"sha": "x", "ts": "t", "tournament_verdict": "pass", "tournament_runs": [100, 101, 102],
+                      "tournament_primary_ci_low": 0, "tournament_primary_mean": 0, "tournament_pairs": 3})
+    clone = _ops(tmp_path, docs, row + "\n" + json.dumps({"sha": "y"}) + "\n")
+    assert tt.recheck_from_ops(repo=clone)["status"] == "ok"
+    out = tt.recheck_from_ops(history=json.dumps({"sha": "z"}), repo=clone)
+    assert out["status"] == "insufficient" and "error" in out
+    h = tmp_path / "h.jsonl"
+    h.write_text("{}\n", encoding="utf-8")
+    assert tt.main(["--recheck", "--history", str(h)]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "insufficient"
