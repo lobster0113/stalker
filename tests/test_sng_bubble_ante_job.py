@@ -55,3 +55,8 @@ def test_small_run_uses_the_tb1_slot(tmp_path):
     policy = next(p for p in P.unpack(out, tmp_path / "u") if p.name.endswith(".policy.json"))
     keys = [k for k in json.loads(policy.read_text(encoding="utf-8"))["average"] if not k.startswith("call|")]
     assert keys and {k.split("|")[8] for k in keys} == {"tb1"}
+
+
+def test_yaml_comments_name_key_slot_tb1_only():
+    text = (ROOT / JOB).read_text(encoding="utf-8")
+    assert "tb0" not in text and "tb1" in text, "ante job's key slot is tb1; fix stale tb0 comment"
