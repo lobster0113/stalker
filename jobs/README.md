@@ -69,6 +69,10 @@
 - `median_iters_per_s`: 3인 `[6]`·2인 `[7]`. 근거는 #965 실측(#984): mid3 run 44121220524 6.26 it/s(train_seconds 3195.6)·mid2 run 44139238381 7.28 it/s(2745.9), 둘 다 `stopped_by: max_iters`로 60분 전에 끝났다. 처음 추정 10·9는 정상 호스트(첫 pod 4.7 it/s)를 slow_host(0.6배 = 6.0)로 오판해 재발급($0.48)했다. 새 slow_host 기준은 3.6·4.2 it/s.
 - 각 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분), 둘 $7.20. `resume_run` 없이 **단독** 디스패치, 순서 #935 → #950 → mid3 → mid2(#877). 디스패치·기록은 F11b.
 
+## SNG 단계 3(b, BB 앤티) 학습 잡 (`e3-tp-mid-c1-sng-bubble-ante-pod32.yaml`, #996, ADR 0027 결정 2 단계 3)
+- 같은 프리셋 버블(4인 생존, c1 `tb1` 슬롯, 순수 ICM `--lam 0`)에 BB 앤티를 더한 cold 잡(#937 cold A, 결정 4). `9max_sng_503020`은 앤티 모드가 `none`이라 `--ante 100`(E3 BB = 100 칩)을 명시한다. `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 `--ante 100`·출력 이름만 다르다(`median_iters_per_s [12]` 포함 그대로: 버블 잡 실측 근거).
+- 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분). `resume_run` 없이 **단독** 디스패치(#877). `tests/test_sng_bubble_ante_job.py`가 차이·파싱·비용·반복 예산을 고정하고 2반복 실행(slow)으로 `ante == 100`·`tb1`을 확인한다. 디스패치·기록은 F11e.
+
 ## 결과 회수 (`result_path`, #184, ADR 0014)
 - 런처가 실행마다 무작위 토큰을 만들어 파드 env `STALKER_RESULT_TOKEN`으로 넘기고, 포트 `8000/http`를 연다.
 - 파드 명령은 감싸진다: 먼저 `/<토큰>/` 아래 이름만 답하는 작은 `python3` 서버(런처의 `POD_SERVER`, 표준 라이브러리만)를 띄우고, 런처의 이어 달리기 신호(파일 또는 `none`)를 기다린 뒤 잡 `command`를 실행한다. 끝나면 `result_path`를 복사하고 `status.json`(`{"exit": 코드}`)을 쓴 뒤 대기한다. **이미지에 `python3`가 있어야 한다.** 신호가 20분 안에 오지 않으면 잡을 돌리지 않고 종료 코드 97로 끝난다.
