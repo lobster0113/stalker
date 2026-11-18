@@ -606,8 +606,10 @@ def test_tournament_export_refuses_another_tier_and_writes_the_ops_policies_dir(
 
 def test_index_v1_reads_as_v2_without_tournament_and_cash_upsert_changes_only_the_version():
     X = W.X
-    v1 = _shipped()
-    assert v1["schema_version"] == 1 and "tournament" not in v1
+    # #969: the shipped index is v2 with a tournament entry; its v1 form is the same tiers without that map
+    shipped = _shipped()
+    assert shipped["schema_version"] == 2 and "tournament" in shipped
+    v1 = {k: v for k, v in shipped.items() if k != "tournament"} | {"schema_version": 1}
     entry = {"tier": "mid", "players": 3, "file": "mid-3.json"}
     import copy
     v2 = X.upsert_index(copy.deepcopy(v1), entry)
