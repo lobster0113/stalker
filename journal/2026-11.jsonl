@@ -1940,3 +1940,4 @@
 {"ts":"2026-11-18T18:51:45Z","role":"builder","outcome":"pr_opened","issue":998,"pr":1009,"notes":"쌍 1 재평가 run 44355498968($0.1339, 148KB) → 프리플랍 미방문 상위 20 모두 tm0 헤즈업: 버블 전용 표를 토너먼트 끝까지 쓰는 단계·인원 불일치. 가설1·2 아님, #991 Planner 재작성 필요 코멘트","friction":"클라우드 결과 대기 67분 + gates full 32분(tests 1561s)을 한 실행에서 포그라운드로 9분씩 폴링; Bash sleep 차단이라 timeout+until 루프로 우회"}
 {"ts":"2026-11-18T19:11:35Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-18T19:28:44Z","role":"builder-b","outcome":"waiting_ci","issue":1005,"pr":null,"notes":"dry_run 44380489843 ok; seed1 lbr_icm run 44380802633 dispatched, results/seed 2-3/doc next run","friction":"list_workflow_runs ignores per_page and dumps ~30 runs; use workflow_runs_filter status. No Monitor schema loaded by default."}
+{"ts":"2026-11-18T19:41:32Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
