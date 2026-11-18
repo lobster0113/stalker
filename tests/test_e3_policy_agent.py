@@ -194,3 +194,69 @@ def test_policy_agents_sum_tolerates_counts_without_by_street():
     pa.agents = [Old()]
     c = pa.counts()
     assert c["decisions"] == 2 and c["by_street"] == {} and c["backoff_rate"] == 0.5
+
+
+def test_by_street_backoff_reasons_sum_to_totals_and_to_misses():
+    """#990: per-street reasons sum to the total reasons; decisions - policy_hits = that street's reason sum."""
+    _, agents = play(EMPTY)
+    for a in agents:
+        c = a.counts()
+        tot: dict[str, int] = {}
+        for cell in c["by_street"].values():
+            assert cell["decisions"] - cell["policy_hits"] == sum(cell["backoff_reasons"].values())
+            for r, n in cell["backoff_reasons"].items():
+                tot[r] = tot.get(r, 0) + n
+        assert tot == c["backoff_reasons"]
+
+
+def test_missing_keys_top_n_is_exact_and_deterministic():
+    """#990: with one key in the table, every other mirrored key is `no_key`; the top list counts them exactly."""
+    _, agents = play(EMPTY, cls=Recorder)
+    key, m = next((k, m) for a in agents for k, m in a.keys)
+    one = PolicyTable({key: [1.0 / m] * m}, k=5, depth="basic", menu="v1", raise_cap=3)
+    _, ag = play(one)
+    seen: dict[str, int] = {}
+    for a in ag:
+        for st, lst in a.counts()["missing_keys"].items():
+            for e in lst:
+                assert e["parts"] == e["key"].split("|") and e["key"] != key
+                seen[e["key"]] = seen.get(e["key"], 0) + e["n"]
+    assert seen
+    for a in ag:
+        for st, lst in a.counts()["missing_keys"].items():
+            order = [(-e["n"], e["key"]) for e in lst]
+            assert order == sorted(order) and len(lst) <= 20
+        assert sum(sum(m.values()) for m in a.missing_counts().values()) == a.counts()["backoff_reasons"].get("no_key", 0)
+
+
+def test_top_missing_synthetic():
+    from stalker.agents.e3_policy import top_missing
+
+    out = top_missing({"0": {"b|n4|x": 3, "b|n4|a": 3, "b|n4|z": 1}}, n=2)
+    assert out == {"0": [{"key": "b|n4|a", "n": 3, "parts": ["b", "n4", "a"]},
+                         {"key": "b|n4|x", "n": 3, "parts": ["b", "n4", "x"]}]}
+
+
+def test_policy_agents_sum_missing_keys_and_tolerate_old_counts():
+    from stalker.tools.icm_calibration import PolicyAgents
+
+    class New:
+        def counts(self):
+            return {"decisions": 2, "policy_hits": 0, "backoffs": 2, "backoff_reasons": {"no_key": 2},
+                    "by_street": {"0": {"decisions": 2, "policy_hits": 0, "backoff_reasons": {"no_key": 2}}}}
+
+        def missing_counts(self):
+            return {"0": {"k1": 1, "k2": 1}}
+
+    class Old:
+        def counts(self):
+            return {"decisions": 1, "policy_hits": 1, "backoffs": 0, "backoff_reasons": {},
+                    "by_street": {"0": {"decisions": 1, "policy_hits": 1}}}
+
+    pa = PolicyAgents.__new__(PolicyAgents)
+    pa.agents = [New(), New(), Old()]
+    c = pa.counts()
+    assert c["missing_keys"] == {"0": [{"key": "k1", "n": 2, "parts": ["k1"]}, {"key": "k2", "n": 2, "parts": ["k2"]}]}
+    assert c["by_street"]["0"]["backoff_reasons"] == {"no_key": 4}
+    json.dumps(c)   # tournament_ab serializes arm.counts() as is
+

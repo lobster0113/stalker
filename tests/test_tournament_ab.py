@@ -109,6 +109,13 @@ def test_cli_runs_two_r4_cells_and_is_byte_reproducible(tmp_path, policies):
         assert {"i_bubble_significant", "ii_bubble_mean_rel"} <= set(s)
         assert out["policy"][arm]["decisions"] == sum(c["arms"][arm]["policy"]["decisions"] for c in out["cells"])
     assert out["policy"]["A"]["policy_hits"] > 0
+    for arm in ("A", "B"):
+        pol = out["policy"][arm]
+        assert "missing_keys" in pol and isinstance(pol["missing_keys"], dict)
+        assert pol["by_street"] and all("backoff_reasons" in v for v in pol["by_street"].values())
+        no_key0 = pol["by_street"].get("0", {}).get("backoff_reasons", {}).get("no_key", 0)
+        if no_key0:
+            assert pol["missing_keys"]["0"]
 
 
 @pytest.mark.slow
