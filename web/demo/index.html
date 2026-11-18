@@ -1728,7 +1728,7 @@ function renderInfo() {
   const el = $("#infobar");
   if (G.tour) {
     const m = Math.floor(G.levelLeft / 60), s = String(G.levelLeft % 60).padStart(2, "0");
-    el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
+    el.innerHTML = `<span class="pill">토너먼트 · ${tourStageName()}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
   } else {
     const hero = G.seats.find(x => x.isHero), net = hero ? hero.bank + hero.stack - 100 * G.bb : 0;
     const src = (G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" data-untrained title="이 설정을 덮는 학습 정책이 없어요: 규칙 봇이 상대하고 정답은 모의값이에요">미학습(규칙 봇)</span>`)
@@ -2244,6 +2244,8 @@ const TOUR_ENV = Object.fromEntries(Object.entries(TOUR_PRESET).map(([f, name]) 
 // Policy stage letters (ADR 0027 decision 2) as the badge names them; the setup select's names are for the mock teacher.
 const TOUR_STAGE_NAMES = { e: "버블 전", b: "버블", m: "머니인", f: "파이널 테이블" };
 const UNTRAINED_TITLE = "이 단계의 TP-GTO는 아직 학습 중이에요. 상대·정답은 규칙 기반입니다.";
+// The stage name the info bar shows: the policy stage when this preset has a policy index entry (one stage for the user to see), else the setup select's.
+function tourStageName() { return G.tpol && G.tpol.reason !== "no_env" && TOUR_STAGE_NAMES[G.tpol.stage] || STAGE_NAMES[G.stage]; }
 // ADR 0029 decision 4: the badge of the tournament table in front of us; null keeps the mock wording (no policy for this preset).
 function tourPill() {
   const t = G.tpol;
