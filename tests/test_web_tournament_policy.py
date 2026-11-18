@@ -33,7 +33,7 @@ def test_shipped_tournament_policy_is_the_export_bytes_within_the_budgets():
     assert len(body) <= X.MAX_BYTES, f"{FILE} is {len(body)} bytes > {X.MAX_BYTES}: raise export_min_visits"
     total = sum((POL / f).stat().st_size for f in (p.name for p in POL.glob("t-*.json")))
     assert total <= X.TOURNAMENT_MAX_BYTES, f"tournament policies total {total} > {X.TOURNAMENT_MAX_BYTES} (ADR 0029 decision 3)"
-    listed = {a["file"] for env in _index()["tournament"].values() for st in env.values() for a in st["ante"].values()}
+    listed = {e["file"] for *_, e in X.tournament_entries(_index())}
     assert listed == {p.name for p in POL.glob("t-*.json")}, "every t-*.json needs an index entry and vice versa"
 
 
@@ -50,6 +50,39 @@ def test_index_entry_matches_the_file_and_the_runs_train_env():
     assert e["keys"] == len(doc["policy"]) and e["min_visits"] == 10
     # the env_id is the preset's, so the page (and records) can find it from the preset name
     assert from_tournament(load_preset("9max_sng_503020")).env_id == e["env_id"]
+
+
+# #995: the in-the-money stage (m) of the same preset, trained 3- and 2-handed (ADR 0027 stage 2), exported by
+# cloud.yml `mode=export export_kind=tournament tier=mid export_min_visits=10`: run -> (export run, file, sha256 of the
+# ops `cloud/policies/<run>/t-1261657cabcdc1ad-m0.json`, copied byte for byte under the per-count name).
+STAGE2 = {
+    3: ("44121220524", "44273145277", "t-1261657cabcdc1ad-m0-n3.json", "03aa66ee27761d501f15b94341d7c77b534d829ae5e6ed45aa12a59f6b1e3d4e"),
+    2: ("44139238381", "44273417103", "t-1261657cabcdc1ad-m0-n2.json", "603c5bdea104343141abeb4f3211f37656d32d86f48b060a27e565512c0487c8"),
+}
+STAGE2_ENV = {"env_id": "1261657cabcdc1ad", "stage": "m", "lam": 0.0, "stacks": "bubble:skewed", "level_index": 0}
+# The bubble slot as #969 shipped it (json.dumps(slot, sort_keys=True)): adding stage m must not move it by a byte.
+B0_SHA = "f2e58253aedc96570f78c97056e8fd516515e577cc9d42ce81ec8e5214d502f0"
+
+
+def test_stage2_policies_are_the_export_bytes_and_match_their_runs_train_env():
+    slot = _index()["tournament"]["1261657cabcdc1ad"]["m"]["ante"]
+    assert list(slot) == ["0"] and sorted(slot["0"]["by_players"]) == ["2", "3"]
+    for n, (run, _export, name, sha) in STAGE2.items():
+        body = (POL / name).read_bytes()
+        assert hashlib.sha256(body).hexdigest() == sha, f"{name} differs from ops cloud/policies/{run}; re-copy it"
+        assert len(body) <= X.MAX_BYTES, f"{name} is {len(body)} bytes > {X.MAX_BYTES}: raise export_min_visits"
+        e, doc = slot["0"]["by_players"][str(n)], json.loads(body)
+        assert e["file"] == name and e["bytes"] == len(body)
+        assert {k: e[k] for k in STAGE2_ENV} == STAGE2_ENV == {k: doc[k] for k in STAGE2_ENV}
+        assert e["players"] == doc["players"] == n and e["trained_on"] == doc["trained_on"] == {"game": "tournament", "env_id": STAGE2_ENV["env_id"], "stage": "m", "players": n}
+        assert e["ante"] == doc["ante"] == 0 and e["payoff"] == doc["payoff"] == "icm"
+        assert e["run_id"] == doc["run_id"] == run and e["tier"] == "mid" and e["key_variant"] == "c1" and e["min_visits"] == 10
+        assert e["keys"] == len(doc["policy"])
+
+
+def test_bubble_entry_is_unchanged_by_stage2():
+    b = _index()["tournament"]["1261657cabcdc1ad"]["b"]
+    assert hashlib.sha256(json.dumps(b, sort_keys=True).encode()).hexdigest() == B0_SHA
 
 
 def test_cash_tiers_are_unchanged_by_the_tournament_entry():

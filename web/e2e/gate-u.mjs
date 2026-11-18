@@ -1876,13 +1876,14 @@ wd.section("15 #969 #987");
 // (b) 시작(9명, 버블 전)은 정책 파일을 요청하지 않는다(그 단계 정책 없음 → 미학습).
 // #987: (c) 다음 판 시작에 비영웅 5명을 탈락시키면(칩 0) 단일 테이블 SNG는 그 좌석을 테이블에서 뺀다: G.n = G.players = 4, 좌석 DOM 4개,
 // 탈락자 이름표·칩 없음. 버블(생존 4 = paid+1)이므로 그 4인 정책 파일을 정확히 1건 요청하고, pill은 `토너먼트 · 버블 · TP-GTO`, AI 결정은 정책 행.
-// (d) 버튼은 남은 좌석(원래 의자 번호 ring)만 돈다. (e) 더 탈락시켜 헤즈업: 버튼 = SB. 3종 화면 겹침 검사. (f) MTT는 지금처럼 다른 테이블에서 이동해 좌석 수 유지.
+// (d) 버튼은 남은 좌석(원래 의자 번호 ring)만 돈다. (e) #995: 한 명 더 탈락 → 상금권 3인(stage m), 또 한 명 → 헤즈업. 장면마다 단계 2 정책
+// 파일(`t-…-m0-n3.json`·`-n2.json`)을 정확히 1건 요청하고 pill `토너먼트 · 머니인 · TP-GTO`. 헤즈업 버튼 = SB. 3종 화면 겹침 검사. (f) MTT는 지금처럼 다른 테이블에서 이동해 좌석 수 유지.
 {
-  const FILE = "t-1261657cabcdc1ad-b0.json";
+  const FILE = "t-1261657cabcdc1ad-b0.json", M3 = "t-1261657cabcdc1ad-m0-n3.json", M2 = "t-1261657cabcdc1ad-m0-n2.json";
   const quickAct = async pg => { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); };
-  const playUntil = async (pg, done, what, tries = 600) => {
+  const playUntil = async (pg, done, what, tries = 600, arg = null) => {
     for (let g = 0; g < tries; g++) {
-      if (await pg.evaluate(done)) return true;
+      if (await pg.evaluate(done, arg)) return true;
       if (await pg.locator(QUICK).count()) await quickAct(pg).catch(() => {}); else await pg.waitForTimeout(150);
     }
     must(false, `SNG 탈락 좌석: ${what}까지 진행하지 못함`);
@@ -1940,8 +1941,24 @@ wd.section("15 #969 #987");
     const order = [0, 2, 5, 8], seq = btns.map(b => b.ring);
     must(seq.length === 5 && seq.every(r => order.includes(r)) && seq.every((r, i) => !i || order[(order.indexOf(seq[i - 1]) + 1) % 4] === r),
       `SNG 버튼: 빈 의자(1,3,4,6,7)를 건너뛰고 남은 좌석을 차례로 돌아야 함 (${JSON.stringify(btns)})`);
-    // (e) two more busts: heads-up, the button posts the small blind
-    await seatGuard(pg, [2, 5]);
+    // (e) #995: one more bust leaves 3 = paid (in the money, stage m): the 3-handed stage 2 policy, then one more is heads-up
+    // with the 2-handed one. Each scene asks for its own file exactly once and the badge is TP-GTO, not the rule bot.
+    const scene = async (chairs, n, file, label) => {
+      const before = reqs.length;
+      await seatGuard(pg, chairs);
+      await playUntil(pg, f => G.n === f.n && G.eng?.rulesKey === f.file && TPG.botLog.some(d => d.file === f.file), `${label} 정책 결정`, 600, { n, file });
+      await pg.evaluate(() => { window.__hold = true; });
+      const r = await pg.evaluate(() => ({ n: G.n, players: G.players, tpol: { ...G.tpol }, pill: $("#svc-pill").textContent, tags: G.seats.filter(s => !s.isHero).map(s => s.tag || "") }));
+      const got = reqs.slice(before).filter(x => x !== "index.json");
+      must(r.n === n && r.players === n && r.tpol.stage === "m" && r.tpol.file === file && r.pill === "토너먼트 · 머니인 · TP-GTO" && r.tags.every(t => t.includes("TP-GTO")),
+        `SNG ${label}: 단계 2 정책(${file})이 쓰여야 함 (${JSON.stringify(r)})`);
+      must(got.join() === file, `SNG ${label}: 정책 파일 요청이 정확히 1건(${file})이어야 함 (${got.join(", ")})`);
+      return r;
+    };
+    await scene([2], 3, M3, "상금권 3인");
+    await inspect("sng-itm-3", ".table-wrap", pg);
+    // the button posts the small blind heads-up
+    await scene([5], 2, M2, "헤즈업");
     await playUntil(pg, () => G.n === 2 && window.__btns.filter(b => b.n === 2).length >= 2, "헤즈업 2판");
     const hu = (await pg.evaluate(() => window.__btns)).filter(b => b.n === 2);
     must(hu.length >= 2 && hu.every(b => b.sb) && hu[0].ring !== hu[1].ring && hu.every(b => [0, 8].includes(b.ring)),
@@ -1950,7 +1967,7 @@ wd.section("15 #969 #987");
     must(p2.players === 2 && p2.dom === 2, `SNG 헤즈업: 좌석 2개여야 함 (${JSON.stringify(p2)})`);
     await inspect("sng-headsup", ".table-wrap", pg);
     must(!errs.length, `SNG 탈락 좌석: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
-    console.log(`SNG 탈락 좌석: 9→4석(의자 ${c.rings.join(",")}), 버블 정책 ${FILE} 요청 1건·pill TP-GTO, 버튼 ${seq.join("→")}, 헤즈업 버튼=SB`);
+    console.log(`SNG 탈락 좌석: 9→4석(의자 ${c.rings.join(",")}), 버블 정책 ${FILE} 요청 1건·pill TP-GTO, 버튼 ${seq.join("→")}, 상금권 3인·헤즈업 단계 2 정책 각 1건·pill TP-GTO, 헤즈업 버튼=SB`);
     await pg.close();
   }
   {

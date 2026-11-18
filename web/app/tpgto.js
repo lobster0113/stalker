@@ -1418,9 +1418,14 @@ export function tournamentStage({ players, paid, field, tableSize }) {
 /** The page's `G.stage` select (early|mid|bubble|itm|ft) against the policy stage letters. A `mid` table is still before the bubble, so it reads `e`. */
 export const WEB_STAGE_LETTER = Object.freeze({ early: "e", mid: "e", bubble: "b", itm: "m", ft: "f" });
 
-/** index.tournament[env][stage].ante[0|1]; a v1 index (no `tournament`) and anything missing give null. */
-export function tournamentEntry(index, envId, stage, ante) {
+/**
+ * index.tournament[env][stage].ante[0|1]; a v1 index (no `tournament`) and anything missing give null. A stage that spans
+ * several survivor counts (all but the bubble) holds `{ by_players: { "<n>": entry } }` there (#995): `players` picks one,
+ * and a slot without that count gives the slot itself (no `file`), which the caller reads as a players mismatch.
+ */
+export function tournamentEntry(index, envId, stage, ante, players) {
   const e = index && index.schema_version >= 2 ? index.tournament?.[envId]?.[stage]?.ante?.[ante ? 1 : 0] : null;
+  if (e && e.by_players) return e.by_players[String(players)] || e;
   return e || null;
 }
 
@@ -1432,9 +1437,9 @@ export function tournamentEntry(index, envId, stage, ante) {
 export function tournamentPolicyFor(index, { envId, players, paid, field, tableSize, ante }) {
   const stage = tournamentStage({ players, paid, field, tableSize });
   if (!index?.tournament?.[envId] || index.schema_version < 2) return { stage, entry: null, reason: "no_env" };
-  const entry = tournamentEntry(index, envId, stage, ante);
+  const entry = tournamentEntry(index, envId, stage, ante, players);
   if (!entry) return { stage, entry: null, reason: "no_stage" };
-  if (entry.players !== players) return { stage, entry: null, reason: "players_mismatch" };
+  if (!entry.file || entry.players !== players) return { stage, entry: null, reason: "players_mismatch" };
   return { stage, entry, reason: "ok" };
 }
 

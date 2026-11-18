@@ -239,6 +239,86 @@
       }
      }
     }
+   },
+   "m": {
+    "ante": {
+     "0": {
+      "by_players": {
+       "2": {
+        "file": "t-1261657cabcdc1ad-m0-n2.json",
+        "bytes": 3145728,
+        "tier": "mid",
+        "players": 2,
+        "k": 11,
+        "depth": "full",
+        "iterations": 20000,
+        "run_id": "44139238381",
+        "sha": "d098ba07d64d7ce4ebbece4dfd218eac554c9c33",
+        "lbr_bb": 6.1116,
+        "lbr_stderr_bb": 0.89,
+        "field_worst": null,
+        "job": "e3-tp-mid2-c1-pod",
+        "strategy": "current",
+        "menu": "real",
+        "raise_cap": null,
+        "key_variant": "c1",
+        "q": 255,
+        "min_visits": 10,
+        "keys": 37545,
+        "keys_dropped": 421247,
+        "env_id": "1261657cabcdc1ad",
+        "stage": "m",
+        "ante": 0,
+        "payoff": "icm",
+        "lam": 0.0,
+        "stacks": "bubble:skewed",
+        "level_index": 0,
+        "trained_on": {
+         "game": "tournament",
+         "env_id": "1261657cabcdc1ad",
+         "stage": "m",
+         "players": 2
+        }
+       },
+       "3": {
+        "file": "t-1261657cabcdc1ad-m0-n3.json",
+        "bytes": 3145721,
+        "tier": "mid",
+        "players": 3,
+        "k": 11,
+        "depth": "full",
+        "iterations": 20000,
+        "run_id": "44121220524",
+        "sha": "d098ba07d64d7ce4ebbece4dfd218eac554c9c33",
+        "lbr_bb": 4.8744,
+        "lbr_stderr_bb": 0.5391,
+        "field_worst": null,
+        "job": "e3-tp-mid3-c1-pod",
+        "strategy": "current",
+        "menu": "real",
+        "raise_cap": null,
+        "key_variant": "c1",
+        "q": 255,
+        "min_visits": 10,
+        "keys": 30315,
+        "keys_dropped": 627669,
+        "env_id": "1261657cabcdc1ad",
+        "stage": "m",
+        "ante": 0,
+        "payoff": "icm",
+        "lam": 0.0,
+        "stacks": "bubble:skewed",
+        "level_index": 0,
+        "trained_on": {
+         "game": "tournament",
+         "env_id": "1261657cabcdc1ad",
+         "stage": "m",
+         "players": 3
+        }
+       }
+      }
+     }
+    }
    }
   }
  }

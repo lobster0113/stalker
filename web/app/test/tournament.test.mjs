@@ -44,6 +44,17 @@ test("trained survivor count differs from the table's: no policy", () => {
   assert.equal(T.tournamentPolicyFor(idx, sng(6)).reason, "ok");
 });
 
+test("#995: a per-count stage (in the money 3- and 2-handed) picks the survivor count's entry", () => {
+  const m = n => ({ ...entry("m", 0, n), file: `t-sng-m0-n${n}.json` });
+  const idx = { schema_version: 2, tournament: { sng: { b: { ante: { 0: entry("b", 0, 4) } }, m: { ante: { 0: { by_players: { 2: m(2), 3: m(3) } } } } } } };
+  assert.equal(T.tournamentPolicyFor(idx, sng(3)).entry.file, "t-sng-m0-n3.json");
+  assert.equal(T.tournamentPolicyFor(idx, sng(2)).entry.file, "t-sng-m0-n2.json");
+  assert.equal(T.tournamentPolicyFor(idx, sng(4)).entry.file, "t-sng-b0.json");
+  assert.equal(T.tournamentPolicyFor(idx, sng(3, { ante: 1 })).reason, "no_stage");
+  const only3 = { schema_version: 2, tournament: { sng: { m: { ante: { 0: { by_players: { 3: m(3) } } } } } } };
+  assert.deepEqual(T.tournamentPolicyFor(only3, sng(2)), { stage: "m", entry: null, reason: "players_mismatch" });
+});
+
 test("cash tiers are never a fallback for a tournament table", () => {
   const idx = { schema_version: 2, tiers: { mid: { file: "mid-6.json", by_players: { 4: { file: "mid-4.json" } } } }, tournament: {} };
   assert.equal(T.tournamentPolicyFor(idx, sng(4)).entry, null);
