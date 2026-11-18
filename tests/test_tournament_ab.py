@@ -104,6 +104,8 @@ def test_cli_runs_two_r4_cells_and_is_byte_reproducible(tmp_path, policies):
             sym = e["symmetric"]
             assert sym["games"] == 1 and {"zone", "max_abs_diff_rel", "max_abs_z", "significant"} <= set(sym)
             assert {"decisions", "policy_hits", "backoffs", "backoff_rate"} <= set(sym["policy"])
+            assert "missing_keys" not in pol and "missing_keys" not in sym["policy"]   # #1004: totals only
+            assert all("backoff_reasons" in v for v in pol["by_street"].values())
     for arm in ("A", "B"):
         s = out["symmetric_summary"][arm]
         assert {"i_bubble_significant", "ii_bubble_mean_rel"} <= set(s)
@@ -116,6 +118,26 @@ def test_cli_runs_two_r4_cells_and_is_byte_reproducible(tmp_path, policies):
         no_key0 = pol["by_street"].get("0", {}).get("backoff_reasons", {}).get("no_key", 0)
         if no_key0:
             assert pol["missing_keys"]["0"]
+    assert one.decode().count('"missing_keys"') == 2   # one per arm total, none per cell (#1004)
+
+
+@pytest.mark.slow
+def test_missing_keys_do_not_grow_with_cell_count(policies):
+    """#1004: a 9-cell run with per-cell key lists was 2.02 MB, over ops' 1 MiB; only the 2 arm totals carry them."""
+    a, b = policies
+    for layouts in (1, 3):
+        out = T.run_ab(a, b, [PRESET], [4], ["even", "skewed"], games=2, layouts=layouts, sym_games=1)
+        assert len(out["cells"]) == 2 * layouts
+        assert json.dumps(out).count('"missing_keys"') == len(T.ARMS)
+        assert all("missing_keys" in out["policy"][arm] for arm in T.ARMS)
+
+
+def test_cell_counts_drop_only_missing_keys():
+    class Arm:
+        def counts(self):
+            return {"decisions": 3, "by_street": {"0": {"backoff_reasons": {"no_key": 1}}}, "missing_keys": {"0": []}}
+
+    assert T._cell_counts(Arm()) == {"decisions": 3, "by_street": {"0": {"backoff_reasons": {"no_key": 1}}}}
 
 
 @pytest.mark.slow

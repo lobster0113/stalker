@@ -526,6 +526,21 @@ def test_tournament_ab_real_judge_error_on_missing_primary_se():
     assert got["tournament_verdict"] is None and "ThresholdError" in got["tournament_error"]
 
 
+@pytest.mark.parametrize("schema_version", [1, 2])
+def test_tournament_ab_consumers_accept_schema_v1_and_v2(schema_version):
+    """#1004 bumped tournament_ab to schema 2 (per-cell policy without missing_keys); the protected consumers
+    (`_is_tournament_ab`, `tournament_thresholds.judge`) read neither, so both versions must keep working."""
+    from referee.e3 import tournament_thresholds as tt
+
+    docs = {r: {**_ab_result(a, a, 0.001, se=0.0001), "schema_version": schema_version}
+            for r, a in ((1, "p1"), (2, "p2"), (3, "p3"))}
+    assert all(metrics._is_tournament_ab(d) for d in docs.values())
+    res = tt.judge(list(docs.values()))
+    assert res["pairs"] == 3 and res["verdict"] in ("pass", "fail", "insufficient")
+    got = metrics.tournament_judge(docs)
+    assert got["tournament_pairs"] == 3 and got["tournament_verdict"] == res["verdict"]
+
+
 def test_tournament_ab_without_results_or_ops_is_none(tmp_path):
     clone = _ops_results(tmp_path, {"100.json": _lbr_result("p", 4.0)})
     got = metrics.tournament_ab(repo=clone)
