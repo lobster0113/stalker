@@ -1,6 +1,6 @@
 {
  "schema": "stalker.web.policy-index",
- "schema_version": 1,
+ "schema_version": 2,
  "tiers": {
   "beginner": {
    "file": "beginner-6.json",
@@ -195,6 +195,50 @@
     "players": 6,
     "stack_bb": 100,
     "menu": "v1"
+   }
+  }
+ },
+ "tournament": {
+  "1261657cabcdc1ad": {
+   "b": {
+    "ante": {
+     "0": {
+      "file": "t-1261657cabcdc1ad-b0.json",
+      "bytes": 3145723,
+      "tier": "mid",
+      "players": 4,
+      "k": 11,
+      "depth": "full",
+      "iterations": 20000,
+      "run_id": "43735226442",
+      "sha": "16b8941e01b282512f7b88c59c12476d0f7fd918",
+      "lbr_bb": 3.161,
+      "lbr_stderr_bb": 0.6711,
+      "field_worst": null,
+      "job": "e3-tp-mid4-c1-pod",
+      "strategy": "current",
+      "menu": "real",
+      "raise_cap": null,
+      "key_variant": "c1",
+      "q": 255,
+      "min_visits": 10,
+      "keys": 15936,
+      "keys_dropped": 636875,
+      "env_id": "1261657cabcdc1ad",
+      "stage": "b",
+      "ante": 0,
+      "payoff": "icm",
+      "lam": 0.0,
+      "stacks": "bubble:skewed",
+      "level_index": 0,
+      "trained_on": {
+       "game": "tournament",
+       "env_id": "1261657cabcdc1ad",
+       "stage": "b",
+       "players": 4
+      }
+     }
+    }
    }
   }
  }
