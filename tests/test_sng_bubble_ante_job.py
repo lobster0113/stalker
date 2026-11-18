@@ -58,5 +58,5 @@ def test_small_run_uses_the_tb1_slot(tmp_path):
 
 
 def test_yaml_comments_name_key_slot_tb1_only():
-    text = (ROOT / JOB).read_text()
+    text = (ROOT / JOB).read_text(encoding="utf-8")
     assert "tb0" not in text and "tb1" in text, "ante job's key slot is tb1; fix stale tb0 comment"
