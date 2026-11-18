@@ -7,7 +7,8 @@ dispatch the workflow.
 Usage:
   python harness/cloud/launcher.py check                       # balance query, costs nothing
   python harness/cloud/launcher.py run jobs/x.yaml --ledger L [--dry-run] [--run-id ID] [--sync-cmd CMD]
-                                       [--result-out PATH] [--resume-file R.json --resume-run ID]
+                                       [--result-out PATH] [--resume-file R.json --resume-run ID
+                                        [--resume-file-b R2.json --resume-run-b ID2]]
   python harness/cloud/launcher.py reap --ledger L [--job jobs/x.yaml --run-id ID --force]
   python harness/cloud/launcher.py publish result.json --run-id ID --ops OPS_WORKTREE
 
@@ -25,6 +26,8 @@ Resume (#354): the same server takes one upload at `/<token>/resume` (PUT, at mo
 or `/<token>/resume-none`. The wrapped job waits for either (RESUME_WAIT_S) before it starts and sees
 the uploaded file in `$STALKER_RESUME` (empty for none). With `--resume-file` the launcher sends an
 earlier run's result there, trimmed to what a resume needs and gzipped; without it, `resume-none`.
+A second file (#929, `--resume-file-b`: an A/B evaluation needs two policies) goes first to `/<token>/resume-b`,
+which gives no signal; the job sees it in `$STALKER_RESUME_B` (empty when not sent). B needs A.
 `publish` copies a checked result to `ops:cloud/results/<run id>.json`: agent sandboxes cannot
 download artifacts (their blob storage host is outside the egress allow-list, #264), but read ops.
 Over 1 MB it writes `<run id>.summary.json` with long strings (model blobs) left out (#358).
@@ -47,10 +50,12 @@ import importlib.util
 import os
 import re
 import secrets
+import socket
 import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -64,7 +69,8 @@ REAP_GRACE_MIN = 10
 # GitHub-hosted runners stop any job at 360 min; keep the launcher's own deadline, terminate
 # and ledger push well inside that, or the runner limit kills the job before its finally runs.
 MAX_JOB_MINUTES = 330
-REST_URL = "https://rest.runpod.io/v1"
+# REST v1 (rest.runpod.io/v1) retired 2026-11-15 and stopped resolving (#952); v2 lives on the GraphQL host
+REST_URL = "https://api.runpod.io/v2"
 # RunPod sits behind Cloudflare, which rejects urllib's default "Python-urllib" agent with 403/1010.
 USER_AGENT = "stalker-launcher/1 (+https://github.com/lobster0113/stalker)"
 GRAPHQL_URL = "https://api.runpod.io/graphql"
@@ -85,11 +91,15 @@ THRESHOLDS_PY = ROOT / "referee" / "e3" / "thresholds.py"
 SUMMARY_BLOB_CHARS = 4096  # strings longer than this (model blobs) are left out of an oversized result's ops summary
 RESUME_DIR = "/stalker-resume"
 RESUME_ENV = "STALKER_RESUME"
+RESUME_B_ENV = "STALKER_RESUME_B"
 # The upload goes through RunPod's proxy, which is behind Cloudflare: its request bodies stop at 100 MB.
+# The cap is per file. Two files are at most 190 MB on a pod disk of disk_gb (default 20 GB), and both must land
+# inside RESUME_WAIT_S: 190 MB in 1200 s needs only ~0.16 MB/s, while each PUT may take http_send's 600 s timeout.
 RESUME_MAX_BYTES = 95 * 1024 * 1024
 RESUME_WAIT_S = 1200
 # what pod_train --resume-result reads; the evaluation numbers stay in the artifact
-RESUME_FIELDS = ("job", "tier", "players", "seed", "iters", "model", "checkpoint", "sha")
+# train_env (#923) is only in tournament results; pod_train refuses a resume whose train_env differs, so it must travel
+RESUME_FIELDS = ("job", "tier", "players", "seed", "iters", "model", "checkpoint", "sha", "train_env")
 
 
 class LauncherError(Exception):
@@ -136,7 +146,16 @@ FLAVOR_LIST_VCPU = 32
 SLOW_HOST_FRACTION = 0.6
 # RunPod HTTP 500 "no longer any instances available" costs nothing; wait and try the flavor list again
 CAPACITY_RETRY_MINUTES = (15, 30, 60)
-CAPACITY_RE = re.compile(rb"no longer any instances available|no instances available", re.IGNORECASE)
+# DNS/connect failures (URLError/OSError, never an HTTP answer) happen before RunPod sees the request: a create that
+# hit one made no pod, so waiting and retrying is safe and costs $0 (#946: rest.runpod.io "Name or service not known")
+NETWORK_RETRY_MINUTES = (1, 5, 15)
+# GET/DELETE are cheap and idempotent; a short retry rides out a blip so a pod is not left running unterminated
+NETWORK_RETRY_SECONDS = (5, 15)
+# v1 said "no longer any instances available" with HTTP 500; v2 answers 400 with only a human-readable detail
+# (no machine code), the same status as a broken rule, so the text decides (#952)
+CAPACITY_RE = re.compile(rb"no longer any instances available|no instances available|no capacity|"
+                         rb"insufficient capacity|could not be placed", re.IGNORECASE)
+CAPACITY_CODES = (400, 500)
 
 
 @dataclass(frozen=True)
@@ -339,8 +358,8 @@ def http_transport(api_key: str) -> Transport:
                 return None
             full = e.read()
             body = full[:300]
-            if e.code == 500 and CAPACITY_RE.search(full):
-                raise CapacityError(f"RunPod {method} {url}: HTTP 500 {body!r}") from e
+            if e.code in CAPACITY_CODES and CAPACITY_RE.search(full):
+                raise CapacityError(f"RunPod {method} {url}: HTTP {e.code} {body!r}") from e
             hint = (" — Cloudflare rejected the client signature; check USER_AGENT in harness/cloud/launcher.py"
                     if e.code == 403 and b"1010" in body else "")
             raise LauncherError(f"RunPod {method} {url}: HTTP {e.code} {body!r}{hint}") from e
@@ -348,9 +367,33 @@ def http_transport(api_key: str) -> Transport:
     return call
 
 
+def _is_network_error(e: BaseException) -> bool:
+    return isinstance(e, (urllib.error.URLError, OSError)) and not isinstance(e, urllib.error.HTTPError)
+
+
+def _is_prerequest_error(e: BaseException) -> bool:
+    """True only when RunPod cannot have seen the request (DNS or refused connect).
+
+    Timeouts and resets can happen after the POST was sent, so a retry could create a second pod."""
+    return (isinstance(e, urllib.error.URLError) and not isinstance(e, urllib.error.HTTPError)
+            and isinstance(e.reason, (socket.gaierror, ConnectionRefusedError)))
+
+
 class RunPod:
-    def __init__(self, transport: Transport):
+    def __init__(self, transport: Transport, sleep: Callable[[float], None] = time.sleep):
         self.t = transport
+        self.sleep = sleep
+
+    def _retry(self, method: str, url: str):
+        """GET/DELETE: retry network errors after NETWORK_RETRY_SECONDS; the last error propagates."""
+        for wait in NETWORK_RETRY_SECONDS:
+            try:
+                return self.t(method, url, None)
+            except (urllib.error.URLError, OSError) as e:
+                if not _is_network_error(e):
+                    raise
+                self.sleep(wait)
+        return self.t(method, url, None)
 
     def balance(self) -> float:
         r = self.t("POST", GRAPHQL_URL, {"query": "query { myself { clientBalance } }"})
@@ -360,34 +403,59 @@ class RunPod:
             raise LauncherError(f"RunPod balance query: unexpected response {str(r)[:300]}") from e
 
     def create(self, job: Job, pod_name: str, token: str | None = None, flavor: str | None = None) -> dict:
-        body = {"name": pod_name, "imageName": job.image, "cloudType": job.cloud,
-                "containerDiskInGb": job.disk_gb, "dockerStartCmd": ["bash", "-lc", pod_command(job)]}
+        # v2 rejects unknown fields with 422; `cmd` is v1's dockerStartCmd (the CMD, image ENTRYPOINT kept)
+        body = {"name": pod_name, "image": job.image, "cloud": job.cloud, "disk": job.disk_gb,
+                "cmd": ["bash", "-lc", pod_command(job)]}
         if job.result_path:
             # the token goes in env, never in the command, so it stays out of logs that echo the spec
             body |= {"ports": [f"{RESULT_PORT}/http"], "env": {TOKEN_ENV: token}}
         if job.gpu_type:
-            body |= {"computeType": "GPU", "gpuTypeIds": [job.gpu_type], "gpuCount": job.gpu_count}
+            body |= {"gpu": {"id": job.gpu_type, "count": job.gpu_count}}
         else:
-            body |= {"computeType": "CPU", "cpuFlavorIds": [flavor or job.flavors[0][0]], "vcpuCount": job.vcpu}
+            body |= {"cpu": {"id": flavor or job.flavors[0][0], "vcpuCount": job.vcpu}}
         pod = self.t("POST", f"{REST_URL}/pods", body)
         if not pod or "id" not in pod:
             raise LauncherError(f"RunPod create: no pod id in response {str(pod)[:300]}")
         return pod
 
     def get(self, pod_id: str) -> dict | None:
-        return self.t("GET", f"{REST_URL}/pods/{pod_id}", None)
+        return self._retry("GET", f"{REST_URL}/pods/{pod_id}")
 
     def list(self) -> list[dict]:
-        r = self.t("GET", f"{REST_URL}/pods", None) or []
-        return r.get("pods", []) if isinstance(r, dict) else r
+        """Every page: v2 answers {pods, pagination} newest first and filters nothing server-side."""
+        pods: list[dict] = []
+        url = f"{REST_URL}/pods"
+        for _ in range(100):  # 1000 pods a page; a cursor that never ends must not hang the reap
+            r = self._retry("GET", url) or {}
+            if isinstance(r, list):
+                return pods + r
+            pods += r.get("pods") or []
+            page = r.get("pagination") or {}
+            if not page.get("hasNextPage") or not page.get("nextCursor"):
+                return pods
+            url = f"{REST_URL}/pods?cursor={urllib.parse.quote(str(page['nextCursor']), safe='')}"
+        raise LauncherError(f"RunPod list: more than 100 pages from {REST_URL}/pods; stopping")
+
+    def reach(self) -> None:
+        """`check`: the REST host answers an authenticated list (the GraphQL balance says nothing about it, #952)."""
+        try:
+            r = self.t("GET", f"{REST_URL}/pods?limit=1", None)
+        except (urllib.error.URLError, OSError, LauncherError) as e:
+            raise LauncherError(f"RunPod REST unreachable: GET {REST_URL}/pods failed ({e}). If the host does not resolve "
+                                "or answers 404/410, RunPod moved the REST API: update REST_URL and the pod fields in "
+                                "harness/cloud/launcher.py from RunPod's current API reference") from e
+        if not isinstance(r, dict) or "pods" not in r:
+            raise LauncherError(f"RunPod REST: GET {REST_URL}/pods answered {str(r)[:200]} without a `pods` list; the "
+                                "API changed — update REST_URL and the pod fields in harness/cloud/launcher.py")
 
     def terminate(self, pod_id: str) -> None:
-        self.t("DELETE", f"{REST_URL}/pods/{pod_id}", None)
+        self._retry("DELETE", f"{REST_URL}/pods/{pod_id}")
 
 
 # The pod's result server (stdlib only, the image may have nothing else). GET serves status.json and
 # result.json from the token directory; PUT/POST takes one resume upload (size-capped, written whole
-# then renamed) or a "none", and then refuses more, so the job sees exactly one signal.
+# then renamed) or a "none", and then refuses more, so the job sees exactly one signal. `resume-b` (#929) is
+# taken once, before the signal, and signals nothing: the launcher sends it first, so the job's start sees it.
 POD_SERVER = r"""
 import hashlib, http.server, json, os, shutil, sys, threading
 root, port, rdir, cap = sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4])
@@ -433,7 +501,7 @@ class H(http.server.BaseHTTPRequestHandler):
                 return self.reply(200, json.dumps({"iters_per_s": float(v)}).encode())
         self.reply(404)
     def do_PUT(self):
-        kind = {"resume": "ready", "resume-none": "none"}.get(self.name())
+        kind = {"resume": "ready", "resume-none": "none", "resume-b": "b"}.get(self.name())
         if kind is None:
             return self.reply(404)
         with lock:
@@ -441,15 +509,17 @@ class H(http.server.BaseHTTPRequestHandler):
     def take(self, kind):
         if os.path.exists(os.path.join(rdir, "signal")):
             return self.reply(409)
+        if kind == "b" and os.path.exists(os.path.join(rdir, "resume_b.bin")):
+            return self.reply(409)
         try:
             n = int(self.headers.get("Content-Length", ""))
         except ValueError:
             return self.reply(411)
-        if not 0 <= n <= cap or (kind == "ready" and n == 0):
+        if not 0 <= n <= cap or (kind != "none" and n == 0):
             self.close_connection = True
             return self.reply(413)
         h, left = hashlib.sha256(), n
-        part = os.path.join(rdir, "resume.part")
+        part = os.path.join(rdir, "resume_b.part" if kind == "b" else "resume.part")
         with open(part, "wb") as f:
             while left:
                 b = self.rfile.read(min(left, 1 << 20))
@@ -458,6 +528,9 @@ class H(http.server.BaseHTTPRequestHandler):
                 f.write(b)
                 h.update(b)
                 left -= len(b)
+        if kind == "b":
+            os.replace(part, os.path.join(rdir, "resume_b.bin"))
+            return self.reply(200, json.dumps({"bytes": n, "sha256": h.hexdigest()}).encode())
         if kind == "ready":
             os.replace(part, os.path.join(rdir, "resume.bin"))
         with open(os.path.join(rdir, "signal.tmp"), "w") as f:
@@ -489,7 +562,9 @@ def pod_command(job: Job, serve_dir: str = RESULT_DIR, port: int = RESULT_PORT, 
         "STALKER_SERVER",
         f"w=0; while [ ! -f {sig} ] && [ $w -lt {wait_s} ]; do sleep 2; w=$((w+2)); done",
         f'sig=$(cat {sig} 2>/dev/null); {RESUME_ENV}=""; [ "$sig" = ready ] && {RESUME_ENV}={resume_dir}/resume.bin',
-        f"export {RESUME_ENV}",
+        f'{RESUME_B_ENV}=""; [ "$sig" = ready ] && [ -f {resume_dir}/resume_b.bin ] && '
+        f"{RESUME_B_ENV}={resume_dir}/resume_b.bin",
+        f"export {RESUME_ENV} {RESUME_B_ENV}",
         'if [ "$sig" = ready ] || [ "$sig" = none ]; then',
         # stderr also goes to job.log, where the server finds the first progress line (#401)
         "(", job.command, f") 2> >(tee -a {resume_dir}/job.log >&2)",
@@ -537,25 +612,28 @@ def http_send(url: str, body: bytes) -> tuple[int, bytes]:
         return 0, b""
 
 
-def resume_payload(path: Path, run_id: str, max_bytes: int = RESUME_MAX_BYTES) -> bytes:
-    """An earlier pod result, trimmed to RESUME_FIELDS plus its run id, gzipped, for the next pod."""
+def resume_payload(path: Path, run_id: str, max_bytes: int = RESUME_MAX_BYTES, which: str = "resume_run") -> bytes:
+    """An earlier pod result, trimmed to RESUME_FIELDS plus its run id, gzipped, for the next pod.
+
+    `which` names the cloud.yml input (resume_run / resume_run_b) in every error, so a two-file run says which."""
     if not re.fullmatch(r"[0-9]+", run_id):
-        raise LauncherError(f"--resume-run must be digits (the cloud.yml run id of the result), got {run_id!r}")
+        raise LauncherError(f"{which}: --resume-run must be digits (the cloud.yml run id of the result), got {run_id!r}")
     try:
         body = path.read_bytes()
     except OSError as e:
-        raise LauncherError(f"resume file {path}: {e.strerror}; was artifact cloud-result-{run_id} downloaded?") from e
+        raise LauncherError(f"{which}: resume file {path}: {e.strerror}; "
+                            f"was artifact cloud-result-{run_id} downloaded?") from e
     check_result(body)
     r = json.loads(body)
     if not isinstance(r, dict) or not r.get("checkpoint") or not isinstance(r.get("model"), dict):
         note = r.get("checkpoint_note", "missing") if isinstance(r, dict) else "not an object"
-        raise LauncherError(f"run {run_id}'s result has no checkpoint ({note}); it cannot be resumed — "
-                            "dispatch without resume_run")
+        raise LauncherError(f"{which}: run {run_id}'s result has no checkpoint ({note}); it cannot be resumed — "
+                            f"dispatch without {which}")
     trimmed = {k: r[k] for k in RESUME_FIELDS if k in r} | {"run_id": run_id}
     # the npz inside is compressed already; gzip takes back most of base64's 4/3
     blob = gzip.compress(json.dumps(trimmed).encode(), compresslevel=6, mtime=0)
     if len(blob) > max_bytes:
-        raise LauncherError(f"resume upload {len(blob)} bytes > {max_bytes} (RunPod proxy body limit); "
+        raise LauncherError(f"{which}: resume upload {len(blob)} bytes > {max_bytes} (RunPod proxy body limit); "
                             "the checkpoint is too big to hand over — see harness/experiments/026-pod-resume.md")
     return blob
 
@@ -575,7 +653,7 @@ def check_result(body: bytes, forbidden: Sequence[str] = (), max_bytes: int | No
 
 
 def _cost_per_hr(pod: dict | None) -> float | None:
-    v = (pod or {}).get("costPerHr")
+    v = (pod or {}).get("cost")
     return float(v) if v is not None else None
 
 
@@ -601,7 +679,8 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
             dry_run: bool = False, sync: Callable[[], None] = lambda: None, now: Callable[[], datetime] = _now,
             sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, log=print,
             result_out: Path | None = None, fetch: Fetch = http_fetch, token: str | None = None,
-            forbidden: Sequence[str] = (), resume: bytes | None = None, send: Send = http_send) -> dict:
+            forbidden: Sequence[str] = (), resume: bytes | None = None, send: Send = http_send,
+            resume_b: bytes | None = None) -> dict:
     """Create the job's pod (flavor list, capacity retries), run it, and at most once replace a slow host (#401).
 
     Every wait and every replacement must still leave the whole pod run inside MAX_JOB_MINUTES of this
@@ -612,11 +691,15 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
     spent = check_budget(job, read_ledger(ledger), cap, month)
     pod_name = pod_name_for(job, run_id)
     log(f"budget ok: {month} ${spent:.2f} + worst case ${job.worst_case_usd:.2f} <= cap ${cap:.2f}")
+    if resume_b is not None and resume is None:
+        raise LauncherError("resume_run_b needs resume_run: the second file rides on the first one's signal")
     if resume is not None and not job.result_path:
         raise LauncherError(f"{job.name}: resume needs a job with result_path (the upload goes to its result server)")
     if dry_run:
         if resume is not None:
             log(f"dry run: resume upload {len(resume)} bytes ok")
+        if resume_b is not None:
+            log(f"dry run: resume_b upload {len(resume_b)} bytes ok")
         what = job.gpu_type or ", ".join(f for f, _, _ in job.flavors)
         log(f"dry run: would create pod {pod_name} ({what}, max {job.max_minutes} min)")
         return {"status": "dry_run", "pod_name": pod_name, "worst_case_usd": job.worst_case_usd}
@@ -633,7 +716,7 @@ def run_job(job: Job, api: RunPod | None, ledger: Path, run_id: str, *, cap: flo
         pod, (flavor, rate_cap, median) = _create(job, api, pod_name, token, ledger, run_id, month, fits, now, sleep, log)
         res = _run_pod(job, api, pod, flavor, rate_cap, median if not replaced else 0.0, fits, ledger, run_id, month,
                        cap, sync=sync, now=now, sleep=sleep, poll_s=poll_s, log=log, result_out=result_out,
-                       fetch=fetch, token=token, forbidden=forbidden, resume=resume, send=send)
+                       fetch=fetch, token=token, forbidden=forbidden, resume=resume, send=send, resume_b=resume_b)
         if res["status"] != "slow_host":
             return res | ({"replaced_pods": replaced} if replaced else {})
         replaced.append(res["pod_id"])
@@ -649,17 +732,39 @@ def _create(job: Job, api: RunPod, pod_name: str, token: str, ledger: Path, run_
     Each refused create is a zero-cost `create_failed` ledger line with the run id, so the record shows
     every try even though no pod (and no start/end pair) exists for it."""
     waits = list(CAPACITY_RETRY_MINUTES)
+    net_waits = list(NETWORK_RETRY_MINUTES)
     attempt = 0
     while True:
+        net_retry = False
         for entry in job.flavors:
             attempt += 1
             try:
                 return api.create(job, pod_name, token, entry[0]), entry
+            except (urllib.error.URLError, OSError) as e:
+                if not _is_prerequest_error(e):
+                    raise
+                # no pod exists and RunPod never answered: no ledger line, $0 (a test pins this)
+                tries = len(NETWORK_RETRY_MINUTES) + 1 - len(net_waits)
+                log(f"network error creating pod (try {tries}): {e}")
+                if not net_waits:
+                    raise LauncherError(f"run {run_id}: cannot reach {REST_URL} after {tries} tries over "
+                                        f"{'+'.join(map(str, NETWORK_RETRY_MINUTES))} min of waits (last: {e}); $0, no pod "
+                                        "created; dispatch again later") from e
+                wait = net_waits.pop(0)
+                if not fits(wait):
+                    raise LauncherError(f"run {run_id}: cannot reach {REST_URL} ({e}), and a {wait} min wait + "
+                                        f"max_minutes {job.max_minutes} would pass the launcher's {MAX_JOB_MINUTES} min "
+                                        "($0); dispatch again later") from e
+                sleep(wait * 60)
+                net_retry = True
+                break
             except CapacityError as e:
                 append_ledger(ledger, {"event": "create_failed", "ts": _iso(now()), "month": month,
                                        "job": job.name, "run_id": run_id, "flavor": entry[0], "attempt": attempt,
                                        "error": "capacity", "actual_usd": 0.0})
                 log(f"no capacity for {entry[0] or job.gpu_type} (try {attempt}): {e}")
+        if net_retry:
+            continue
         if not waits:
             raise CapacityExhausted(f"run {run_id}: no capacity for {', '.join(str(f) for f, _, _ in job.flavors)} after "
                                     f"{attempt} tries over {'+'.join(map(str, CAPACITY_RETRY_MINUTES))} min of waits "
@@ -675,7 +780,7 @@ def _create(job: Job, api: RunPod, pod_name: str, token: str, ledger: Path, run_
 
 def _run_pod(job: Job, api: RunPod, pod: dict, flavor: str | None, rate_cap: float, median: float,
              fits: Callable[[float], bool], ledger: Path, run_id: str, month: str, cap: float, *,
-             sync, now, sleep, poll_s, log, result_out, fetch, token, forbidden, resume, send) -> dict:
+             sync, now, sleep, poll_s, log, result_out, fetch, token, forbidden, resume, send, resume_b=None) -> dict:
     start = now()
     pod_id = pod["id"]
     pod_name = pod.get("name") or pod_name_for(job, run_id)
@@ -707,17 +812,25 @@ def _run_pod(job: Job, api: RunPod, pod: dict, flavor: str | None, rate_cap: flo
                                 "terminated")
         deadline = start + timedelta(minutes=job.max_minutes)
         signalled = not job.result_path
+        b_sent = resume_b is None
         speed_checked = not median
         while True:
             info = api.get(pod_id)
-            if info is None or info.get("desiredStatus") in ("EXITED", "TERMINATED"):
+            if info is not None and info.get("status") == "ERROR":
+                status = "pod_error"  # v2 reports the container's unrecoverable state; it will not finish
+                log(f"pod {pod_id} status ERROR; terminating")
+                break
+            if info is None or info.get("status") in ("EXITED", "TERMINATED"):
                 # a result job idles after publishing, so exiting on its own means it never did
                 status = "no_result" if job.result_path else "completed"
                 break
             rate = _cost_per_hr(info) or rate
             if not signalled:
                 status = "resume_failed"  # what the ledger says if the pod refuses the handover
-                signalled = _signal(pod_id, token, resume, send, log)
+                if not b_sent:  # B first: the job starts on A's signal and must find B already there
+                    b_sent = _upload(pod_id, token, "resume-b", resume_b, send, log, "resume_run_b")
+                if b_sent:
+                    signalled = _signal(pod_id, token, resume, send, log)
                 status = "error"
             elif job.result_path:
                 if not speed_checked:
@@ -770,6 +883,11 @@ def _first_its(reply: tuple[int, bytes]) -> float | None:
 def _signal(pod_id: str, token: str, resume: bytes | None, send: Send, log) -> bool:
     """Hand the pod its resume file (or "none"); False while the proxy is not up yet."""
     name, body = ("resume", resume) if resume is not None else ("resume-none", b"")
+    return _upload(pod_id, token, name, body, send, log, "resume_run" if resume is not None else "")
+
+
+def _upload(pod_id: str, token: str, name: str, body: bytes, send: Send, log, which: str) -> bool:
+    """PUT one handover file; False while the proxy is not up yet. `which` is the cloud.yml input it came from."""
     code, raw = send(proxy_url(pod_id, token, name), body)
     if code in (0, 404) or code >= 500:
         # pod booting: the proxy answers 404 before the port is routed (run 40886839070, #361) and 502
@@ -778,10 +896,11 @@ def _signal(pod_id: str, token: str, resume: bytes | None, send: Send, log) -> b
         return False
     if code == 409:
         # a signal is already there; only this launcher knows the token, so an earlier try of ours landed
-        log(f"{name}: pod already signalled (an earlier upload's reply was lost)")
+        log(f"{name}: pod already has it (an earlier upload's reply was lost)")
         return True
     if code != 200:
-        raise LauncherError(f"{name} refused by the pod (HTTP {code}); {pod_id} terminated"
+        src = f" ({which})" if which else ""
+        raise LauncherError(f"{name}{src} refused by the pod (HTTP {code}); {pod_id} terminated"
                             + (f" — over the pod's {RESUME_MAX_BYTES}-byte cap" if code == 413 else ""))
     want = {"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}
     try:
@@ -790,7 +909,7 @@ def _signal(pod_id: str, token: str, resume: bytes | None, send: Send, log) -> b
         got = None
     if got != want:
         raise LauncherError(f"{name}: pod received {got}, sent {want}; {pod_id} terminated")
-    log(f"{name}: sent {len(body)} bytes" if resume is not None else "resume: none")
+    log(f"{name}: sent {len(body)} bytes" if name != "resume-none" else "resume: none")
     return True
 
 
@@ -941,6 +1060,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--result-out", type=Path, help="where to write the job's result_path JSON (required if set)")
     r.add_argument("--resume-file", type=Path, help="an earlier run's result JSON to continue from (#354)")
     r.add_argument("--resume-run", help="the cloud.yml run id that produced --resume-file")
+    r.add_argument("--resume-file-b", type=Path, help="a second earlier result, seen as $STALKER_RESUME_B (#929)")
+    r.add_argument("--resume-run-b", help="the cloud.yml run id that produced --resume-file-b")
     r.add_argument("--journal", type=Path, help="ops journal dir: a capacity give-up (exit 3) appends a failed line")
     g = sub.add_parser("reap")
     g.add_argument("--ledger", type=Path, required=True)
@@ -961,15 +1082,25 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if a.cmd == "check":
-            print(f"RunPod key ok; balance ${api().balance():.2f}; cap ${load_cap():.2f}/month")
+            rp = api()
+            balance = rp.balance()
+            rp.reach()
+            print(f"RunPod key ok; balance ${balance:.2f}; REST {REST_URL} ok; cap ${load_cap():.2f}/month")
         elif a.cmd == "run":
             job = load_spec(a.spec)
             if bool(a.resume_file) != bool(a.resume_run):
                 raise LauncherError("run: pass --resume-file and --resume-run together")
+            if bool(a.resume_file_b) != bool(a.resume_run_b):
+                raise LauncherError("run: pass --resume-file-b and --resume-run-b together")
+            if a.resume_file_b and not a.resume_file:
+                raise LauncherError("run: --resume-file-b needs --resume-file (set resume_run too, or move the run "
+                                    "to resume_run)")
             resume = resume_payload(a.resume_file, a.resume_run) if a.resume_file else None
+            resume_b = resume_payload(a.resume_file_b, a.resume_run_b, which="resume_run_b") if a.resume_file_b else None
             sync = (lambda: subprocess.run(a.sync_cmd, shell=True, check=True)) if a.sync_cmd else (lambda: None)
             res = run_job(job, None if a.dry_run else api(), a.ledger, a.run_id, dry_run=a.dry_run, sync=sync,
-                          result_out=a.result_out, forbidden=[os.environ.get("RUNPOD_API_KEY", "")], resume=resume)
+                          result_out=a.result_out, forbidden=[os.environ.get("RUNPOD_API_KEY", "")], resume=resume,
+                          resume_b=resume_b)
             if res["status"] not in ("completed", "dry_run"):
                 print(f"job {job.name}: {res['status']}", file=sys.stderr)
                 return 1

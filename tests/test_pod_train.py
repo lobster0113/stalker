@@ -22,13 +22,14 @@ def test_pack_round_trips_the_model_state():
     meta = {"k": m.k, "n": m.n, "depth": m.depth, "iterations": m.iterations, "nodes": m.nodes,
             "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state}
     st = P.unpack_state(P.pack(m), meta)
-    assert st == json.loads(json.dumps(m.state()))
+    assert st == {k: v for k, v in json.loads(json.dumps(m.state())).items() if k != "chain"}   # pod packs carry no #712 chain
     back, again = E3MCCFR.from_state(st), E3MCCFR.from_state(m.state())
     back.iterate(2), again.iterate(2)
     assert back.regret.keys() == again.regret.keys()
     assert all(np.array_equal(back.regret[k], again.regret[k]) for k in back.regret)
 
 
+@pytest.mark.slow
 def test_run_writes_a_checked_result_and_unpacks_to_the_ci_layout(tmp_path):
     r = P.run("beginner", 3, 2, minutes=0.001, seed=1, batch=1)
     assert r["iters"] >= 2 and r["checkpoint"]["dtype"] == "float64"
@@ -46,6 +47,7 @@ def test_run_writes_a_checked_result_and_unpacks_to_the_ci_layout(tmp_path):
     assert json.loads(pol.read_text(encoding="utf-8"))["current"]
 
 
+@pytest.mark.slow
 def test_oversized_model_falls_back_to_float32_then_summary_only():
     r = P.run("beginner", 3, 1, minutes=0.001, seed=1, batch=1, budget=64 * 1024 + 1)
     assert r["checkpoint"] is None and "float32" in r["checkpoint_note"]
@@ -180,7 +182,11 @@ def test_checkpoint_stays_under_the_pod_upload_limit_when_float32_fits():
 
 def test_pod_jobs_take_the_resume_file():
     for spec in sorted((ROOT / "jobs").glob("e3-tp-*-pod32.yaml")):
-        assert '${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}' in L.load_spec(spec).command, spec.name
+        cmd = L.load_spec(spec).command
+        if "-prior-" in spec.name:   # #926 arm B: the upload is the warm-start prior; pod_train refuses it with a resume
+            assert '--prior-result "$STALKER_RESUME"' in cmd and "--resume-result" not in cmd, spec.name
+            continue
+        assert '${STALKER_RESUME:+--resume-result "$STALKER_RESUME"}' in cmd, spec.name
 
 _BEGINNER3 = {"job": "e3-tp-beginner3-pod", "tier": "beginner", "players": 3, "checkpoint": {"b64": ""},
               "model": {"k": 5, "n": 3, "depth": "basic", "menu": "v1", "raise_cap": 3}}

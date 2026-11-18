@@ -20,8 +20,8 @@ label every answer with the model it came from (iterations, LBR, run).
 
 `--players <n>` splits a player-mix c1 table (#486, ADR 0021 decision 1: one policy for 2-6 handed) into the
 file of one seat count (#585): only keys whose c1 player field is `n<n>` (`stalker.e3.mccfr.key_players`), with
-that count's LBR and field from the summary's `by_players`. The shared `call|` keys name no count and go to no
-file. On a single-count table `--players` must equal its `n` (the output is then the plain export).
+that count's LBR and field from the summary's `by_players`. The shared `call|` keys name no count: the mix trains
+them across every count, so each file carries them (#610; without them the page played call-or-fold spots uniform). On a single-count table `--players` must equal its `n` (the output is then the plain export).
 """
 from __future__ import annotations
 
@@ -35,9 +35,10 @@ import numpy as np
 from stalker.jsonio import read_json
 
 SCHEMA = "stalker.web.policy"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: optional `l1_rows` (#803); a v1 file is the same without it
 INDEX_SCHEMA = "stalker.web.policy-index"
-INDEX_SCHEMA_VERSION = 1
+INDEX_SCHEMA_VERSION = 2   # 2: top-level `tournament` map (ADR 0029 decision 1); a v1 index is the same with `tournament` = {}
+TOURNAMENT_MAX_BYTES = 12 * 1024 * 1024   # all tournament policy files together (ADR 0029 decision 3)
 Q = 255
 MAX_BYTES = 3 * 1024 * 1024  # one tier's file (#336): the page loads it before the first hand
 
@@ -66,7 +67,7 @@ def export(policy: dict[str, list[float]], meta: dict, visits: dict[str, int] | 
 
 def index_entry(doc: dict, file: str, nbytes: int) -> dict:
     """What the page's model list says about one policy file: everything but the table itself."""
-    return {"file": file, "bytes": nbytes, **{k: v for k, v in doc.items() if k not in ("schema", "schema_version", "policy")}}
+    return {"file": file, "bytes": nbytes, **{k: v for k, v in doc.items() if k not in ("schema", "schema_version", "policy", "l1_rows")}}
 
 
 def upsert_index(index: dict | None, entry: dict) -> dict:
@@ -75,6 +76,7 @@ def upsert_index(index: dict | None, entry: dict) -> dict:
     idx = index if index is not None else {"schema": INDEX_SCHEMA, "schema_version": INDEX_SCHEMA_VERSION, "tiers": {}}
     if idx.get("schema") != INDEX_SCHEMA:
         raise SystemExit(f"--index: schema {idx.get('schema')!r} is not {INDEX_SCHEMA}; point it at web/app/policy/index.json")
+    idx["schema_version"] = INDEX_SCHEMA_VERSION   # a v1 index is read as v2 with no `tournament`
     tier, n = entry["tier"], int(entry["players"])
     old = idx["tiers"].get(tier, {})
     if n == 6:
@@ -84,6 +86,49 @@ def upsert_index(index: dict | None, entry: dict) -> dict:
         by[str(n)] = entry
         idx["tiers"][tier] = {**old, "by_players": dict(sorted(by.items(), key=lambda kv: int(kv[0])))}
     return idx
+
+
+def stage_fixes_players(stage: str) -> bool:
+    """Only the bubble pins the survivor count (r = K+1, ADR 0027 decision 2); e, m and f span several r, so their
+    policies are kept per count (#995: the SNG in-the-money stage is trained 3- and 2-handed)."""
+    return stage == "b"
+
+
+def upsert_tournament(index: dict | None, entry: dict) -> dict:
+    """Put a tournament policy under `tournament[env_id][stage].ante[<0|1>]` (ADR 0029 decision 1); `tiers` is not touched.
+    A stage other than the bubble keeps one entry per survivor count: `ante[<a>].by_players["<n>"]` (#995)."""
+    idx = index if index is not None else {"schema": INDEX_SCHEMA, "schema_version": INDEX_SCHEMA_VERSION, "tiers": {}}
+    if idx.get("schema") != INDEX_SCHEMA:
+        raise SystemExit(f"--index: schema {idx.get('schema')!r} is not {INDEX_SCHEMA}; point it at web/app/policy/index.json")
+    idx["schema_version"] = INDEX_SCHEMA_VERSION
+    ante = idx.setdefault("tournament", {}).setdefault(entry["env_id"], {}).setdefault(entry["stage"], {}).setdefault("ante", {})
+    a = str(int(entry["ante"]))
+    if stage_fixes_players(entry["stage"]):
+        ante[a] = entry
+    else:
+        by = dict((ante.get(a) or {}).get("by_players") or {})
+        by[str(int(entry["players"]))] = entry
+        ante[a] = {"by_players": dict(sorted(by.items(), key=lambda kv: int(kv[0])))}
+    return idx
+
+
+def tournament_entries(index: dict | None):
+    """(env_id, stage, ante, players, entry) for every tournament policy in the index; players is None for a bubble slot."""
+    for env_id, stages in ((index or {}).get("tournament") or {}).items():
+        for stage, v in stages.items():
+            for ante, slot in (v.get("ante") or {}).items():
+                if "by_players" in slot:
+                    for n, e in slot["by_players"].items():
+                        yield env_id, stage, int(ante), int(n), e
+                else:
+                    yield env_id, stage, int(ante), None, slot
+
+
+def tournament_bytes(index: dict | None, skip: tuple | None = None) -> int:
+    """Sum of the `bytes` of the index's tournament policy files, except the slot `skip` (it is being replaced):
+    (env_id, stage, ante) for a bubble, (env_id, stage, ante, players) for a per-count stage."""
+    return sum(int(e.get("bytes", 0)) for env_id, stage, ante, n, e in tournament_entries(index)
+               if (env_id, stage, ante) + (() if n is None else (n,)) != skip)
 
 
 def write_index(path: Path, idx: dict) -> None:
@@ -112,7 +157,7 @@ def meta_from(model: dict, summary: dict | None, run: str, sha: str, strategy: s
     return {"tier": s.get("tier", tier), "players": model["n"], "k": model["k"], "depth": model["depth"],
             "iterations": model["iterations"], "run_id": str(run), "sha": sha or s.get("sha", ""),
             "lbr_bb": lbr, "lbr_stderr_bb": se, "field_worst": worst if strategy == "current" else None, "job": s.get("job", ""),
-            "strategy": strategy, **nut_k(model), **rules(model),
+            "strategy": strategy, **nut_k(model), **rules(model), **key_variant_of(model),
             **({"placeholder": True, "trained_on": trained_on(model)} if placeholder else {})}
 
 
@@ -151,7 +196,7 @@ def split_players(st: dict, players: int | None) -> int | None:
 def keep_players(policy: dict[str, list[float]], players: int) -> dict[str, list[float]]:
     from stalker.e3.mccfr import key_players
 
-    return {k: v for k, v in policy.items() if key_players(k) == players}
+    return {k: v for k, v in policy.items() if key_players(k) == players or k.startswith("call|")}
 
 
 def rules(model: dict) -> dict:
@@ -160,6 +205,13 @@ def rules(model: dict) -> dict:
     from stalker.e3 import game as G
 
     return {"menu": model.get("menu", "v1"), "raise_cap": model.get("raise_cap", G.RAISE_CAP)}
+
+
+def key_variant_of(model: dict) -> dict:
+    """The key layout the table was trained with (#604): tpgto.js builds c1 keys only when the meta says so,
+    so a c1 table read with legacy keys never silently misses. Tables before #398 carry none: no field."""
+    v = model.get("key_variant") or ""
+    return {"key_variant": v} if v else {}
 
 
 def nut_k(model: dict) -> dict:
@@ -175,7 +227,7 @@ def load_pod_result(path: Path) -> tuple[dict, dict]:
 
     from stalker.tools.pod_train import unpack_state
 
-    summary = json.loads(path.read_text(encoding="utf-8"))
+    summary = read_json(path)   # plain, gzipped, or a pod's gzipped resume.bin (#916)
     if not summary.get("checkpoint"):
         raise SystemExit(f"{path}: no checkpoint in this result ({summary.get('checkpoint_note', 'missing')})")
     return unpack_state(base64.b64decode(summary["checkpoint"]["b64"]), summary["model"]), summary

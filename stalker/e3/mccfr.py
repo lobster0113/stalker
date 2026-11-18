@@ -41,6 +41,25 @@ the counts is version 7; resuming a version 6 one counts from there on and says 
 A combined key (tp_key "c1", #400) also writes its `key_version`; `from_state` refuses a checkpoint of another
 version of the same variant, since its keys mean other things.
 
+What a finished hand is worth is an option (#883, ADR 0026 (b)). `payoff="chip"` (the default, every run before
+#883) is the traverser's chip change in BB. `payoff="icm"` is its prize-equity change,
+`stalker.e3.icm_payoff.tournament_payoff(hand, the hand's starting stacks, payouts, lam)`, in units of the whole
+prize pool (`payouts` normalized to sum 1): the hand's table is taken as the whole remaining tournament. A
+checkpoint of it is version 9. With the default nothing changes, so seeded chip runs do not move.
+
+Which tournament environment a hand is dealt in is an option (#886, #385). `ante=0, stage="c"` (the default,
+every run before #886) deals cash hands with no ante. `ante=<chips>` deals every hand with `game.deal(ante=...)`
+(the big blind posts it for the table, #878) and `stage` is the c1 key's tournament stage (`tp_key.STAGES`); the
+walk runs inside `tp_key.using_env(stage, ante > 0)`, so the keys carry `t<stage>1` (or `t<stage>0` without an
+ante). Only the c1 key has these slots. A checkpoint of it is version 10. The default takes the old code path.
+
+Which stacks a tournament hand is dealt with is an option (#898, ADR 0027 decisions 4-5). `stacks="bubble:<profile>"`
+(profile `even`, `random` or `skewed`) deals every hand with `sample_tournament_stacks(rng, stack_preset,
+stack_remaining, stack_level, profile)`: the survivors' chips of a mid-tournament state of that preset, in E3 BB
+units at that level's blind. `n` must equal `stack_remaining` and `player_mix` must be empty. A checkpoint of it is
+version 11 and holds the sampling setup; `from_state` refuses to resume it with another. `"uniform"` and
+`"sampled"` take the old code path, so their runs and checkpoints do not move.
+
     python -m stalker.e3.mccfr --tier beginner --iters 50 --seed 1
 """
 from __future__ import annotations
@@ -49,19 +68,26 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import sys
 import time
 from collections import defaultdict
 
 import numpy as np
 
+from stalker.core.icm import MAX_EXACT_PLAYERS
 from stalker.e3 import game as G
 from stalker.e3 import tp_key as K
+from stalker.e3.icm_payoff import tournament_payoff
+from stalker.e3.tournament_stacks import sample_tournament_stacks
+from stalker.tournament.start_state import STACK_PROFILES
 
 AVG_RULES = ("legacy", "own")
+BUBBLE_PREFIX = "bubble:"
 
 RANGES = ("current", "average")
 STACKS = ("uniform", "sampled")
+PAYOFFS = ("chip", "icm")
 # Iterations between average-strategy snapshots (#405). 2000 is one sync of the CI w4 jobs (4 x E3_SYNC_BATCH),
 # so the parallel trainer, which refreshes only at syncs, refreshes every batch there; a refresh normalizes
 # every average row once, small next to 2000 hands of tree walks.
@@ -72,14 +98,29 @@ class E3MCCFR:
     def __init__(self, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full", menu: str = "v1",
                  raise_cap: int | None = G.RAISE_CAP, ranges: str = "current", range_every: int = RANGE_EVERY,
                  avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform",
-                 player_mix: tuple[int, ...] = (), avg_cap: float | None = None):
+                 player_mix: tuple[int, ...] = (), avg_cap: float | None = None, payoff: str = "chip",
+                 payouts=None, lam: float = 0.0, ante: int = 0, stage: str = "c",
+                 stack_preset: str = "", stack_remaining: int = 0, stack_level: int = 0):
         if avg_cap is not None and (avg_rule != "own" or not avg_cap >= 1):
             raise ValueError(f"avg_cap={avg_cap!r}: needs avg_rule 'own' and a cap >= 1 (#448)")
         player_mix = tuple(int(x) for x in player_mix)
         if player_mix and not all(2 <= x <= 9 for x in player_mix):
             raise ValueError(f"player_mix counts must be 2..9, got {player_mix}")
-        if stacks not in STACKS:
-            raise ValueError(f"stacks must be one of {STACKS}, got {stacks!r}")
+        bubble = stacks.startswith(BUBBLE_PREFIX)
+        if not bubble and stacks not in STACKS:
+            raise ValueError(f"stacks must be one of {STACKS} or 'bubble:<profile>', got {stacks!r}")
+        if bubble:
+            if stacks[len(BUBBLE_PREFIX):] not in STACK_PROFILES:
+                raise ValueError(f"stacks {stacks!r}: the profile must be one of {STACK_PROFILES}")
+            if not stack_preset or stack_remaining < 1:
+                raise ValueError(f"stacks {stacks!r} needs stack_preset (a tournament preset) and stack_remaining "
+                                 "(survivors, = n)")
+            if player_mix or max(player_mix or (n,)) != stack_remaining:
+                raise ValueError(f"stacks {stacks!r}: n={n} must equal stack_remaining={stack_remaining} and "
+                                 "player_mix must be empty - every hand is the same survivors' table")
+        elif stack_preset or stack_remaining or stack_level:
+            raise ValueError("stack_preset / stack_remaining / stack_level only go with stacks='bubble:<profile>'")
+        self.stack_preset, self.stack_remaining, self.stack_level = stack_preset, stack_remaining, stack_level
         if key_variant not in K.VARIANTS:
             raise ValueError(f"key_variant must be one of {K.VARIANTS}, got {key_variant!r}")
         if ranges not in RANGES:
@@ -88,6 +129,10 @@ class E3MCCFR:
             raise ValueError(f"range_every must be >= 1, got {range_every}")
         if avg_rule not in AVG_RULES:
             raise ValueError(f"avg_rule must be one of {AVG_RULES}, got {avg_rule!r}")
+        self.ante, self.stage = check_env(ante, stage, key_variant)
+        self.payoff, self.payouts, self.lam = payoff, *check_payoff(payoff, payouts, lam, max(player_mix or (n,)))
+        self.hand_stacks: tuple[int, ...] = ()   # starting stacks of the hand being walked (read by payoff "icm")
+        self._icm_cache: dict[tuple[int, ...], np.ndarray] = {}
         self.avg_rule = avg_rule
         self.avg_cap = avg_cap   # #529: clips the 'own' weight 1/prod(other reach); None = unclipped (every earlier run)
         self.rng = np.random.default_rng(seed)
@@ -105,6 +150,8 @@ class E3MCCFR:
         self.mix_hands = dict.fromkeys(sorted(set(player_mix)), 0)   # #535: hands dealt per player count
         self.mix_visits = dict.fromkeys(self.mix_hands, 0)           # #535: traverser updates per player count
         self.counted_from = 0   # iteration the counts start at (a version 6 checkpoint resumed later has none before)
+        self.chain: list[dict] = []   # #712: earlier run segments of this table (from a resumed checkpoint)
+        self.seg_start = 0            # iteration this process started from
         self.trav_updates = 0   # traverser updates in this process; not saved, only read per hand by iterate
         # average mode: normalized average rows as of iteration `snap_at`; keys not in it use the current strategy
         self.snap: dict[str, np.ndarray] = {}
@@ -151,18 +198,43 @@ class E3MCCFR:
             self.refresh_snapshot()
             self.iterations += 1
             n = self.player_mix[int(self.rng.integers(len(self.player_mix)))] if self.player_mix else self.n
-            stacks = G.sample_stacks(self.rng, n) if self.stacks == "sampled" else None
-            s = G.deal(self.rng, n, self.menu, self.raise_cap, stacks)
+            if self.bubble_stacks():
+                stacks = sample_tournament_stacks(self.rng, self.stack_preset, self.stack_remaining, self.stack_level,
+                                                  self.stacks[len(BUBBLE_PREFIX):], min_chips=2 * G.BB)
+            else:
+                stacks = G.sample_stacks(self.rng, n) if self.stacks == "sampled" else None
+            if self.tournament_env():
+                s = G.deal(self.rng, n, self.menu, self.raise_cap, stacks, ante=self.ante)
+            else:   # the old call, so default runs take exactly the code path they always did
+                s = G.deal(self.rng, n, self.menu, self.raise_cap, stacks)
+            if self.payoff == "icm":   # `total` holds the big blind's ante too, so this is the stack before it
+                self.hand_stacks = tuple(s.stack[i] + s.total[i] for i in range(n))
+                self._icm_cache = {}
             t0 = self.trav_updates
-            for trav in range(n):
-                self._walk(s, K.initial_ranges(n), trav, [1.0] * n)
+            if self.tournament_env():
+                with K.using_env(self.stage, self.ante > 0):
+                    for trav in range(n):
+                        self._walk(s, K.initial_ranges(n), trav, [1.0] * n)
+            else:
+                for trav in range(n):
+                    self._walk(s, K.initial_ranges(n), trav, [1.0] * n)
             if self.player_mix:
                 self.mix_hands[n] += 1
                 self.mix_visits[n] += self.trav_updates - t0
 
+    def bubble_stacks(self) -> bool:
+        """Hands are dealt the survivors' tournament stacks (#898)."""
+        return self.stacks.startswith(BUBBLE_PREFIX)
+
+    def tournament_env(self) -> bool:
+        """A non-default ante or stage (#886): deals, keys and checkpoint (version 10) carry them."""
+        return self.ante > 0 or self.stage != "c"
+
     def _walk(self, s: G.State, ranges: list[np.ndarray], trav: int, reach: list[float]) -> float:
         # reach[m]: the sigma product of seat m's sampled actions above this node (read by avg_rule "own")
         if s.done:
+            if self.payoff == "icm":
+                return float(self._icm(s)[trav])
             return float(G.payoff(s)[trav]) / G.BB
         self.nodes += 1
         acts = G.legal(s)
@@ -197,6 +269,14 @@ class E3MCCFR:
         nxt[p] *= float(sigma[i])
         return self._walk(*child(i), trav, nxt)
 
+    def _icm(self, s: G.State) -> np.ndarray:
+        # Many leaves of one hand end with the same chip change (folds especially); exact ICM is the costly part.
+        delta = tuple(int(x) for x in G.payoff(s))
+        v = self._icm_cache.get(delta)
+        if v is None:
+            v = self._icm_cache[delta] = tournament_payoff(s, self.hand_stacks, self.payouts, self.lam)
+        return v
+
     def state(self) -> dict:
         """Everything `iterate` reads, as JSON data; `from_state` continues bit for bit (#301), so a run
         longer than one CI job (300 min) is chained from checkpoints."""
@@ -229,9 +309,43 @@ class E3MCCFR:
                       key_variant=self.key_variant, ranges=self.ranges, range_every=self.range_every,
                       snap_at=self.snap_at, snap={k: v.tolist() for k, v in self.snap.items()},
                       **(self._count_state() if self.player_mix else {}))
+        if self.payoff != "chip":   # version 9 (#883): code that predates it would resume this on chip rewards
+            st.update(version=9, payoff=self.payoff, payouts=list(self.payouts), lam=self.lam,
+                      player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
+                      ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
+                      snap={k: v.tolist() for k, v in self.snap.items()},
+                      **({"avg_cap": self.avg_cap} if self.avg_cap is not None else {}),
+                      **(self._count_state() if self.player_mix else {}))
+        if self.tournament_env() or self.bubble_stacks():
+            # version 10 (#886): code that predates it would resume this on cash deals;
+            # version 11 (#898) adds the tournament stack sampling, which version 10 code would resume on 100BB tables
+            st.update(version=11 if self.bubble_stacks() else 10, ante=self.ante, stage=self.stage,
+                      **({"payoff": self.payoff, "payouts": list(self.payouts), "lam": self.lam}
+                         if self.payoff != "chip" else {}),
+                      player_mix=list(self.player_mix), stacks=self.stacks, key_variant=self.key_variant,
+                      ranges=self.ranges, range_every=self.range_every, snap_at=self.snap_at,
+                      snap={k: v.tolist() for k, v in self.snap.items()},
+                      **({"avg_cap": self.avg_cap} if self.avg_cap is not None else {}),
+                      **(self._count_state() if self.player_mix else {}))
+            if self.bubble_stacks():
+                st.update(stack_preset=self.stack_preset, stack_remaining=self.stack_remaining,
+                          stack_level=self.stack_level)
         if self.key_variant in K.KEY_VERSIONS:   # #400: a combined key's checkpoint names the key version it holds
             st["key_version"] = K.KEY_VERSIONS[self.key_variant]
+        st["chain"] = self.resume_chain()   # #712: additive, so the version stays (older code ignores it)
         return st
+
+    def rng_sha256(self) -> str:
+        return hashlib.sha256(json.dumps(self.rng.bit_generator.state, sort_keys=True).encode()).hexdigest()
+
+    def resume_chain(self) -> list[dict]:
+        """#712: the runs this table went through, the current one last. Each entry's `rng_sha256` is the RNG state
+        it ended with; `from_state` checks the next run starts from exactly that."""
+        if self.chain and self.iterations == self.seg_start:   # nothing trained since the load: no new segment
+            return [dict(c) for c in self.chain]
+        return [*(dict(c) for c in self.chain),
+                {"run_id": os.environ.get("GITHUB_RUN_ID") or None, "from_iters": self.seg_start,
+                 "to_iters": self.iterations, "rng_sha256": self.rng_sha256()}]
 
     def _count_state(self) -> dict:
         """The #535 counters as checkpoint data (version 7; also the pod summary's `model` block)."""
@@ -267,17 +381,42 @@ class E3MCCFR:
 
     @classmethod
     def from_state(cls, st: dict, avg_rule: str | None = None,
-                   player_mix: tuple[int, ...] | None = None, avg_cap: float | None = None) -> "E3MCCFR":
-        """`avg_rule` / `player_mix`, if given, are what the caller means to continue with; a checkpoint of
-        another is refused."""
-        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7, 8):
-            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 8")
+                   player_mix: tuple[int, ...] | None = None, avg_cap: float | None = None,
+                   payoff: str | None = None, ante: int | None = None, stage: str | None = None,
+                   stack_sample: tuple[str, int, int] | None = None) -> "E3MCCFR":
+        """`avg_rule` / `player_mix` / `payoff` / `ante` / `stage`, if given, are what the caller means to continue
+        with; a checkpoint of another is refused. Checkpoints before version 9 hold no payoff and are chip runs,
+        before version 10 no ante or stage and are cash runs (ante 0, stage "c")."""
+        if stack_sample is not None and stack_sample != (st.get("stack_preset", ""), st.get("stack_remaining", 0),
+                                                         st.get("stack_level", 0)):
+            raise ValueError(f"checkpoint was dealt stacks of {(st.get('stack_preset', ''), st.get('stack_remaining', 0), st.get('stack_level', 0))}, "
+                             f"not {stack_sample} (#898); resume it with its own (preset, remaining, level) or start a fresh run")
+        if st.get("version") not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+            raise ValueError(f"checkpoint version {st.get('version')!r}; this code reads versions 1 to 11")
+        v10 = st["version"] in (10, 11)
+        env = (st.get("ante", 0), st.get("stage", "c"))
+        if env != (0, "c") and not v10 or st["version"] == 10 and env == (0, "c"):
+            raise ValueError(f"checkpoint version {st['version']} with ante/stage {env}: a tournament-environment "
+                             "checkpoint is version 10 and only that one has an ante or stage (#886)")
+        for name, want, have in (("ante", ante, env[0]), ("stage", stage, env[1])):
+            if want is not None and want != have:
+                raise ValueError(f"checkpoint was trained with {name} {have!r}, not {want!r} (#886); the regrets of "
+                                 "two environments must not mix - resume it with its own ante/stage or start a "
+                                 "fresh run")
+        pay = st.get("payoff", "chip")
+        if not v10 and (pay != "chip") != (st["version"] == 9):
+            raise ValueError(f"checkpoint version {st['version']} with payoff {pay!r}: a non-chip payoff checkpoint "
+                             "is version 9 (or 10) and only those have a payoff (#883)")
+        if payoff is not None and payoff != pay:
+            raise ValueError(f"checkpoint was trained on payoff {pay!r}, not {payoff!r} (#883); the regrets of two "
+                             "rewards must not mix - resume it with its own payoff or start a fresh run")
         cap = st.get("avg_cap")
-        if (cap is not None) != (st["version"] == 8) or (avg_cap is not None and avg_cap != cap):
+        if (st["version"] == 8 and cap is None) or (cap is not None and st["version"] not in (8, 9, 10, 11)) \
+                or (avg_cap is not None and avg_cap != cap):
             raise ValueError(f"checkpoint version {st['version']} holds avg_cap {cap!r}, asked {avg_cap!r} (#529); "
                              "the weights must not mix in one average - resume it with its own cap or start a fresh run")
         mix = tuple(st.get("player_mix", ()))
-        if st["version"] != 8 and bool(mix) != (st["version"] in (6, 7)):
+        if st["version"] not in (8, 9, 10, 11) and bool(mix) != (st["version"] in (6, 7)):
             raise ValueError(f"checkpoint version {st['version']} with player_mix {list(mix)}: a mixed-player "
                              "checkpoint is version 6 or 7 and only those have a player_mix")
         if player_mix is not None and tuple(player_mix) != mix:
@@ -300,9 +439,17 @@ class E3MCCFR:
                              f"{K.KEY_VERSIONS[kv]} (#400) - its keys mean other things, start a fresh run")
         m = cls(0, st["k"], st["n"], st["depth"], st.get("menu", "v1"), st.get("raise_cap", G.RAISE_CAP),
                 st.get("ranges", "current"), st.get("range_every", RANGE_EVERY), rule, st.get("key_variant", ""),
-                st.get("stacks", "uniform"), mix, cap)
+                st.get("stacks", "uniform"), mix, cap, pay, st.get("payouts"), st.get("lam", 0.0), *env,
+                st.get("stack_preset", ""), st.get("stack_remaining", 0), st.get("stack_level", 0))
+        if pay != "chip":   # saved payouts are already normalized; normalizing again can move the last bit (#883)
+            m.payouts = tuple(float(x) for x in st["payouts"])
         m.rng.bit_generator.state = st["rng"]
         m.iterations, m.nodes = st["iterations"], st["nodes"]
+        m.chain, m.seg_start = [dict(c) for c in st.get("chain", [])], m.iterations   # old checkpoints: no chain
+        if m.chain and m.chain[-1].get("rng_sha256") not in (None, m.rng_sha256()):
+            raise ValueError("checkpoint RNG state does not match the hash its last run saved (#712): the file was "
+                             "edited or mixed with another run's - resume the checkpoint as that run wrote it, "
+                             "or start a fresh run")
         m.regret = {k: np.array(v, dtype=float) for k, v in st["regret"].items()}
         m.avg.update({k: np.array(v, dtype=float) for k, v in st["avg"].items()})
         m.visits.update(st["visits"])
@@ -359,6 +506,72 @@ def coverage(m: E3MCCFR, by: int = -2) -> dict[str, dict[str, float]]:
     return out
 
 
+def visit_quantiles(m: E3MCCFR, keys=None) -> dict:
+    """#711: how filled the table is, from the per-key traverser update counts (p10..p90, `lower` so values stay
+    integers). `keys` limits it to a subset (e.g. one player count); no visits gives only {"keys": 0}."""
+    import numpy as np
+    v = [x for k, x in m.visits.items() if keys is None or k in keys]
+    if not v:
+        return {"keys": 0}
+    a = np.asarray(v)
+    out = {f"p{q}": int(np.quantile(a, q / 100, method="lower")) for q in (10, 25, 50, 75, 90)}
+    return {"keys": len(v), "under10": int((a < 10).sum()), **out}
+
+
+def check_payoff(payoff: str, payouts, lam, max_players: int) -> tuple[tuple[float, ...], float]:
+    """Validated (payouts normalized to sum 1, lam) for `E3MCCFR`; chip runs get ((), 0.0). `payouts` is a
+    stalker/tournament/presets name or a list of prizes by finishing place."""
+    if payoff not in PAYOFFS:
+        raise ValueError(f"payoff must be one of {PAYOFFS}, got {payoff!r}")
+    if payoff == "chip":
+        if payouts is not None or lam:
+            raise ValueError(f"payouts={payouts!r} / lam={lam!r} are only read by payoff 'icm' (#883); "
+                             "drop them or pass payoff='icm'")
+        return (), 0.0
+    if payouts is None:
+        raise ValueError("payoff 'icm' needs payouts: a preset name (e.g. '6max_sng_wta') or prizes by place, "
+                         "e.g. [0.65, 0.35]")
+    if isinstance(payouts, str):
+        from stalker.tournament.config import ConfigError, load_preset
+        try:
+            payouts = load_preset(payouts).payout_ratios()
+        except ConfigError as e:
+            raise ValueError(f"payouts {payouts!r}: {e}") from None
+    try:
+        p = [float(x) for x in payouts]
+    except (TypeError, ValueError):
+        raise ValueError(f"payouts {payouts!r}: need a preset name or a list of numbers by place") from None
+    if not p or not all(math.isfinite(x) and x >= 0 for x in p) or sum(p) <= 0 \
+            or any(a < b for a, b in zip(p, p[1:])):
+        raise ValueError(f"payouts {payouts!r}: need non-negative, non-increasing prizes by place with a "
+                         "positive total, e.g. [0.5, 0.3, 0.2]")
+    try:
+        lam = float(lam)
+    except (TypeError, ValueError):
+        raise ValueError(f"lam {lam!r}: need a number in [0, 1] (ADR 0026)") from None
+    if not 0.0 <= lam <= 1.0:
+        raise ValueError(f"lam {lam!r}: need a number in [0, 1] (ADR 0026), 0 = pure ICM")
+    if max_players > MAX_EXACT_PLAYERS:
+        raise ValueError(f"{max_players} players exceed the exact ICM limit {MAX_EXACT_PLAYERS}: payoff 'icm' is "
+                         "for one final table; use payoff 'chip' or fewer players")
+    total = math.fsum(p)
+    return tuple(x / total for x in p), lam
+
+
+def check_env(ante, stage: str, key_variant: str) -> tuple[int, str]:
+    """Validated (ante, stage) for `E3MCCFR` (#886). Only the c1 key has the environment slots (`t<stage><ante>`)."""
+    if isinstance(ante, bool) or not isinstance(ante, (int, np.integer)):
+        raise ValueError(f"ante {ante!r}: chips as an int, e.g. ante={G.BB} for a BB ante (0 = no ante)")
+    if ante < 0:
+        raise ValueError(f"ante {ante}: must not be negative; use 0 for no ante or e.g. {G.BB} for a BB ante")
+    if stage not in K.STAGES:
+        raise ValueError(f"stage {stage!r}: must be one of {K.STAGES} (tp_key.STAGES; 'c' = cash)")
+    if (ante > 0 or stage != "c") and key_variant != "c1":
+        raise ValueError(f"ante {ante} / stage {stage!r} need key_variant 'c1' (got {key_variant!r}): only the c1 "
+                         "key has the t<stage><ante> slots; pass key_variant='c1' or keep ante=0, stage='c'")
+    return int(ante), stage
+
+
 def parse_mix(text: str) -> tuple[int, ...]:
     """"2,3,4,5,6" -> (2, 3, 4, 5, 6); "" -> () (every hand n-handed)."""
     try:
@@ -368,6 +581,14 @@ def parse_mix(text: str) -> tuple[int, ...]:
     if not all(2 <= x <= 9 for x in mix):
         raise argparse.ArgumentTypeError(f"player mix {text!r}: counts must be 2..9")
     return mix
+
+
+def parse_payouts(text: str):
+    """"0.65,0.35" -> [0.65, 0.35]; anything else is a preset name (checked by `check_payoff`)."""
+    try:
+        return [float(x) for x in text.split(",") if x.strip()]
+    except ValueError:
+        return text
 
 
 def main(argv=None) -> int:
@@ -385,10 +606,16 @@ def main(argv=None) -> int:
     ap.add_argument("--range-every", type=int, default=RANGE_EVERY, help="iterations between average snapshots")
     ap.add_argument("--avg-rule", choices=AVG_RULES, default="legacy")
     ap.add_argument("--player-mix", type=parse_mix, default=(), help="per-hand player counts, e.g. 2,3,4,5,6 (#486)")
+    ap.add_argument("--payoff", choices=PAYOFFS, default="chip", help="icm: prize-equity change reward (#883)")
+    ap.add_argument("--payouts", type=parse_payouts, default=None,
+                    help="payoff icm: preset name (stalker/tournament/presets) or prizes by place, e.g. 0.65,0.35")
+    ap.add_argument("--lam", type=float, default=0.0, help="payoff icm: bubble correction (ADR 0026), 0 = pure ICM")
+    ap.add_argument("--ante", type=int, default=0, help=f"BB ante in chips (#886, c1 key), e.g. {G.BB}; 0 = none")
+    ap.add_argument("--stage", choices=K.STAGES, default="c", help="c1 key tournament stage (#886); c = cash")
     a = ap.parse_args(argv)
     m = E3MCCFR(a.seed, K.TIER_K[a.tier], a.players, K.TIER_DEPTH[a.tier], a.menu,
                 None if a.no_raise_cap else G.RAISE_CAP, a.ranges, a.range_every, a.avg_rule, a.key_variant,
-                a.stacks, a.player_mix)
+                a.stacks, a.player_mix, payoff=a.payoff, payouts=a.payouts, lam=a.lam, ante=a.ante, stage=a.stage)
     t0 = time.monotonic()
     m.iterate(a.iters)
     dt = time.monotonic() - t0
@@ -396,6 +623,7 @@ def main(argv=None) -> int:
                       "iters_per_s": round(a.iters / dt, 3), "nodes_per_iter": round(m.nodes / a.iters, 1),
                       "keys": len(m.regret), "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges,
                       "key_variant": m.key_variant, "stacks": m.stacks, "player_mix": list(m.player_mix),
+                      "payoff": m.payoff, "payouts": list(m.payouts), "lam": m.lam, "ante": m.ante, "stage": m.stage,
                       # the bound counts the v1 legal-action sets only
                       "theoretical_keys": K.theoretical_keys(a.players, m.k, m.depth, m.key_variant) if m.menu == "v1" else None}))
     return 0

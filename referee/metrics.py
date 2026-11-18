@@ -3,6 +3,20 @@
 Only CI runs this for the record. Product metrics register here through referee-change PRs as
 their evaluators come online. The retired Gate A/B and sufficiency keys (ADR 0008) were dropped
 in #101; their last values stay in history.jsonl.
+
+`e3_web_lbr` (#683) copies the newest `stalker.web.policy-lbr` cloud result (ADR 0020 per-player LBR,
+limit, pass; backoff on/off) from `ops:cloud/results/<run id>.json` so the service-policy strength axis
+has a history; it is `null` when ops or such a result is missing. `fresh` (#690) is true only when every
+measured player count's page policy (`web/app/policy/mid-<n>.json` `run_id`) is the measured `policy_run`.
+Its `v3` / `all_pass_v3` (#797) judge the result's service cells with the ADR 0025 table (`aivat_lbr_bb`).
+`gate_t_pass_rate` / `gate_t_checks` (#902, ADR 0028 decision 1) record Gate T T1~T4 over the REGISTRY.
+`sim_hands_per_sec` (#903, ADR 0028 decision 2) is report-only: runner speed varies too much to gate on it,
+so no gate reads it; it exists for the 4-week slope.
+`tournament_primary_ci_low` / `tournament_primary_mean` / `tournament_pairs` / `tournament_verdict`
+(#976, ADR 0030 decision 4 follow-up 2, docs/decisions/0030-tournament-eval-thresholds.md) judge the
+`tournament_ab` results in `ops:cloud/results/` with the #975 non-inferiority judge: the newest result's
+evaluation setup, newest run per trained pair. Record-only (never fails the snapshot); no result or a judge
+error gives None values and a `tournament_error` note. `tournament_runs` names the judged runs.
 """
 from __future__ import annotations
 
@@ -20,15 +34,19 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_counts(junit: str | None = None) -> dict:
-    """Counts from the gates (tests) job's JUnit report when CI hands one over (METRICS_JUNIT, #312):
+    """Counts from the gates (tests) job's JUnit report when CI hands one over (METRICS_JUNIT, #312; a directory sums every shard's junit*.xml, #949):
     the suite already ran on this sha, and rerunning it serially took most of the 30-minute budget.
     Without a report it runs the suite with the same workers as `gates full`."""
     junit = junit or os.environ.get("METRICS_JUNIT")
     if junit:
-        if not Path(junit).is_file():
-            raise SystemExit(f"METRICS_JUNIT={junit} not found; check the junit artifact step of gates (tests)")
-        root = ET.parse(junit).getroot()
-        suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+        path = Path(junit)
+        files = sorted(path.glob("junit*.xml")) if path.is_dir() else [path] if path.is_file() else []
+        if not files:
+            raise SystemExit(f"METRICS_JUNIT={junit} not found; check the junit artifact steps of gates (tests-1, tests-2)")
+        suites = []
+        for f in files:
+            root = ET.parse(f).getroot()
+            suites += [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
         n = {k: sum(int(s.get(k, 0)) for s in suites) for k in ("tests", "failures", "errors", "skipped")}
         return {"tests_passed": n["tests"] - n["failures"] - n["errors"] - n["skipped"],
                 "tests_failed": n["failures"] + n["errors"]}
@@ -58,6 +76,40 @@ def gate_r() -> dict:
     return {"gate_r_pass_rate": round(tally.pass_rate, 6), "gate_r_checks": tally.total,
             "gate_r_cash_pass_rate": round(cash.pass_rate, 6), "gate_r_cash_checks": cash.total,
             "gate_r_e3_pass_rate": round(e3.pass_rate, 6), "gate_r_e3_checks": e3.total}
+
+
+def gate_t(results=None) -> dict:
+    """Gate T (#902, ADR 0028): T1~T4 over every registered policy, through the same `run_checks()` as
+    `python -m referee.gate_t`. A failure gives an error note and None values, not a failed snapshot.
+    `results` lets tests inject rows; CI leaves it None and runs the real gate."""
+    try:
+        if results is None:
+            from referee.gate_t import run_checks
+
+            results = run_checks()
+        passed = sum(int(r[2]) for r in results)
+        total = sum(int(r[3]) for r in results)
+        return {"gate_t_pass_rate": round(passed / total, 6) if total else 0.0, "gate_t_checks": total}
+    except Exception as e:  # noqa: BLE001 - one broken part must not drop the whole history row
+        return {"gate_t_pass_rate": None, "gate_t_checks": None, "gate_t_error": f"{type(e).__name__}: {e}"[:300]}
+
+
+# Fixed throughput run (#903): 9 players, seed 0, FastHand (the engine training uses). Changing it breaks the trend.
+SIM_BENCH_PLAYERS = 9
+SIM_BENCH_SECONDS = 10.0
+
+
+def sim_throughput(seconds: float = SIM_BENCH_SECONDS, bench=None) -> dict:
+    """Hands/s of `stalker.tools.bench_engine.bench("fast", ...)`. Report-only, never a gate input: CI
+    runner speed differs run to run. A failure gives an error note and None, not a failed snapshot.
+    `bench` lets tests inject a failing benchmark."""
+    try:
+        if bench is None:
+            from stalker.tools.bench_engine import bench
+        row = bench("fast", SIM_BENCH_PLAYERS, min(float(seconds), 60.0), seed=0)
+        return {"sim_hands_per_sec": float(row["hands_per_s"])}
+    except Exception as e:  # noqa: BLE001 - one broken part must not drop the whole history row
+        return {"sim_hands_per_sec": None, "sim_hands_per_sec_error": f"{type(e).__name__}: {e}"[:300]}
 
 
 def gate_l(report=None) -> dict:
@@ -150,11 +202,174 @@ def gate_f_e1() -> dict:
     return out
 
 
+WEB_LBR_SCHEMA = "stalker.web.policy-lbr"
+WEB_POLICY_DIR = Path("web") / "app" / "policy"
+_RESULT_PATH = re.compile(r"^cloud/results/(\d+)\.json$")
+
+
+def _git(repo: Path, *args: str, timeout: float = 60) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, encoding="utf-8", timeout=timeout)
+
+
+def _page_run(repo: Path, players: str):
+    """`run_id` of the page policy the service serves for this player count (file read only)."""
+    try:
+        doc = json.loads((repo / WEB_POLICY_DIR / f"mid-{players}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return doc.get("run_id") if isinstance(doc, dict) else None
+
+
+def _web_lbr_v3(doc: dict):
+    """ADR 0025 v3 verdicts (service cells, current LBR) of a web result, and their roll-up.
+    Results without the AIVAT column (schema 1) give an error note and None, never a failed snapshot."""
+    from referee.e3 import thresholds as th
+    path, pinned = th.TABLES["v3"]
+    try:
+        judged = th.judge(th.from_web_result(doc), th.load_thresholds(path, pinned))
+    except (th.ThresholdError, KeyError, TypeError, ValueError) as e:
+        return {"error": str(e)}, None
+    v3 = {n: {k: (round(r[k], 3) if k == "mean" and r[k] is not None else r[k])
+              for k in ("verdict", "mean", "limit", "seeds")} for n, kinds in judged.items()
+          for r in [kinds["lbr"]]}
+    verdicts = [r["verdict"] for r in v3.values()]
+    all_pass = True if verdicts and all(v == "pass" for v in verdicts) else (False if "fail" in verdicts else None)
+    return v3, all_pass
+
+
+def e3_web_lbr(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:
+    """Newest service-policy LBR result from ops, copied as is (no recomputation).
+
+    The CI snapshot step runs before any ops worktree exists, so the files are read with `git show`.
+    A failed fetch falls back to whatever `ref` already holds; no ref or no result gives `None`.
+    `fresh` says whether the measured policy is still the one the pages serve: an old LBR must not
+    read as the current service's trend once a page is re-exported (#690)."""
+    try:
+        if fetch:
+            _git(repo, "fetch", "-q", "origin", "ops")
+        ls = _git(repo, "ls-tree", "--name-only", f"{ref}:cloud/results")
+        if ls.returncode != 0:
+            return {"e3_web_lbr": None}
+        runs = sorted((int(m.group(1)) for n in ls.stdout.split()
+                       if (m := _RESULT_PATH.match(f"cloud/results/{n}"))), reverse=True)
+        for run in runs:
+            shown = _git(repo, "show", f"{ref}:cloud/results/{run}.json")
+            try:
+                doc = json.loads(shown.stdout) if shown.returncode == 0 else None
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(doc, dict) or doc.get("schema") != WEB_LBR_SCHEMA:
+                continue
+            by_players: dict = {}
+            measured_run: dict = {}
+            for mode, cells in sorted(doc.get("backoff", {}).items()):
+                for n, cell in cells.items():
+                    by_players.setdefault(str(n), {})[mode] = {
+                        k: cell.get(k) for k in ("lbr_bb", "lbr_stderr_bb", "limit", "pass")}
+                    by_players[str(n)][mode].update({k: cell[k] for k in ("aivat_lbr_bb", "aivat_stderr_bb") if k in cell})
+                    if cell.get("policy_run") is not None:  # --from-pages results name the run each page file had (#695)
+                        measured_run[str(n)] = cell["policy_run"]
+            on = [m["on"]["pass"] for m in by_players.values() if "on" in m]
+            policy_run = doc.get("policy_run")
+            for n, m in by_players.items():
+                m["page_run"] = _page_run(repo, n)
+            def _want(n):  # per-player measured run when the result has it, else the one top-level run
+                return measured_run.get(n, policy_run) if measured_run else policy_run
+            fresh = bool(by_players) and all(
+                _want(n) is not None and m["page_run"] is not None and str(m["page_run"]) == str(_want(n))
+                for n, m in by_players.items())
+            v3, all_pass_v3 = _web_lbr_v3(doc)
+            return {"e3_web_lbr": {"run": run, "policy_run": policy_run,
+                                   "by_players": dict(sorted(by_players.items(), key=lambda kv: int(kv[0]))),
+                                   "all_pass_on": bool(on) and all(p is True for p in on), "fresh": fresh,
+                                   "v3": v3, "all_pass_v3": all_pass_v3}}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return {"e3_web_lbr": None}
+
+
+TOURNAMENT_KEYS = ("tournament_primary_ci_low", "tournament_primary_mean", "tournament_pairs", "tournament_verdict")
+
+
+def _is_tournament_ab(doc) -> bool:
+    """`tournament_ab` output has no `schema` field; it is recognised by its `primary` metric and A/B agents."""
+    if not isinstance(doc, dict) or "schema" in doc:
+        return False
+    primary, agents = doc.get("primary"), doc.get("agents")
+    return (isinstance(primary, dict) and str(primary.get("metric", "")).startswith("learner sim prize - ICM equity")
+            and isinstance(agents, dict) and {"A", "B"} <= set(agents))
+
+
+def tournament_judge(docs: dict, judge=None) -> dict:
+    """ADR 0030 verdict over `{run id: tournament_ab result}`: the newest run fixes the evaluation setup,
+    each trained pair (A, B sha256) counts once with its newest run. `judge` lets tests inject a failing judge."""
+    from referee.e3 import tournament_thresholds as tt
+
+    out = dict.fromkeys(TOURNAMENT_KEYS)
+    out["tournament_runs"] = None
+    try:
+        judge = judge or tt.judge
+        runs = sorted((r for r, d in docs.items() if _is_tournament_ab(d)), reverse=True)
+        if not runs:
+            return {**out, "tournament_error": "no tournament_ab result in ops:cloud/results"}
+        setup = lambda d: json.dumps({k: (d.get("args") or {}).get(k) for k in tt.CONFIG_KEYS}, sort_keys=True)
+        want = setup(docs[runs[0]])
+        picked: dict = {}
+        for r in runs:
+            d = docs[r]
+            if setup(d) != want:
+                continue
+            pair = tuple((d["agents"].get(n) or {}).get("sha256") for n in ("A", "B"))
+            picked.setdefault(pair, r)  # runs are newest first
+        chosen = sorted(picked.values())
+        res = judge([docs[r] for r in chosen])
+        out.update({"tournament_primary_ci_low": round(float(res["ci_low"]), 7),
+                    "tournament_primary_mean": round(float(res["mean"]), 7),
+                    "tournament_pairs": int(res["pairs"]), "tournament_verdict": res["verdict"],
+                    "tournament_runs": chosen})
+        return out
+    except Exception as e:  # noqa: BLE001 - one broken part must not drop the whole history row
+        return {**dict.fromkeys(TOURNAMENT_KEYS), "tournament_runs": None,
+                "tournament_error": f"{type(e).__name__}: {e}"[:300]}
+
+
+def tournament_ab(repo: Path = ROOT, ref: str = "origin/ops", fetch: bool = True) -> dict:
+    """`tournament_judge` over every `cloud/results/<run id>.json` on ops, read with `git show` like `e3_web_lbr`."""
+    docs: dict = {}
+    try:
+        if fetch:
+            _git(repo, "fetch", "-q", "origin", "ops")
+        ls = _git(repo, "ls-tree", "--name-only", f"{ref}:cloud/results")
+        if ls.returncode != 0:
+            return {**dict.fromkeys(TOURNAMENT_KEYS), "tournament_runs": None,
+                    "tournament_error": f"no {ref}:cloud/results"}
+        for n in ls.stdout.split():
+            if not (m := _RESULT_PATH.match(f"cloud/results/{n}")):
+                continue
+            shown = _git(repo, "show", f"{ref}:cloud/results/{n}")
+            try:
+                docs[int(m.group(1))] = json.loads(shown.stdout) if shown.returncode == 0 else None
+            except json.JSONDecodeError:
+                continue
+    except (OSError, subprocess.SubprocessError) as e:
+        return {**dict.fromkeys(TOURNAMENT_KEYS), "tournament_runs": None,
+                "tournament_error": f"{type(e).__name__}: {e}"[:300]}
+    return tournament_judge(docs)
+
+
+def tournament_trend(rows) -> list[dict]:
+    """History rows that carry a tournament verdict, oldest first. Rows from before #976 (no keys) and rows
+    whose judge had no result (`tournament_verdict` None) are skipped, so mixed history reads cleanly."""
+    return [{"sha": r.get("sha"), "ts": r.get("ts"), **{k: r.get(k) for k in TOURNAMENT_KEYS}}
+            for r in rows if isinstance(r, dict) and r.get("tournament_verdict") is not None]
+
+
 def snapshot() -> dict:
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     snap = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "sha": sha,
             "source": os.environ.get("METRICS_SOURCE", "local")}
-    for part in (test_counts, code_size, gate_r, gate_l, gate_s_e1, e0, e1, gate_f_e1):
+    for part in (test_counts, code_size, sim_throughput, gate_r, gate_t, gate_l, gate_s_e1, e0, e1, gate_f_e1, e3_web_lbr,
+                 tournament_ab):
         t0 = time.monotonic()
         snap.update(part())
         print(f"metrics: {part.__name__} {time.monotonic() - t0:.0f}s", file=sys.stderr, flush=True)

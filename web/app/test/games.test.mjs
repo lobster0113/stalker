@@ -38,6 +38,18 @@ test("verdict thresholds and leak cells", () => {
   assert.equal(G.verdict(null), null);
 });
 
+test("a decision answered by a coarse-key average (#623) is shown as approximate and not graded", () => {
+  for (const near of ["L1", "L2", "L3", "L4"]) {
+    const v = G.verdict({ p: 0.02, near });
+    assert.equal(v.key, "skip");
+    assert.equal(v.text, "근사 · 채점 안 함");
+  }
+  const r = G.reasons({ name: "콜", p: 0.3, near: "L1" }, act({ type: "call" }));
+  assert.match(r[0].text, /비슷한 상황 평균\(근사\)/);
+  assert.match(r[0].text, /채점하지 않아요/);
+  assert.equal(G.verdict({ p: 0.02 }).text, "실수", "exact rows keep their verdict");
+});
+
 test("reasons come from the numbers: a bet that folds out the weaker hands is called out", () => {
   const an = { name: "벳 75%", p: 0.4, top: "체크", topP: 0.5, beats: 0.9, reply: { canFold: true, weakFold: 0.78, strongFold: 0.05, strongOfContinuing: 0.85, fold: 0.74 } };
   const r = G.reasons(an, act({ type: "raise" }));
@@ -58,4 +70,20 @@ test("reasons: a fold of a hand with enough equity, and mock tables say what is 
 test("handStats counts hero decisions and compared ones", () => {
   const h = hand(1, [act({ an: { p: 0.3 } }), act({ hero: false }), act()]);
   assert.deepEqual(G.handStats(h), { decisions: 2, compared: 1 });
+});
+
+test("schema v2 (#968): a v1 record loads unchanged, a tournament hand keeps its stage and serving policy", () => {
+  const v1 = { schema: "stalker.games", schema_version: 1, games: [{ id: "g1", ts: 1, hands: [hand(1)] }] };
+  assert.deepEqual(G.loadGames(JSON.stringify(v1)), v1.games, "v1 is read as is");
+  assert.equal(G.loadGames({ ...v1, schema_version: 3 }).length, 0, "an unknown future version is not guessed at");
+  const tour = { env: "6max_sng_topheavy", stage: "e", ante: 1, policy: { file: "t-6max_sng_topheavy-e1.json", stage: "e", ante: 1, run_id: "r", iterations: 400, lbr_bb: null, lbr_stderr_bb: null } };
+  const raw = G.serialize(G.addHand([], { id: "g2", ts: 2, mode: "토너먼트" }, { ...hand(1), tour }));
+  assert.equal(JSON.parse(raw).schema_version, 2);
+  assert.deepEqual(G.loadGames(raw)[0].hands[0].tour, tour);
+});
+
+test("reasons: an untrained tournament stage names its own note (no policy name)", () => {
+  const t = G.reasons(null, act(), { noModel: "이 판은 학습 정책이 없는 단계(버블)라 규칙 봇이 상대였어요." });
+  assert.equal(t.length, 1);
+  assert.doesNotMatch(t[0].text, /TP-GTO/);
 });

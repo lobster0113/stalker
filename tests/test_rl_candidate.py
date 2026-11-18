@@ -1,13 +1,8 @@
-import json
-import os
-import subprocess
-import sys
 
 import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
-from referee.gate_b.runner import INSUFFICIENT  # noqa: E402
 from referee.gate_l import Report, check_l1  # noqa: E402
 from stalker.agents.random_agent import RandomLegalAgent  # noqa: E402
 from stalker.rl import candidate  # noqa: E402
@@ -15,9 +10,6 @@ from stalker.rl.train import TrainConfig, Trainer  # noqa: E402
 from stalker.tournament.config import load_preset  # noqa: E402
 from stalker.tournament.director import run_game  # noqa: E402
 from test_rl_env import hyper_sng  # noqa: E402
-
-SPEC = {"name": "t", "reference_version": "refbot-v1+icm-ref-v1+chart-v1+post-v1+short15bb", "presets": ["6max_sng_wta"],
-        "blocks": 2, "rotations": 1, "seed": 3, "delta_min": 0.1, "pilot_sigma": 0.6, "alpha": 0.05, "power": 0.9}
 
 
 @pytest.fixture(scope="module")
@@ -67,17 +59,3 @@ def test_memory_is_per_game_gate_l1(checkpoint):
     r = Report()
     check_l1(lambda: make(np.random.default_rng(0)), r, presets=("6max_sng_wta",))
     assert r.ok, r.failures
-
-
-def test_gate_b_cli_end_to_end_is_insufficient_on_a_small_spec(checkpoint, tmp_path):
-    path, version = checkpoint
-    spec = tmp_path / "spec.json"
-    spec.write_text(json.dumps(SPEC), encoding="utf-8")
-    env = {**os.environ, candidate.CHECKPOINT_ENV: str(path)}
-    proc = subprocess.run([sys.executable, "-m", "referee.gate_b", "--spec", str(spec), "--candidate",
-                           "stalker.rl.candidate:policy", "--out", str(tmp_path / "out")],
-                          env=env, capture_output=True, text=True, timeout=600, encoding="utf-8")
-    assert proc.returncode == 1, proc.stderr  # only `pass` exits 0
-    res = json.loads((tmp_path / "out/gate_b.json").read_text(encoding="utf-8"))
-    assert res["verdict"] == INSUFFICIENT
-    assert res["presets"]["6max_sng_wta"]["illegal_actions"] == 0

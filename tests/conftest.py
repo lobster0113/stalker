@@ -24,6 +24,19 @@ def _fail(report):
     )
 
 
+# The CI `numba` job installs `.[fast]`; gates does not, so a skip there would leave the
+# numba path (the one training actually runs) untested again (#786).
+REQUIRE_NUMBA = os.environ.get("STALKER_REQUIRE_NUMBA") == "1"
+
+
+def _fail_numba(report):
+    report.outcome = "failed"
+    report.longrepr = (
+        f"numba-marked test skipped under STALKER_REQUIRE_NUMBA=1: {report.longrepr}\n"
+        'fix: install numba (python -m pip install -e ".[dev,fast]") or unset STALKER_REQUIRE_NUMBA'
+    )
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_make_collect_report(collector):
     outcome = yield
@@ -38,6 +51,8 @@ def pytest_runtest_makereport(item, call):
     report = outcome.get_result()
     if _torch_skip(report):
         _fail(report)
+    elif REQUIRE_NUMBA and report.skipped and item.get_closest_marker("numba") is not None:
+        _fail_numba(report)
 
 
 def node_path():
@@ -54,3 +69,31 @@ def node_path():
 @pytest.fixture
 def node():
     return node_path()
+
+
+@pytest.fixture(scope="session")
+def gate_l_report(tmp_path_factory):
+    """One `run_gate_l()` per pytest run, shared by its two consumers (#832, ~7 worker-seconds).
+
+    Gates use `--dist worksteal`, which does not keep a module on one worker, so a plain session
+    fixture would still compute once per worker; xdist workers share basetemp's parent, so the first
+    worker computes under a lock and the rest read the pickle (pytest-xdist "session fixture once").
+    """
+    from referee.gate_l import run_gate_l
+
+    try:
+        import fcntl
+    except ImportError:  # no flock (Windows): compute per worker, still correct
+        fcntl = None
+    if fcntl is None or "PYTEST_XDIST_WORKER" not in os.environ:
+        return run_gate_l()
+    import pickle
+
+    cache = tmp_path_factory.getbasetemp().parent / "gate_l_report.pkl"
+    with open(cache.with_suffix(".lock"), "w", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if cache.exists():
+            return pickle.loads(cache.read_bytes())
+        report = run_gate_l()
+        cache.write_bytes(pickle.dumps(report))
+        return report

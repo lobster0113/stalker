@@ -62,6 +62,7 @@ def test_c1_training_bits_match_the_object_keyed_cache(monkeypatch):
     assert new.regret_hash() == old.regret_hash()
 
 
+@pytest.mark.numba
 @pytest.mark.skipif(not K.fast_eval.HAVE_NUMBA, reason="batch kernel is the numba path")
 def test_batch_kernel_equals_per_card_loop():
     rng = np.random.default_rng(7)

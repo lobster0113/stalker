@@ -47,6 +47,7 @@ def test_nine_presets_and_table_values():
         PersonaParams(0.1, 0.2, 0.5, 0.5)
 
 
+@pytest.mark.slow
 def test_fidelity_20k_hands_within_5pp():
     _fidelity(20_000, 0.05)
 

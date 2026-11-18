@@ -679,6 +679,13 @@ details.why[open] > summary { margin-bottom: 8px; }
   .rk-pair, .exs { grid-template-columns: minmax(0, 1fr); }
   .rk-opts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@media (max-width: 1080px) {
+  .table-wrap.tall { aspect-ratio: 3 / 4; max-height: none; }
+  .tall .rail { inset: 4% 7%; }
+  .tall .felt { inset: 2.6% 4%; }
+  .tall .felt::after { inset: 10% 14%; }
+  .tall .seat .persona { font-size: 9px; padding: 1px 3px; }   /* the tag must fit inside the 430px felt, centred on a 98px seat */
+}
 @media (max-width: 760px) {
   :root { --cw: clamp(26px, 7.6vw, 42px); }
   .topbar { gap: 10px; flex-wrap: wrap; }
@@ -691,6 +698,7 @@ details.why[open] > summary { margin-bottom: 8px; }
   .felt { inset: 2.6% 4%; }
   .felt::after { inset: 10% 14%; }
   .seat { width: clamp(78px, 25vw, 110px); }
+  .seat .persona { max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }   /* #977: 9-max tags are wider than the seat */
   .pod { padding: 4px 8px 4px 4px; gap: 6px; }
   .tp { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 45; border-radius: 18px 18px 0 0; max-height: 72vh; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); transform: translateY(calc(100% - 78px - env(safe-area-inset-bottom, 0px))); transition: transform .45s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -20px 50px rgba(0,0,0,.55); }
   .tp.open { transform: none; }
@@ -1448,21 +1456,32 @@ function newSeat(i, isHero, stackBB) {
   seatPlayer(s);
   return s;
 }
+// The tournament table's first file: index and engine, then the one policy file of the stage the table starts in.
+function tourStartEntry() {
+  const fmt = $("#t-format").value, n = fmt === "9" ? 9 : 6, sh = tourShape(fmt, n);
+  if (!TPG.mod || !TPG.index) return { need: true, entry: null };
+  const r = TPG.mod.tournamentPolicyFor(TPG.index, { ...sh, ante: $("#t-ante").value === "bb" ? 1 : 0 });
+  return { need: !!r.entry && !TPG.tpol[r.entry.file], entry: r.entry };
+}
+let FORCE_MOCK = false;   // "모의 정답으로 계속" on a tournament table: no policy for this game
 async function startGame() {
-  if (S.mode === "cash" && (!TPG.index || (modelMeta(S.tier, seatsNow()) && !TPG.pol[polKey(S.tier, seatsNow())]))) {
-    const tok = ++gameToken;
-    $("#infobar").innerHTML = `<span class="pill">캐시게임 · ${seatsNow()}인</span><span>TP-GTO 준비 중</span>`;
+  const cash = S.mode === "cash";
+  if (cash ? (!TPG.index || (modelMeta(S.tier, seatsNow()) && !TPG.pol[polKey(S.tier, seatsNow())])) : tourStartEntry().need) {
+    const tok = ++gameToken, title = cash ? `캐시게임 · ${seatsNow()}인` : "토너먼트";
+    $("#infobar").innerHTML = `<span class="pill">${title}</span><span>TP-GTO 준비 중</span>`;
     $("#tp-ctx").innerHTML = ""; $("#tp-foot").hidden = true; $("#tp-strip").hidden = true; $("#tp").classList.add("open");
     const paint = () => { if (tok !== gameToken) return; $("#tp-body").innerHTML = TPG.state === "error" ? "" : `<div class="loadbox" role="status"><div>TP-GTO 불러오는 중 · ${TPG.step || "준비"}</div><div class="loadbar" aria-hidden="true"><i style="--p:${TPG.pct}%"></i></div></div>`; };
     const iv = setInterval(paint, 120); paint();
-    const ok = await tpgLoad(S.tier, seatsNow());
+    let ok;
+    if (cash) ok = await tpgLoad(S.tier, seatsNow());
+    else { ok = await tpgLoad(null); if (ok) { const e = tourStartEntry().entry; if (e) ok = await tpgLoadTour(e); } }
     clearInterval(iv);
     if (tok !== gameToken || !$("#view-train").classList.contains("active")) return;
     if (!ok) {
-      $("#infobar").innerHTML = `<span class="pill">캐시게임 · ${seatsNow()}인</span><span>TP-GTO 연결 실패</span>`;
+      $("#infobar").innerHTML = `<span class="pill">${title}</span><span>TP-GTO 연결 실패</span>`;
       $("#tp-body").innerHTML = `<div class="loadbox" role="alert"><div>${TPG.err}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta small" id="tpg-again">다시 시도</button><button class="cta small ghost" id="tpg-mock">모의 정답으로 계속</button></div></div>`;
       $("#tpg-again").onclick = () => startGame();
-      $("#tpg-mock").onclick = () => startTable();
+      $("#tpg-mock").onclick = () => { FORCE_MOCK = !cash; startTable(); };
       return;
     }
   }
@@ -1474,7 +1493,8 @@ function startTable() {
   const n = tour ? ($("#t-format").value === "9" ? 9 : 6) : +$("#c-seats").value;
   const avg = tour ? +$("#t-stack").value : +$("#c-stack").value;
   G = { tour, n, avg, bb: 100, sb: 50, ante: tour && $("#t-ante").value === "bb" ? 100 : 0, stage: $("#t-stage").value, seats: [], button: Math.floor(rand() * n),
-    handNo: 0, board: [], pot: 0, street: 0, log: [], level: 7, levelLeft: 252, players: 47, field: 180, paid: 27, lastGrade: null };
+    handNo: 0, board: [], pot: 0, street: 0, log: [], level: 7, levelLeft: 252, players: 47, field: 180, paid: 27, lastGrade: null, ringN: n };
+  if (tour) { G.tfmt = $("#t-format").value; G.mock = FORCE_MOCK; FORCE_MOCK = false; }
   if (tour && $("#t-format").value !== "mtt") { G.players = n; G.field = n; G.paid = n === 9 ? 3 : 2; }
   // Cash 100BB with a trained policy for (tier, seats): every opponent plays that policy (#337, #541).
   G.polTable = polCovers(S.tier, n);
@@ -1490,9 +1510,9 @@ function startTable() {
   buildTable(); runLoop();
 }
 // One hand = one tier (#364): questions, grading, the opponents' policy, seat tags and the header switch together.
-function setTableTier(tier, pol) {
+function setTableTier(tier, pol, tour = null) {
   G.tier = tier;
-  G.eng = pol ? { tier, pol, meta: modelMeta(tier, G.n), ok: false } : null;
+  G.eng = pol ? { tier, pol, meta: tour ? tour.meta : modelMeta(tier, G.n), env: tour?.env, rulesKey: tour?.rulesKey, ok: false } : null;
   for (const s of G.seats) {
     if (s.isHero) continue;
     if (G.eng) { s.persona = "gto"; s.tag = `TP-GTO ${TIERS[tier].name}`; }
@@ -1506,6 +1526,7 @@ const tierNextMsg = () => `다음 핸드부터 ${TIERS[S.tier].name} 정책으�
 // retry / mock choice as the game start.
 async function switchTier(alive) {
   const tier = S.tier;
+  if (G.tour) { G.tier = tier; tourSelect(); return; }
   G.polTable = polCovers(tier, G.n);
   if (!G.polTable) { setTableTier(tier, null); return; }
   const pk = polKey(tier, G.n);
@@ -1531,18 +1552,35 @@ async function switchTier(alive) {
 const posName = s => { const n = G.seats.filter(x => !x.out).length; const order = []; let k = G.button; for (let c = 0; c < G.n; c++) { if (!G.seats[k].out) order.push(k); k = (k + 1) % G.n; } return (POS6[n] || POS6[6])[order.indexOf(s.i)] || ""; };
 const bbf = chips => (Math.round(chips / G.bb * 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 });
 const nextIdx = i => (i + 1) % G.n;
+// Single-table SNG (field fits the table): busted seats leave instead of being refilled from another table (#987).
+const sngTable = () => !!G?.tour && G.field <= G.ringN;
+// Survivors keep their chair on the ring (s.ring) but are renumbered 0..n-1 so the betting order and the mirror
+// engine see an n-handed table. The button stays on the last survivor at or before it, so the next hand's
+// nextIdx moves it to the first survivor after the old button: empty chairs are skipped. Pure (node test: web/app/test/sng.test.mjs).
+function sngCompact(seats, button) {
+  const alive = s => s.isHero || s.stack > 0, n = seats.length;
+  let b = button;
+  for (let c = 0; c < n && !alive(seats[b]); c++) b = (b - 1 + n) % n;
+  const keep = seats.filter(alive), nb = Math.max(0, keep.indexOf(seats[b]));
+  keep.forEach((s, i) => { s.ring ??= s.i; s.i = i; });
+  return { seats: keep, button: nb };
+}
 const live = () => G.seats.filter(s => !s.out && !s.folded);
 const canAct = () => G.seats.filter(s => !s.out && !s.folded && !s.allin);
 const potTotal = () => G.pot + G.seats.reduce((a, s) => a + s.bet, 0);
 
 /* ---------- table rendering ---------- */
 const P = {}; // positions in % per seat: {x,y,bx,by,cx,cy}
-const seatPos = k => ringPos(k, G.n, matchMedia("(max-width: 760px)").matches);
+// #977: a 7+ seat table in the two-column layout (<=1080px) is only ~430px wide at 820: it gets the phone's tall ring, or seats leave the felt.
+const tallTable = () => matchMedia("(max-width: 760px)").matches || ((G.ringN || G.n) >= 7 && matchMedia("(max-width: 1080px)").matches);
+// A seat sits on its own chair of the table it started at (#987: a shrunk SNG table keeps empty chairs empty).
+const seatPos = s => ringPos(s.ring ?? s.i, G.ringN || G.n, tallTable());
 function buildTable() {
   const layer = $("#layer");
   $$(".seat, .bet, .dealer, .fly, .banner", layer).forEach(e => e.remove());
+  $("#table").classList.toggle("tall", tallTable());
   for (const s of G.seats) {
-    const p = P[s.i] = seatPos(s.i);
+    const p = P[s.i] = seatPos(s);
     const el = h("div", "seat" + (s.isHero ? " hero" : ""));
     el.id = "seat-" + s.i; el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30);
     const per = s.isHero ? { color: "#e9ece7" } : PERSONAS[s.persona];
@@ -1554,7 +1592,7 @@ function buildTable() {
   $("#board").innerHTML = '<div class="slot"></div>'.repeat(5);
   renderSeats(); renderInfo();
 }
-addEventListener("resize", () => { if (!G) return; for (const s of G.seats) { const p = P[s.i] = seatPos(s.i); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30); const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
+addEventListener("resize", () => { if (!G) return; $("#table").classList.toggle("tall", tallTable()); for (const s of G.seats) { const p = P[s.i] = seatPos(s); const el = $("#seat-" + s.i); el.style.left = p.x + "%"; el.style.top = p.y + "%"; el.classList.toggle("up", !s.isHero && p.y < 30); const b = $("#bet-" + s.i); b.style.left = p.bx + "%"; b.style.top = p.by + "%"; } renderSeats(); });
 function chipStack(amount, bb = G.bb) {
   const colors = ["--chip-black", "--chip-blue", "--chip-green", "--chip-red"];
   const n = clamp(Math.ceil(Math.log2(amount / bb + 1)), 1, 5);
@@ -1568,7 +1606,8 @@ function renderSeats() {
     el.classList.toggle("folded", s.folded); el.classList.toggle("out", s.out);
     $(".nm", el).textContent = s.isHero ? "나 (Hero)" : s.name;
     $(".stk", el).textContent = s.out ? "—" : s.allin ? "올인" : bbf(s.stack) + " BB";
-    $(".persona", el).textContent = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag ? s.tag + (isPlaceholder(G.eng?.meta) ? " · 임시" : "") : PERSONAS[s.persona].name + " · 규칙 봇");
+    const ptxt = (posName(s) ? posName(s) + " · " : "") + (s.isHero ? TIERS[tierNow()].name + " TP" : s.tag ? s.tag + (isPlaceholder(G.eng?.meta) ? " · 임시" : "") : PERSONAS[s.persona].name + " · 규칙 봇");
+    $(".persona", el).textContent = ptxt; $(".persona", el).title = ptxt;   // #977: the phone clips the tag with an ellipsis; title keeps it whole
     $(".persona", el).classList.toggle("gto", !!s.tag);
     const b = $("#bet-" + s.i);
     b.innerHTML = s.bet > 0 ? chipStack(s.bet) + `<span class="amt num">${bbf(s.bet)}</span>` : "";
@@ -1621,7 +1660,7 @@ function placeBets(L, busy) {
     const U = busy.seats[k], cx = (U.l + U.r) / 2, cy = (U.t + U.b) / 2;
     const dx = tx - cx, dy = ty - cy, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
     const spot = (x, y) => ({ x, y, l: x - z.w / 2, t: y - z.up, r: x + z.w / 2, b: y + z.down });
-    const n0 = seatPos(s.i), nat = spot(L.left + n0.bx / 100 * L.width, L.top + n0.by / 100 * L.height);
+    const n0 = seatPos(s), nat = spot(L.left + n0.bx / 100 * L.width, L.top + n0.by / 100 * L.height);
     // The ring's own spot first; else the free spot nearest it that is no farther from the owner, so a moved
     // bet still reads as that seat's; on a crowded small table (6-handed tablet) then the rail, then least overlap.
     const cands = [];
@@ -1703,7 +1742,7 @@ function renderInfo() {
   const el = $("#infobar");
   if (G.tour) {
     const m = Math.floor(G.levelLeft / 60), s = String(G.levelLeft % 60).padStart(2, "0");
-    el.innerHTML = `<span class="pill">토너먼트 · ${STAGE_NAMES[G.stage]}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
+    el.innerHTML = `<span class="pill">토너먼트 · ${tourStageName()}</span><span>레벨 <b class="num">${G.level}</b></span><span>블라인드 <b class="num">300/600</b>${G.ante ? " · BB앤티 <b class='num'>600</b>" : ""}</span><span class="lvclock${clockFrozen() ? " frozen" : ""}" title="${clockFrozen() ? "내 차례에는 레벨 시계가 멈춰요" : "다른 플레이어가 행동하는 동안 흐릅니다"}">다음 레벨 <b class="num" id="lv-left">${m}:${s}</b>${clockFrozen() ? `<span class="frz">⏸ 정지</span>` : ""}</span><span>남은 인원 <b class="num">${G.players}/${G.field}</b></span><span class="pill ${G.stage === "bubble" ? "hot" : ""}">머니인 ${G.paid}위</span><span class="spacer"></span><span>핸드 <b class="num">#${G.handNo}</b></span><button class="iconbtn" id="sound-btn" data-sound aria-label="소리 설정: ${SND_MODES[sndMode()][0]} (눌러서 바꾸기)">${SND_MODES[sndMode()][0]}</button><button class="iconbtn" id="end-game" data-end-game>${G.ended ? "분석 다시 보기" : "종료·분석"}</button><button class="iconbtn" id="new-game">새 게임</button>`;
   } else {
     const hero = G.seats.find(x => x.isHero), net = hero ? hero.bank + hero.stack - 100 * G.bb : 0;
     const src = (G.eng ? `<span class="pill" title="${modelLine(G.eng.meta)}">상대 TP-GTO ${TIERS[G.eng.tier].name}</span>` : `<span class="pill" data-untrained title="이 설정을 덮는 학습 정책이 없어요: 규칙 봇이 상대하고 정답은 모의값이에요">미학습(규칙 봇)</span>`)
@@ -1763,17 +1802,27 @@ async function runLoop() {
 }
 async function playHand(token) {
   const alive = () => G && token === gameToken;
-  if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
-  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
+  if (G.tour) tourSelect();
+  else if (G.tier !== S.tier) { await switchTier(alive); if (!alive()) return; }
+  G.handNo++; G.board = []; G.pot = 0; G.street = 0; G.potRaises = 0; G.flopPlayers = 0; G.log = []; G.lastAgg = null; G.streetAgg = null; G.faceUp = false; G.shown = null; G.fast = false; G.viewing = false;
   // TP-GTO tables: every seat starts each hand at 100BB (top-up, excess banked into the session result)
-  if (G.eng) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
+  if (G.eng && !G.tour) for (const s of G.seats) { s.bank += s.stack - 100 * G.bb; s.stack = 100 * G.bb; }
   // replenish
   for (const s of G.seats) {
     if (s.stack <= 0) {
       if (s.isHero) { heroBust(); return; }
-      if (G.tour) { const ns = newSeat(s.i, false, +$("#t-stack").value * (0.6 + rand() * .8)); ns.name = pick(NAMES); G.seats[s.i] = ns; G.players = Math.max(G.paid + 1, G.players - 1); toast(`${s.name} 탈락 · 다른 테이블에서 ${ns.name} 이동`); }
+      if (sngTable()) toast(`${s.name} 탈락 · 남은 ${G.seats.filter(x => x.stack > 0).length}명`);
+      else if (G.tour) { const ns = newSeat(s.i, false, +$("#t-stack").value * (0.6 + rand() * .8)); ns.name = pick(NAMES); ns.ring = s.ring; G.seats[s.i] = ns; G.players = Math.max(G.paid + 1, G.players - 1); toast(`${s.name} 탈락 · 다른 테이블에서 ${ns.name} 이동`); }
       else { s.stack = +$("#c-stack").value * G.bb; toast(`${s.name} 리바이 ${$("#c-stack").value} BB`); }
     }
+  }
+  // #987: a single-table SNG has nobody to move in, so the table really shrinks and the survivor-count policy (bubble 4-handed) can drive it.
+  if (sngTable() && G.seats.some(s => s.stack <= 0)) {
+    const c = sngCompact(G.seats, G.button);
+    G.seats = c.seats; G.button = c.button; G.n = G.players = c.seats.length;
+    G.prevAgg = null;   // a seat index from the last hand: renumbered now
+    if (G.n === 1) { tourWin(); return; }
+    tourSelect();
   }
   if (G.seats.some(s => !s.isHero && s.stack <= 0)) return;
   { const me = G.seats.find(x => x.isHero); G.heroStart = me ? (me.bank || 0) + me.stack : 0; }
@@ -1809,6 +1858,7 @@ async function playHand(token) {
       addLog(["", "플랍", "턴", "리버"][st], G.board.map(cardTxt).join(" "));
       engCheckBoard();
       G.prevAgg = G.lastAgg; G.prevBet = G.streetRaises > (st === 1 ? 1 : 0);   // persona c-bet / probe spots (#429)
+      if (st === 1) { G.potRaises = G.streetRaises - 1; G.flopPlayers = live().length; }   // persona flop cell (#676)
       G.currentBet = 0; G.minRaise = G.bb; G.streetAgg = null; G.streetRaises = 0;
       await sleep(500);
     }
@@ -1838,21 +1888,21 @@ let GM = null;
 function recSnap() {
   return { pot: G.pot + G.seats.reduce((a, x) => a + x.bet, 0), bets: G.seats.map(x => x.bet), stacks: G.seats.map(x => x.stack), folded: G.seats.map(x => !!x.folded) };
 }
-function recStart() { G.showdownSeen = null; G.rec = { tier: G.tier, start: recSnap(), acts: [] }; }
+function recStart() { G.showdownSeen = null; G.rec = { tier: G.tier, start: recSnap(), acts: [], ...(G.tour && G.tfmt ? { tour: tourRec() } : {}) }; }
 // The hero's decision as numbers: how often the policy plays my action, how the opponent's public range
 // answers it, and the TP items I missed most. Computed from the engine state before the action moves it.
 function heroAnalysis(a, L) {
   const base = (G.decs || []).at(-1);
   if (!base || base.hand !== G.handNo || base.used || !base.act) return null;
   base.used = true;
-  const an = { name: base.act.me, p: base.act.p, approx: base.act.approx || undefined, top: base.act.top, topP: base.act.topP, leak: base.act.leak || undefined,
+  const an = { name: base.act.me, p: base.act.p, approx: base.act.approx || undefined, top: base.act.top, topP: base.act.topP, leak: base.act.leak || undefined, near: base.act.near || undefined,
     tp: base.total != null ? { total: base.total, worst: base.rows.slice().sort((x, y) => x.score - y.score).slice(0, 2) } : undefined };
   if (!engOn()) return an;
   try {
     const E = G.eng, tg = TPG.mod, seat = E.s.toAct, r3 = x => x == null ? null : Math.round(x * 1000) / 1000;
     const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
     const label = engLabelAt(E.s, a.type, to, engReadRng(E.ent, E.s)).label;
-    const rr = tg.rangeResponse(E.pol, E.s, E.ranges, E.tier, seat, label);
+    const rr = tg.rangeResponse(E.pol, E.s, E.ranges, E.tier, seat, label, keyVariant(E.meta), E.env);
     const bs = rr.beats.filter(x => x.beats != null);
     if (bs.length) an.beats = r3(bs.reduce((x, y) => x + y.beats, 0) / bs.length);
     an.opps = rr.beats.length;
@@ -1874,7 +1924,7 @@ function saveHandRec(me, net) {
   try {
     if (!GM || !G.rec || !G.rec.acts.length) return;
     const shown = G.showdownSeen?.shown || [];
-    const hand = { no: G.handNo, tier: G.rec.tier, cards: me.cards.map(cardTxt).join(" "), net, folded: !!me.folded, board: G.board.map(cardTxt), start: G.rec.start, acts: G.rec.acts,
+    const hand = { no: G.handNo, tier: G.rec.tier, cards: me.cards.map(cardTxt).join(" "), net, folded: !!me.folded, board: G.board.map(cardTxt), start: G.rec.start, acts: G.rec.acts, ...(G.rec.tour ? { tour: G.rec.tour } : {}),
       seats: G.seats.map(s => ({ i: s.i, name: s.name, pos: posName(s), hero: !!s.isHero, cards: s.isHero || shown.includes(s.i) ? s.cards.map(cardTxt) : null })) };
     G.gameId ||= "g" + Date.now().toString(36);
     const meta = { id: G.gameId, ts: Date.now(), tier: G.tier, mode: G.tour ? "토너먼트" : "캐시게임", n: G.n };
@@ -1884,10 +1934,16 @@ function saveHandRec(me, net) {
   } catch (e) { console.warn("[games] save failed", e?.message || e); }
 }
 const MG = { gid: null, no: null, step: 0 };
+// The saved hand open in the replay, if any: the review badge follows it (ADR 0029 decision 4, #968).
+function mgHand() {
+  if (!GM || !MG.gid || MG.no == null) return null;
+  return GM.loadGames(store.get("games", null)).find(x => x.id === MG.gid)?.hands.find(x => x.no === MG.no) || null;
+}
 const cx = t => `<span class="mc${/[♦♥]/.test(t) ? " red" : ""}">${t[0] === "T" ? "10" : t[0]}${t.slice(1)}</span>`;
 const bbc = c => (Math.round(c / 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 });   // saved chips (BB = 100)
 function renderGames() {
   const el = $("#mg-body"); if (!el) return;
+  if (VIEW === "review") renderModelStatus();
   if (!GM) { el.innerHTML = `<p class="rp-note">저장 기능을 불러오는 중이에요…</p>`; return; }
   const games = GM.loadGames(store.get("games", null)), sgn = x => (x > 0 ? "+" : "") + bbc(x);
   const g = games.find(x => x.id === MG.gid), hd = g?.hands.find(x => x.no === MG.no);
@@ -1916,7 +1972,8 @@ function renderGames() {
     return `${hdr}<li><button data-mg-step="${i + 1}" data-mg-act class="${i + 1 === st ? "cur" : ""}">${a.txt}${v ? ` <span class="mg-badge ${v.key}">${v.text}</span>` : ""}</button></li>`; }).join("");
   let an = "";
   if (cur && cur.hero) {
-    const v = GM.verdict(cur.an), rs = GM.reasons(cur.an, cur, { items: SHORT, verb: cur.st === 0 ? "레이즈" : "벳" });
+    const v = GM.verdict(cur.an), rs = GM.reasons(cur.an, cur, { items: SHORT, verb: cur.st === 0 ? "레이즈" : "벳",
+      ...(hd.tour && !hd.tour.policy ? { noModel: `이 판은 학습 정책이 없는 단계(${TOUR_STAGE_NAMES[hd.tour.stage] || ""})라 규칙 봇이 상대였어요. 계산할 수 있는 것(액션 기록)만 보여요.` } : {}) });
     an = `<div class="mg-an" data-mg-analysis>${v ? `<div><span class="mg-badge ${v.key}" data-mg-verdict>${v.text}</span> <span class="num">${cur.an.p != null ? Math.round(cur.an.p * 100) + "%" : ""}</span></div>` : ""}<ul>${rs.map(r => `<li class="${r.kind === "bad" || r.kind === "good" ? r.kind : ""}">${r.text}</li>`).join("")}</ul></div>`;
   } else if (cur) an = `<p class="rp-note">내 결정을 고르면 이유가 보여요.</p>`;
   el.innerHTML = `<div class="mg-bar"><button class="cta ghost small" data-mg-back>← 핸드 목록</button><b>#${hd.no}</b><span class="num ${hd.net > 0 ? "good" : hd.net < 0 ? "bad" : ""}">${sgn(hd.net)} BB</span></div>
@@ -1939,11 +1996,16 @@ function sessHTML(net) {
 }
 // Session report (#464): every graded decision of this game, kept so the player can stop and look back.
 const LOW_FREQ = 0.10;
+// A c1 miss answered by a coarse key (ADR 0022, #623) is a nearby situation's average, not this spot's answer:
+// it is shown as such and, like a leak cell, never graded as a frequency.
+const NEAR_TXT = "비슷한 상황 평균(근사)";
+const NEAR_WHAT = { L1: "핸드 세부·스택 깊이 무시", L2: "공개 정보·SPR까지 무시", L3: "공개 정보·SPR 무시, 자리는 앞·뒤·블라인드 묶음으로", L4: "자리 묶음에 더해 에퀴티 한 칸 위·아래" };   // #623, #645, #652
+const nearOf = m => (m && NEAR_WHAT[m.fromTable] ? m.fromTable : undefined);
 function recordDecision(gr) {
   if (!gr) return;
   const a = gr.refs.find(r => r.kind === "model-action"), m = a?.model, top = m ? m.mix.slice().sort((x, y) => y.p - x.p)[0] : null;
   (G.decs ||= []).push({ hand: G.handNo, street: gr.street, cards: gr.hand, total: gr.total, rows: gr.rows.map(r => ({ k: r.k, score: r.score })),
-    act: m && a.you ? { me: m.mix.find(x => x.a === a.you.label)?.name || a.you.label, p: a.you.p, approx: !!a.you.approx, top: top.name, topP: top.p, leak: m.leak?.kind === "leak" } : null });
+    act: m && a.you ? { me: m.mix.find(x => x.a === a.you.label)?.name || a.you.label, p: a.you.p, approx: !!a.you.approx, top: top.name, topP: top.p, leak: m.leak?.kind === "leak", near: nearOf(m) } : null });
 }
 function sessionReport() {
   const ds = G.decs || [], hs = G.hands || [], hero = G.seats.find(x => x.isHero);
@@ -1951,10 +2013,10 @@ function sessionReport() {
   const graded = ds.filter(d => d.total != null), items = {};
   for (const d of ds) for (const r of d.rows) { const it = items[r.k] ||= { k: r.k, n: 0, sum: 0 }; it.n++; it.sum += r.score; }
   const byItem = Object.values(items).map(it => ({ ...it, avg: Math.round(it.sum / it.n) })).sort((a, b) => a.avg - b.avg);
-  const acts = ds.filter(d => d.act && !d.act.leak), low = acts.filter(d => d.act.p < LOW_FREQ);
+  const acts = ds.filter(d => d.act && !d.act.leak && !d.act.near), low = acts.filter(d => d.act.p < LOW_FREQ);
   return { hands: hs.length, decisions: ds.length, net, graded: graded.length,
     score: graded.length ? Math.round(graded.reduce((a, d) => a + d.total, 0) / graded.length) : null, byItem,
-    compared: acts.length, placeholder: acts.length > 0 && isPlaceholder(modelMeta(G.tier, G.n)), leaks: ds.filter(d => d.act?.leak).length,
+    compared: acts.length, placeholder: acts.length > 0 && isPlaceholder(modelMeta(G.tier, G.n)), leaks: ds.filter(d => d.act?.leak).length, near: ds.filter(d => d.act?.near).length,
     meanFreq: acts.length ? acts.reduce((a, d) => a + d.act.p, 0) / acts.length : null, low };
 }
 function reportHTML(r) {
@@ -1963,7 +2025,7 @@ function reportHTML(r) {
   const kpis = `<div class="rp-kpis">${kpi(r.hands, "끝난 핸드", "data-rp-hands")}${kpi(r.decisions, "내 결정", "data-rp-decisions")}${r.net == null ? "" : kpi(`<span class="${r.net > 0 ? "good" : r.net < 0 ? "bad" : ""}">${sgn(r.net)} BB</span>`, "세션 손익", "data-rp-net")}${kpi(r.score ?? "—", "TP 점수 평균", "data-rp-score")}</div>`;
   const items = r.byItem.length ? `<h3>항목별 점수 (약한 순)</h3><table data-rp-items><tbody>${r.byItem.map(it => `<tr data-k="${it.k}"><th scope="row">${SHORT[it.k] || it.k}</th><td class="r num">${it.avg}점</td><td class="r num">${it.n}회</td></tr>`).join("")}</tbody></table>`
     : `<p class="rp-note">채점된 판단 항목이 없어요. Guided로 두거나 Quick에서 '분석 보기'를 열면 항목별 점수가 쌓여요.</p>`;
-  const act = r.compared ? `<h3>TP-GTO 액션 비교${r.placeholder ? ` <span class="conf model" data-rp-placeholder>임시 정책 기준</span>` : ""}</h3><p class="rp-note" data-rp-act>비교한 결정 <b class="num">${r.compared}</b>회 · 내 선택의 평균 정책 빈도 <b class="num">${pc(r.meanFreq)}</b> · 정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만) <b class="num">${r.low.length}</b>회${r.leaks ? ` · 알려진 결함 칸 ${r.leaks}회는 빼고 셌어요` : ""}</p>
+  const act = r.compared ? `<h3>TP-GTO 액션 비교${r.placeholder ? ` <span class="conf model" data-rp-placeholder>임시 정책 기준</span>` : ""}</h3><p class="rp-note" data-rp-act>비교한 결정 <b class="num">${r.compared}</b>회 · 내 선택의 평균 정책 빈도 <b class="num">${pc(r.meanFreq)}</b> · 정책이 거의 안 하는 선택(${pc(LOW_FREQ)} 미만) <b class="num">${r.low.length}</b>회${r.leaks ? ` · 알려진 결함 칸 ${r.leaks}회는 빼고 셌어요` : ""}${r.near ? ` · <span data-rp-near>${NEAR_TXT} ${r.near}회는 빼고 셌어요</span>` : ""}</p>
     ${r.low.length ? `<table data-rp-low><tbody>${r.low.map(d => `<tr><td>#${d.hand} · ${d.street}</td><td>${d.cards}</td><td>내 선택 ${d.act.me} <span class="num">${d.act.approx ? "≈" : ""}${pc(d.act.p)}</span></td><td>정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span></td></tr>`).join("")}</tbody></table>` : ""}`
     : `<p class="rp-note">TP-GTO 정책과 비교한 결정이 없어요(캐시게임 6인 100BB에서 비교돼요).</p>`;
   const hands = r.hands ? `<details data-rp-hands-list><summary>핸드별 결과 ${r.hands}개</summary><table><tbody>${(G.hands || []).slice().reverse().map(x => `<tr><td>#${x.no}</td><td>${x.cards}</td><td>${x.folded ? "폴드" : x.net > 0 ? "획득" : x.net < 0 ? "패배" : "본전"}</td><td class="r num ${x.net > 0 ? "good" : x.net < 0 ? "bad" : ""}">${sgn(x.net)}</td></tr>`).join("")}</tbody></table></details>` : "";
@@ -2078,7 +2140,8 @@ function personaAct(s) {
     preflop: { raises: G.streetRaises - 1, limpers: live().filter(o => o !== s && o.bet === G.bb && o.i !== G.bbI).length, limped: s.bet === G.bb && s.i !== G.bbI,
       iRaised: mine.raised, openerPos: agg ? posName(agg) : null, openTo: G.currentBet },
     postflop: { aggressor: G.prevAgg === s.i, prevAggLive: G.prevAgg != null && G.prevAgg !== s.i && !G.seats[G.prevAgg].folded, prevBet: !!G.prevBet,
-      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises },
+      betIsCbet: G.streetAgg != null && G.streetAgg === G.prevAgg && G.streetRaises === 1, checkedThisStreet: mine.checked, streetRaises: G.streetRaises,
+      potRaises: G.potRaises, flopPlayers: G.flopPlayers },
     hand: { cards: s.cards }, board: G.board,
   }, rand);
   if (a.type === "check") mine.checked = true;
@@ -2120,10 +2183,12 @@ function ruleBot(s) {
    off for the rest of the hand and those answers fall back to the mock teacher, labelled 모의. */
 const APP_BASE = window.STALKER_APP_BASE || "../app/";
 import(APP_BASE + "games.js").then(m => { GM = m; if (VIEW === "review") renderGames(); }).catch(e => console.warn("[games] load failed; hands are not saved", e));
-const TPG = { mod: null, index: null, eq: false, pol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
+const TPG = { mod: null, index: null, eq: false, pol: {}, tpol: {}, rules: {}, leaks: {}, state: "idle", step: "", pct: 0, err: null, busy: null, botLog: [] };
 const fmtIters = n => n >= 1e6 ? (Math.round(n / 1e5) / 10) + "백만" : n >= 1e4 ? (Math.round(n / 1e3) / 10) + "만" : String(n);
 // #541: a tier's 6-max entry is tiers[tier]; other seat counts live in tiers[tier].by_players[n]. Loaded
 // policies, rules and leaks are cached per (tier, seats).
+// Which key layout the policy file was trained with (#604): c1 tables (2–5인 mid) are looked up with c1 keys.
+const keyVariant = meta => meta?.key_variant || "";
 const modelMeta = (tier, n = 6) => { const e = TPG.index?.tiers?.[tier]; return !e ? null : n === 6 ? (e.file ? e : null) : e.by_players?.[n] || null; };
 const polKey = (tier, n = 6) => `${tier}-${n}`;
 const seatsNow = () => S.mode === "cash" ? +$("#c-seats").value : 6;
@@ -2155,6 +2220,7 @@ function tpgLoad(tier, n = 6) {
   if (TPG.busy) return TPG.busy.then(() => tier && modelMeta(tier, n) && !TPG.pol[pk] ? tpgLoad(tier, n) : TPG.state === "ready");
   TPG.busy = (async () => {
     try {
+      await 0;   // everything cached (tier null): without a turn the finally below would run before TPG.busy is assigned and leave it set forever
       if (!TPG.mod) { tpgSet("loading", "계산 엔진", 5); TPG.mod = await import(APP_BASE + "tpgto.js"); }
       if (!TPG.index) { tpgSet("loading", "모델 목록", 15); TPG.index = await fetchJSON(APP_BASE + "policy/index.json"); }
       if (!TPG.eq) { tpgSet("loading", "프리플랍 에퀴티 표", 25); TPG.mod.setEquityTable(await fetchJSON(APP_BASE + "assets/hu_equity.json")); TPG.eq = true; }
@@ -2167,6 +2233,9 @@ function tpgLoad(tier, n = 6) {
         TPG.rules[pk] = TPG.mod.menuOf(doc);   // the size menu the table was trained on (v1 when the file does not say)
         const q = doc.q || 255, pol = new Map();
         for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
+        // c1 tables back off on a miss (ADR 0022, #623): build the coarse tables here, not on the first AI decision.
+        if (doc.l1_rows) TPG.mod.setL1Rows(pol, doc.l1_rows, q);   // L1 rows the visit threshold erased (#803, #804)
+        if (m.key_variant === "c1") { const t0 = performance.now(); TPG.mod.coarseTables(pol); TPG.coarseMs = { ...(TPG.coarseMs || {}), [pk]: Math.round(performance.now() - t0) }; }
         TPG.pol[pk] = pol;
       }
       if (m && !(pk in TPG.leaks)) {
@@ -2187,6 +2256,83 @@ function tpgLoad(tier, n = 6) {
   })();
   return TPG.busy;
 }
+// ---- tournament policies (ADR 0029 decisions 3-4, #956): one (env_id, stage, ante) file, read when the table needs it.
+// The page's formats name the presets the policies are trained on; MTT is the 180-player preset at a 6-max table.
+// The index is keyed by EnvSpec.env_id (a hash of the preset's rules, `from_tournament(load_preset(name)).env_id`),
+// not by the preset name, so a name here would never find an exported policy (#969). tests/test_web_tournament_policy.py
+// recomputes these from the Python presets.
+const TOUR_PRESET = { "6": "6max_sng_topheavy", "9": "9max_sng_503020", mtt: "mtt180_bbante" };
+const TOUR_ENV_ID = { "6max_sng_topheavy": "0ea12574372e3e94", "9max_sng_503020": "1261657cabcdc1ad", "mtt180_bbante": "1f615e0c44968b32" };
+const TOUR_ENV = Object.fromEntries(Object.entries(TOUR_PRESET).map(([f, name]) => [f, TOUR_ENV_ID[name]]));
+// Policy stage letters (ADR 0027 decision 2) as the badge names them; the setup select's names are for the mock teacher.
+const TOUR_STAGE_NAMES = { e: "버블 전", b: "버블", m: "머니인", f: "파이널 테이블" };
+const UNTRAINED_TITLE = "이 단계의 TP-GTO는 아직 학습 중이에요. 상대·정답은 규칙 기반입니다.";
+// The stage name the info bar shows: the policy stage when this preset has a policy index entry (one stage for the user to see), else the setup select's.
+function tourStageName() { return G.tpol && G.tpol.reason !== "no_env" && TOUR_STAGE_NAMES[G.tpol.stage] || STAGE_NAMES[G.stage]; }
+// ADR 0029 decision 4: the badge of the tournament table in front of us; null keeps the mock wording (no policy for this preset).
+function tourPill() {
+  const t = G.tpol;
+  if (!t || t.reason === "no_env") return null;
+  const nm = TOUR_STAGE_NAMES[t.stage];
+  if (!t.file) return { text: `토너먼트 · ${nm} · 미학습(규칙 봇)`, title: UNTRAINED_TITLE };
+  if (G.eng?.rulesKey !== t.file) return { text: `토너먼트 · ${nm} · TP-GTO 준비 중`, title: "이 단계의 정책을 불러오는 중이에요. 다 받으면 다음 핸드부터 TP-GTO가 상대해요." };
+  const c = G.tmiss?.[t.file], miss = c?.n ? ` 일부 스팟은 규칙 봇이 대신했어요(${c.n}/${c.m}).` : "";
+  return { text: `토너먼트 · ${nm} · TP-GTO`, title: `이 설정의 ${nm}(ICM 보상)에서 학습한 정책이에요. ${modelLine(G.eng.meta)}.${miss}` };
+}
+// What a saved tournament hand was compared with: the preset and stage it was played at and the policy that was serving.
+function tourRec() {
+  const E = G.eng, m = E?.meta;
+  return { env: tourShape(G.tfmt, G.ringN || G.n).envId, stage: G.tpol?.stage ?? null, ante: G.ante > 0 ? 1 : 0,
+    policy: E ? { file: E.rulesKey, stage: E.env.stage, ante: E.env.ante ? 1 : 0, run_id: m.run_id, iterations: m.iterations, lbr_bb: m.lbr_bb ?? null, lbr_stderr_bb: m.lbr_stderr_bb ?? null } : null };
+}
+const tourShape = (fmt, n) => fmt === "mtt" ? { envId: TOUR_ENV.mtt, players: 47, paid: 27, field: 180, tableSize: n } : { envId: TOUR_ENV[fmt], players: n, paid: n === 9 ? 3 : 2, field: n, tableSize: n };
+// What the table in front of us is served: the index entry for (preset, stage by survivors, ante), or why none.
+function tourResolve() {
+  const sh = G.tfmt ? tourShape(G.tfmt, G.ringN || G.n) : null;
+  if (!sh || G.mock || !TPG.mod || !TPG.index) return { entry: null, reason: "no_env" };
+  const r = TPG.mod.tournamentPolicyFor(TPG.index, { ...sh, players: G.players, paid: G.paid, field: G.field, ante: G.ante > 0 ? 1 : 0 });
+  // The mirror engine plays the seats of this table, so a policy for another seat count cannot drive it.
+  return r.entry && r.entry.players !== G.n ? { stage: r.stage, entry: null, reason: "players_mismatch" } : r;
+}
+// The server-side file for one entry; tournament policy files never stand in for cash tiers and vice versa.
+async function tpgLoadTour(entry) {
+  if (TPG.tpol[entry.file]) return true;
+  if (TPG.busy) return TPG.busy.then(() => tpgLoadTour(entry));
+  TPG.busy = (async () => {
+    try {
+      await 0;
+      const step = `토너먼트 정책 ${(entry.bytes / 1e6).toFixed(1)}MB`;
+      tpgSet("loading", step, 35);
+      const doc = await fetchJSON(APP_BASE + "policy/" + entry.file, f => tpgSet("loading", step, 35 + Math.round(f * 60)));
+      TPG.mod.checkNutK?.(doc.nut_k);
+      const q = doc.q || 255, pol = new Map();
+      for (const k in doc.policy) pol.set(k, Float64Array.from(doc.policy[k], v => v / q));
+      if (doc.l1_rows) TPG.mod.setL1Rows(pol, doc.l1_rows, q);
+      if (entry.key_variant === "c1") TPG.mod.coarseTables(pol);
+      TPG.tpol[entry.file] = { pol, rules: TPG.mod.menuOf(doc) };
+      TPG.err = null; tpgSet("ready", "", 100); return true;
+    } catch (e) {
+      console.warn("[tpgto] tournament policy load failed", e);
+      TPG.err = e instanceof TypeError ? "정책을 불러오지 못했어요. 연결이 끊겼어요. 네트워크를 확인하고 다시 시도하세요." : `정책을 불러오지 못했어요. ${e.message}`;
+      tpgSet("error"); return false;
+    } finally { TPG.busy = null; }
+  })();
+  return TPG.busy;
+}
+// Each hand: serve the policy of the stage we are in. A stage with a file that is still loading keeps the previous
+// policy (or the rule bot) so the table never waits; a stage without one goes back to the rule bot at once.
+function tourSelect() { tourServe(); renderModelStatus(); }
+function tourServe() {
+  const r = tourResolve();
+  G.tpol = { stage: r.stage, reason: r.reason, file: r.entry?.file || null };
+  if (!r.entry) { setTableTier(S.tier, null); return; }
+  const L = TPG.tpol[r.entry.file];
+  if (!L) { tpgLoadTour(r.entry).catch(() => {}); return; }
+  if (G.eng?.rulesKey === r.entry.file && G.eng.env.stage === r.entry.stage && G.eng.env.ante === (r.entry.ante === 1)) return;
+  TPG.rules[r.entry.file] = L.rules;
+  const tier = r.entry.tier || S.tier;
+  setTableTier(tier, L.pol, { meta: r.entry, env: { stage: r.entry.stage, ante: r.entry.ante === 1 }, rulesKey: r.entry.file });
+}
 function renderModelStatus() {
   const n = seatsNow(), box = $("#model-status"), pill = $("#svc-pill"), m = modelMeta(S.tier, n);
   if (pill) {
@@ -2194,12 +2340,18 @@ function renderModelStatus() {
     else if (TPG.state === "error") { pill.textContent = "모의 정답 · 정책 연결 실패"; pill.title = TPG.err || ""; }
     // #445: the learning drills and the review have their own answer source, so the badge follows the screen.
     else if (VIEW === "learn") { pill.textContent = "학습 문제 · 모의 정답"; pill.title = "학습 섹션 문제의 정답은 규칙 기반 모의값이에요. 훈련 게임의 TP-GTO 비교와 다릅니다."; }
+    else if (VIEW === "review" && mgHand()?.tour) {
+      const t = mgHand().tour, nm = TOUR_STAGE_NAMES[t.stage] || "";
+      pill.textContent = t.policy ? `복기 · 토너먼트 ${nm} · TP-GTO 비교` : "복기 · 모의 정답";
+      pill.title = t.policy ? `판 당시 정책: ${TOUR_STAGE_NAMES[t.policy.stage]}(ICM 보상) · ${modelLine(t.policy)}` : `이 판은 학습 정책이 없는 단계(${nm})에서 치렀어요. 규칙 기반 모의값으로 비교해요.`;
+    }
     else if (VIEW === "review") {
       const rm = RV.mode === "cash" && RV.stack === 100 && TPG.pol[polKey(S.tier)] ? modelMeta(S.tier) : null;
       pill.textContent = rm ? `복기 · TP-GTO ${TIERS[S.tier].name} 비교` : "복기 · 모의 정답";
       pill.title = rm ? modelLine(rm) : "학습된 TP-GTO는 캐시게임 6인 100BB 핸드에서만 비교할 수 있어요. 이 복기는 규칙 기반 모의값으로 비교해요.";
     }
     else if (S.mode === "cash" && m) { pill.textContent = `TP-GTO ${TIERS[S.tier].name} · 학습 중간본`; pill.title = modelLine(m); }
+    else if (S.mode === "tournament" && VIEW === "train" && G?.tour && !G.dead && tourPill()) { const t = tourPill(); pill.textContent = t.text; pill.title = t.title; }
     else { pill.textContent = S.mode === "cash" ? `${TIERS[S.tier].name} 정책 학습 중 · 모의 정답` : "토너먼트 · 모의 정답"; pill.title = "이 설정의 TP-GTO는 아직 학습 중이에요. 정답은 규칙 기반 모의값입니다."; }
   }
   const diff = $("#set-diff-row");
@@ -2261,7 +2413,10 @@ function engStart() {
     for (const s of G.seats) holes[engSeatOf(s.i)] = s.cards.slice();
     const pool = G.deck.slice(), board = [];
     for (let i = 0; i < 5; i++) board.push(G.rigBoard?.[i] ?? pool.pop()); // the order the table deals them
-    E.s = tg.newHand({ n: G.n, holes, board, ...(TPG.rules[polKey(E.tier, G.n)] || tg.menuOf(E.meta)) });
+    const stacks = new Array(G.n);
+    for (const s of G.seats) stacks[engSeatOf(s.i)] = s.stack + s.contrib;   // chips at the deal (blinds and ante already posted)
+    const tourRules = G.tour ? { stacks, ante: G.ante } : {};
+    E.s = tg.newHand({ n: G.n, holes, board, ...(TPG.rules[E.rulesKey || polKey(E.tier, G.n)] || tg.menuOf(E.meta)), ...tourRules });
     E.ent = engEntropy(holes, board); E.reads = [];
     E.ranges = tg.initialRanges(G.n); E.ok = true;
   } catch (e) { engBreak(e); }
@@ -2280,13 +2435,31 @@ function engBotAct(s) {
   if (!engTurn(s)) return null;
   const E = G.eng, tg = TPG.mod;
   try {
-    const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier);
+    const ap = tg.actionProbs(E.pol, E.s, E.ranges, E.tier, keyVariant(E.meta), E.env);
+    // ADR 0029 decision 4: on a tournament table a key with no row at any backoff level is played by the rule bot,
+    // not the uniform row, and counted so the badge can say how many spots the policy did not answer.
+    if (G.tour) {
+      const c = (G.tmiss ||= {})[E.rulesKey] ||= { n: 0, m: 0 };
+      c.m++;
+      const miss = ap.fromTable === false;
+      if (miss) c.n++;
+      renderModelStatus();
+      if (miss) {
+        E.pending = { d: ap };
+        TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: false, file: E.rulesKey, miss: true, chosen: null });
+        if (TPG.botLog.length > 500) TPG.botLog.shift();
+        // A policy seat has no rule-bot profile of its own ("gto"): the miss is played by the TAG regular's rules.
+        const keep = s.persona;
+        s.persona = "tag";
+        try { return ruleBot(s); } finally { s.persona = keep; }
+      }
+    }
     const tot = ap.probs.reduce((a, b) => a + b, 0);
     let u = rand() * tot, i = 0;
     while (i < ap.probs.length - 1 && (u -= ap.probs[i]) > 0) i++;
     const a = ap.acts[i], L = legal(s);
     E.pending = { d: ap };
-    TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: ap.fromTable, chosen: a });
+    TPG.botLog.push({ hand: G.handNo, tier: E.tier, key: ap.key, acts: ap.acts.slice(), probs: ap.probs.slice(), fromTable: ap.fromTable, file: E.rulesKey || null, chosen: a });
     if (TPG.botLog.length > 500) TPG.botLog.shift();
     if (a === "f") return { type: L.canCheck ? "check" : "fold", menu: a };
     if (a === "k") return { type: "check", menu: a };
@@ -2305,7 +2478,7 @@ function engApply(s, a, L) {
   if (!engTurn(s)) return;
   const E = G.eng, tg = TPG.mod;
   try {
-    const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier);
+    const d = E.pending?.d ?? tg.decisionKey(E.s, E.ranges, E.tier, keyVariant(E.meta), E.env);
     const to = a.type === "raise" ? clamp(Math.round(a.to), L.minTo, L.maxTo) : null;
     const { label, tr } = engLabel(d, a, to);
     if (tr) E.reads.push({ hand: G.handNo, at: E.s.history.length, to, split: tr.split, label, s: E.s });
@@ -2335,8 +2508,8 @@ function engMenuName(a, to, toCallNow, opening, cur = 0) {
   return `레이즈 ${(Math.round(to / cur * 10) / 10).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}x · ${bbx(to)}BB`;
 }
 // The policy's view of the actor at engine state s: mixed strategy over the menu, equity vs the public ranges.
-function engModelAt(s, ranges, pol, tier, meta) {
-  const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier), toCallNow = tg.toCall(s);
+function engModelAt(s, ranges, pol, tier, meta, env) {
+  const tg = TPG.mod, ap = tg.actionProbs(pol, s, ranges, tier, keyVariant(meta), env), toCallNow = tg.toCall(s);
   const opening = s.street === 0 && s.raises === 1, cur = Math.max(...s.bet);
   const eq = tg.multiEquity(s, ap.seat, ranges)[tg.comboIndex(s.hole[ap.seat])];
   const mix = ap.acts.map((a, i) => { const to = ["f", "k", "c"].includes(a) ? null : tg.amountTo(s, a); return { a, p: ap.probs[i], to, name: engMenuName(a, to, toCallNow, opening, cur) }; });
@@ -2370,7 +2543,7 @@ function engHeroTruth(hero, g) {
   if (!engTurn(hero)) return;
   const E = G.eng, tg = TPG.mod;
   try {
-    const md = engModelAt(E.s, E.ranges, E.pol, E.tier, E.meta), toCallNow = tg.toCall(E.s), eq = md.eq;
+    const md = engModelAt(E.s, E.ranges, E.pol, E.tier, E.meta, E.env), toCallNow = tg.toCall(E.s), eq = md.eq;
     E.pending = { d: md.d };
     const cat = { fold: 0, check: 0, call: 0, raise: 0 };
     for (const m of md.mix) cat[m.a === "f" ? "fold" : m.a === "k" || (m.a === "c" && !toCallNow) ? "check" : m.a === "c" ? "call" : "raise"] += m.p;
@@ -2957,8 +3130,8 @@ function foldView(guided) {
 // side by side, and the next hand waits for the player.
 function handReviewHTML(no, live = false) {
   const ds = (G.decs || []).filter(d => d.hand === no), hr = (G.hands || []).find(x => x.no === no), pc = x => Math.round(x * 100) + "%";
-  const rows = ds.map(d => `<tr data-hr-dec><td>${d.street}</td><td>${d.act ? `내 선택 ${d.act.me} <span class="num">${d.act.leak ? "채점 안 함" : (d.act.approx ? "≈" : "") + pc(d.act.p)}</span>` : "—"}</td><td>${d.act ? `정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span>` : "TP-GTO 비교 없음"}</td><td class="r num">${d.total == null ? "—" : d.total + "점"}</td></tr>`).join("");
-  const low = ds.filter(d => d.act && !d.act.leak && d.act.p < LOW_FREQ), worst = ds.flatMap(d => d.rows).sort((a, b) => a.score - b.score)[0];
+  const rows = ds.map(d => `<tr data-hr-dec><td>${d.street}</td><td>${d.act ? `내 선택 ${d.act.me} <span class="num">${d.act.leak ? "채점 안 함" : d.act.near ? `<span data-near>${NEAR_TXT} · 채점 안 함</span>` : (d.act.approx ? "≈" : "") + pc(d.act.p)}</span>` : "—"}</td><td>${d.act ? `정책 1순위 ${d.act.top} <span class="num">${pc(d.act.topP)}</span>` : "TP-GTO 비교 없음"}</td><td class="r num">${d.total == null ? "—" : d.total + "점"}</td></tr>`).join("");
+  const low = ds.filter(d => d.act && !d.act.leak && !d.act.near && d.act.p < LOW_FREQ), worst = ds.flatMap(d => d.rows).sort((a, b) => a.score - b.score)[0];
   const net = hr ? hr.net : 0, sgn = x => (x > 0 ? "+" : "") + bbf(x);
   const me = G.seats.find(x => x.isHero), head = live ? `핸드 #${no} 분석 · ${me ? me.cards.map(cardTxt).join(" ") : ""} · 진행 중` : `핸드 #${no} 분석 · ${hr?.cards || ""} · <span class="num ${net > 0 ? "good" : net < 0 ? "bad" : ""}">${sgn(net)} BB</span>`;
   return `<div class="hand-review" data-hand-review="${no}"${live ? " data-live" : ""}><div style="font-weight:600">${head}</div>
@@ -3002,11 +3175,12 @@ function mixRefHTML(mix, you, title) {
 function modelActionHTML(r) {
   const m = r.model.meta, you = r.you, leak = r.model.leak;
   // In a known leak cell the row is wrong, so the hero's frequency in it is not shown as a grade.
-  const freq = leak?.kind === "leak" ? `<span style="font-size:11px;color:var(--faint)">채점 안 함</span>` : `<b class="num">${you ? (you.approx ? "≈" : "") + Math.round(you.p * 100) + "%" : "—"}</b>${you?.approx ? ` <span class="conf" data-approx title="메뉴 밖 사이즈의 번역 오차가 커서 근사값이에요 (#417)">근사(번역)</span>` : ""}`;
+  const near = nearOf(r.model);
+  const freq = leak?.kind === "leak" || near ? `<span style="font-size:11px;color:var(--faint)">채점 안 함</span>` : `<b class="num">${you ? (you.approx ? "≈" : "") + Math.round(you.p * 100) + "%" : "—"}</b>${you?.approx ? ` <span class="conf" data-approx title="메뉴 밖 사이즈의 번역 오차가 커서 근사값이에요 (#417)">근사(번역)</span>` : ""}`;
   return `<div class="rrow ref" data-model-action><div class="t"><span>${SHORT[r.k]} · 내 선택 빈도 ${freq}</span>${modelTag(m)}</div>
     ${leakHTML(leak)}${modelMixHTML(r.model, you)}
     ${you?.note ? `<div class="cap"><span>${you.note}</span></div>` : ""}
-    <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
+    <div class="cap"><span>TP-GTO 혼합 전략 · ${TIERS[m.tier].name} 정책${near ? ` · <span data-near="${near}">${NEAR_TXT}</span>: 이 상황 그대로의 학습 표본이 없어 비슷한 상황(${NEAR_WHAT[near]})의 평균이에요` : r.model.fromTable ? "" : " · 이 상황은 아직 학습 표본이 없어 균등 분포"}</span><span>EV 손실 미산출 · 점수 제외</span></div>
     <div class="model-line">TP-GTO · 학습 중간본 · ${modelLine(m)}</div></div>`;
 }
 function modelWhyHTML(k, g) {
@@ -3153,6 +3327,13 @@ async function showdown(alive) {
   }
   renderSeats(); renderLog();
   await sleep(1400); banner.remove();
+}
+function tourWin() {
+  const m = h("div", "modal", `<div class="box" data-tour-win><h2>우승했어요</h2><p class="sub">마지막까지 남았어요. 이번 게임에서 기록한 TP 점수는 약점 분석에 남아 있어요.</p><button class="cta" id="win-again">새 게임 시작</button><button class="cta ghost small" id="win-learn">약점 연습하러 가기</button></div>`);
+  document.body.appendChild(m);
+  $("#win-again").onclick = () => { m.remove(); G = null; startGame(); };
+  $("#win-learn").onclick = () => { m.remove(); G = null; gameToken++; showView("learn"); };
+  gameToken++;
 }
 function heroBust() {
   const m = h("div", "modal", `<div class="box"><h2>탈락했어요</h2><p class="sub">이번 게임에서 기록한 TP 점수는 약점 분석에 남아 있어요.</p><button class="cta" id="bust-again">새 게임 시작</button><button class="cta ghost small" id="bust-learn">약점 연습하러 가기</button></div>`);
@@ -3825,7 +4006,7 @@ function rvModel(h, di) {
         md.ranges = ranges;
         return md;
       }
-      const d = tg.decisionKey(st, ranges, tier), to = l.type === "raise" ? Math.round(l.to * 100) : null;
+      const d = tg.decisionKey(st, ranges, tier, keyVariant(meta)), to = l.type === "raise" ? Math.round(l.to * 100) : null;
       const { label } = engLabelAt(st, l.type, to, engReadRng(ent, st));
       ranges = tg.updateRanges(pol, d, ranges, label);
       st = l.type === "raise" ? tg.applyBet(st, to, label) : tg.apply(st, label);

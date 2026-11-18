@@ -14,10 +14,10 @@
 // To seat a "button" at a physical table position, rotate your display; seat numbers are fixed.
 //
 // Game (immutable plain objects; apply returns a new state):
-//   newHand({n, holes, board?, deck?, menu?, raiseCap?})  holes: n pairs; deck: remaining cards, board
+//   newHand({n, holes, board?, deck?, menu?, raiseCap?, stacks?, ante?})  holes: n pairs; deck: remaining cards, board
 //                                        dealt from the front; or board: up to 5 board cards (filler is
 //                                        appended). menu "v1" (default) | "tp6" | "real"; raiseCap 3 or null.
-//   dealFromPermutation(perm52, n, {menu, raiseCap}?)  same as Python G.deal given rng.permutation(52).
+//   dealFromPermutation(perm52, n, {menu, raiseCap, stacks, ante}?)  same as Python G.deal given rng.permutation(52).
 //   menuOf(policyMeta) -> {menu, raiseCap}: the rules a policy file was trained on (v1 + cap 3 if unsaid).
 //   sizeMenu(s, menu?, raiseCap?) -> [{a, to}] sizes + all in; streetCap(s) as G.street_cap.
 //   legal(s) -> ["f","c","r","a"] etc.  apply(s, a) -> state    payoff(s) -> net chips per seat
@@ -45,17 +45,27 @@
 //   key space). AI seats only choose menu actions (apply).
 // TP keys and ranges:
 //   initialRanges(n) -> Float64Array(1326)[]  (reach weight per combo, COMBOS order)
-//   decisionKey(s, ranges, tier) -> {seat, acts, public, steps, step, key}
+//   decisionKey(s, ranges, tier, variant = "") -> {seat, variant, acts, public, steps, step, key}
 //       tier: "beginner" | "mid" | "pro"; steps: Int32Array(1326) of the actor's combos (-1 dead).
-//   actionProbs(policy, s, ranges, tier) -> {...decisionKey, probs}  probs = policy row for the
-//       actor's real hole (uniform when the table has no entry), aligned with `acts`.
+//       variant: the policy's index `key_variant` ("" legacy, "c1" #604/#608: c1 public key, postflop step + b1 fields).
+//   actionProbs(policy, s, ranges, tier, variant = "") -> {...decisionKey, probs, fromTable}  probs = policy row
+//       for the actor's real hole, aligned with `acts`. c1 tables back off on a miss (ADR 0022, #623): exact ->
+//       L1 -> L2 -> L3 coarse key (coarseKey; the mean of the table's rows sharing it, coarseTables) -> L4 (the L3
+//       key with its equity step moved by -1 and +1, the mean of the L3 rows found, #652) -> uniform;
+//       fromTable says which: "exact" | "L1" | "L2" | "L3" | "L4" | false. Legacy ("") tables never back off.
 //   updateRanges(policy, d, ranges, action) -> new ranges after the actor of decision `d` took
 //       `action` (name or index): Bayes update with the policy row of every combo's own key.
-//   seatProbs(policy, public, steps, m) -> per-combo rows (Float64Array(1326*m), row-major).
+//   seatProbs(policy, public, steps, m, variant = "", top = Infinity) -> per-combo rows (Float64Array(1326*m),
+//       row-major), same backoff; top = the tier's top equity step (TIER_K - 1) bounds L4's neighbors.
+//   backoffRow(policy, key, m, variant = "", top = Infinity) -> {row, from}: the lookup both use.
+//   setL1Rows(policy, l1Rows, q = 1): a c1 file's `l1_rows` (#803) join L1 where the table builds no row of that
+//       (L1 key, length) — web_hit_rate.measure's `l1_extra` (#804). Call before the first coarseTables(policy).
 //   updateRange(ranges, seat, probsColumn) -> low level, as tp_key.update_range.
 //   equityStepOf(s, seat, ranges, tier) -> the actor's step (with board.nut encoded for pro).
 //   equitySteps(s, seat, ranges, k), publicKey(s, seat, depth), key(public, step), myStep(...)
 //   equityVs(board, w) -> Float64Array(1326) equity vs range w (NaN on board collisions)
+//   b1Code(s, seat, ranges, depth) -> Int32Array(1326) b1 hand fields per combo (tp_key.b1_code, #606);
+//       b1Label(code) -> "o1v0k2"; handOutsVuln(s, seat, ranges) -> [outs, vuln] | null; handBlock(...) -> | null.
 //   boardNut(s, seat, ranges) -> 0..100 or null; evaluate(cards) -> score (higher wins)
 //   policy: a plain object {key: [p_action...]} or a Map.
 //   checkNutK(checkpoint.nut_k) -> throws if a pro table was built on another board.nut grid.
@@ -501,7 +511,7 @@ export function menuOf(meta) {
 }
 
 /** A new hand. holes: n pairs; deck: remaining cards (board dealt from the front), or board. */
-export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP, stacks = null }) {
+export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", raiseCap = RAISE_CAP, stacks = null, ante = 0 }) {
   if (!(n >= 2 && n <= 9)) throw new Error(`n=${n}: E3 supports 2..9 players`);
   if (!MENUS.includes(menu)) throw new Error(`menu ${JSON.stringify(menu)}: use one of ${MENUS.join(", ")}`);
   if (!holes || holes.length !== n) throw new Error(`holes: need ${n} pairs`);
@@ -511,11 +521,16 @@ export function newHand({ n = 6, holes, board = null, deck = null, menu = "v1", 
     for (const c of b) used.add(c);
     deck = [...b, ...Array.from({ length: 52 }, (_, c) => c).filter((c) => !used.has(c))];
   }
+  if (ante < 0) throw new Error(`ante=${ante}: chips must not be negative`);
+  const start = (i) => (stacks ? stacks[i] : STACK);
+  // G.deal (#878): the big blind pays the ante first, the blind with what is left; the ante is dead money in total, not in bet.
+  const paid = Math.min(ante, start(n - 1));
   const bet = new Array(n).fill(0);
-  bet[n - 2] = SB; bet[n - 1] = BB;
+  bet[n - 2] = SB; bet[n - 1] = Math.min(BB, start(n - 1) - paid);
+  const total = bet.slice(); total[n - 1] += paid;
   return Object.freeze({
-    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: bet.map((b, i) => (stacks ? stacks[i] : STACK) - b), bet,
-    total: bet.slice(), folded: new Array(n).fill(false), acted: new Array(n).fill(false),
+    n, hole: holes.map((h) => [h[0], h[1]]), deck: deck.slice(), stack: total.map((t, i) => start(i) - t), bet,
+    total, ante: paid, folded: new Array(n).fill(false), acted: new Array(n).fill(false),
     street: 0, board: [], toAct: 0, raises: 1, lastRaise: BB, history: [], log: [], done: false,
     menu, raiseCap: raiseCap === undefined ? RAISE_CAP : raiseCap,
   });
@@ -795,14 +810,26 @@ export function applyBet(s, to, how) {
 /** Net chips per seat relative to the start of the hand (sums to zero). */
 export function payoff(s) {
   if (!s.done) throw new Error("hand is not over");
-  const lv = live(s), out = s.total.map((t) => -t), P = pot(s);
+  const lv = live(s), out = s.total.map((t) => 0 - t), P = pot(s);   // 0 - t: no -0
   if (lv.length === 1) { out[lv[0]] += P; return out; }
   const score = new Map(lv.map((i) => [i, evaluate([...s.hole[i], ...s.board])]));
-  const best = max([...score.values()]);
-  const winners = postflopOrder(s.n).filter((i) => score.has(i) && score.get(i) === best);
-  const share = Math.floor(P / winners.length), odd = P % winners.length;
-  for (const i of winners) out[i] += share;
-  out[winners[0]] += odd;
+  const order = postflopOrder(s.n);
+  // G.payoff: side pots layered by what each seat put in apart from the ante; the ante is dead money in the first layer.
+  const ante = s.ante || 0;
+  const liveTotal = s.total.map((t, i) => t - (i === s.n - 1 ? ante : 0));
+  let prev = 0, dead = ante;
+  for (const level of [...new Set(lv.map((i) => liveTotal[i]))].sort((a, b) => a - b)) {
+    let amount = dead;
+    for (const t of liveTotal) amount += Math.min(t, level) - Math.min(t, prev);
+    dead = 0; prev = level;
+    const seats = lv.filter((i) => liveTotal[i] >= level);
+    const best = max(seats.map((i) => score.get(i)));
+    const winners = order.filter((i) => seats.includes(i) && score.get(i) === best);
+    const share = Math.floor(amount / winners.length), odd = amount % winners.length;
+    for (const i of winners) out[i] += share;
+    out[winners[0]] += odd;   // all odd chips to the first winner (TDA)
+  }
+  liveTotal.forEach((t, i) => { out[i] += Math.max(t - prev, 0); });   // a bet above every live stack is returned
   return out;
 }
 
@@ -874,7 +901,8 @@ export function publicKey(s, seat, depth = "full") {
 // ---- c1 key (#583, ADR 0021 / tp_key.py "c1", KEY_VERSIONS.c1 = 1): the public part of the combined key ----
 export const C1_VERSION = 1;
 const EFF_EDGES_BB = [5, 10, 15, 25, 40, 60, 100];
-const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6] };
+const C1_POSITIONS = { 2: ["BTN", "BB"], 3: ["BTN", "SB", "BB"], 4: ["CO", "BTN", "SB", "BB"], 5: ["HJ", "CO", "BTN", "SB", "BB"], 6: POSITIONS[6],
+  7: ["UTG", "LJ", "HJ", "CO", "BTN", "SB", "BB"], 8: ["UTG", "UTG1", "LJ", "HJ", "CO", "BTN", "SB", "BB"], 9: POSITIONS[9] };
 export function c1PositionNames(n) { return C1_POSITIONS[n] ? C1_POSITIONS[n].slice() : positionNames(n); }
 function effectiveStack(s, seat) {   // hand-start chips (behind + put in), capped by the deepest other player who can act
   const chips = s.stack.map((x, i) => x + s.total[i]);
@@ -911,12 +939,12 @@ export function publicFactsC1(s, seat, depth) {
   }
   return out;
 }
-/** tp_key.public_key(s, seat, depth, variant="c1") with the default environment (cash, no ante) or env = {stage, ante}. */
+/** tp_key.public_key(s, seat, depth, variant="c1") with the default environment (cash, no ante) or env = {stage, ante}; a state that carries a BB ante reads ante 1 whatever env says (tp_key.env_field). */
 export function publicKeyC1(s, seat, depth = "full", env = { stage: "c", ante: false }) {
   const nOpp = Math.min(live(s).length - 1, 3);
   const lg = legal(s).join("");
   if (lg === "fc" || lg === "c") return `call|${s.street}|${nOpp}|${potOddsStep(s, seat)}|${lg}`;
-  const st = `t${env.stage}${env.ante ? 1 : 0}|${stackField(s, seat)}|${publicFactsC1(s, seat, depth)}|`;
+  const st = `t${env.stage}${env.ante || s.ante > 0 ? 1 : 0}|${stackField(s, seat)}|${publicFactsC1(s, seat, depth)}|`;
   if (depth === "basic") {
     return `b|n${s.n}|${positionGroup(s.n, seat)}|${s.street}|${Math.min(nOpp, 2)}|${Math.min(raiseLevel(s), 2)}|${potOddsStep(s, seat)}|${st}${lg}`;
   }
@@ -929,9 +957,11 @@ function effectiveStack0(s, seat) {   // TP.md §1.1 SPR numerator: chips behind
   return cap.length ? Math.min(s.stack[seat], max(cap)) : 0;
 }
 
+/** tp_key.key: the equity step (and board.nut) after the public part, then the b1 label when the step carries one. */
 export function key(pub, step) {
-  if (step >= NUT_BASE) return `${pub}|e${step % NUT_BASE}|n${Math.floor(step / NUT_BASE) - 1}`;
-  return `${pub}|e${step}`;
+  const b1 = Math.floor(step / B1_BASE), e = step % B1_BASE;
+  const out = e >= NUT_BASE ? `${pub}|e${e % NUT_BASE}|n${Math.floor(e / NUT_BASE) - 1}` : `${pub}|e${e}`;
+  return b1 && !pub.startsWith("call|") ? `${out}|${b1Label(b1 - 1)}` : out;
 }
 
 export function multiEquity(s, seat, ranges) {
@@ -1000,6 +1030,131 @@ export function equitySteps(s, seat, ranges, k) {
 
 export function myStep(steps, s, seat) { return steps[comboIndex(s.hole[seat])]; }
 
+// ---- b1 hand fields (#606, tp_key.py "b1": hand.outs / hand.vuln / hand.block), bit for bit with numpy ----
+export const B1_RADIX = 6, B1_NA = 4, B1_NONE = 5, B1_BASE = 10_000;
+export const OUTS_EDGES = [1e-9, 15.0, 30.0], VULN_EDGES = [1e-9, 20.0], BLOCK_EDGES = [45.0, 60.0];
+export const OUT_GAIN = 0.10;
+
+/** np.searchsorted(edges, x, side="left"). */
+function searchLeft(edges, x) { let i = 0; while (i < edges.length && edges[i] < x) i++; return i; }
+
+/** tp_key._card_mass: one bincount over [first cards, second cards], added in that index order. */
+function cardMass(m) {
+  const out = new Float64Array(52);
+  for (let i = 0; i < N; i++) out[COMBO_HI[i]] += m[i];
+  for (let i = 0; i < N; i++) out[COMBO_LO[i]] += m[i];
+  return out;
+}
+
+/** tp_key._near_nut: (no board collision, top NUT_TOP by equity vs a random hand) per combo. */
+function nearNut(board) {
+  const strength = equityCached(board, UNIFORM);
+  const ok = new Uint8Array(N), top = new Uint8Array(N), okv = [];
+  for (let i = 0; i < N; i++) if (!Number.isNaN(strength[i])) { ok[i] = 1; okv.push(strength[i]); }
+  const qv = npQuantile(okv, 1 - NUT_TOP);
+  for (let i = 0; i < N; i++) top[i] = ok[i] && strength[i] >= qv ? 1 : 0;
+  return { ok, top };
+}
+
+/** TP hand.block (0-100) per combo of seat, NaN on board collisions; null preflop (tp_key.hand_block). */
+export function handBlock(s, seat, ranges) {
+  if (s.street === 0) return null;
+  const { ok, top } = nearNut(s.board);
+  const outs = [];
+  const m = new Float64Array(N), r = new Float64Array(N), rz = new Float64Array(N);
+  for (const q of live(s)) {
+    if (q === seat) continue;
+    for (let i = 0; i < N; i++) m[i] = ranges[q][i] * top[i];
+    const total = npSum(m);
+    let cnt = 0;
+    if (total > 0) {
+      const cm = cardMass(m);
+      for (let i = 0; i < N; i++) r[i] = ok[i] ? (cm[COMBO_HI[i]] + cm[COMBO_LO[i]] - m[i]) / total : NaN;
+    } else r.fill(0);
+    for (let i = 0; i < N; i++) { rz[i] = ok[i] ? r[i] : 0; cnt += ok[i]; }
+    const avg = npSum(rz) / cnt;   // np.nanmean: the pairwise sum with NaN as 0, over the count
+    const v = new Float64Array(N);
+    for (let i = 0; i < N; i++) { const den = r[i] + avg; v[i] = den > 0 ? 100.0 * r[i] / den : 50.0; }
+    outs.push(v);
+  }
+  if (!outs.length) return null;
+  const v = new Float64Array(N);   // np.mean(axis=0): rows added in order, then / count
+  for (let i = 0; i < N; i++) {
+    let acc = outs[0][i];
+    for (let j = 1; j < outs.length; j++) acc += outs[j][i];
+    v[i] = ok[i] ? acc / outs.length : NaN;
+  }
+  return v;
+}
+
+/** TP hand.outs and hand.vuln (0-100) per combo of seat on the flop and turn, else null (tp_key.hand_outs_vuln). */
+export function handOutsVuln(s, seat, ranges) {
+  const board = s.board;
+  if (board.length !== 3 && board.length !== 4) return null;
+  const opps = live(s).filter((q) => q !== seat);
+  const now = multiEquity(s, seat, ranges);
+  const dead = boardDead(board);
+  const free = new Float64Array(52).fill(1);
+  const mass = new Float64Array(N);
+  for (const q of opps) {
+    for (let i = 0; i < N; i++) mass[i] = dead[i] ? 0 : ranges[q][i];
+    const byCard = cardMass(mass), tot = npSum(mass);
+    if (tot > 0) for (let c = 0; c < 52; c++) free[c] = free[c] * (1.0 - byCard[c] / tot);
+  }
+  const total = new Float64Array(N), up = new Float64Array(N), down = new Float64Array(N);
+  const nxt = new Float64Array(N);
+  for (let c = 0; c < 52; c++) {
+    if (board.includes(c)) continue;
+    const nb = board.concat([c]);
+    nxt.fill(1);
+    for (const q of opps) { const e = equityCached(nb, ranges[q]); for (let i = 0; i < N; i++) nxt[i] = nxt[i] * e[i]; }
+    for (let i = 0; i < N; i++) {
+      const g = nxt[i] - now[i];
+      if (Number.isNaN(g)) continue;   // weight 0 (adding 0.0 changes no sum)
+      const w = free[c];
+      total[i] += w;
+      if (g >= OUT_GAIN) up[i] += w;
+      if (g <= -OUT_GAIN) down[i] += w;
+    }
+  }
+  const outs = new Float64Array(N), vuln = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const ok = total[i] > 0 && !Number.isNaN(now[i]);
+    outs[i] = ok ? 100.0 * up[i] / total[i] : NaN;
+    vuln[i] = ok ? 100.0 * down[i] / total[i] : NaN;
+  }
+  return [outs, vuln];
+}
+
+/** Per combo, the b1 fields as one int: outs + R * vuln + R^2 * block (tp_key.b1_code); depth "basic" asks outs only. */
+export function b1Code(s, seat, ranges, depth) {
+  const ov = handOutsVuln(s, seat, ranges);
+  const bucket = (v, edges, find) => (Number.isNaN(v) ? B1_NA : find(edges, v));
+  const out = new Int32Array(N);
+  if (depth === "basic") {
+    for (let i = 0; i < N; i++) out[i] = (ov ? bucket(ov[0][i], OUTS_EDGES, searchLeft) : B1_NA) + B1_RADIX * B1_NONE + B1_RADIX * B1_RADIX * B1_NONE;
+    return out;
+  }
+  const blk = handBlock(s, seat, ranges);
+  for (let i = 0; i < N; i++) {
+    const o = ov ? bucket(ov[0][i], OUTS_EDGES, searchLeft) : B1_NA;
+    const v = ov ? bucket(ov[1][i], VULN_EDGES, searchLeft) : B1_NA;
+    const k = blk ? bucket(blk[i], BLOCK_EDGES, searchRight) : B1_NA;
+    out[i] = o + B1_RADIX * v + B1_RADIX * B1_RADIX * k;
+  }
+  return out;
+}
+
+/** "o<outs>v<vuln>k<block>" ("-" = N/A on this street; fields the tier is not asked are left out), tp_key.b1_label. */
+export function b1Label(code) {
+  let out = "";
+  for (const [name, shift] of [["o", 1], ["v", B1_RADIX], ["k", B1_RADIX * B1_RADIX]]) {
+    const f = Math.floor(code / shift) % B1_RADIX;
+    if (f !== B1_NONE) out += name + (f === B1_NA ? "-" : String(f));
+  }
+  return out;
+}
+
 export function updateRange(ranges, seat, probs) {
   const out = ranges.slice();
   const r = new Float64Array(N);
@@ -1020,14 +1175,190 @@ function policyRow(policy, k, m) {
   return null;
 }
 
-/** The actor's TP key at state s: {seat, acts, public, steps, step, key}. */
-export function decisionKey(s, ranges, tier) {
+// ---------------------------------------------------------------- c1 miss backoff (ADR 0022, #623)
+// Same definitions as stalker/tools/web_hit_rate.py (coarse_key, coarse_tables); tests/test_web_backoff.py
+// compares the two. L1 drops the b1 hand items and the stack depths, L2 also the public facts and the SPR step, L3
+// also turns the position name into its group (positionGroup, as the beginner key; #645). L4 (#652, neighbor_row)
+// is no coarse table: it reads the L3 table at the equity steps next to the key's.
+export const BACKOFF_LEVELS = ["L1", "L2", "L3"];
+export const BACKOFF_NEIGHBOR = "L4";
+const RE_EQ = /^e\d+$/, RE_B1 = /^o[\d-](v[\d-])?(k[\d-])?$/, RE_STACK = /^s\d+(:\d*)?$/, RE_FACT = /^(u\d*|h[nmba]|g[nmxo])$/;
+const SPR_AT = 7;   // field index of the SPR step in a full-depth key, after a pro "p|"
+
+/** The c1 key with the items of backoff `level` (1 = L1, 2 = L2, 3 = L3) dropped; level 0 is the key itself. */
+export function coarseKey(k, level) {
+  if (level <= 0) return k;
+  const parts = k.split("|");
+  if (parts[0] === "call") {   // no position name: L3 = L2
+    if (level >= 2) parts[2] = "*";
+    return parts.join("|");
+  }
+  let at = -1;
+  for (let i = 0; i < parts.length; i++) if (RE_EQ.test(parts[i])) at = i;
+  if (at < 0) throw new Error(`coarseKey: ${JSON.stringify(k)} has no equity step (e<n>); only c1 keys back off`);
+  let head = parts.slice(0, at).map((f) => (RE_STACK.test(f) ? "s*" : f));
+  const tail = parts.slice(at).filter((f) => !RE_B1.test(f));
+  if (level >= 2) {
+    head = head.map((f) => (RE_FACT.test(f) ? "*" : f));
+    if (head[0] !== "b") head[SPR_AT + (head[0] === "p" ? 1 : 0)] = "*";   // basic keys carry no SPR
+  }
+  if (level >= 3 && head[0] !== "b") {   // basic keys already carry the group
+    const at = head[0] === "p" ? 1 : 0, n = Number(head[at + 1].slice(1)), seat = c1PositionNames(n).indexOf(head[at]);
+    if (seat < 0) throw new Error(`coarseKey: ${JSON.stringify(head[at])} is not a ${n}-handed c1 position name`);
+    head[at] = positionGroup(n, seat);
+  }
+  return head.concat(tail).join("|");
+}
+
+/**
+ * Per backoff level, coarse key -> Map(row length -> mean of the table's rows with that coarse key). Rows of a
+ * different length never merge. Built once per policy object (cached) — the page warms it on load (tpgLoad).
+ */
+const COARSE = new WeakMap(), L1_EXTRA = new WeakMap();
+
+/**
+ * The policy file's `l1_rows` (#803 `grouped_top_fit`: {L1 key with its equity field `e*`: {step: row or [rows]}},
+ * 0..q integers) as L1 key -> Map(row length -> probabilities). `e*` is the key's last equity field (coarseKey).
+ */
+export function l1Extra(l1Rows, q = 1) {
+  const out = new Map();
+  for (const [g, bySteps] of Object.entries(l1Rows || {})) {
+    const parts = g.split("|"), at = parts.lastIndexOf("e*");
+    if (at < 0 || parts.some((f, i) => i > at && RE_EQ.test(f))) throw new Error(`l1_rows: ${JSON.stringify(g)} has no last equity field e*; re-export the policy (#803)`);
+    for (const [step, v] of Object.entries(bySteps)) {
+      if (!/^\d+$/.test(step)) throw new Error(`l1_rows ${JSON.stringify(g)}: equity step ${JSON.stringify(step)} is not a number`);
+      const ck = parts.slice(0, at).concat(`e${step}`, parts.slice(at + 1)).join("|");
+      const rows = Array.isArray(v[0]) ? v : [v];
+      let byM = out.get(ck);
+      if (!byM) out.set(ck, (byM = new Map()));
+      for (const r of rows) byM.set(r.length, Float64Array.from(r, (x) => x / q));
+    }
+  }
+  return out;
+}
+
+/**
+ * Ship a file's `l1_rows` beside its decoded table: coarseTables then adds each row to L1 where the table builds no
+ * row of that (L1 key, length) — web_hit_rate.measure's `l1_extra`. Call before the first coarseTables(policy).
+ */
+export function setL1Rows(policy, l1Rows, q = 1) {
+  L1_EXTRA.set(policy, l1Extra(l1Rows, q));
+  COARSE.delete(policy);
+}
+
+export function coarseTables(policy) {
+  if (!policy || typeof policy !== "object") return [];
+  let t = COARSE.get(policy);
+  if (t) return t;
+  const entries = policy instanceof Map ? policy.entries() : Object.entries(policy);
+  const acc = BACKOFF_LEVELS.map(() => new Map());
+  for (const [k, row] of entries) {
+    for (let l = 0; l < acc.length; l++) {
+      const ck = coarseKey(k, l + 1);
+      let byM = acc[l].get(ck);
+      if (!byM) acc[l].set(ck, (byM = new Map()));
+      let c = byM.get(row.length);
+      if (!c) byM.set(row.length, (c = { tot: new Float64Array(row.length), n: 0 }));
+      for (let a = 0; a < row.length; a++) c.tot[a] += row[a];
+      c.n++;
+    }
+  }
+  t = acc.map((lv) => {
+    const out = new Map();
+    for (const [ck, byM] of lv) {
+      const o = new Map();
+      for (const [m, c] of byM) o.set(m, c.tot.map((x) => x / c.n));
+      out.set(ck, o);
+    }
+    return out;
+  });
+  for (const [ck, byM] of L1_EXTRA.get(policy) || []) {   // the file's rows lose to rows the table builds
+    let o = t[0].get(ck);
+    if (!o) t[0].set(ck, (o = new Map()));
+    for (const [m, r] of byM) if (!o.has(m)) o.set(m, r);
+  }
+  COARSE.set(policy, t);
+  return t;
+}
+
+/**
+ * L4 (web_hit_rate.neighbor_row): the mean of the L3 rows of length m at k's L3 key with its equity step moved by -1
+ * and +1 (steps outside 0..top skipped), null when neither has one.
+ */
+function neighborRow(tabs, k, m, top) {
+  const parts = coarseKey(k, BACKOFF_LEVELS.length).split("|");
+  let at = -1;
+  for (let i = 0; i < parts.length; i++) if (RE_EQ.test(parts[i])) at = i;
+  const step = Number(parts[at].slice(1)), l3 = tabs[BACKOFF_LEVELS.length - 1], rows = [];
+  for (const v of [step - 1, step + 1]) {
+    if (v < 0 || v > top) continue;
+    const r = l3.get(parts.slice(0, at).concat(`e${v}`, parts.slice(at + 1)).join("|"))?.get(m);
+    if (r) rows.push(r);
+  }
+  if (!rows.length) return null;
+  return Float64Array.from({ length: m }, (_, a) => rows.reduce((t, r) => t + r[a], 0) / rows.length);
+}
+
+/**
+ * {row, from}: the exact row ("exact"), else (c1 only) the first coarse level's mean row ("L1"/"L2"/"L3"), else
+ * the L4 equity-neighbor mean ("L4"), else {null, false}. top: the tier's top equity step (Infinity = unbounded;
+ * a table never has a step above its tier's, so only a hand-made table can tell the two apart).
+ */
+export function backoffRow(policy, k, m, variant = "", top = Infinity) {
+  const row = policyRow(policy, k, m);
+  if (row) return { row, from: "exact" };
+  if (variant === "c1") {
+    const tabs = coarseTables(policy);
+    for (let l = 0; l < tabs.length; l++) {
+      const r = tabs[l].get(coarseKey(k, l + 1))?.get(m);
+      if (r) return { row: r, from: BACKOFF_LEVELS[l] };
+    }
+    const r = neighborRow(tabs, k, m, top);
+    if (r) return { row: r, from: BACKOFF_NEIGHBOR };
+  }
+  return { row: null, from: false };
+}
+
+// Key layouts a policy file can name in its index entry (`key_variant`, #604). "" is every table before #398.
+export const KEY_VARIANTS = ["", "c1"];
+function variantOf(variant) {
+  const v = variant || "";
+  if (!KEY_VARIANTS.includes(v)) throw new Error(`key variant ${JSON.stringify(v)}: tpgto.js reads ${KEY_VARIANTS.map((x) => JSON.stringify(x)).join(", ")} only`);
+  return v;
+}
+
+/**
+ * The actor's TP key at state s: {seat, acts, public, steps, step, key}. variant "c1" (#604, #608) uses the c1
+ * public key, and postflop its steps also carry the b1 hand fields (tp_key.equity_steps: steps + B1_BASE *
+ * (1 + b1_code) on live combos), so key() appends the "o..v..k.." label as tp_key.key does.
+ */
+export function decisionKey(s, ranges, tier, variant = "", env = undefined) {
   const { k, depth } = tierOf(tier);
+  const v = variantOf(variant);
   const seat = s.toAct;
   const steps = equitySteps(s, seat, ranges, k);
-  const pub = publicKey(s, seat, depth);
+  const pub = v === "c1" ? publicKeyC1(s, seat, depth, env) : publicKey(s, seat, depth);
+  if (v === "c1" && s.street > 0) {
+    const code = b1CodeCached(s, seat, ranges, depth);
+    for (let i = 0; i < N; i++) if (steps[i] >= 0) steps[i] += B1_BASE * (1 + code[i]);
+  }
   const step = myStep(steps, s, seat);
-  return { seat, tier, acts: legal(s), public: pub, steps, step, key: key(pub, step) };
+  return { seat, tier, variant: v, acts: legal(s), public: pub, steps, step, key: key(pub, step) };
+}
+
+// b1Code costs ~250 ms on a 6-max flop; the page asks the same state again (decision, then the range update, and
+// re-renders), so the last few (state, ranges, depth) results are kept. Keyed by the ranges arrays' identity:
+// updateRange always returns new arrays, so a hit is the same input.
+const B1_CACHE = [];
+const B1_CACHE_SIZE = 8;
+function b1CodeCached(s, seat, ranges, depth) {
+  const d = depth === "basic" ? "basic" : "full";
+  const id = `${seat}|${d}|${s.board.join(",")}|${s.history.join(" ")}`;
+  for (const c of B1_CACHE) if (c.id === id && c.ranges.length === ranges.length && c.ranges.every((r, i) => r === ranges[i])) return c.code;
+  const code = b1Code(s, seat, ranges, d);
+  B1_CACHE.unshift({ id, ranges: ranges.slice(), code });
+  if (B1_CACHE.length > B1_CACHE_SIZE) B1_CACHE.pop();
+  return code;
 }
 
 export function equityStepOf(s, seat, ranges, tier) {
@@ -1035,26 +1366,31 @@ export function equityStepOf(s, seat, ranges, tier) {
 }
 
 /** Per-combo action probabilities, row-major (combo i, action a) at i*m + a; zeros on dead combos. */
-export function seatProbs(policy, pub, steps, m) {
+export function seatProbs(policy, pub, steps, m, variant = "", top = Infinity) {
   const out = new Float64Array(N * m);
   const rows = new Map();
   const uni = 1.0 / m;
+  const v1 = variantOf(variant);
   for (let i = 0; i < N; i++) {
     const v = steps[i];
     if (v < 0) continue;
     let row = rows.get(v);
-    if (row === undefined) { row = policyRow(policy, key(pub, v), m); rows.set(v, row); }
+    if (row === undefined) { row = backoffRow(policy, key(pub, v), m, v1, top).row; rows.set(v, row); }
     for (let a = 0; a < m; a++) out[i * m + a] = row ? row[a] : uni;
   }
   return out;
 }
 
-/** decisionKey plus the policy row for the actor's real hole (uniform when the table is silent). */
-export function actionProbs(policy, s, ranges, tier) {
-  const d = decisionKey(s, ranges, tier);
+/**
+ * decisionKey plus the policy row for the actor's real hole. fromTable: "exact", "L1"/"L2"/"L3" (c1 tables only: the
+ * mean row of the same coarse key, ADR 0022), "L4" (the L3 rows at the neighboring equity steps, #652), or false
+ * (no row at any level: uniform).
+ */
+export function actionProbs(policy, s, ranges, tier, variant = "", env = undefined) {
+  const d = decisionKey(s, ranges, tier, variant, env);
   const m = d.acts.length;
-  const row = policyRow(policy, d.key, m);
-  return { ...d, probs: row ? Array.from(row) : new Array(m).fill(1.0 / m), fromTable: !!row };
+  const { row, from } = backoffRow(policy, d.key, m, d.variant, tierOf(tier).k - 1);
+  return { ...d, probs: row ? Array.from(row) : new Array(m).fill(1.0 / m), fromTable: from };
 }
 
 /** Ranges after the actor of decision d took `action` (name or index). */
@@ -1062,10 +1398,49 @@ export function updateRanges(policy, d, ranges, action) {
   const m = d.acts.length;
   const a = typeof action === "number" ? action : d.acts.indexOf(action);
   if (a < 0 || a >= m) throw new Error(`action ${JSON.stringify(action)} not in ${d.acts.join(",")}`);
-  const P = seatProbs(policy, d.public, d.steps, m);
+  const P = seatProbs(policy, d.public, d.steps, m, d.variant, tierOf(d.tier).k - 1);
   const col = new Float64Array(N);
   for (let i = 0; i < N; i++) col[i] = P[i * m + a];
   return updateRange(ranges, d.seat, col);
+}
+
+// ---------------------------------------------------------------- tournament policies (ADR 0029 decisions 1, 4; #956)
+// Which (env_id, stage, ante) policy the page should serve is pure logic over the index and the table state.
+
+/** ADR 0027 decision 2: e = early (r >= K+2), b = bubble (r = K+1), m = in the money, f = MTT final table (one table, r <= table size, in the money). SNG (field = table size) never uses f. */
+export function tournamentStage({ players, paid, field, tableSize }) {
+  if (!(players >= 2 && paid >= 1)) throw new Error(`tournamentStage: players ${players}, paid ${paid}: need players >= 2 and paid >= 1`);
+  if (players >= paid + 2) return "e";
+  if (players === paid + 1) return "b";
+  return field > tableSize && players <= tableSize ? "f" : "m";
+}
+
+/** The page's `G.stage` select (early|mid|bubble|itm|ft) against the policy stage letters. A `mid` table is still before the bubble, so it reads `e`. */
+export const WEB_STAGE_LETTER = Object.freeze({ early: "e", mid: "e", bubble: "b", itm: "m", ft: "f" });
+
+/**
+ * index.tournament[env][stage].ante[0|1]; a v1 index (no `tournament`) and anything missing give null. A stage that spans
+ * several survivor counts (all but the bubble) holds `{ by_players: { "<n>": entry } }` there (#995): `players` picks one,
+ * and a slot without that count gives the slot itself (no `file`), which the caller reads as a players mismatch.
+ */
+export function tournamentEntry(index, envId, stage, ante, players) {
+  const e = index && index.schema_version >= 2 ? index.tournament?.[envId]?.[stage]?.ante?.[ante ? 1 : 0] : null;
+  if (e && e.by_players) return e.by_players[String(players)] || e;
+  return e || null;
+}
+
+/**
+ * The policy entry for a table, or why there is none: "no_env" (no tournament policy for this preset: keep the
+ * current mock wording), "no_stage" (this stage or ante is not trained: rule bot, "미학습"), "players_mismatch"
+ * (trained for another survivor count r; the n<players> key slot would never match). The cash tiers are never a fallback.
+ */
+export function tournamentPolicyFor(index, { envId, players, paid, field, tableSize, ante }) {
+  const stage = tournamentStage({ players, paid, field, tableSize });
+  if (!index?.tournament?.[envId] || index.schema_version < 2) return { stage, entry: null, reason: "no_env" };
+  const entry = tournamentEntry(index, envId, stage, ante, players);
+  if (!entry) return { stage, entry: null, reason: "no_stage" };
+  if (!entry.file || entry.players !== players) return { stage, entry: null, reason: "players_mismatch" };
+  return { stage, entry, reason: "ok" };
 }
 
 // ---------------------------------------------------------------- teacher answers (web only, no Python twin)
@@ -1137,7 +1512,7 @@ const TIE_EPS = 1e-9;
  * is ahead of; ties count half. `reply` is null when the action ends the street/hand or the next to act is
  * the seat itself. Pure function of its arguments.
  */
-export function rangeResponse(policy, s, ranges, tier, seat, action = null) {
+export function rangeResponse(policy, s, ranges, tier, seat, action = null, variant = "", env = undefined) {
   const hi = comboIndex(s.hole[seat]), dead = boardDead(s.board);
   const mine = new Float64Array(N); mine[hi] = 1;
   const vsMe = equityVs(s.board, mine);      // each combo's equity against my exact hand
@@ -1167,8 +1542,8 @@ export function rangeResponse(policy, s, ranges, tier, seat, action = null) {
   if (action != null) {
     const ns = apply(s, action);
     if (!ns.done && ns.street === s.street && ns.toAct !== seat && !ns.folded[ns.toAct]) {
-      const opp = ns.toAct, d = decisionKey(ns, ranges, tier), m = d.acts.length;
-      const P = seatProbs(policy, d.public, d.steps, m);
+      const opp = ns.toAct, d = decisionKey(ns, ranges, tier, variant, env), m = d.acts.length;
+      const P = seatProbs(policy, d.public, d.steps, m, d.variant, tierOf(d.tier).k - 1);
       const kinds = d.acts.map((a) => (a === "f" ? "fold" : a === "k" || a === "c" ? "pass" : "raise"));
       const w = wOf(opp);
       const acc = { weak: { fold: 0, pass: 0, raise: 0, w: 0 }, strong: { fold: 0, pass: 0, raise: 0, w: 0 } };

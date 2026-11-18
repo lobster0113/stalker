@@ -20,6 +20,27 @@ def test_env_id_is_deterministic_and_field_sensitive():
     assert _spec(initial_stacks=(1501,) + a.initial_stacks[1:]).env_id != a.env_id
 
 
+def _separation_variants() -> dict[str, S.EnvSpec]:
+    """One variant per tournament separation key (docs/research/2026-11-icm-env-separation.md)."""
+    base = _spec()
+    levels = base.blind_schedule
+    return {
+        "payout_vector": _spec(payout_vector=(0.65, 0.35)),
+        "blind_speed": _spec(blind_schedule=tuple((sb, bb, length // 2) for sb, bb, length in levels)),
+        "field_size": _spec(field_size=9, initial_stacks=(base.initial_stacks[0],) * 9),
+        "table_size": _spec(table_size=9),
+        "bb_ante": _spec(ante_mode="bb_ante", ante_schedule=tuple(bb for _, bb, _ in levels)),
+    }
+
+
+@pytest.mark.parametrize("key", sorted(_separation_variants()))
+def test_each_tournament_separation_key_changes_env_id(key):
+    variants = _separation_variants()
+    others = {k: v.env_id for k, v in variants.items() if k != key}
+    assert variants[key].env_id != _spec().env_id, f"{key} must give a new env_id (docs/RECORDS.md env_id)"
+    assert variants[key].env_id not in others.values(), f"{key} collides with another separation key"
+
+
 def test_env_id_ignores_field_order():
     a = _spec()
     shuffled = json.dumps(dict(reversed(list(json.loads(a.to_json()).items()))))
@@ -113,10 +134,18 @@ def test_migrate_decision_ids_and_rejects_unknown_versions():
 
 
 def test_generated_records_carry_the_config_env_id(tmp_path):
-    from stalker.pipeline.generate import generate
+    import numpy as np
+
+    from stalker.agents.random_agent import RandomLegalAgent
+    from stalker.records.store import RecordWriter
+    from stalker.tournament.director import run_game
 
     cfg = load_preset("6max_sng_wta")
-    generate(cfg, 1, 3, tmp_path)
+    write_manifest(tmp_path, RunManifest.create("t", cfg, 3, "random", meta={}))
+    res = run_game(cfg, [RandomLegalAgent(np.random.default_rng(i)) for i in range(cfg.players)],
+                   np.random.default_rng(3), game_id="t-g0")
+    with RecordWriter(tmp_path) as w:
+        w.write(GameRecord.from_result(res, cfg.prize_pool / cfg.players, "t-ep0", S.from_tournament(cfg).env_id))
     ids = {r.ids.env_id if hasattr(r, "ids") else r.env_id for r in iter_records(tmp_path)}
     assert ids == {S.from_tournament(cfg).env_id}
     assert (tmp_path / MANIFEST).exists()

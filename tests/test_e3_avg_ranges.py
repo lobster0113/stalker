@@ -13,8 +13,14 @@ from stalker.e3.mccfr import RANGE_EVERY, E3MCCFR
 from stalker.tools import pod_train as P
 
 
+def _nochain(m):
+    """State without the #712 run history, which differs between a resumed and an uninterrupted run."""
+    return {k: v for k, v in m.state().items() if k != "chain"}
+
+
+
 def _sha(m: E3MCCFR) -> str:
-    return hashlib.sha256(json.dumps(m.state(), sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(_nochain(m), sort_keys=True).encode()).hexdigest()
 
 
 @pytest.fixture(scope="module")
@@ -90,7 +96,7 @@ def test_sequential_checkpoint_keeps_the_snapshot():
     st = json.loads(json.dumps(part.state()))
     assert st["version"] == 2 and st["ranges"] == "average" and st["snap_at"] == 4 and st["snap"]
     back = E3MCCFR.from_state(st)
-    assert back.state() == part.state()
+    assert _nochain(back) == _nochain(part)
     back.iterate(2)
     assert _sha(back) == _sha(whole)
 
@@ -109,7 +115,7 @@ def test_pod_pack_round_trips_the_snapshot():
             "menu": m.menu, "raise_cap": m.raise_cap, "rng": m.rng.bit_generator.state,
             "ranges": m.ranges, "range_every": m.range_every, "snap_at": m.snap_at}
     st = P.unpack_state(P.pack(m), meta)
-    assert st == json.loads(json.dumps(m.state()))
+    assert st == json.loads(json.dumps(_nochain(m)))
 
 
 def test_pod_run_records_the_ranges_and_a_chain_refuses_other_ranges(tmp_path, monkeypatch):

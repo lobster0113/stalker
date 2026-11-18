@@ -1,0 +1,16 @@
+# #877 (retry of #873, which timed out at the 120 min pod limit with random+tag in one pod and no result): the
+# random half of the CI-grounded lambda-grid baseline, same command and seed as the local reference in #870/#872
+# (local: random 13m50s, tag 31m, single process). One agent per pod so each result is retrievable on its own.
+# icm_grid is single-process, so 2 vCPU is enough. Worst case = 0.12 * 120 / 60 = $0.24.
+# run_stages --deadline-s 5400 (= 120*60 - 1800 s) leaves 30 min of margin so a slow pod still yields a stage-failure
+# result; the measurement stage first prints `t0=<epoch at command start> stage_start=<epoch>` to stderr (icm_grid prints nothing else there), so a stage-failure result's stderr_tail shows how long download + pip install took.
+# Result: ops:cloud/results/<run id>.json, schema stalker.icm.lambda-grid-pair with the single agent `random`.
+name: icm-lambda-grid-random
+image: python:3.12-slim
+command: set -e; mkdir -p /src; date -u +%s > /src/t0; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e .; python3 -m stalker.tools.run_stages --out /result/icm-lambda-grid-random.json --deadline-s 5400 --stage 'random=echo t0=$(cat /src/t0) stage_start=$(date -u +%s) >&2; python3 -m stalker.tools.icm_grid --presets 9max_sng_503020,9max_sng_flat --remaining 2,3,4 --profiles even,random,skewed --level-index 0 --layouts 3 --games 1000 --seed 0 --agents random --lambda-grid --out /src/random.json' --stage 'pair=python3 -m stalker.tools.icm_grid_pair --out /result/icm-lambda-grid-random.json random=/src/random.json'
+cpu_flavor: cpu3c
+vcpu: 2
+disk_gb: 10
+max_minutes: 120
+hourly_usd: 0.12
+result_path: /result/icm-lambda-grid-random.json

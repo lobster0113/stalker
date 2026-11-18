@@ -12,12 +12,16 @@ def write_json_gz(path: Path, obj) -> None:
         gz.write(json.dumps(obj).encode("utf-8"))
 
 
+GZIP_MAGIC = b"\x1f\x8b"
+
+
 def read_json(path: Path):
-    """Read a `.json` or `.json.gz` file."""
-    if path.name.endswith(".gz"):
-        with gzip.open(path, "rb") as f:
-            return json.loads(f.read().decode("utf-8"))
-    return json.loads(path.read_text(encoding="utf-8"))
+    """Read a plain or gzipped JSON file. Gzip is told by its magic bytes, not the name: a pod sees a
+    `resume_run` upload as `$STALKER_RESUME` = `.../resume.bin`, gzipped (#916)."""
+    raw = Path(path).read_bytes()
+    if raw[:2] == GZIP_MAGIC:
+        raw = gzip.decompress(raw)
+    return json.loads(raw.decode("utf-8"))
 
 
 def find_table(folder: Path, stem: str, recursive: bool = False) -> Path | None:

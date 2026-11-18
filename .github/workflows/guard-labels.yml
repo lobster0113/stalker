@@ -1,0 +1,31 @@
+name: guard-labels
+
+# Label changes re-run only the guard (#889). The job name stays `guard` for branch protection;
+# there is deliberately no `gates` job here (a skipped required check could count as passing).
+on:
+  pull_request:
+    types: [labeled, unlabeled]
+
+concurrency:
+  group: guard-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: referee-guard
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          BASE_REF: ${{ github.base_ref }}
+        # Same command as ci.yml guard: diff from the merge base with the current base tip (#219).
+        run: |
+          git fetch -q origin "$BASE_REF"
+          python -m referee.guard --base "$(git merge-base "origin/$BASE_REF" HEAD)" --labels "$LABELS"

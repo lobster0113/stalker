@@ -13,6 +13,7 @@ git push는 작업 브랜치(`claude/*`)와 `ops`에만 한다.
 | `ops:STATE.md` | 현재 초점, 진행 중 실험, 최근 경보 | Planner, Auditor |
 | `ops:journal/YYYY-MM.jsonl` | 루틴 실행 기록 (§6) | 모든 루틴 |
 | `ops:metrics/history.jsonl` | 지표 시계열 | **CI 전용** (에이전트 수정 금지) |
+| `ops:cloud/policies/<run>/` | `cloud.yml mode=export`가 올리는 페이지 상한 안 웹 정책 파일(`<등급>-<n>.json`·`index.json`, #596) | **CI 전용** (에이전트 수정 금지) |
 | `ops:budget/ledger.jsonl` | 클라우드 지출 원장 (`jobs/README.md`) | **CI 전용** (`cloud.yml`, 에이전트 수정 금지) |
 | `ops:reports/` | 하네스 건강 리포트 | Auditor |
 | `ops:FEEDBACK.md` | 사용자 체험 피드백 원문과 이슈화 상태 (§9) | 대화 세션(기록), Planner(상태 갱신) |

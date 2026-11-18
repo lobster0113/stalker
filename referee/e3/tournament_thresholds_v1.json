@@ -1,0 +1,7 @@
+{
+  "adr": "docs/decisions/0030-tournament-eval-thresholds.md",
+  "metric": "primary",
+  "delta": 0.0075,
+  "min_seeds": 3,
+  "z": 1.959963984540054
+}

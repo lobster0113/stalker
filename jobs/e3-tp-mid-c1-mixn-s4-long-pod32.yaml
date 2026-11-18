@@ -1,0 +1,26 @@
+# #680: continue seed 4 of e3-tp-mid-c1-mixn-s4-pod32 (run 41813684540, 40,000 iterations) to 120,000, so mid-6's
+# c1 swap can be judged again on a longer-trained checkpoint (#656). Same training flags as the s4 job (seed 4,
+# 2-6 mixed deals, c1, real menu, average/own ranges, sampled stacks, batch 500); only --max-iters 120000, and
+# --workers 12 instead of 16 (memory, below). pod_train's job name ignores the yaml name and workers, so it resumes
+# the s4 result. Chain: first dispatch resume_run=41813684540, then each next one resume_run=<previous run id>
+# until the result's iters is 120000 (stopped_by "max_iters").
+# Worst case = hourly_usd * max_minutes / 60 = 1.2 * 200 / 60 = $4.00 per dispatch. --minutes 80 (not 90) so the
+# slowest observed host still ends inside 200 min: train() checks the deadline only between steps of workers*batch =
+# 6,000 iterations (pod_train.py train()), 19.6 min at 5.1 it/s, so training can run to 80 + 19.6 = 99.6 min; the
+# non-training time (pip, resume load, evaluation) was 86 min on run 41670499712 (159.82 - 73.8, EPYC 9654) and 46 min
+# on 41813684540; 96 min is budgeted (86 + 10 for the larger resume load) -> 195.6 <= 200.
+# Dispatches: seed 4 ran 9.43 it/s at 16 workers; 12 workers is about 0.75x = 7.1 it/s (step 14.1 min -> 6 steps =
+# 36,000 per 80 min: 40k -> 76k -> 112k -> 120k) and on the slowest host seen 6.78 x 0.75 = 5.1 it/s (5 steps =
+# 30,000: 40k -> 70k -> 100k -> 120k), so 3 dispatches either way. Total worst case 3 x $4.00 = $12.00.
+# Memory (#491/#513): 16 workers used ~40 GB of 64 GB at 1.66M keys (run 41515877838, child 2.2 GB each). Keys grew
+# ~iters^0.8 from 40k to 56k, so 120k may reach ~3M keys and 16 children ~4 GB each would pass 64 GB; 12 children
+# (~48 GB + parent ~10 GB) stay under it.
+name: e3-tp-mid-c1-mixn-s4-long-pod32
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 6 --player-mix 2,3,4,5,6 --workers 12 --minutes 80 --batch 500 --seed 4 --max-iters 120000 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --stacks sampled --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-mixn-s4-long-pod32.json
+cpu_flavor: cpu3c
+vcpu: 32
+disk_gb: 10
+max_minutes: 200
+hourly_usd: 1.2
+result_path: /result/e3-tp-mid-c1-mixn-s4-long-pod32.json

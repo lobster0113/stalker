@@ -15,6 +15,7 @@ exploitation gain — a lower bound, never a certificate (referee/GATES.md Gate 
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import NamedTuple
 
@@ -116,24 +117,88 @@ def _eq_all(hole, board, weights: list[np.ndarray]) -> float:
     return eq
 
 
+AIVAT_SALT = 770   # the correction's rng is seeded apart from the LBR stream, so the plain column does not move
+
+
+def _completions(aux: np.random.Generator, cards: tuple[int, ...], need: int, m: int) -> list[tuple[int, ...]]:
+    if need == 0:
+        return [()]
+    pool = np.array(cards)
+    return [tuple(int(c) for c in aux.choice(pool, size=need, replace=False)) for _ in range(m)]
+
+
+def _checkdown(s: G.State, me: int, board: tuple[int, ...], comps) -> float:
+    """V: the LBR seat's mean payoff (bb) if the hand ended now and went to showdown on `board` + each completion."""
+    if s.done and len(s.live()) == 1:
+        return float(G.payoff(s)[me]) / G.BB
+    vals = [G.payoff(s._replace(board=board + c, done=True))[me] for c in comps]
+    return float(np.mean(vals)) / G.BB
+
+
+def _v_after(s: G.State, ns: G.State, me: int, comps) -> float:
+    """V of the successor `ns` before any card it dealt is seen: completions from `s`'s board (same draws for every action)."""
+    if ns.done and len(ns.live()) == 1:
+        return float(G.payoff(ns)[me]) / G.BB
+    if len(ns.board) == len(s.board) and ns.done:   # river showdown: nothing left to deal
+        return float(G.payoff(ns)[me]) / G.BB
+    return _checkdown(ns, me, s.board, comps)
+
+
+def _v_now(ns: G.State, me: int, aux: np.random.Generator, m: int) -> float:
+    """V of `ns` with the cards it holds: completions from its own board and deck."""
+    if ns.done:
+        return float(G.payoff(ns)[me]) / G.BB
+    return _checkdown(ns, me, ns.board, _completions(aux, ns.deck, 5 - len(ns.board), m))
+
+
+def _deal_baseline(s: G.State, me: int, aux: np.random.Generator, m: int) -> float:
+    """Unbiased estimate of E over deals of V(dealt state): fresh holes and a full board for every draw."""
+    vals = []
+    for _ in range(m):
+        d = [int(c) for c in aux.permutation(52)]
+        hole = tuple((d[2 * i], d[2 * i + 1]) for i in range(s.n))
+        board = tuple(d[2 * s.n:2 * s.n + 5])
+        vals.append(G.payoff(s._replace(hole=hole, board=board, done=True))[me])
+    return float(np.mean(vals)) / G.BB
+
+
 @dataclass
 class LBRResult:
     seat: int
     hands: int
     mean_bb: float
     stderr_bb: float
+    aivat_mean_bb: float | None = None     # recorded only (#781): the verdict reads mean_bb
+    aivat_stderr_bb: float | None = None
 
 
-def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full",
-        extra_sizes: bool = False) -> LBRResult:
-    """`extra_sizes`: the LBR seat may also bet 150% / 200% of the pot and min-raise postflop, sizes the
-    policy never trained on (#343). A superset of its default actions, so it measures at least as much."""
+def lbr_hands(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full",
+              extra_sizes: bool = False, aivat_samples: int = 0,
+              deal: Callable[[np.random.Generator], G.State] | None = None,
+              reward: Callable[[G.State], float] | None = None) -> tuple[list[float], list[float] | None]:
+    """Per hand, the LBR seat's payoff in bb, and with `aivat_samples` > 0 the AIVAT-style corrected payoff (#770, #781).
+
+    The correction subtracts zero-mean terms built from V = check-down value (mean `G.payoff` over `aivat_samples`
+    board completions from the cards still in the deck, drawn by a separate rng):
+      * hole deal:        V(dealt state) - mean V over freshly dealt holes and boards
+      * policy seat acts: V(after the sampled action) - sum_a p(a) V(after a)   (p = the row the seat sampled from)
+      * board cards:      V(after the cards) - V(before them, completions from the old board)
+    Undealt cards never steer a decision (the policy reads public state and its own hole; LBR reads `s.board`), so every
+    term has conditional mean zero: the corrected mean is unbiased and only its variance differs
+    (docs/research/2026-11-lbr-variance-reduction.md). The plain stream draws exactly what it drew without the correction.
+
+    `deal` / `reward` (#917) replace the cash deal and the bb payoff of a finished hand (the tournament variant `lbr_icm`);
+    both None = exactly the cash behavior. A `reward` has no AIVAT counterpart: V is a chip value."""
+    if reward is not None and aivat_samples > 0:
+        raise ValueError("a custom reward has no AIVAT correction: use aivat_samples=0.")
     rng = np.random.default_rng(seed)
-    wins = []
+    aux = np.random.default_rng([seed, seat, AIVAT_SALT]) if aivat_samples > 0 else None
+    plain, corr = [], ([] if aux is not None else None)
     for _ in range(hands):
-        s = G.deal(rng, n)
+        s = G.deal(rng, n) if deal is None else deal(rng)
         mine = np.isin(COMBO_ARR, list(s.hole[seat])).any(axis=1)
         ranges = K.initial_ranges(n)        # the policy's public beliefs, every seat
+        c = _v_now(s, seat, aux, aivat_samples) - _deal_baseline(s, seat, aux, aivat_samples) if aux is not None else 0.0
         while not s.done:
             p = s.to_act
             probs = seat_probs(policy, s, p, ranges, k, depth)
@@ -146,15 +211,71 @@ def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, de
                 vals = [_value(policy, s, x, ranges, mine, seat, k, depth) for x in cands]
                 a = int(np.argmax(vals))
             chosen = cands[a] if p == seat else acts[a]
+            ns = _step(s, chosen)
+            if aux is not None:
+                comps = _completions(aux, s.deck, 5 - len(s.board), aivat_samples)
+                if p != seat:   # action term: what the sampled action added beyond its expectation under the row
+                    q = row / row.sum()
+                    exp = sum(float(q[i]) * _v_after(s, _step(s, x), seat, comps) for i, x in enumerate(acts) if q[i] > 0)
+                    c += _v_after(s, ns, seat, comps) - exp
+                if len(ns.board) > len(s.board):   # chance term: the cards this step dealt
+                    c += _v_now(ns, seat, aux, aivat_samples) - _v_after(s, ns, seat, comps)
             if isinstance(chosen, Extra):   # the policy's belief about this seat sees the nearest menu action
                 a = acts.index(chosen.menu) if chosen.menu in acts else acts.index("a")
             ranges = list(ranges)
             ranges[p] = ranges[p] * probs[:, a]
-            s = _step(s, chosen)
-        wins.append(float(G.payoff(s)[seat]) / G.BB)
-    arr = np.array(wins)
-    se = float(arr.std(ddof=1) / np.sqrt(len(arr))) if hands > 1 else 0.0
-    return LBRResult(seat, hands, float(arr.mean()), se)
+            s = ns
+        win = float(G.payoff(s)[seat]) / G.BB if reward is None else float(reward(s))
+        plain.append(win)
+        if corr is not None:
+            corr.append(win - c)
+    return plain, corr
+
+
+def _mean_se(x: list[float]) -> tuple[float, float]:
+    arr = np.array(x)
+    se = float(arr.std(ddof=1) / np.sqrt(len(arr))) if len(arr) > 1 else 0.0
+    return float(arr.mean()), se
+
+
+def lbr(policy, seat: int, hands: int, seed: int = 0, k: int = 5, n: int = 6, depth: str = "full",
+        extra_sizes: bool = False, aivat_samples: int = 0) -> LBRResult:
+    """`extra_sizes`: the LBR seat may also bet 150% / 200% of the pot and min-raise postflop, sizes the
+    policy never trained on (#343). A superset of its default actions, so it measures at least as much.
+    `aivat_samples` > 0 also records the AIVAT-style corrected mean (`lbr_hands`); the plain fields are unchanged."""
+    plain, corr = lbr_hands(policy, seat, hands, seed, k, n, depth, extra_sizes, aivat_samples)
+    r = LBRResult(seat, hands, *_mean_se(plain))
+    if corr is not None:
+        r.aivat_mean_bb, r.aivat_stderr_bb = _mean_se(corr)
+    return r
+
+
+def lbr_icm(policy, seat: int, hands: int, stacks, payouts, lam: float = 0.0, seed: int = 0, k: int = 5,
+            depth: str = "full", ante: int = 0, menu: str | None = None, raise_cap=G._UNSET,
+            stage: str = "c", variant: str = "c1") -> LBRResult:
+    """LBR of one seat of a tournament table, in prize units (#917, ADR 0027 F4b): `mean_bb`/`stderr_bb` hold the mean
+    and SE of the hand-end reward as a fraction of the prize pool, `bubble_corrected_equity(stacks, payouts, lam)`
+    after the hand minus before (`tournament_payoff`), not bb.
+
+    `stacks`: E3 chips of every live seat before the blinds, seat order = E3 preflop order (the deal); `payouts`:
+    the prizes by place. `variant`/`stage`/`ante` select the policy's key layout and `t<stage><ante>` slot as in training.
+    Only the reward changes: the LBR seat still picks actions by the chip one-step value of this module, so the
+    number is a lower bound on what a prize-aware exploiter gains, never a certificate (referee/GATES.md Gate Q3).
+    Each hand is dealt from the same stacks. Raises ValueError if `lam` is outside [0, 1]."""
+    from stalker.e3.icm_payoff import tournament_payoff
+
+    if not 0.0 <= lam <= 1.0:
+        raise ValueError(f"lam={lam}: must be in [0, 1] (ADR 0026).")
+    stacks = tuple(int(x) for x in stacks)
+    pool = float(sum(payouts))
+    if pool <= 0 or not 0 <= seat < len(stacks):
+        raise ValueError(f"need a positive prize pool and a seat in 0..{len(stacks) - 1}.")
+    n = len(stacks)
+    kw = {"menu": menu, "raise_cap": raise_cap, "stacks": stacks, "ante": ante}
+    with K.using_variant(variant), K.using_env(stage, ante > 0):
+        plain, _ = lbr_hands(policy, seat, hands, seed, k, n, depth, deal=lambda rng: G.deal(rng, n, **kw),
+                             reward=lambda s: tournament_payoff(s, stacks, payouts, lam)[seat] / pool)
+    return LBRResult(seat, hands, *_mean_se(plain))
 
 
 def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int, depth: str) -> float:
@@ -189,10 +310,17 @@ def _value(policy, s: G.State, a: str, ranges, mine: np.ndarray, me: int, k: int
 
 
 def exploitability_lb(policy, hands: int, seed: int = 0, k: int = 5, n: int = 6, seats=None, depth: str = "full",
-                      extra_sizes: bool = False) -> dict:
-    """Mean over seats of the LBR player's winnings (bb/hand): a lower bound on one-seat exploitation."""
+                      extra_sizes: bool = False, aivat_samples: int = 0) -> dict:
+    """Mean over seats of the LBR player's winnings (bb/hand): a lower bound on one-seat exploitation.
+    With `aivat_samples` > 0 the dict also has `aivat_lbr_bb`·`aivat_stderr_bb` (record only, #781); without it the
+    dict is exactly what it was."""
     seats = list(range(n)) if seats is None else list(seats)
-    rs = [lbr(policy, q, hands, seed + 101 * q, k, n, depth, extra_sizes) for q in seats]
-    return {"lbr_bb": round(float(np.mean([r.mean_bb for r in rs])), 4),
-            "stderr_bb": round(float(np.sqrt(sum(r.stderr_bb ** 2 for r in rs)) / len(rs)), 4),
-            "by_seat": {G.position_names(n)[r.seat]: round(r.mean_bb, 4) for r in rs}, "hands": hands}
+    rs = [lbr(policy, q, hands, seed + 101 * q, k, n, depth, extra_sizes, aivat_samples) for q in seats]
+    out = {"lbr_bb": round(float(np.mean([r.mean_bb for r in rs])), 4),
+           "stderr_bb": round(float(np.sqrt(sum(r.stderr_bb ** 2 for r in rs)) / len(rs)), 4),
+           "by_seat": {G.position_names(n)[r.seat]: round(r.mean_bb, 4) for r in rs}, "hands": hands}
+    if aivat_samples > 0:
+        out["aivat_lbr_bb"] = round(float(np.mean([r.aivat_mean_bb for r in rs])), 4)
+        out["aivat_stderr_bb"] = round(float(np.sqrt(sum(r.aivat_stderr_bb ** 2 for r in rs)) / len(rs)), 4)
+        out["aivat_samples"] = aivat_samples
+    return out

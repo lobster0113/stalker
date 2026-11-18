@@ -1,0 +1,23 @@
+# #933 (ADR 0027 decision 4, F6c-1): the A/B evaluation of the warm-start experiment. One job takes one cold (A) and one
+# prior (B) training result and plays them with tournament_ab on 503020 bubble (4 survivors): A seed i against B seed i,
+# same start states, learning seat and per-game seeds (common random numbers). Dispatch resume_run=<A run>
+# resume_run_b=<B run> (#929): the launcher trims both to RESUME_FIELDS, gzips them and hands them over as
+# $STALKER_RESUME (A) and $STALKER_RESUME_B (B); the command exits 3 at once when either is empty.
+# One spec covers the three pairs: only resume_run/resume_run_b change (A seed 1 is run 43735226442; the other A seeds
+# are jobs/e3-tp-mid-c1-sng-bubble-s{2,3}-pod32, the B seeds are ...-prior-s{1,2,3}-pod32, #926). Dispatch alone (#877).
+# Dispatch and the verdict record are F6c-2, after the #926 training results exist.
+# Sizes (local reference, not CI): policy seats cost ~0.6 s/game with numba (#916). Per cell and arm --games 400 learner
+# games plus --sym-games 200 policy-symmetric games = ~600 games ~6 min; 9 cells x 2 arms ~ 108 min single process.
+# max_minutes 240 leaves slack; run_stages --deadline-s 12600 (= 240*60 - 1800 s) stops it 30 min before the pod limit,
+# so a timeout still yields a stage-failure result.
+# Worst case = hourly_usd * max_minutes / 60 = 0.24 * 240 / 60 = $0.96 (per job; limit $1.50, tests/test_cloud_launcher.py).
+# Result: ops:cloud/results/<run id>.json, the tournament_ab JSON (schema_version 2 since #1004: verdict, adopted, primary, cells).
+name: e3-sng-bubble-ab-eval
+image: python:3.12-slim
+command: set -e; test -n "$STALKER_RESUME" && test -n "$STALKER_RESUME_B" || { echo "STALKER_RESUME or STALKER_RESUME_B empty - dispatch with resume_run=<cold A run> resume_run_b=<prior B run>" >&2; exit 3; }; mkdir -p /src; date -u +%s > /src/t0; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.run_stages --out /result/e3-sng-bubble-ab-eval.json --deadline-s 12600 --stage 'ab=echo t0=$(cat /src/t0) stage_start=$(date -u +%s) >&2; python3 -m stalker.tools.tournament_ab --a "$STALKER_RESUME" --b "$STALKER_RESUME_B" --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --level-index 0 --games 400 --sym-games 200 --seed 10001 --out /result/e3-sng-bubble-ab-eval.json'
+cpu_flavor: cpu3c
+vcpu: 4
+disk_gb: 10
+max_minutes: 240
+hourly_usd: 0.24
+result_path: /result/e3-sng-bubble-ab-eval.json

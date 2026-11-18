@@ -1,4 +1,5 @@
 """#507: the b1 path of `_seat_probs` gathers once instead of masking per distinct step; output must not change."""
+import pytest
 import numpy as np
 
 from stalker.e3 import tp_key as K
@@ -12,6 +13,7 @@ def _reference(m_, public, steps, m):
     return out
 
 
+@pytest.mark.slow
 def test_b1_path_matches_per_value_mask_reference():
     rng = np.random.default_rng(7)
     mc = E3MCCFR(3, K.TIER_K["mid"], 6, K.TIER_DEPTH["mid"], "real", None, "average", avg_rule="own",

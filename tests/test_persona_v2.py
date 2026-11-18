@@ -1,12 +1,13 @@
 """PRESETS_V2 street-level style (#518): optional params leave old personas unchanged, stats count by hand, mix hits targets."""
 import dataclasses
+import hashlib
 
 import numpy as np
 import pytest
 
 from stalker.agents.base import Event
 from stalker.agents.persona import PRESETS, PRESETS_V2, PersonaAgent, PersonaParams
-from stalker.agents.persona_stats import _Counter, measure_session
+from stalker.agents.persona_stats import CELLS, _Counter, measure_session
 
 TYPES = list(PRESETS_V2)
 # note §9 target WTSD (docs/research/2026-10-30-population-stats.md)
@@ -14,8 +15,8 @@ WTSD = dict(zip(TYPES, (0.21, 0.23, 0.27, 0.28, 0.33, 0.40, 0.35, 0.28)))
 
 
 def test_optional_fields_default_none_and_old_presets_untouched():
-    assert all(dataclasses.astuple(p)[4:] == (None,) * 11 for p in PRESETS.values())
-    assert len(PRESETS_V2) == 8 and PRESETS_V2["tag"].cbet_flop == 0.65 and PRESETS_V2["pro"].fold_river == 0.62
+    assert all(dataclasses.astuple(p)[4:] == (None,) * 15 for p in PRESETS.values())
+    assert len(PRESETS_V2) == 8 and PRESETS_V2["tag"].cbet_flop == 0.62 and PRESETS_V2["pro"].fold_river == 0.62
     with pytest.raises(ValueError):
         PersonaParams(0.2, 0.1, 0.5, 0.5, cbet_flop=1.5)
 
@@ -59,38 +60,197 @@ def test_counter_by_hand():
     assert (c.opp["flop"][0], c.hit["sd"][0], c.hit["sd"][1], c.opp["flop"][2]) == (2, 1, 1, 0)
 
 
-def test_street_style_within_6pp_of_target_in_mixed_field():
-    # 8 types over three 6-max tables; seats judged only where the opportunity count is large enough
+MIXED_TABLES = [TYPES[:6], TYPES[2:8], TYPES[:2] + TYPES[4:8]]
+SEAT_KEYS = ("vpip", "pfr", "wtsd", "cbet_flop", "fold_cbet_flop", "fold_cbet_turn", "fold_river")
+MIXED_OFFSETS = range(4)  # ADR 0023: four seed sets, same count as ADR 0020 min_seeds
+
+
+def _mixed_seats(offset, hands=20000, params=PRESETS_V2):
+    """8 types over three 6-max tables with seed set `offset` (seat SeedSequence(gi+100k), session 50+gi+100k: the
+    rule of scripts/persona_cell_grid.py `_seeds`); returns (type, {stat: value}) per seat in table order."""
+    out = []
+    for gi, grp in enumerate(MIXED_TABLES):
+        ss = np.random.SeedSequence(gi + 100 * offset).spawn(6)
+        agents = [PersonaAgent(params[n], np.random.default_rng(s)) for n, s in zip(grp, ss)]
+        out += [(n, {k: getattr(st, k) for k in SEAT_KEYS}) for n, st in zip(grp, measure_session(agents, hands, seed=50 + gi + 100 * offset))]
+    return out
+
+
+def _mixed_field_judgment(runs, params=PRESETS_V2):
+    """ADR 0023: average each seat's stats over the seed sets (None where every set has None), then apply the guards
+    once. Returns the violations, the judged (type, stat) pairs, the per-type turn/river fold means and their errors."""
     bad, seen, fold = [], set(), {}
-    for gi, grp in enumerate([TYPES[:6], TYPES[2:8], TYPES[:2] + TYPES[4:8]]):
-        ss = np.random.SeedSequence(gi).spawn(6)
-        agents = [PersonaAgent(PRESETS_V2[n], np.random.default_rng(s)) for n, s in zip(grp, ss)]
-        for n, st in zip(grp, measure_session(agents, 20000, seed=50 + gi)):
-            p = PRESETS_V2[n]
-            for key, tgt in (("cbet_flop", p.cbet_flop), ("fold_cbet_flop", p.fold_cbet_flop)):
-                got = getattr(st, key)
-                seen.add((n, key))
-                if got is None or abs(got - tgt) > 0.06:
-                    bad.append(f"{n} {key}: target {tgt:.2f} measured {got}")
-            # same tolerance as tests/test_persona.py `_fidelity` at 20k hands
-            for key in ("vpip", "pfr"):
-                if abs(getattr(st, key) - getattr(p, key)) > 0.05:
-                    bad.append(f"{n} {key}: target {getattr(p, key):.2f} measured {getattr(st, key):.3f}")
-            fold.setdefault(n, []).append((st.fold_cbet_turn, st.fold_river))
-            seen.add((n, "wtsd"))
-            if st.wtsd is None or abs(st.wtsd - WTSD[n]) > 0.06:
-                bad.append(f"{n} wtsd: target {WTSD[n]:.2f} measured {st.wtsd}")
-    assert len(seen) == 24 and not bad, bad
+    for i, (n, _) in enumerate(runs[0]):
+        st = {}
+        for k in SEAT_KEYS:
+            vals = [r[i][1][k] for r in runs if r[i][1][k] is not None]
+            st[k] = float(np.mean(vals)) if vals else None
+        p = params[n]
+        # #670: with the flop cell levers on, the mixed total is not a target (see test_pro_flop_cells_hit_human_targets)
+        cells = p.cbet_flop_mw_mult is not None
+        for key, tgt in () if cells else (("cbet_flop", p.cbet_flop), ("fold_cbet_flop", p.fold_cbet_flop)):
+            got = st[key]
+            seen.add((n, key))
+            if got is None or abs(got - tgt) > 0.06:
+                bad.append(f"{n} {key}: target {tgt:.2f} measured {got}")
+        # same tolerance as tests/test_persona.py `_fidelity` at 20k hands
+        for key in ("vpip", "pfr"):
+            if abs(st[key] - getattr(p, key)) > 0.05:
+                bad.append(f"{n} {key}: target {getattr(p, key):.2f} measured {st[key]:.3f}")
+        fold.setdefault(n, []).append((st["fold_cbet_turn"], st["fold_river"]))
+        seen.add((n, "wtsd"))
+        if st["wtsd"] is None or abs(st["wtsd"] - WTSD[n]) > 0.06:
+            bad.append(f"{n} wtsd: target {WTSD[n]:.2f} measured {st['wtsd']}")
+    mean = {n: tuple(np.mean([f[i] for f in v if f[i] is not None]) for i in (0, 1)) for n, v in fold.items()}
+    err = np.mean([abs(mean[n][0] - params[n].fold_cbet_turn) for n in TYPES])
+    river = np.mean([abs(mean[n][1] - params[n].fold_river) for n in TYPES])
+    return bad, seen, mean, err, river
+
+
+@pytest.mark.slow
+def test_street_style_within_6pp_of_target_in_mixed_field():
+    # ADR 0023: one seed set's turn error sd (~.007) is the size of the margin to .14, so judge the 4-set seat mean
+    bad, seen, mean, err, river = _mixed_field_judgment([_mixed_seats(k) for k in MIXED_OFFSETS])
+    # #751: the four cell-lever types (tag, pro, loose_passive, calling_station) drop their mixed totals: 8 wtsd + 2x4
+    assert len(seen) == 16 and not bad, bad
     # giveup_weak overrides fold_cbet_turn/fold_river (docs/research/2026-11-persona-wtsd-sweep.md): the measured folds
     # sit above their targets, so only guard what the servers rely on: loose types fold clearly less than tight ones, no
     # type folds almost always (reviewer #531: calling_station must not fold to 61% of turn c-bets above the tight group)
-    mean = {n: tuple(np.mean([f[i] for f in v if f[i] is not None]) for i in (0, 1)) for n, v in fold.items()}
     loose, tight = ("calling_station", "maniac", "loose_passive"), ("nit", "weak_tight", "tag", "lag", "pro")
     for i, street in enumerate(("turn", "river")):
         assert max(mean[n][i] for n in loose) < min(mean[n][i] for n in tight), (street, mean)
         assert max(mean[n][i] for n in mean) < (0.95, 0.80)[i], (street, mean)
     # #533: turn fold-to-c-bet error vs target, at most half of PR #531's (giveup_weak on turn and river alike)
     base = dict(zip(TYPES, (0.84, 0.88, 0.87, 0.90, 0.67, 0.61, 0.60, 0.77)))  # note table, V2 turn column
-    err = np.mean([abs(mean[n][0] - PRESETS_V2[n].fold_cbet_turn) for n in TYPES])
     err0 = np.mean([abs(base[n] - PRESETS_V2[n].fold_cbet_turn) for n in TYPES])
     assert err <= err0 / 2, (err, err0, mean)
+    # #569: the seeded fit's levers (measured .136 turn, .168 river); turn <= .10 is not reachable with WTSD within 6pp
+    # (docs/research/2026-11-persona-wtsd-sweep.md), so these lock in the best found
+    assert err <= 0.14, (err, mean)
+    assert river <= 0.22, (river, mean)
+
+
+def test_giveup_nonc_off_is_bit_identical_and_on_folds_more():
+    # #569: None and 0 draw nothing from the rng, so the pre-lever personas replay exactly; a positive value folds more
+    def run(v):
+        ps = [dataclasses.replace(PRESETS_V2[n], giveup_nonc=v) for n in TYPES[:6]]
+        return measure_session([PersonaAgent(p, np.random.default_rng(i)) for i, p in enumerate(ps)], 400, seed=7)
+
+    off = run(None)
+    assert run(0.0) == off
+    on = run(1.0)
+    assert on != off and sum(s.wtsd for s in on) < sum(s.wtsd for s in off)
+
+
+_CELL_LEVERS = ("cbet_flop_mw_mult", "cbet_flop_3bp_mult", "fold_cbet_flop_mw")
+
+
+def _core(stats):
+    return [(s.hands, s.vpip, s.pfr, s.aggression, s.cbet_flop, s.cbet_turn, s.fold_cbet_flop, s.fold_cbet_turn,
+             s.fold_river, s.wtsd) for s in stats]
+
+
+def test_cell_levers_off_replay_is_bit_identical():
+    # #670 under #569's constraint: types without the levers replay exactly as before them. The digest was taken on main
+    # 6d09079 (before #751 put the fish types on cells; six seats from the four lever-free types) with the same call; the
+    # levers and their bookkeeping never draw from the rng.
+    names = ["nit", "weak_tight", "lag", "maniac", "nit", "weak_tight"]
+    assert all(getattr(PRESETS_V2[n], k) is None for n in names for k in _CELL_LEVERS)
+    st = measure_session([PersonaAgent(PRESETS_V2[n], np.random.default_rng(i)) for i, n in enumerate(names)], 400, seed=9)
+    assert hashlib.sha256(repr(_core(st)).encode()).hexdigest()[:16] == "2341add5af92d439"
+
+    # neutral lever values move no threshold, so the replay equals the levers-off one; real values change play
+    def run(**kw):
+        ps = [dataclasses.replace(PRESETS_V2[n], **kw) for n in names]
+        return measure_session([PersonaAgent(p, np.random.default_rng(i)) for i, p in enumerate(ps)], 400, seed=9)
+
+    assert _core(run(cbet_flop_mw_mult=1.0, cbet_flop_3bp_mult=1.0)) == _core(st)
+    assert run(cbet_flop_mw_mult=0.3) != st and run(fold_cbet_flop_mw=0.9) != st
+    with pytest.raises(ValueError):
+        PersonaParams(0.2, 0.1, 0.5, 0.5, cbet_flop_3bp_mult=2.5)
+
+
+def _pooled_cells(persona, tables, hands=25000):
+    """Pool one persona's flop-cell opportunities over every seat of that type at the given tables."""
+    opp = {k: 0 for k in (f"{b}_{c}" for b in ("cb", "f") for c in CELLS)}
+    hit, seats = dict(opp), []
+    for t, grp in enumerate(tables):
+        ss = np.random.SeedSequence(t).spawn(6)
+        st = measure_session([PersonaAgent(PRESETS_V2[n], np.random.default_rng(s)) for n, s in zip(grp, ss)], hands,
+                             seed=100 + t)
+        for n, x in zip(grp, st):
+            if n != persona:
+                continue
+            seats.append(x)
+            for c, v in x.flop_cells.items():
+                opp[f"cb_{c}"] += v.cbet_opps
+                hit[f"cb_{c}"] += round((v.cbet or 0) * v.cbet_opps)
+                opp[f"f_{c}"] += v.fold_opps
+                hit[f"f_{c}"] += round((v.fold_cbet or 0) * v.fold_opps)
+    return {k: hit[k] / opp[k] for k in opp if opp[k]}, opp, seats
+
+
+@pytest.mark.slow
+def test_tag_flop_cells_hit_human_targets():
+    # #684: tag's cells (note §10.1.4) +-6pp, same method as the pro test; the multiway fold cell is judged here too
+    tables = [("tag", "maniac", "tag", "nit", "lag", "weak_tight"),
+              ("tag", "calling_station", "tag", "loose_passive", "lag", "maniac")]
+    got, opp, seats = _pooled_cells("tag", tables)
+    targets = {"cb_hu_srp": 0.62, "cb_hu_3bp": 0.70, "cb_mw_srp": 0.42, "f_hu_srp": 0.48, "f_mw_srp": 0.68}
+    assert all(opp[k] >= 150 for k in targets), opp
+    assert all(abs(got[k] - t) <= 0.06 for k, t in targets.items()), (got, opp)
+    p = PRESETS_V2["tag"]
+    assert all(abs(x.vpip - p.vpip) <= 0.05 and abs(x.pfr - p.pfr) <= 0.05 for x in seats), seats
+
+
+# #751: the fish types' cell targets (note §10.1.6, [assumption]). Two seats of the type at each of three tables: the
+# fish rarely raise preflop, so a third table lifts station's heads-up 3-bet+ c-bets above 150 with room (local: 473).
+FISH_CELL_TARGETS = {
+    "loose_passive": {"cb_hu_srp": 0.46, "cb_hu_3bp": 0.50, "cb_mw_srp": 0.38, "f_hu_srp": 0.36, "f_mw_srp": 0.44},
+    "calling_station": {"cb_hu_srp": 0.40, "cb_hu_3bp": 0.42, "cb_mw_srp": 0.34, "f_hu_srp": 0.25, "f_mw_srp": 0.30},
+}
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("persona", list(FISH_CELL_TARGETS))
+def test_fish_flop_cells_hit_lowstakes_targets(persona):
+    tables = [(persona, "maniac", persona, "nit", "lag", "weak_tight"),
+              (persona, "tag", persona, "pro", "lag", "maniac"),
+              (persona, "lag", persona, "tag", "nit", "maniac")]
+    got, opp, seats = _pooled_cells(persona, tables)
+    targets = FISH_CELL_TARGETS[persona]
+    assert all(opp[k] >= 150 for k in targets), opp
+    assert all(abs(got[k] - t) <= 0.06 for k, t in targets.items()), (got, opp)
+    p = PRESETS_V2[persona]
+    assert all(abs(x.vpip - p.vpip) <= 0.05 and abs(x.pfr - p.pfr) <= 0.05 for x in seats), seats
+
+
+@pytest.mark.slow
+def test_pro_flop_cells_hit_human_targets():
+    # #670: human pros' flop cells (population-stats note §10.1) +-6pp. Two pro seats at each of two tables, 25,000 hands
+    # each: aggressive openers give heads-up c-bets to fold to, passive callers give multiway single-raised flops. Pooled
+    # opportunities (local run): fewest judged cell = fold heads-up single-raised (665); the test asserts >= 150 per cell.
+    tables = [("pro", "maniac", "pro", "nit", "lag", "weak_tight"),
+              ("pro", "calling_station", "pro", "loose_passive", "lag", "maniac")]
+    opp = {k: 0 for k in (f"{b}_{c}" for b in ("cb", "f") for c in CELLS)}
+    hit, pro = dict(opp), []
+    for t, grp in enumerate(tables):
+        ss = np.random.SeedSequence(t).spawn(6)
+        st = measure_session([PersonaAgent(PRESETS_V2[n], np.random.default_rng(s)) for n, s in zip(grp, ss)], 25000,
+                             seed=100 + t)
+        for n, x in zip(grp, st):
+            if n != "pro":
+                continue
+            pro.append(x)
+            for c, v in x.flop_cells.items():
+                opp[f"cb_{c}"] += v.cbet_opps
+                hit[f"cb_{c}"] += round((v.cbet or 0) * v.cbet_opps)
+                opp[f"f_{c}"] += v.fold_opps
+                hit[f"f_{c}"] += round((v.fold_cbet or 0) * v.fold_opps)
+    got = {k: hit[k] / opp[k] for k in opp if opp[k]}
+    targets = {"cb_hu_srp": 0.53, "cb_hu_3bp": 0.62, "cb_mw_srp": 0.29, "f_hu_srp": 0.44}
+    assert all(opp[k] >= 150 for k in targets), opp
+    assert all(abs(got[k] - t) <= 0.06 for k, t in targets.items()), (got, opp)
+    # preflop is untouched; WTSD is calibrated on the mixed field only (test_street_style_within_6pp_of_target_in_mixed_field)
+    p = PRESETS_V2["pro"]
+    assert all(abs(x.vpip - p.vpip) <= 0.05 and abs(x.pfr - p.pfr) <= 0.05 for x in pro), pro

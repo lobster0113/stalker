@@ -50,9 +50,9 @@ def test_export_writes_five_unmixed_files_index_and_summary(tmp_path):
         body = (out / f["file"]).read_bytes()
         doc = json.loads(body)
         n = f["players"]
-        # no seat count leaks into another's file, and each file holds all of its own keys
-        assert {key_players(k) for k in doc["policy"]} == {n}
-        assert set(doc["policy"]) == {k for k in cur if key_players(k) == n}
+        # no seat count leaks into another's file, each file holds all of its own keys and the shared call| keys (#610)
+        assert {key_players(k) for k in doc["policy"]} == {n, None}
+        assert set(doc["policy"]) == {k for k in cur if key_players(k) in (n, None)}
         assert (f["keys"], f["bytes"], f["sha256"]) == (doc["keys"], len(body), hashlib.sha256(body).hexdigest())
         assert (f["lbr_bb"], doc["lbr_bb"], f["field_worst"]["name"]) == (n / 10, n / 10, "nit1")
         assert f["within_page_budget"] is True and f["keys_by_min_visits"]["1"] <= f["keys"]
@@ -74,14 +74,25 @@ def test_export_summary_marks_oversize_files_and_counts_keys_per_visit_floor(tmp
     s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), max_bytes=1)
     visits = dict(m.visits)
     for f in s["files"]:
-        own = [k for k in m.current_policy() if key_players(k) == f["players"]]
+        own = [k for k in m.current_policy() if key_players(k) in (f["players"], None)]
+        assert any(k.startswith("call|") for k in own)   # #610: the shared call| keys count toward every file
         assert f["within_page_budget"] is False and (tmp_path / f["file"]).exists()
         assert f["keys_by_min_visits"] == {str(v): sum(visits.get(k, 0) >= v for k in own) for v in W.VISIT_STEPS}
         assert f["lbr_bb"] is None   # no by_players row: empty, still exported
     s3 = W.export_all_players(st, {}, "7", tmp_path / "mv", players=(4,), min_visits=3)
     f4 = s3["files"][0]
-    assert f4["keys"] + f4["keys_dropped"] == sum(key_players(k) == 4 for k in m.current_policy()) and f4["keys_dropped"] > 0
+    assert f4["keys"] + f4["keys_dropped"] == sum(key_players(k) in (4, None) for k in m.current_policy()) and f4["keys_dropped"] > 0
     assert s3["min_visits"] == 3 and all(visits[k] >= 3 for k in json.loads((tmp_path / "mv" / "beginner-4.json").read_text(encoding="utf-8"))["policy"])
+
+
+def test_keys_by_min_visits_has_floors_3_and_4_for_the_six_seat_choice():
+    # #718: #714 named 6-seat floors 3-4 as candidates; the summary must size them without another export
+    visits = {"a": 1, "b": 2, "c": 3, "d": 3, "e": 4, "f": 5}
+    got = W._keys_by_min_visits([*visits, "unseen"], visits)
+    assert list(got) == ["1", "2", "3", "4", "5", "10", "20", "50", "100"]
+    assert (got["1"], got["2"], got["3"], got["4"], got["5"], got["10"]) == (6, 5, 4, 2, 1, 0)
+    counts = list(got.values())
+    assert all(a >= b for a, b in zip(counts, counts[1:]))
 
 
 def test_export_refuses_a_table_without_player_mix(tmp_path):
@@ -110,3 +121,522 @@ def test_missing_or_expired_artifact_fails_with_the_fix(tmp_path):
     with pytest.raises(SystemExit, match=msg):
         W.main(["export", "--pod-result", str(tmp_path / "none.json"), "--run", "9",
                 "--out-dir", str(tmp_path / "o"), "--summary-out", str(tmp_path / "s.json")])
+
+
+def test_min_visits_by_players_parses_and_rejects_with_the_fix():
+    assert W.parse_min_visits_by_players("2:10, 3:5,6:2", (2, 3, 4, 5, 6)) == {2: 10, 3: 5, 6: 2}
+    assert W.parse_min_visits_by_players("", FIVE) == {}
+    for bad, msg in (("2-10", "is not <players>:<count>"), ("2:x", "is not <players>:<count>"),
+                     ("7:1", "not in this run's player_mix"), ("2:1,2:3", "appears twice")):
+        with pytest.raises(SystemExit, match=msg):
+            W.parse_min_visits_by_players(bad, FIVE)
+
+
+@pytest.mark.slow
+def test_per_player_min_visits_is_applied_and_recorded_per_file(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 4, 6))
+    m.iterate(40)
+    st = m.state()
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), min_visits=1,
+                             min_visits_by_players={4: 3})
+    assert {f["players"]: f["min_visits"] for f in s["files"]} == {2: 1, 4: 3, 6: 1}
+    assert s["min_visits_by_players"] == {"4": 3}
+    visits = dict(m.visits)
+    kept = json.loads((tmp_path / "beginner-4.json").read_text(encoding="utf-8"))["policy"]
+    assert kept and all(visits[k] >= 3 for k in kept)
+    # CLI: a bad spec fails before anything is written
+    res = _pod_result(tmp_path, m)
+    with pytest.raises(SystemExit, match="appears twice"):
+        W.main(["export", "--pod-result", str(res), "--run", "7", "--min-visits-by-players", "2:1,2:2",
+                "--out-dir", str(tmp_path / "o"), "--summary-out", str(tmp_path / "s.json")])
+    assert not (tmp_path / "s.json").exists()
+
+
+def test_policies_for_ops_keeps_only_files_within_the_page_budget(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 4, 6))
+    m.iterate(4)
+    st = m.state()
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6))
+    sizes = sorted(f["bytes"] for f in s["files"])
+    cap = sizes[0]   # only the smallest file fits
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), max_bytes=cap)
+    fits = {f["file"] for f in s["files"] if f["within_page_budget"]}
+    assert fits and len(fits) < 3
+    out = W.policies_for_ops(s, tmp_path)
+    assert set(out) == fits | {"index.json"}
+    idx = json.loads(out["index.json"])
+    listed = {e["file"] for t in idx["tiers"].values() for e in [t, *t.get("by_players", {}).values()] if "file" in e}
+    assert listed == fits   # the index never names a file that was not uploaded
+    # nothing fits: nothing to commit, and the summary still tells why
+    s0 = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2, 4, 6), max_bytes=1)
+    assert W.policies_for_ops(s0, tmp_path) == {}
+    assert all(f["within_page_budget"] is False for f in s0["files"])
+
+
+@pytest.mark.slow
+def test_cli_policies_out_index_lists_only_uploaded_files_of_this_run(tmp_path, monkeypatch):
+    """The real path: one non-empty --index-base feeds both the full index and the ops copy (#596 review)."""
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 4, 6))
+    m.iterate(4)
+    res = _pod_result(tmp_path, m)
+    base = json.loads((Path(__file__).parents[1] / "web" / "app" / "policy" / "index.json").read_text(encoding="utf-8"))
+    base_path = tmp_path / "base-index.json"
+    base_path.write_text(json.dumps(base), encoding="utf-8")
+    common = ["export", "--pod-result", str(res), "--run", "7", "--players", "2,4,6", "--index-base", str(base_path)]
+    full = tmp_path / "full"
+    W.main([*common, "--out-dir", str(full), "--summary-out", str(tmp_path / "all.json")])
+    sizes = sorted((full / f"beginner-{n}.json").stat().st_size for n in (2, 4, 6))
+    real = W.export_all_players
+    monkeypatch.setattr(W, "export_all_players", lambda *a, **k: real(*a, **k, max_bytes=sizes[0]))  # only the smallest fits
+    out, pol = tmp_path / "out", tmp_path / "pol"
+    W.main([*common, "--out-dir", str(out), "--summary-out", str(tmp_path / "s.json"), "--policies-out", str(pol)])
+    s = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
+    fits = {f["file"] for f in s["files"] if f["within_page_budget"]}
+    assert fits and len(fits) < 3
+    assert {p.name for p in pol.iterdir()} == fits | {"index.json"}
+    idx = json.loads((pol / "index.json").read_text(encoding="utf-8"))
+    ours = {e["file"] for t in idx["tiers"].values() for e in [t, *t.get("by_players", {}).values()]
+            if e.get("run_id") == "7"}
+    assert ours == fits
+
+
+@pytest.mark.slow
+def test_hit_rate_is_recorded_per_file_monotone_deterministic_and_can_be_turned_off(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    st = m.state()
+    off = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "off", players=(2, 3))
+    assert all("hit_rate" not in f for f in off["files"])
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", players=(2, 3), hit_rate_hands=3)
+    b = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "b", players=(2, 3), hit_rate_hands=3)
+    for x in (a, b):   # wall-clock seconds are the one field that may differ between runs
+        assert all(f.pop("hit_rate_seconds") >= 0 for f in x["files"])
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    assert a["schema_version"] == 3
+    for f in a["files"]:
+        hr = f["hit_rate"]
+        assert list(hr["by_min_visits"]) == ["0", "1", "2", "5", "10"] and hr["players"] == f["players"]
+        hits = [sum(c["hits"] for c in hr["by_min_visits"][v]["by_street"].values()) for v in hr["by_min_visits"]]
+        assert hits == sorted(hits, reverse=True)   # a higher floor never finds more keys
+
+
+@pytest.mark.slow
+def test_hit_rate_is_measured_with_the_files_own_menu_and_cap(tmp_path, monkeypatch):
+    # a real-menu table measured with the engine default (v1, cap 3) reads ~0% off-`call|` (#618, #617 review)
+    m = E3MCCFR(1, 5, 6, "basic", menu="real", raise_cap=None, key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    seen = []
+    real = W.H.measure
+    monkeypatch.setattr(W.H, "measure", lambda *a, **k: seen.append(k.get("rules")) or real(*a, **k))
+    W.export_all_players(m.state(), {"job": "j"}, "7", tmp_path, players=(2, 3), hit_rate_hands=1)
+    assert seen == [{"menu": "real", "raise_cap": None}] * 2
+
+
+def test_v1_summary_without_hit_rate_still_feeds_policies_for_ops(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    s = W.export_all_players(m.state(), {"job": "j"}, "7", tmp_path, players=(2, 3))
+    s["schema_version"] = 1
+    assert "index.json" in W.policies_for_ops(s, tmp_path, None)
+
+
+def test_cli_default_hit_rate_hands_is_on(tmp_path):
+    assert W.HIT_RATE_HANDS > 0
+
+
+@pytest.mark.slow
+def test_coarse_from_full_is_recorded_only_with_a_threshold_and_is_deterministic(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    st = m.state()
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", players=(2, 3), hit_rate_hands=2, min_visits=2)
+    b = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "b", players=(2, 3), hit_rate_hands=2, min_visits=2)
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", players=(2, 3), hit_rate_hands=2)
+    assert all("coarse_from_full" not in f["hit_rate"]["by_min_visits"] for f in z["files"])
+    for x in (a, b):
+        for f in x["files"]:
+            f.pop("hit_rate_seconds")
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    for f in a["files"]:
+        c = f["hit_rate"]["by_min_visits"]["coarse_from_full"]
+        assert c["min_visits"] == 2 and c["by_backoff"]["levels"][-1] == "uniform"
+
+
+def _key(pos, stack, step, actions="fc"):
+    return f"{pos}|n2|0|1|1|0|2|0|tc0|{stack}|u10|hb|{actions}|e{step}"
+
+
+def test_l1_rows_bytes_matches_hand_counted_bodies_per_encoding():
+    # #775: L1 drops the stack field, so the two BB e0 keys share an L1 row; mean (.75, .25) quantizes to [191, 64]
+    before = {_key("BB", "s4:4", 0): [0.5, 0.5], _key("BB", "s6:6", 0): [1.0, 0.0],
+              _key("BB", "s4:4", 1): [0.0, 1.0], _key("SB", "s4:4", 3): [0.2, 0.8],
+              _key("SB", "s1:1", 3): [0.0, 1.0, 0.0]}   # same L1 key as the SB row above, another row length
+    visits = {_key("BB", "s4:4", 0): 10, _key("BB", "s6:6", 0): 1, _key("BB", "s4:4", 1): 1, _key("SB", "s4:4", 3): 5}
+    kept = {k: r for k, r in before.items() if visits.get(k, 0) >= 5}
+    bb0, bb1, sb3 = (_key(p, "s*", e) for p, e in (("BB", 0), ("BB", 1), ("SB", 3)))
+    all_body = f'{{"{bb0}":[191,64],"{bb1}":[0,255],"{sb3}":[[51,204],[0,255,0]]}}'
+    missing_body = f'{{"{bb1}":[0,255],"{sb3}":[0,255,0]}}'
+    bbg, sbg = _key("BB", "s*", "*"), _key("SB", "s*", "*")
+    grouped_body = f'{{"{bbg}":{{"1":[0,255]}},"{sbg}":{{"3":[0,255,0]}}}}'
+    r = W.l1_rows_bytes(before, kept, visits, 100, 10_000)
+    assert (r["l1_keys_before"], r["l1_keys_file"]) == (3, 2)
+    e = r["encodings"]
+    assert list(e) == list(W.L1_ENCODINGS)
+    assert [e[x]["bytes"] for x in ("all", "missing_only", "grouped_eq")] == [len(all_body), len(missing_body), len(grouped_body)]
+    assert [e[x]["rows"] for x in ("all", "missing_only", "grouped_eq")] == [4, 2, 2]
+    assert all(e[x]["l1_keys"] == 3 and e[x]["l1_keys_ratio"] == 1.0 for x in ("all", "missing_only", "grouped_eq"))
+    assert e["all"]["total_bytes"] == 100 + len(all_body) and e["all"]["within_page_budget"] is True
+    assert e["grouped_top_fit"] == e["grouped_eq"]   # room for every group
+    assert e["all"]["gzip_bytes"] == len(W.gzip.compress(all_body.encode(), mtime=0))
+    # BB's group carries visits 1 (its missing e1 key), SB's 0: with room for one group only BB's is kept
+    one = len(f'{{"{bbg}":{{"1":[0,255]}}}}')
+    t = W.l1_rows_bytes(before, kept, visits, 100, 100 + one + 1 + len(W.L1_FIELD) + 3)["encodings"]["grouped_top_fit"]
+    assert (t["bytes"], t["rows"], t["l1_keys"], t["l1_keys_ratio"]) == (one, 1, 3, 1.0)
+    # SB e3 is still an L1 key the page has (its 2-row from kept), so the ratio only counts keys, not lengths
+    none = W.l1_rows_bytes(before, kept, visits, 100, 100 + one)["encodings"]["grouped_top_fit"]
+    assert (none["bytes"], none["rows"], none["l1_keys"], none["l1_keys_ratio"]) == (2, 0, 2, 0.6667)
+
+
+def test_l1_rows_bytes_is_recorded_only_with_a_threshold_and_v2_summaries_still_read(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    st = m.state()
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", players=(2, 3))
+    assert all("l1_rows_bytes" not in f for f in z["files"])
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", players=(2, 3), min_visits=2)
+    for f in a["files"]:
+        r = f["l1_rows_bytes"]
+        # `file_bytes` = the file without `l1_rows` (#803); with the field it is that + `"l1_rows":` + the grouped rows
+        top = r["encodings"]["grouped_top_fit"]["bytes"]
+        assert f["bytes"] == r["file_bytes"] + (len(W.L1_FIELD) + 4 + top if top > 2 else 0)
+        assert r["l1_keys_file"] <= r["l1_keys_before"]
+        e = r["encodings"]
+        assert e["missing_only"]["bytes"] <= e["all"]["bytes"] and e["grouped_top_fit"]["rows"] <= e["grouped_eq"]["rows"]
+    v2 = json.loads(json.dumps(a))
+    v2["schema_version"] = 2
+    for f in v2["files"]:
+        f.pop("l1_rows_bytes")
+    assert W.policies_for_ops(v2, tmp_path / "a", None) == W.policies_for_ops(a, tmp_path / "a", None)
+
+
+def test_top_fit_selection_is_the_one_l1_rows_bytes_reports():
+    # #790: the hit-rate cell and the byte report must pick the same rows (one function)
+    before = {_key("BB", "s4:4", 0): [0.5, 0.5], _key("BB", "s4:4", 1): [0.0, 1.0], _key("SB", "s4:4", 3): [0.2, 0.8]}
+    visits = {_key("BB", "s4:4", 0): 10, _key("BB", "s4:4", 1): 1, _key("SB", "s4:4", 3): 5}
+    kept = {k: r for k, r in before.items() if visits[k] >= 5}
+    for room in (10_000, 130, 100):
+        fit_rows = W._top_fit(before, kept, visits, 100, room)[3]
+        r = W.l1_rows_bytes(before, kept, visits, 100, room)["encodings"]["grouped_top_fit"]
+        assert r["rows"] == sum(len(d) for d in fit_rows.values())
+        assert r["l1_keys"] == len(set(fit_rows) | set(W._l1_rows(kept)))
+    assert W._top_fit(before, kept, visits, 100, 100)[3] == {}   # no room: no rows
+
+
+@pytest.mark.slow
+def test_coarse_top_fit_cell_with_no_room_equals_the_file_alone_and_is_deterministic(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    st = m.state()
+    kw = dict(players=(2,), hit_rate_hands=2, min_visits=2)
+    a = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "a", **kw)
+    b = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "b", **kw)
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", max_bytes=1, **kw)   # no room for any row
+    for x in (a, b, z):
+        for f in x["files"]:
+            f.pop("hit_rate_seconds")
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    c = a["files"][0]["hit_rate"]["by_min_visits"]["coarse_top_fit"]
+    assert c["min_visits"] == 2 and c["by_backoff"]["levels"][-1] == "uniform"
+    zc = z["files"][0]["hit_rate"]["by_min_visits"]["coarse_top_fit"]
+    assert zc["l1_rows"] == 0
+    # no room = the file's own table alone: the same hands played without `l1_extra` give the same by_backoff
+    doc = json.loads((tmp_path / "z" / z["files"][0]["file"]).read_bytes())
+    before = W.X.keep_players(W.X.load_model(st).current_policy(), 2)
+    visits = dict(W.X.load_model(st).visits)
+    kept = {k: r for k, r in before.items() if visits.get(k, 0) >= 2}
+    alone = W.H.measure(kept, 2, doc["k"], doc["depth"], 2, 611 + 2, rules=W.H.rules_of(doc),
+                      play_backoff=True, l4_neighbor=True)
+    assert json.dumps(zc["by_backoff"], sort_keys=True) == json.dumps(alone["by_backoff"], sort_keys=True)
+
+
+def test_top_fit_with_room_for_everything_restores_every_l1_row_the_threshold_erased():
+    # #790: with a generous cap the file's L1 rows plus the shipped rows cover the pre-threshold L1 (key, length) set,
+    # which is what `coarse_from_full` builds from. Row values may differ (quantize); L2+ differ by definition.
+    before = {_key("BB", "s4:4", 0): [0.5, 0.5], _key("BB", "s6:6", 0): [1.0, 0.0], _key("BB", "s4:4", 1): [0.0, 1.0],
+              _key("SB", "s4:4", 3): [0.2, 0.8], _key("SB", "s1:1", 3): [0.0, 1.0, 0.0]}
+    visits = {_key("BB", "s4:4", 0): 10, _key("BB", "s6:6", 0): 1, _key("BB", "s4:4", 1): 1, _key("SB", "s4:4", 3): 5}
+    kept = {k: r for k, r in before.items() if visits.get(k, 0) >= 5}
+    fit_rows = W._top_fit(before, kept, visits, 100, 10_000)[3]
+    have = {(ck, m) for ck, by_m in W._l1_rows(kept).items() for m in by_m}
+    shipped = {(ck, m) for ck, by_m in fit_rows.items() for m in by_m}
+    want = {(ck, m) for ck, by_m in W._l1_rows(before).items() for m in by_m}
+    assert have | shipped == want and shipped and not have & shipped
+
+
+def _l1_model():
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(30)
+    return m.state()
+
+
+@pytest.mark.slow
+def test_l1_rows_field_is_the_top_fit_selection_within_the_cap_and_only_with_room_and_a_threshold(tmp_path):
+    # #803: the policy file carries `_top_fit`'s groups as `l1_rows`; its compact JSON never pushes the file over the cap
+    st = _l1_model()
+    kw = dict(players=(2,), hit_rate_hands=0)
+    big = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "big", min_visits=2, **kw)
+    f = big["files"][0]
+    doc = json.loads((tmp_path / "big" / f["file"]).read_bytes())
+    assert doc["l1_rows"] and f["bytes"] <= big["max_bytes"]
+    enc = f["l1_rows_bytes"]["encodings"]["grouped_top_fit"]
+    assert enc["bytes"] == len(json.dumps(doc["l1_rows"], separators=(",", ":")).encode())
+    assert enc["rows"] == sum(len(by_eq) for by_eq in doc["l1_rows"].values())
+    index = json.loads((tmp_path / "big" / "index.json").read_text(encoding="utf-8"))
+    assert "l1_rows" not in json.dumps(index)   # the model list says nothing about the rows
+    # the cap bites at the byte: exactly this file fits, one byte less must drop a group yet stay inside
+    for cap in (f["bytes"], f["bytes"] - 1):
+        r = W.export_all_players(st, {"job": "j"}, "7", tmp_path / f"c{cap}", min_visits=2, max_bytes=cap, **kw)
+        got = (tmp_path / f"c{cap}" / r["files"][0]["file"]).read_bytes()
+        assert len(got) <= cap or "l1_rows" not in json.loads(got)
+        assert r["files"][0]["bytes"] == len(got)
+    assert len(json.loads((tmp_path / f"c{f['bytes'] - 1}" / f["file"]).read_bytes()).get("l1_rows", {})) < len(doc["l1_rows"])
+    # no room, or no threshold: no field
+    z = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "z", min_visits=2, max_bytes=1, **kw)
+    n = W.export_all_players(st, {"job": "j"}, "7", tmp_path / "n", min_visits=0, **kw)
+    for out, r in (("z", z), ("n", n)):
+        assert "l1_rows" not in json.loads((tmp_path / out / r["files"][0]["file"]).read_bytes())
+
+
+@pytest.mark.slow
+def test_hit_rate_tool_reads_the_files_l1_rows_like_the_export_summary(tmp_path):
+    # #803: `web_hit_rate` on the written file == the summary's `coarse_top_fit` cell; a file without the field is unchanged
+    st = _l1_model()
+    s = W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2,), hit_rate_hands=2, min_visits=2)
+    f = s["files"][0]
+    policy, doc = W.H.load_policy(tmp_path / f["file"])
+    extra = W.H.l1_extra_of(doc)
+    assert extra
+    cell = f["hit_rate"]["by_min_visits"]["coarse_top_fit"]
+    kw = dict(rules=W.H.rules_of(doc), play_backoff=True, l4_neighbor=True)
+    got = W.H.measure(policy, 2, doc["k"], doc["depth"], 2, 611 + 2, l1_extra=extra, **kw)
+    assert json.dumps(got["by_backoff"], sort_keys=True) == json.dumps(cell["by_backoff"], sort_keys=True)
+    assert cell["l1_rows"] == sum(len(d) for d in extra.values())
+    assert W.H.l1_extra_of({k: v for k, v in doc.items() if k != "l1_rows"}) == {}
+
+
+def test_l1_extra_of_inverts_the_grouped_encoding_and_a_v1_file_has_no_rows():
+    rows = {_key("BB", "s4:4", 0): {2: [128, 127]}, _key("BB", "s4:4", 1): {2: [0, 255], 3: [255, 0, 0]},
+            _key("SB", "s1:1", 3): {3: [0, 255, 0]}}
+    doc = {"schema_version": 2, "l1_rows": W._grouped(rows)}
+    assert W.H.l1_extra_of(doc) == rows
+    assert W.H.l1_extra_of({"schema_version": 1, "q": 255, "policy": {}}) == {}   # pre-#803 files read as before
+
+
+def _small_table():
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    return m.state()
+
+
+def _no_seconds(s):
+    for f in s["files"]:
+        f.pop("hit_rate_seconds")
+    return s
+
+
+def _counts(c, path=""):
+    """Every `decisions`/`hits`/level count in a hit_rate entry, by path."""
+    out = {}
+    for k, v in c.items():
+        if k in (*W._NOT_COUNTS, "seeds"):
+            continue
+        if isinstance(v, dict):
+            out.update(_counts(v, f"{path}/{k}"))
+        elif isinstance(v, int) and not isinstance(v, bool):
+            out[f"{path}/{k}"] = v
+    return out
+
+
+def test_hit_rate_seeds_sum_the_counts_of_each_seed_and_recompute_the_rates(tmp_path, monkeypatch):
+    # #814: N=2 == the N=1 runs at seeds 611+n and 1611+n, cell by cell, incl. coarse_from_full/coarse_top_fit
+    st = _small_table()
+    kw = dict(players=(2,), hit_rate_hands=2, min_visits=2)
+    two = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path / "two", hit_rate_seeds=2, **kw))
+    one = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path / "one", **kw))
+    monkeypatch.setattr(W, "HIT_RATE_SEED", W.HIT_RATE_SEED + W.HIT_RATE_SEED_STEP)
+    nxt = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path / "nxt", **kw))
+    h2, h1, hn = (x["files"][0]["hit_rate"] for x in (two, one, nxt))
+    assert h2["seeds"] == 2 and "seeds" not in h1 and h1["seed"] == 611 + 2 and hn["seed"] == 1611 + 2
+    assert set(h2["by_min_visits"]) >= {"coarse_from_full", "coarse_top_fit"}
+    c2, c1, cn = _counts(h2), _counts(h1), _counts(hn)
+    assert c2.keys() == c1.keys() and any(k.endswith("/decisions") for k in c2)
+    assert c2 == {k: c1[k] + cn[k] for k in c2}
+    st0 = h2["by_street"]["0"]
+    assert st0["decisions"] > 0 and st0["rate"] == st0["hits"] / st0["decisions"]
+    b = h2["by_min_visits"]["coarse_top_fit"]["by_backoff"]["by_kind"]["other"]
+    assert b["rate"]["uniform"] == (b["uniform"] / b["decisions"] if b["decisions"] else None)
+    # #819: the interval comes from the summed counts, not from the per-seed intervals
+    for h in (h2, h1, hn):
+        for cell in ("coarse_from_full", "coarse_top_fit"):
+            for c in h["by_min_visits"][cell]["by_backoff"]["by_street"].values():
+                assert c["uniform_ci95"] == W.H.uniform_ci95(c)
+    b1, bn = (h["by_min_visits"]["coarse_top_fit"]["by_backoff"]["by_kind"]["other"] for h in (h1, hn))
+    assert b["uniform"] == b1["uniform"] + bn["uniform"] and b["decisions"] == b1["decisions"] + bn["decisions"]
+    assert b["decisions"] > 0 and b["uniform_ci95"] == W.H.uniform_ci95(b)
+    # the rest of the summary does not depend on the seeds
+    for x in (two, one):
+        for f in x["files"]:
+            f.pop("hit_rate")
+    assert json.dumps(two, sort_keys=True) == json.dumps(one, sort_keys=True)
+
+
+def test_one_hit_rate_seed_is_the_single_seed_measurement_unchanged(tmp_path):
+    st = _small_table()
+    s = _no_seconds(W.export_all_players(st, {"job": "j"}, "7", tmp_path, players=(2,), hit_rate_hands=2))
+    doc = json.loads((tmp_path / s["files"][0]["file"]).read_bytes())
+    m = W.X.load_model(st)
+    alone = W.H.measure(W.X.keep_players(m.current_policy(), 2), 2, doc["k"], doc["depth"], 2, 611 + 2,
+                        dict(m.visits), rules=W.H.rules_of(doc))
+    assert json.dumps(s["files"][0]["hit_rate"]) == json.dumps(alone)
+
+
+def test_hit_rate_seeds_below_one_fail_with_the_fix(tmp_path):
+    with pytest.raises(SystemExit, match="--hit-rate-seeds must be >= 1"):
+        W.export_all_players(_small_table(), {"job": "j"}, "7", tmp_path, players=(2,), hit_rate_seeds=0)
+
+
+def test_cli_hit_rate_seeds_flag_reaches_the_export(tmp_path):
+    m = E3MCCFR(1, 5, 6, "basic", key_variant="c1", player_mix=(2, 3))
+    m.iterate(5)
+    pod = _pod_result(tmp_path, m)
+    args = ["export", "--pod-result", str(pod), "--run", "7", "--players", "2", "--hit-rate-hands", "1",
+            "--out-dir", str(tmp_path / "out"), "--summary-out", str(tmp_path / "s.json")]
+    with pytest.raises(SystemExit, match="--hit-rate-seeds must be >= 1"):
+        W.main(args + ["--hit-rate-seeds", "0"])
+    assert W.main(args + ["--hit-rate-seeds", "2"]) == 0
+    s = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
+    assert s["files"][0]["hit_rate"]["seeds"] == 2
+
+
+# --- #955: export_kind=tournament (ADR 0029 decisions 1-3) ---
+
+def _tournament_result(tmp_path, name="t", stage="b", payoff="icm", with_env=True, iters=4):
+    kw, env = P.tournament_env("9max_sng_503020", 4, stage=stage, lam=0.1 if payoff == "icm" else 0.0, stacks="bubble:skewed", payoff=payoff)
+    m = E3MCCFR(1, 11, 4, "mid", key_variant="c1", menu="real", stacks=env["stacks"], **kw)
+    m.iterate(iters)
+    p = _pod_result(tmp_path, m, name)
+    res = json.loads(p.read_text(encoding="utf-8"))
+    res["tier"] = "mid"
+    res["model"].update(train_env=env, ante=m.ante, stage=m.stage, payoff=m.payoff, stacks=m.stacks, key_variant="c1",
+                        **({"payouts": list(m.payouts), "lam": m.lam} if m.payoff != "chip" else {}),
+                        **{k: getattr(m, k) for k in ("stack_preset", "stack_remaining", "stack_level")}, version=11)
+    if with_env:
+        res["train_env"] = env
+    p.write_text(json.dumps(res), encoding="utf-8")
+    return p, env, m
+
+
+def _export_t(tmp_path, res, base=None, out="out", extra=()):
+    base_path = tmp_path / "base-index.json"
+    base_path.write_text(json.dumps(base if base is not None else _shipped()), encoding="utf-8")
+    sm = tmp_path / f"{out}-sum.json"
+    args = ["export", "--kind", "tournament", "--pod-result", str(res), "--run", "77", "--tier", "mid",
+            "--index-base", str(base_path), "--out-dir", str(tmp_path / out), "--summary-out", str(sm), *extra]
+    return W.main(args), sm
+
+
+def _shipped():
+    return json.loads((Path(__file__).parents[1] / "web" / "app" / "policy" / "index.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.slow
+def test_tournament_export_names_file_and_copies_train_env_into_the_v2_index(tmp_path):
+    res, env, m = _tournament_result(tmp_path)
+    assert _export_t(tmp_path, res)[0] == 0
+    out = tmp_path / "out"
+    name = f"t-{env['env_id']}-b0.json"
+    assert sorted(p.name for p in out.iterdir()) == sorted([name, "index.json"])
+    idx = json.loads((out / "index.json").read_text(encoding="utf-8"))
+    e = idx["tournament"][env["env_id"]]["b"]["ante"]["0"]
+    assert idx["schema_version"] == 2 and set(idx["tournament"][env["env_id"]]["b"]["ante"]) == {"0"}
+    assert (e["file"], e["env_id"], e["stage"], e["ante"], e["payoff"]) == (name, env["env_id"], "b", 0, "icm")
+    assert (e["lam"], e["stacks"], e["level_index"], e["players"]) == (env["lam"], env["stacks"], env["level_index"], 4)
+    assert e["trained_on"]["game"] == "tournament" and e["bytes"] == (out / name).stat().st_size
+    assert idx["tiers"] == _shipped()["tiers"]   # cash entries are not touched
+
+
+@pytest.mark.slow
+def test_tournament_export_refuses_cash_and_non_icm_runs(tmp_path):
+    cash = _pod_result(tmp_path, E3MCCFR(3, 5, 6, "basic", key_variant="c1", player_mix=FIVE), "cash")
+    with pytest.raises(SystemExit, match="train_env"):
+        _export_t(tmp_path, cash)
+    chip, _, _ = _tournament_result(tmp_path, "chip", payoff="chip")
+    with pytest.raises(SystemExit, match="payoff"):
+        _export_t(tmp_path, chip)
+
+
+@pytest.mark.slow
+def test_tournament_export_refuses_a_total_over_12mib_and_replaces_its_own_slot(tmp_path):
+    res, env, _ = _tournament_result(tmp_path)
+    base = _shipped()
+    other = {"file": "t-x-m0-n3.json", "bytes": W.X.TOURNAMENT_MAX_BYTES - 10, "env_id": "x", "stage": "m", "ante": 0, "players": 3}
+    base = W.X.upsert_tournament(base, other)
+    with pytest.raises(SystemExit, match="12|total"):
+        _export_t(tmp_path, res, base)
+    base["tournament"]["x"]["m"]["ante"]["0"]["by_players"]["3"]["bytes"] = 100
+    assert _export_t(tmp_path, res, base)[0] == 0
+    # the same slot again: its old bytes do not count twice
+    big = W.X.upsert_tournament(_shipped(), {"file": "old", "bytes": W.X.TOURNAMENT_MAX_BYTES, "env_id": env["env_id"], "stage": "b", "ante": 0})
+    assert _export_t(tmp_path, res, big, out="again")[0] == 0
+
+
+@pytest.mark.slow
+def test_tournament_export_refuses_another_tier_and_writes_the_ops_policies_dir(tmp_path):
+    res, env, _ = _tournament_result(tmp_path)
+    with pytest.raises(SystemExit, match="tier"):
+        _export_t(tmp_path, res, extra=["--tier", "pro"])   # the later --tier wins
+    ops = tmp_path / "ops-policies"
+    assert _export_t(tmp_path, res, extra=["--policies-out", str(ops)])[0] == 0
+    name = f"t-{env['env_id']}-b0.json"
+    assert sorted(p.name for p in ops.iterdir()) == sorted([name, "index.json"])
+    idx = json.loads((ops / "index.json").read_text(encoding="utf-8"))
+    assert idx["tournament"][env["env_id"]]["b"]["ante"]["0"]["file"] == name
+    assert idx["tiers"] == _shipped()["tiers"]
+
+
+def test_index_v1_reads_as_v2_without_tournament_and_cash_upsert_changes_only_the_version():
+    X = W.X
+    # #969: the shipped index is v2 with a tournament entry; its v1 form is the same tiers without that map
+    shipped = _shipped()
+    assert shipped["schema_version"] == 2 and "tournament" in shipped
+    v1 = {k: v for k, v in shipped.items() if k != "tournament"} | {"schema_version": 1}
+    entry = {"tier": "mid", "players": 3, "file": "mid-3.json"}
+    import copy
+    v2 = X.upsert_index(copy.deepcopy(v1), entry)
+    assert v2["schema_version"] == 2 and "tournament" not in v2
+    expect = copy.deepcopy(v1)
+    expect["tiers"]["mid"] = v2["tiers"]["mid"]
+    expect["schema_version"] = 2
+    assert v2 == expect
+    t = X.upsert_tournament(copy.deepcopy(v2), {"env_id": "e", "stage": "b", "ante": 1, "file": "f", "bytes": 5})
+    assert t["tiers"] == v2["tiers"] and t["tournament"]["e"]["b"]["ante"]["1"]["file"] == "f"
+    again = X.upsert_tournament(copy.deepcopy(t), {"env_id": "e", "stage": "b", "ante": 0, "file": "g", "bytes": 5})
+    assert set(again["tournament"]["e"]["b"]["ante"]) == {"0", "1"} and again["tiers"] == v2["tiers"]
+
+
+def test_per_count_stage_keeps_one_entry_per_survivor_count():
+    # #995: the SNG in-the-money stage (m) is trained 3- and 2-handed with the same train_env; the bubble pins r = K+1.
+    import copy
+    X, base = W.X, _shipped()
+    b0 = copy.deepcopy(base["tournament"]["1261657cabcdc1ad"]["b"])
+    m = lambda n: {"file": W.tournament_file_name("e", "m", 0, n), "bytes": 7, "env_id": "e", "stage": "m", "ante": 0, "players": n}
+    idx = X.upsert_tournament(X.upsert_tournament(copy.deepcopy(base), m(3)), m(2))
+    slot = idx["tournament"]["e"]["m"]["ante"]["0"]
+    assert list(slot) == ["by_players"] and list(slot["by_players"]) == ["2", "3"]
+    assert [slot["by_players"][k]["file"] for k in ("2", "3")] == ["t-e-m0-n2.json", "t-e-m0-n3.json"]
+    assert W.tournament_file_name("e", "b", 0, 4) == "t-e-b0.json"   # the bubble name is unchanged
+    assert idx["tournament"]["1261657cabcdc1ad"]["b"] == b0 and idx["tiers"] == base["tiers"]
+    again = X.upsert_tournament(copy.deepcopy(idx), {**m(3), "bytes": 9})
+    assert again["tournament"]["e"]["m"]["ante"]["0"]["by_players"]["3"]["bytes"] == 9
+    assert X.tournament_bytes(again) == X.tournament_bytes(base) + 7 + 9
+    assert X.tournament_bytes(again, ("e", "m", 0, 3)) == X.tournament_bytes(base) + 7   # only the replaced count is skipped

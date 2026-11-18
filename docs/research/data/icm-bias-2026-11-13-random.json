@@ -1,0 +1,4223 @@
+{
+  "cells": [
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          1.9800000000000182,
+          -1.9800000000000182
+        ],
+        "diff_se": [
+          2.8467848151526374,
+          2.8467848151526374
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          3,
+          5
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          301.98,
+          298.02
+        ],
+        "sim_prize_sd": [
+          90.02324024263754,
+          90.02324024263754
+        ],
+        "stacks": [
+          4500,
+          4500
+        ],
+        "z": [
+          0.6955214842586743,
+          -0.6955214842586743
+        ]
+      },
+      "max_abs_diff": 1.9800000000000182,
+      "max_abs_diff_rel": 0.0033000000000000303,
+      "max_abs_z": 0.6955214842586743,
+      "preset": "6max_sng_topheavy",
+      "profile": "even",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          -2.4400000000000546,
+          2.4400000000000546
+        ],
+        "diff_se": [
+          2.804037629388586,
+          2.804037629388586
+        ],
+        "games": 1000,
+        "icm_equity": [
+          286.78000000000003,
+          313.21999999999997
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          0,
+          4
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          284.34,
+          315.66
+        ],
+        "sim_prize_sd": [
+          88.67145553687025,
+          88.67145553687025
+        ],
+        "stacks": [
+          3839,
+          5161
+        ],
+        "z": [
+          -0.8701737717164983,
+          0.8701737717164983
+        ]
+      },
+      "max_abs_diff": 2.4400000000000546,
+      "max_abs_diff_rel": 0.004066666666666757,
+      "max_abs_z": 0.8701737717164983,
+      "preset": "6max_sng_topheavy",
+      "profile": "random",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          2.2000000000000455,
+          -2.1999999999999886
+        ],
+        "diff_se": [
+          2.7999169871864535,
+          2.7999169871864535
+        ],
+        "games": 1000,
+        "icm_equity": [
+          314.17999999999995,
+          285.82
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          2,
+          4
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          316.38,
+          283.62
+        ],
+        "sim_prize_sd": [
+          88.54114938905676,
+          88.54114938905676
+        ],
+        "stacks": [
+          5209,
+          3791
+        ],
+        "z": [
+          0.7857375808169065,
+          -0.7857375808168863
+        ]
+      },
+      "max_abs_diff": 2.2000000000000455,
+      "max_abs_diff_rel": 0.0036666666666667425,
+      "max_abs_z": 0.7857375808169065,
+      "preset": "6max_sng_topheavy",
+      "profile": "skewed",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          -2.180000000000007,
+          4.240000000000009,
+          -2.0600000000000023
+        ],
+        "diff_se": [
+          4.904600157270976,
+          5.09735278408369,
+          5.1196843230386335
+        ],
+        "games": 1000,
+        "icm_equity": [
+          200.0,
+          200.0,
+          200.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          0,
+          1,
+          5
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          197.82,
+          204.24,
+          197.94
+        ],
+        "sim_prize_sd": [
+          155.09707509396327,
+          161.19244835104945,
+          161.89863361859344
+        ],
+        "stacks": [
+          3000,
+          3000,
+          3000
+        ],
+        "z": [
+          -0.44448067734292235,
+          0.83180430698053,
+          -0.402368558297624
+        ]
+      },
+      "max_abs_diff": 4.240000000000009,
+      "max_abs_diff_rel": 0.007066666666666682,
+      "max_abs_z": 0.83180430698053,
+      "preset": "6max_sng_topheavy",
+      "profile": "even",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          -11.739911541125906,
+          9.538991199946679,
+          2.2009203411792555
+        ],
+        "diff_se": [
+          5.126286610638785,
+          4.420139718960773,
+          5.031525747857322
+        ],
+        "games": 1000,
+        "icm_equity": [
+          169.1199115411259,
+          246.51100880005333,
+          184.36907965882074
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          0,
+          1,
+          3
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          157.38,
+          256.05,
+          186.57
+        ],
+        "sim_prize_sd": [
+          162.1074162844331,
+          139.77709088092593,
+          159.11081469011208
+        ],
+        "stacks": [
+          2355,
+          4031,
+          2614
+        ],
+        "z": [
+          -2.2901395167335363,
+          2.1580745873321416,
+          0.4374260316796587
+        ]
+      },
+      "max_abs_diff": 11.739911541125906,
+      "max_abs_diff_rel": 0.019566519235209842,
+      "max_abs_z": 2.2901395167335363,
+      "preset": "6max_sng_topheavy",
+      "profile": "random",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          -1.8897047889931855,
+          6.09352364476581,
+          -4.203818855772624
+        ],
+        "diff_se": [
+          4.442955655299191,
+          4.806024653804134,
+          4.980842216853403
+        ],
+        "games": 1000,
+        "icm_equity": [
+          262.3197047889932,
+          203.3364763552342,
+          134.3438188557726
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          0,
+          1,
+          3
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          260.43,
+          209.43,
+          130.14
+        ],
+        "sim_prize_sd": [
+          140.49859413871394,
+          151.97984396943284,
+          157.50806071179062
+        ],
+        "stacks": [
+          4382,
+          2858,
+          1760
+        ],
+        "z": [
+          -0.4253260522056531,
+          1.2678927146040702,
+          -0.8439975957376029
+        ]
+      },
+      "max_abs_diff": 6.09352364476581,
+      "max_abs_diff_rel": 0.01015587274127635,
+      "max_abs_z": 1.2678927146040702,
+      "preset": "6max_sng_topheavy",
+      "profile": "skewed",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          3.930000000000007,
+          5.460000000000008,
+          1.4399999999999977,
+          -10.830000000000013
+        ],
+        "diff_se": [
+          5.132991593866359,
+          5.199867981692123,
+          5.196819540193179,
+          5.074284132708704
+        ],
+        "games": 1000,
+        "icm_equity": [
+          150.0,
+          150.0,
+          150.0,
+          150.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          0,
+          1,
+          2,
+          5
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          153.93,
+          155.46,
+          151.44,
+          139.17
+        ],
+        "sim_prize_sd": [
+          162.3194464711567,
+          164.4342635432984,
+          164.33786335879398,
+          160.46295354211614
+        ],
+        "stacks": [
+          2250,
+          2250,
+          2250,
+          2250
+        ],
+        "z": [
+          0.7656353859406548,
+          1.0500266582197406,
+          0.27709255417910267,
+          -2.1342912057663685
+        ]
+      },
+      "max_abs_diff": 10.830000000000013,
+      "max_abs_diff_rel": 0.01805000000000002,
+      "max_abs_z": 2.1342912057663685,
+      "preset": "6max_sng_topheavy",
+      "profile": "even",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          4.624305006333088,
+          -9.157539627182956,
+          8.465664034945576,
+          -3.932429414095722
+        ],
+        "diff_se": [
+          4.959940333119772,
+          5.074852680593786,
+          5.097646869252879,
+          4.610832427629008
+        ],
+        "games": 1000,
+        "icm_equity": [
+          209.6056949936669,
+          127.53753962718295,
+          164.21433596505443,
+          98.64242941409572
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          214.23,
+          118.38,
+          172.68,
+          94.71
+        ],
+        "sim_prize_sd": [
+          156.84708511192764,
+          160.48093260487343,
+          161.20174814065658,
+          145.80732380671148
+        ],
+        "stacks": [
+          3376,
+          1817,
+          2435,
+          1372
+        ],
+        "z": [
+          0.9323307733067887,
+          -1.804493687511629,
+          1.6607003686362292,
+          -0.8528675625971218
+        ]
+      },
+      "max_abs_diff": 9.157539627182956,
+      "max_abs_diff_rel": 0.015262566045304926,
+      "max_abs_z": 1.804493687511629,
+      "preset": "6max_sng_topheavy",
+      "profile": "random",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "6max SNG top-heavy (65/35)",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.65,
+            0.35
+          ],
+          "players": 6,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 6
+        },
+        "diff": [
+          -12.244301861654705,
+          -6.853675089224481,
+          11.532194165867907,
+          7.565782785011294
+        ],
+        "diff_se": [
+          5.057119145724587,
+          5.182437337465555,
+          4.978532654044499,
+          5.203422210690055
+        ],
+        "games": 1000,
+        "icm_equity": [
+          134.2243018616547,
+          141.88367508922448,
+          166.1878058341321,
+          157.70421721498872
+        ],
+        "level_index": 0,
+        "payouts": [
+          390.0,
+          210.0
+        ],
+        "players": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          121.98,
+          135.03,
+          177.72,
+          165.27
+        ],
+        "sim_prize_sd": [
+          159.9201489933466,
+          163.88305817489822,
+          157.4350259230371,
+          164.54665813289122
+        ],
+        "stacks": [
+          1973,
+          2103,
+          2541,
+          2383
+        ],
+        "z": [
+          -2.4212009859420336,
+          -1.322481034102814,
+          2.3163841571872172,
+          1.4540013242569358
+        ]
+      },
+      "max_abs_diff": 12.244301861654705,
+      "max_abs_diff_rel": 0.02040716976942451,
+      "max_abs_z": 2.4212009859420336,
+      "preset": "6max_sng_topheavy",
+      "profile": "skewed",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          1.4399999999999977,
+          -1.4399999999999977
+        ],
+        "diff_se": [
+          2.8471094872576157,
+          2.8471094872576157
+        ],
+        "games": 1000,
+        "icm_equity": [
+          360.0,
+          360.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0
+        ],
+        "players": [
+          2,
+          4
+        ],
+        "prize_pool": 720.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          361.44,
+          358.56
+        ],
+        "sim_prize_sd": [
+          90.03350727608208,
+          90.03350727608208
+        ],
+        "stacks": [
+          6750,
+          6750
+        ],
+        "z": [
+          0.5057761236246064,
+          -0.5057761236246064
+        ]
+      },
+      "max_abs_diff": 1.4399999999999977,
+      "max_abs_diff_rel": 0.001999999999999997,
+      "max_abs_z": 0.5057761236246064,
+      "preset": "9max_sng_503020",
+      "profile": "even",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          -1.0466666666666242,
+          1.0466666666666242
+        ],
+        "diff_se": [
+          2.7977848380459753,
+          2.7977848380459753
+        ],
+        "games": 1000,
+        "icm_equity": [
+          377.78666666666663,
+          342.21333333333337
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0
+        ],
+        "players": [
+          7,
+          8
+        ],
+        "prize_pool": 720.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          376.74,
+          343.26
+        ],
+        "sim_prize_sd": [
+          88.47372491310595,
+          88.47372491310595
+        ],
+        "stacks": [
+          8084,
+          5416
+        ],
+        "z": [
+          -0.37410548961214457,
+          0.37410548961214457
+        ]
+      },
+      "max_abs_diff": 1.0466666666666242,
+      "max_abs_diff_rel": 0.0014537037037036448,
+      "max_abs_z": 0.37410548961214457,
+      "preset": "9max_sng_503020",
+      "profile": "random",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          -4.886666666666713,
+          4.886666666666656
+        ],
+        "diff_se": [
+          2.2736968349578333,
+          2.2736968349578333
+        ],
+        "games": 1000,
+        "icm_equity": [
+          310.7066666666667,
+          409.29333333333335
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0
+        ],
+        "players": [
+          3,
+          5
+        ],
+        "prize_pool": 720.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          305.82,
+          414.18
+        ],
+        "sim_prize_sd": [
+          71.90060707182707,
+          71.90060707182707
+        ],
+        "stacks": [
+          3053,
+          10447
+        ],
+        "z": [
+          -2.1492164617264544,
+          2.1492164617264296
+        ]
+      },
+      "max_abs_diff": 4.886666666666713,
+      "max_abs_diff_rel": 0.006787037037037101,
+      "max_abs_z": 2.1492164617264544,
+      "preset": "9max_sng_503020",
+      "profile": "skewed",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          0.14999999999997726,
+          -2.910000000000025,
+          2.759999999999991
+        ],
+        "diff_se": [
+          3.559655692429947,
+          3.52028753432505,
+          3.5718539360590356
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0,
+          180.0
+        ],
+        "players": [
+          2,
+          3,
+          6
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          300.15,
+          297.09,
+          302.76
+        ],
+        "sim_prize_sd": [
+          112.56619674062425,
+          111.32126627165333,
+          112.95193907383982
+        ],
+        "stacks": [
+          4500,
+          4500,
+          4500
+        ],
+        "z": [
+          0.042138906950739935,
+          -0.8266370208756154,
+          0.7727079688609008
+        ]
+      },
+      "max_abs_diff": 2.910000000000025,
+      "max_abs_diff_rel": 0.003233333333333361,
+      "max_abs_z": 0.8266370208756154,
+      "preset": "9max_sng_503020",
+      "profile": "even",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          5.418710578688888,
+          3.479204195013608,
+          -8.897914773702553
+        ],
+        "diff_se": [
+          3.3787123726794603,
+          3.510929652816594,
+          3.6948715371005183
+        ],
+        "games": 1000,
+        "icm_equity": [
+          308.8612894213111,
+          297.6607958049864,
+          293.47791477370254
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0,
+          180.0
+        ],
+        "players": [
+          0,
+          5,
+          6
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          314.28,
+          301.14,
+          284.58
+        ],
+        "sim_prize_sd": [
+          106.84426656258756,
+          111.0253440752464,
+          116.84209718964969
+        ],
+        "stacks": [
+          4915,
+          4386,
+          4199
+        ],
+        "z": [
+          1.6037797779133307,
+          0.9909638013460239,
+          -2.408179738959213
+        ]
+      },
+      "max_abs_diff": 8.897914773702553,
+      "max_abs_diff_rel": 0.009886571970780614,
+      "max_abs_z": 2.408179738959213,
+      "preset": "9max_sng_503020",
+      "profile": "random",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          -6.008998849362399,
+          -3.4783230065746125,
+          9.487321855937068
+        ],
+        "diff_se": [
+          2.5205517414012966,
+          2.2558033266773565,
+          0.8873845566333369
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.3989988493624,
+          419.2783230065746,
+          180.32267814406293
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0,
+          180.0
+        ],
+        "players": [
+          2,
+          5,
+          8
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          294.39,
+          415.8,
+          189.81
+        ],
+        "sim_prize_sd": [
+          79.70684463131826,
+          71.33476465685317,
+          28.061563594200233
+        ],
+        "stacks": [
+          2297,
+          11197,
+          6
+        ],
+        "z": [
+          -2.3840013877365225,
+          -1.541944266789403,
+          10.691330815955572
+        ]
+      },
+      "max_abs_diff": 9.487321855937068,
+      "max_abs_diff_rel": 0.010541468728818965,
+      "max_abs_z": 10.691330815955572,
+      "preset": "9max_sng_503020",
+      "profile": "skewed",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          -0.9000000000000057,
+          8.639999999999986,
+          -8.370000000000005,
+          0.6299999999999955
+        ],
+        "diff_se": [
+          5.109530046618471,
+          5.275735378483622,
+          5.131264266530486,
+          4.998879063539312
+        ],
+        "games": 1000,
+        "icm_equity": [
+          225.0,
+          225.0,
+          225.0,
+          225.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0,
+          180.0
+        ],
+        "players": [
+          0,
+          1,
+          4,
+          7
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          224.1,
+          233.64,
+          216.63,
+          225.63
+        ],
+        "sim_prize_sd": [
+          161.57752720380688,
+          166.83340128338727,
+          162.26482358469642,
+          158.07843588513794
+        ],
+        "stacks": [
+          3375,
+          3375,
+          3375,
+          3375
+        ],
+        "z": [
+          -0.17614144388790376,
+          1.637686384961055,
+          -1.6311769507945058,
+          0.12602825393298114
+        ]
+      },
+      "max_abs_diff": 8.639999999999986,
+      "max_abs_diff_rel": 0.009599999999999985,
+      "max_abs_z": 1.637686384961055,
+      "preset": "9max_sng_503020",
+      "profile": "even",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          -2.693455020436204,
+          -4.120445349689021,
+          3.8579375218433256,
+          2.955962848281871
+        ],
+        "diff_se": [
+          4.765646491976364,
+          4.473089808223448,
+          4.431195616827907,
+          5.0151050216698625
+        ],
+        "games": 1000,
+        "icm_equity": [
+          189.6234550204362,
+          288.430445349689,
+          290.17206247815665,
+          131.77403715171812
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0,
+          180.0
+        ],
+        "players": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          186.93,
+          284.31,
+          294.03,
+          134.73
+        ],
+        "sim_prize_sd": [
+          150.7029743783666,
+          141.4515197247187,
+          140.1267090693093,
+          158.59154573424863
+        ],
+        "stacks": [
+          2278,
+          4838,
+          4904,
+          1480
+        ],
+        "z": [
+          -0.5651814554375811,
+          -0.9211631168490926,
+          0.8706312822644127,
+          0.5894119535900834
+        ]
+      },
+      "max_abs_diff": 4.120445349689021,
+      "max_abs_diff_rel": 0.004578272610765579,
+      "max_abs_z": 0.9211631168490926,
+      "preset": "9max_sng_503020",
+      "profile": "random",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG 50/30/20",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.5,
+            0.3,
+            0.2
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          39.184593085772185,
+          -19.483302991224946,
+          -17.970507996169374,
+          -1.7307820983778583
+        ],
+        "diff_se": [
+          3.3418416188391404,
+          3.9253428151202745,
+          3.8164650405061398,
+          2.9414613025832246
+        ],
+        "games": 1000,
+        "icm_equity": [
+          26.065406914227815,
+          278.59330299122496,
+          203.37050799616938,
+          391.97078209837787
+        ],
+        "level_index": 0,
+        "payouts": [
+          450.0,
+          270.0,
+          180.0
+        ],
+        "players": [
+          2,
+          6,
+          7,
+          8
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          65.25,
+          259.11,
+          185.4,
+          390.24
+        ],
+        "sim_prize_sd": [
+          105.67831095075945,
+          124.130238927573,
+          120.68722138406174,
+          93.01717365408713
+        ],
+        "stacks": [
+          128,
+          2814,
+          1085,
+          9473
+        ],
+        "z": [
+          11.725448885690694,
+          -4.963465335097864,
+          -4.7086787918765065,
+          -0.5884089302340527
+        ]
+      },
+      "max_abs_diff": 39.184593085772185,
+      "max_abs_diff_rel": 0.04353843676196909,
+      "max_abs_z": 11.725448885690694,
+      "preset": "9max_sng_503020",
+      "profile": "skewed",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          0.0,
+          0.0
+        ],
+        "diff_se": [
+          0.0,
+          0.0
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0
+        ],
+        "players": [
+          3,
+          8
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          300.0,
+          300.0
+        ],
+        "sim_prize_sd": [
+          0.0,
+          0.0
+        ],
+        "stacks": [
+          6750,
+          6750
+        ],
+        "z": [
+          0.0,
+          0.0
+        ]
+      },
+      "max_abs_diff": 0.0,
+      "max_abs_diff_rel": 0.0,
+      "max_abs_z": 0.0,
+      "preset": "9max_sng_flat",
+      "profile": "even",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          0.0,
+          0.0
+        ],
+        "diff_se": [
+          0.0,
+          0.0
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0
+        ],
+        "players": [
+          0,
+          1
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          300.0,
+          300.0
+        ],
+        "sim_prize_sd": [
+          0.0,
+          0.0
+        ],
+        "stacks": [
+          7096,
+          6404
+        ],
+        "z": [
+          0.0,
+          0.0
+        ]
+      },
+      "max_abs_diff": 0.0,
+      "max_abs_diff_rel": 0.0,
+      "max_abs_z": 0.0,
+      "preset": "9max_sng_flat",
+      "profile": "random",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          0.0,
+          0.0
+        ],
+        "diff_se": [
+          0.0,
+          0.0
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0
+        ],
+        "players": [
+          0,
+          1
+        ],
+        "prize_pool": 600.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          300.0,
+          300.0
+        ],
+        "sim_prize_sd": [
+          0.0,
+          0.0
+        ],
+        "stacks": [
+          779,
+          12721
+        ],
+        "z": [
+          0.0,
+          0.0
+        ]
+      },
+      "max_abs_diff": 0.0,
+      "max_abs_diff_rel": 0.0,
+      "max_abs_z": 0.0,
+      "preset": "9max_sng_flat",
+      "profile": "skewed",
+      "remaining": 2
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "diff_se": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "players": [
+          2,
+          3,
+          5
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "sim_prize_sd": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "stacks": [
+          4500,
+          4500,
+          4500
+        ],
+        "z": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "max_abs_diff": 0.0,
+      "max_abs_diff_rel": 0.0,
+      "max_abs_z": 0.0,
+      "preset": "9max_sng_flat",
+      "profile": "even",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "diff_se": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "players": [
+          2,
+          3,
+          5
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "sim_prize_sd": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "stacks": [
+          4440,
+          3102,
+          5958
+        ],
+        "z": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "max_abs_diff": 0.0,
+      "max_abs_diff_rel": 0.0,
+      "max_abs_z": 0.0,
+      "preset": "9max_sng_flat",
+      "profile": "random",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "diff_se": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "games": 1000,
+        "icm_equity": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "players": [
+          2,
+          5,
+          8
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "sim_prize_sd": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "stacks": [
+          607,
+          4858,
+          8035
+        ],
+        "z": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "max_abs_diff": 0.0,
+      "max_abs_diff_rel": 0.0,
+      "max_abs_z": 0.0,
+      "preset": "9max_sng_flat",
+      "profile": "skewed",
+      "remaining": 3
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          -3.5999999999999943,
+          3.9000000000000057,
+          -0.5999999999999943,
+          0.30000000000001137
+        ],
+        "diff_se": [
+          4.173662595306416,
+          4.036221138773433,
+          4.120876317195335,
+          4.104480083610667
+        ],
+        "games": 1000,
+        "icm_equity": [
+          225.0,
+          225.0,
+          225.0,
+          225.0
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "players": [
+          1,
+          3,
+          6,
+          8
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          221.4,
+          228.9,
+          224.4,
+          225.3
+        ],
+        "sim_prize_sd": [
+          131.98279986217858,
+          127.63651938642602,
+          130.3135511818375,
+          129.79505675008056
+        ],
+        "stacks": [
+          3375,
+          3375,
+          3375,
+          3375
+        ],
+        "z": [
+          -0.8625517558722772,
+          0.9662503281931615,
+          -0.1456000990605692,
+          0.07309086507641294
+        ]
+      },
+      "max_abs_diff": 3.9000000000000057,
+      "max_abs_diff_rel": 0.00433333333333334,
+      "max_abs_z": 0.9662503281931615,
+      "preset": "9max_sng_flat",
+      "profile": "even",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          9.922016259126181,
+          0.33022455428744024,
+          8.566167950246893,
+          -18.8184087636605
+        ],
+        "diff_se": [
+          4.718031350025138,
+          3.389171947022825,
+          2.5152507800389188,
+          3.9318519121985585
+        ],
+        "games": 1000,
+        "icm_equity": [
+          123.87798374087383,
+          254.66977544571256,
+          268.6338320497531,
+          252.8184087636605
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "players": [
+          0,
+          1,
+          3,
+          5
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          133.8,
+          255.0,
+          277.2,
+          234.0
+        ],
+        "sim_prize_sd": [
+          149.19725138158552,
+          107.1750273453965,
+          79.53921351438163,
+          124.33607465035826
+        ],
+        "stacks": [
+          1297,
+          3790,
+          4717,
+          3696
+        ],
+        "z": [
+          2.102999222138131,
+          0.09743517279420473,
+          3.4056913999304466,
+          -4.786143828376762
+        ]
+      },
+      "max_abs_diff": 18.8184087636605,
+      "max_abs_diff_rel": 0.020909343070733888,
+      "max_abs_z": 4.786143828376762,
+      "preset": "9max_sng_flat",
+      "profile": "random",
+      "remaining": 4
+    },
+    {
+      "calibrate": {
+        "config": {
+          "ante_mode": "none",
+          "buy_in": 100,
+          "length_unit": "hands",
+          "levels": [
+            {
+              "ante": 0,
+              "bb": 50,
+              "length": 10,
+              "sb": 25
+            },
+            {
+              "ante": 0,
+              "bb": 100,
+              "length": 10,
+              "sb": 50
+            },
+            {
+              "ante": 0,
+              "bb": 150,
+              "length": 10,
+              "sb": 75
+            },
+            {
+              "ante": 0,
+              "bb": 200,
+              "length": 10,
+              "sb": 100
+            },
+            {
+              "ante": 0,
+              "bb": 300,
+              "length": 10,
+              "sb": 150
+            },
+            {
+              "ante": 0,
+              "bb": 400,
+              "length": 10,
+              "sb": 200
+            },
+            {
+              "ante": 0,
+              "bb": 600,
+              "length": 10,
+              "sb": 300
+            },
+            {
+              "ante": 0,
+              "bb": 800,
+              "length": 10,
+              "sb": 400
+            },
+            {
+              "ante": 0,
+              "bb": 1000,
+              "length": 10,
+              "sb": 500
+            },
+            {
+              "ante": 0,
+              "bb": 1400,
+              "length": 10,
+              "sb": 700
+            },
+            {
+              "ante": 0,
+              "bb": 2000,
+              "length": 10,
+              "sb": 1000
+            },
+            {
+              "ante": 0,
+              "bb": 3000,
+              "length": 10,
+              "sb": 1500
+            },
+            {
+              "ante": 0,
+              "bb": 4000,
+              "length": 10,
+              "sb": 2000
+            }
+          ],
+          "name": "9max SNG flat top-3",
+          "payout_mode": "ratio",
+          "payouts": [
+            0.3333333333333333,
+            0.3333333333333333,
+            0.3333333333333333
+          ],
+          "players": 9,
+          "schema_version": 1,
+          "seconds_per_seat": 7,
+          "short_stack_rule": "all_in",
+          "starting_stack": 1500,
+          "table_size": 9
+        },
+        "diff": [
+          -23.380703515915656,
+          -8.080956347566826,
+          30.888282221049764,
+          0.5733776424326607
+        ],
+        "diff_se": [
+          3.9446165846632213,
+          2.769915600236328,
+          4.45615274618109,
+          1.0334931582299354
+        ],
+        "games": 1000,
+        "icm_equity": [
+          256.78070351591566,
+          279.88095634756684,
+          67.51171777895024,
+          295.8266223575673
+        ],
+        "level_index": 0,
+        "payouts": [
+          300.0,
+          300.0,
+          300.0
+        ],
+        "players": [
+          0,
+          1,
+          5,
+          8
+        ],
+        "prize_pool": 900.0,
+        "schema_version": 2,
+        "sim_prize_mean": [
+          233.4,
+          271.8,
+          98.4,
+          296.4
+        ],
+        "sim_prize_sd": [
+          124.73972903610195,
+          87.59242223179227,
+          140.91592279546433,
+          32.68192326207389
+        ],
+        "stacks": [
+          2115,
+          3420,
+          457,
+          7508
+        ],
+        "z": [
+          -5.927243627890346,
+          -2.9174016518327717,
+          6.931603107079517,
+          0.5547957796011781
+        ]
+      },
+      "max_abs_diff": 30.888282221049764,
+      "max_abs_diff_rel": 0.03432031357894418,
+      "max_abs_z": 6.931603107079517,
+      "preset": "9max_sng_flat",
+      "profile": "skewed",
+      "remaining": 4
+    }
+  ],
+  "games": 1000,
+  "schema_version": 1,
+  "seed": 0,
+  "skipped": []
+}

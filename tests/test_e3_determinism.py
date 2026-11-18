@@ -36,6 +36,7 @@ def test_e3_fingerprint_is_identical_under_emulated_runners():
     assert not D.compare(results), "\n".join(D.compare(results))
 
 
+@pytest.mark.numba
 def test_e3_fingerprint_is_identical_with_numba_disabled():
     pytest.importorskip("numba")   # without numba both runs are the numpy path anyway
     on = D.run_setting({}, "beginner", 3, 2, 2, 1, 2, timeout=120)

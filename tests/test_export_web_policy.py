@@ -58,6 +58,7 @@ def test_size_cap_and_pruning(tmp_path):
     assert all(m.visits[k] >= 3 for k in doc["policy"])
 
 
+@pytest.mark.slow
 def test_average_strategy_and_pod_result_input(tmp_path):
     # #355: export the average strategy, straight from a pod training result
     from stalker.tools import pod_train as P
@@ -113,6 +114,9 @@ def test_shipped_index_marks_every_tier_placeholder_with_its_rules():
 
     idx = json.loads((Path(__file__).resolve().parents[1] / "web/app/policy/index.json").read_text(encoding="utf-8"))
     for tier, e in idx["tiers"].items():
+        if e.get("menu") == "real":   # #824: mid-6 is the real-rules c1 export (run 42591543123), no longer a stand-in
+            assert not X.placeholder_of(e) and e["key_variant"] == "c1"
+            continue
         assert X.placeholder_of(e), f"{tier}: v1 6-max 100BB policy must stay marked 임시 until a real-rules one replaces it"
         assert {"game", "players", "stack_bb", "menu"} <= set(e["trained_on"])
 
@@ -193,7 +197,7 @@ def mixn(tmp_path_factory):
     return ck, m
 
 
-def test_players_split_a_c1_mix_into_disjoint_complete_files(tmp_path, mixn):
+def test_players_split_a_c1_mix_into_complete_files_sharing_call_keys(tmp_path, mixn):
     from stalker.e3.mccfr import key_players
 
     ck, m = mixn
@@ -209,8 +213,10 @@ def test_players_split_a_c1_mix_into_disjoint_complete_files(tmp_path, mixn):
     assert shared and all(k.startswith("call|") for k in shared)
     for n, doc in docs.items():
         own = {k for k in cur if key_players(k) == n}
-        assert own and set(doc["policy"]) == own and doc["keys"] == len(own) and doc["players"] == n
-    assert sum(d["keys"] for d in docs.values()) == len(cur) - len(shared) == len(cur) - m.shared_keys()
+        assert own and set(doc["policy"]) == own | shared and doc["keys"] == len(own) + len(shared) and doc["players"] == n
+    # every count's own keys land in exactly one file; the shared call| keys in all of them (#610)
+    assert sum(d["keys"] for d in docs.values()) == len(cur) + (len(MIX) - 1) * len(shared)
+    assert len(shared) == m.shared_keys()
     tiers = json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]
     assert tiers["file"] == "beginner-6.json" and tiers["players"] == 6
     assert {k: v["file"] for k, v in tiers["by_players"].items()} == {"2": "beginner-2.json", "4": "beginner-4.json"}
@@ -281,3 +287,66 @@ def test_key_players_reads_the_c1_public_key_player_field(depth):
                 legal = G.legal(s)
                 s = G.apply(s, legal[int(rng.integers(len(legal)))])
     assert set(range(2, 7)) <= seen
+
+
+def test_key_variant_is_written_for_c1_tables_and_left_out_for_legacy_ones(tmp_path, mixn):
+    # #604: the page picks c1 keys from this field; a legacy table must not grow it.
+    ck, _ = mixn
+    out, idx = tmp_path / "c1.json", tmp_path / "index.json"
+    assert X.main(["--ckpt", str(ck), "--run", "9", "--players", "4", "--out", str(out), "--index", str(idx)]) == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["key_variant"] == "c1"
+    assert json.loads(idx.read_text(encoding="utf-8"))["tiers"]["beginner"]["by_players"]["4"]["key_variant"] == "c1"
+    six = _ckpt(tmp_path, 6, "legacy")
+    assert X.main(["--ckpt", str(six), "--run", "9", "--out", str(out)]) == 0
+    assert "key_variant" not in json.loads(out.read_text(encoding="utf-8"))
+    assert "key_variant" not in X.meta_from({"k": 11, "n": 6, "depth": "full", "iterations": 1}, None, "1", "")
+
+
+def test_shipped_short_handed_mid_policies_are_the_c1_export_bytes():
+    # #615: mid-2..5 are copied byte for byte from ops 5b5f2875 (docs/research/2026-11-c1-web-export.md
+    # 「실측: call| 포함 재-export」); the index routes them to c1 keys and leaves the 6-max (legacy key) entry alone.
+    # #610: the earlier copy (ops fd521c42) had no shared `call|` keys, so call-or-fold spots played uniform.
+    import hashlib
+    from pathlib import Path
+
+    pol = Path(__file__).resolve().parents[1] / "web/app/policy"
+    # #640: mid-2 is the min_visits=5 re-export, copied from ops 81aa9424 (#631); the old mv=10 file was a4287c01….
+    # #840: mid-2·mid-3 are the 120k export (run 42591543123) copied from ops 3b86e734 (cloud/policies), swapped in
+    # on #805's 4-seed flop uniform remeasure (coarse_top_fit upper bound 2인 1.2%·3인 5.7%); the 40k files were 66613749…·c78a3259….
+    want = {2: "5796ac5ae4a1976a9a04d1b8b546c913ba9c4640b63dc8871a239b0cef2fadea",
+            3: "c67656ca452cf56cce76db796abd4f239f6fe25b3d655492798c6ee5a9f91c08",
+            4: "2bc99320fc231ed9f365d4869fccbf14c6fa2c2b2169f137031293a341c7e29c",
+            # #753: mid-4 is the 120k export (run 42591543123) copied from ops 18409fb6, swapped in on #741's
+            # 4-seed flop/turn uniform-rate remeasure (intervals overlap, preflop exact higher); the 40k file was 3f248f0c….
+            # #739: mid-5 is the 120k export (run 42591543123) copied from ops 18409fb6, swapped in on #733's
+            # flop/turn uniform-rate comparison; the 40k file was 0b785199….
+            5: "7484bcd181ec7c2d2fd46534c774671265a6c59fb947a918afc2db137de8e18c"}
+    run_ids = {2: "42591543123", 3: "42591543123", 4: "42591543123", 5: "42591543123"}
+    mid = json.loads((pol / "index.json").read_text(encoding="utf-8"))["tiers"]["mid"]
+    for n, sha in want.items():
+        body = (pol / f"mid-{n}.json").read_bytes()
+        assert hashlib.sha256(body).hexdigest() == sha, f"mid-{n}.json differs from its ops source; re-copy it"
+        policy = json.loads(body)["policy"]
+        assert any(k.startswith("call|") for k in policy), f"mid-{n}.json has no call| keys; re-export after #610"
+        e = mid["by_players"][str(n)]
+        assert (e["file"], e["players"], e["run_id"], e["key_variant"], e["bytes"]) == (
+            f"mid-{n}.json", n, run_ids[n], "c1", len(body))
+        assert len(body) <= 3_145_728, f"mid-{n}.json exceeds the page budget"
+    for n in (2, 3):   # #840: the 120k files carry the L1 rows (coarse_top_fit) the page backs off to
+        body = (pol / f"mid-{n}.json").read_bytes()
+        assert "l1_rows" in json.loads(body), f"mid-{n}.json has no l1_rows; copy the ops export, not a re-export"
+        assert (mid["by_players"][str(n)]["iterations"], mid["by_players"][str(n)]["min_visits"]) == (120000, 15)
+    # #824: mid-6 is the 120k c1 export (run 42591543123) copied from ops, with `l1_rows`.
+    body6 = (pol / "mid-6.json").read_bytes()
+    assert (mid["run_id"], mid["file"], mid["key_variant"], mid["bytes"]) == ("42591543123", "mid-6.json", "c1", len(body6))
+    assert "l1_rows" in json.loads(body6) and len(body6) <= 3_145_728
+
+
+def test_keep_players_keeps_the_shared_call_keys_in_every_seat_count():
+    # #610: `call|` keys name no seat count (mixn shares them), so each per-count file must carry them;
+    # dropping them left mid-3.json with none and the page played every call-or-fold spot uniform.
+    pol = {"call|0|1|2|fc": [0.3, 0.7], "BTN|n3|x|1": [0.5, 0.5], "BTN|n4|x|1": [0.2, 0.8],
+           "b|n3|y|2": [1.0, 0.0], "p|SB|n4|z|3": [0.1, 0.9]}
+    assert set(X.keep_players(pol, 3)) == {"call|0|1|2|fc", "BTN|n3|x|1", "b|n3|y|2"}
+    assert set(X.keep_players(pol, 4)) == {"call|0|1|2|fc", "BTN|n4|x|1", "p|SB|n4|z|3"}
+    assert set(X.keep_players(pol, 5)) == {"call|0|1|2|fc"}

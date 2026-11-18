@@ -54,6 +54,35 @@ def test_bash_guard_checks_each_command_separately():
         assert g.check(cmd), cmd
 
 
+def _hook_commands():
+    import json
+    settings = json.loads((ROOT / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    return [h["command"] for groups in settings.get("hooks", {}).values() for g in groups for h in g["hooks"]
+            if h.get("type") == "command"]
+
+
+def test_hook_commands_do_not_depend_on_cwd():
+    # A relative `harness/...` path breaks every Bash call once the shell cd's into web/ (experiment 034).
+    cmds = _hook_commands()
+    assert cmds
+    for cmd in cmds:
+        assert '"$CLAUDE_PROJECT_DIR/harness/' in cmd, f'hook must use "$CLAUDE_PROJECT_DIR/harness/...": {cmd}'
+        assert not re.search(r"(^|\s)harness/", cmd), cmd
+
+
+def test_bash_guard_hook_runs_from_subdirectory(tmp_path):
+    import json
+    import os
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(ROOT)}
+    sub = tmp_path / "web" / "e2e"
+    sub.mkdir(parents=True)
+    for cmd in _hook_commands():
+        for shell_cmd, code in [("ls", 0), ("git push --force origin x", 2)]:
+            r = subprocess.run(cmd, shell=True, cwd=sub, env=env, capture_output=True, text=True, encoding="utf-8",
+                               input=json.dumps({"tool_input": {"command": shell_cmd}}))
+            assert r.returncode == code, (cmd, shell_cmd, r.stderr)
+
+
 def test_schedule_covers_all_routines():
     import json
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))
@@ -61,7 +90,7 @@ def test_schedule_covers_all_routines():
     assert roles == {cfg["instructions"] for cfg in sched.values()}
 
 
-def _run_pytest(tmp_path, body, require_torch):
+def _run_pytest(tmp_path, body, require_torch, require_numba=False):
     import os
     import shutil
     import subprocess
@@ -69,9 +98,11 @@ def _run_pytest(tmp_path, body, require_torch):
 
     shutil.copy(ROOT / "tests" / "conftest.py", tmp_path / "conftest.py")
     (tmp_path / "test_case.py").write_text(body, encoding="utf-8")
-    env = {k: v for k, v in os.environ.items() if k != "STALKER_REQUIRE_TORCH"}
+    env = {k: v for k, v in os.environ.items() if k not in ("STALKER_REQUIRE_TORCH", "STALKER_REQUIRE_NUMBA")}
     if require_torch:
         env["STALKER_REQUIRE_TORCH"] = "1"
+    if require_numba:
+        env["STALKER_REQUIRE_NUMBA"] = "1"
     return subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(tmp_path)],
         cwd=tmp_path, env=env, capture_output=True, text=True, encoding="utf-8",
@@ -119,16 +150,39 @@ def test_ci_rl_job_runs_torch_tests_without_skips():
     assert "cache: pip" in rl
     parts = "\n".join(jobs["gates-part"])
     assert "python -m referee.gates full --part ${{ matrix.part }}" in parts and "rl]" not in parts
-    assert "part: [tests, checks]" in parts
+    assert "part: [tests-1, tests-2, checks]" in parts
     gates = "\n".join(jobs["gates"])  # the required check: fails unless every part succeeded
     assert "needs: gates-part" in gates and "if: always()" in gates and '!= "success"' in gates
+
+
+def test_require_numba_fails_skips_of_numba_marked_tests_only(tmp_path):
+    marked = 'import pytest\n\n@pytest.mark.numba\ndef test_x():\n    pytest.importorskip("numba_missing_for_test")\n'
+    r = _run_pytest(tmp_path, marked, require_torch=False)
+    assert r.returncode == 0 and "1 skipped" in r.stdout
+    r = _run_pytest(tmp_path, marked, require_torch=False, require_numba=True)
+    assert r.returncode in FAILED and "STALKER_REQUIRE_NUMBA" in r.stdout
+    unmarked = 'import pytest\n\ndef test_x():\n    pytest.skip("numba not installed")\n'
+    r = _run_pytest(tmp_path, unmarked, require_torch=False, require_numba=True)
+    assert r.returncode == 0 and "1 skipped" in r.stdout
+
+
+def test_ci_numba_job_runs_marked_tests_with_fast_extra_and_short_timeout():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    job = ci.split("\n  numba:\n", 1)[1].split("\n\n", 1)[0]
+    assert int(re.search(r"timeout-minutes: (\d+)", job).group(1)) <= 15
+    assert '".[dev,fast]"' in job and "import numba" in job
+    assert 'STALKER_REQUIRE_NUMBA: "1"' in job and "pytest -m numba" in job
+    parts = ci.split("\n  gates-part:\n", 1)[1].split("\n\n", 1)[0]
+    assert '".[dev]"' in parts and "fast]" not in parts  # gates time stays as is (#786)
+    toml = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"numba:' in toml  # the marker is the one list of numba-path tests
 
 
 def test_ci_web_job_runs_gate_u_with_timeout_and_screenshots():
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     web = ci.split("\n  web:\n", 1)[1].split("\n\n", 1)[0]
     minutes = int(re.search(r"timeout-minutes: (\d+)", web).group(1))
-    assert minutes <= 15
+    assert minutes <= 25  # normal run ~12 min + install retries (#780)
     assert "npm test" in web and "playwright install" in web
     assert "name: web-screenshots" in web and "if: always()" in web
     script = (ROOT / "web" / "e2e" / "gate-u.mjs").read_text(encoding="utf-8")
@@ -353,6 +407,29 @@ def test_every_workflow_is_valid_yaml_with_triggers_and_jobs():
     assert not bad, "\n".join(bad)
 
 
+def _wf(name):
+    import yaml
+
+    return yaml.safe_load((ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8"))
+
+
+def _on(doc):
+    return doc.get("on", doc.get(True))
+
+
+def test_label_events_rerun_only_guard():
+    ci, gl = _wf("ci.yml"), _wf("guard-labels.yml")
+    ci_types = _on(ci)["pull_request"]["types"]
+    assert not {"labeled", "unlabeled"} & set(ci_types), "ci.yml must not trigger on label events (#889): move them to guard-labels.yml"
+    assert set(_on(gl)["pull_request"]["types"]) == {"labeled", "unlabeled"}, "guard-labels.yml must trigger on labeled/unlabeled only"
+    assert list(gl["jobs"]) == ["guard"], "guard-labels.yml must contain only the `guard` job (no skipped `gates` check)"
+    ci_run = [s["run"] for s in ci["jobs"]["guard"]["steps"] if "run" in s]
+    gl_run = [s["run"] for s in gl["jobs"]["guard"]["steps"] if "run" in s]
+    assert ci_run == gl_run, "guard commands in ci.yml and guard-labels.yml must match"
+    assert ci["concurrency"]["group"] != gl["concurrency"]["group"], "concurrency groups must differ so label events never cancel ci runs"
+    assert gl["concurrency"]["group"].startswith("guard-labels-")
+
+
 def test_two_reviewers_split_prs_by_parity():
     import json
     sched = json.loads((ROOT / "harness" / "schedule.json").read_text(encoding="utf-8"))
@@ -421,3 +498,10 @@ def test_reviewer_sweep_runs_early_for_a_pending_merge_retry():
 def test_reviewer_doc_defines_merge_retry_rule():
     text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
     assert "MERGE-RETRY failed" in text and "NEEDS_HUMAN" in text
+
+
+def test_reviewer_doc_merges_via_mcp_merge_pull_request():
+    text = (ROOT / "harness" / "routines" / "reviewer.md").read_text(encoding="utf-8")
+    assert "merge_pull_request" in text, (
+        "reviewer.md §2 MERGE must name MCP `merge_pull_request` as the primary merge path "
+        "(gh pr merge 403s in cloud routines); restore that sentence (#795)")

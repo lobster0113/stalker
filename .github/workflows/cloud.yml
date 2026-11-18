@@ -22,9 +22,15 @@ on:
       resume_run:
         description: "mode=run: run id of an earlier cloud.yml run of the same job; the pod continues its result (#354)"
         default: ""
+      resume_run_b:
+        description: "mode=run: a second earlier run id (needs resume_run); its result is $STALKER_RESUME_B (#929)"
+        default: ""
       export_run:
         description: "mode=export: run id of an earlier mixn c1 cloud.yml run; its result becomes 2-6 handed web policy files (#588)"
         default: ""
+      export_kind:
+        description: "mode=export: cash (a mixn c1 run, default) | tournament (one ICM run with train_env -> t-<env_id>-<stage><ante>.json, ADR 0029)"
+        default: cash
       tier:
         description: "mode=export: the run's tier (beginner | mid | pro); another tier's result is refused"
         default: ""
@@ -34,6 +40,15 @@ on:
       export_min_visits:
         description: "mode=export: drop keys updated fewer times (export_web_policy --min-visits)"
         default: "0"
+      export_min_visits_by_players:
+        description: "mode=export: per-seat-count min visits, e.g. 2:10,3:5,4:5,5:5,6:2 (others use export_min_visits); empty = none (#596)"
+        default: ""
+      export_hit_rate_hands:
+        description: "mode=export: hands per hit-rate measurement (--hit-rate-hands); empty = default (#815)"
+        default: ""
+      export_hit_rate_seeds:
+        description: "mode=export: number of hit-rate seeds (--hit-rate-seeds); empty = default (#815)"
+        default: ""
   schedule:
     - cron: "17 3 * * *"
 
@@ -46,7 +61,7 @@ concurrency:
 
 permissions:
   contents: write  # push ledger lines and results to ops
-  actions: read    # mode=collect / export / resume_run: download an earlier run's cloud-result artifact (#264, #354, #588)
+  actions: read    # mode=collect / export / resume_run(_b): download an earlier run's cloud-result artifact (#264, #354, #588)
 
 defaults:
   run:
@@ -66,10 +81,15 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
       COLLECT_RUN: ${{ inputs.collect_run }}
       RESUME_RUN: ${{ inputs.resume_run }}
+      RESUME_RUN_B: ${{ inputs.resume_run_b }}
       EXPORT_RUN: ${{ inputs.export_run }}
+      EXPORT_KIND: ${{ inputs.export_kind }}
       TIER: ${{ inputs.tier }}
       EXPORT_STRATEGY: ${{ inputs.export_strategy }}
       EXPORT_MIN_VISITS: ${{ inputs.export_min_visits }}
+      EXPORT_MIN_VISITS_BY_PLAYERS: ${{ inputs.export_min_visits_by_players }}
+      EXPORT_HIT_RATE_HANDS: ${{ inputs.export_hit_rate_hands }}
+      EXPORT_HIT_RATE_SEEDS: ${{ inputs.export_hit_rate_seeds }}
       LEDGER: ${{ github.workspace }}/ops/budget/ledger.jsonl
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +112,20 @@ jobs:
           run-id: ${{ env.RESUME_RUN }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/resume/
+      - name: check resume_run_b
+        if: env.MODE == 'run'
+        run: |
+          [[ -z "$RESUME_RUN_B" || "$RESUME_RUN_B" =~ ^[0-9]+$ ]] || { echo "resume_run_b must be a cloud.yml run id, got '$RESUME_RUN_B'"; exit 1; }
+          [[ -z "$RESUME_RUN_B" || -n "$RESUME_RUN" ]] || { echo "resume_run_b needs resume_run: put the first policy's run id in resume_run (or move this one there)"; exit 1; }
+      - name: fetch resume_b result
+        # same path as resume_run: artifact on the runner, handed to the pod by the launcher upload
+        if: env.MODE == 'run' && env.RESUME_RUN_B != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: cloud-result-${{ env.RESUME_RUN_B }}
+          run-id: ${{ env.RESUME_RUN_B }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/resume_b/
       - name: launcher
         run: |
           case "$MODE" in
@@ -105,13 +139,18 @@ jobs:
                     --result-out "$RUNNER_TEMP/cloud-result/result.json" --journal "$GITHUB_WORKSPACE/ops/journal")
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
               [[ -n "$RESUME_RUN" ]] && args+=(--resume-file "$RUNNER_TEMP/resume/result.json" --resume-run "$RESUME_RUN")
+              [[ -n "$RESUME_RUN_B" ]] && args+=(--resume-file-b "$RUNNER_TEMP/resume_b/result.json" --resume-run-b "$RESUME_RUN_B")
               python harness/cloud/launcher.py "${args[@]}" ;;
             collect) [[ "$COLLECT_RUN" =~ ^[0-9]+$ ]] || { echo "collect_run must be a cloud.yml run id, got '$COLLECT_RUN'"; exit 1; } ;;
             export)
               [[ "$EXPORT_RUN" =~ ^[0-9]+$ ]] || { echo "export_run must be a cloud.yml run id, got '$EXPORT_RUN'"; exit 1; }
+              [[ -z "$EXPORT_KIND" || "$EXPORT_KIND" =~ ^(cash|tournament)$ ]] || { echo "export_kind must be cash|tournament, got '$EXPORT_KIND'"; exit 1; }
               [[ "$TIER" =~ ^(beginner|mid|pro)$ ]] || { echo "tier must be beginner|mid|pro, got '$TIER'"; exit 1; }
               [[ "$EXPORT_STRATEGY" =~ ^(current|average)$ ]] || { echo "export_strategy must be current|average, got '$EXPORT_STRATEGY'"; exit 1; }
-              [[ "$EXPORT_MIN_VISITS" =~ ^[0-9]+$ ]] || { echo "export_min_visits must be a whole number, got '$EXPORT_MIN_VISITS'"; exit 1; } ;;
+              [[ "$EXPORT_MIN_VISITS" =~ ^[0-9]+$ ]] || { echo "export_min_visits must be a whole number, got '$EXPORT_MIN_VISITS'"; exit 1; }
+              [[ -z "$EXPORT_MIN_VISITS_BY_PLAYERS" || "$EXPORT_MIN_VISITS_BY_PLAYERS" =~ ^[0-9]+:[0-9]+(,[0-9]+:[0-9]+)*$ ]] || { echo "export_min_visits_by_players must look like 2:10,3:5, got '$EXPORT_MIN_VISITS_BY_PLAYERS'"; exit 1; }
+              [[ -z "$EXPORT_HIT_RATE_HANDS" || "$EXPORT_HIT_RATE_HANDS" =~ ^[1-9][0-9]*$ ]] || { echo "export_hit_rate_hands must be empty or a positive whole number, got '$EXPORT_HIT_RATE_HANDS'"; exit 1; }
+              [[ -z "$EXPORT_HIT_RATE_SEEDS" || "$EXPORT_HIT_RATE_SEEDS" =~ ^[1-9][0-9]*$ ]] || { echo "export_hit_rate_seeds must be empty or a positive whole number, got '$EXPORT_HIT_RATE_SEEDS'"; exit 1; } ;;
             *) echo "mode must be check|run|reap|collect|export, got '$MODE'"; exit 1 ;;
           esac
       - name: terminate this run's pods (finally)
@@ -167,8 +206,13 @@ jobs:
         # files go to the web-policy artifact only; shipping them to web/app/policy/ is a PR (#588 out of scope)
         if: env.MODE == 'export'
         run: |
-          python -m stalker.tools.export_web_players export --pod-result "$RUNNER_TEMP/export-src/result.json" \
+          extra=()
+          [[ "$EXPORT_KIND" == tournament ]] && extra+=(--kind tournament)
+          [[ -n "$EXPORT_HIT_RATE_HANDS" ]] && extra+=(--hit-rate-hands "$EXPORT_HIT_RATE_HANDS")
+          [[ -n "$EXPORT_HIT_RATE_SEEDS" ]] && extra+=(--hit-rate-seeds "$EXPORT_HIT_RATE_SEEDS")
+          python -m stalker.tools.export_web_players export "${extra[@]}" --pod-result "$RUNNER_TEMP/export-src/result.json" \
             --run "$EXPORT_RUN" --tier "$TIER" --strategy "$EXPORT_STRATEGY" --min-visits "$EXPORT_MIN_VISITS" \
+            --min-visits-by-players "$EXPORT_MIN_VISITS_BY_PLAYERS" --policies-out "ops/cloud/policies/$EXPORT_RUN" \
             --index-base web/app/policy/index.json --out-dir "$RUNNER_TEMP/web-policy" \
             --summary-out "ops/cloud/exports/$EXPORT_RUN.json"
       - name: upload web policies

@@ -13,11 +13,16 @@ export function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 
 const Phi = z => 0.5 * (1 + erf(z / Math.SQRT2));
 function gauss(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
 
-function newStats() { return { hands: 0, vpip: 0, pfr: 0, tbOpp: 0, tb: 0, f3bOpp: 0, f3b: 0, cbOpp: 0, cb: 0, fcbOpp: 0, fcb: 0, flops: 0, sd: 0 }; }
+const CELLS = ["hu_srp", "hu_3bp", "mw_srp", "mw_3bp"];
+function newStats() {
+  return { hands: 0, vpip: 0, pfr: 0, tbOpp: 0, tb: 0, f3bOpp: 0, f3b: 0, cbOpp: 0, cb: 0, fcbOpp: 0, fcb: 0, flops: 0, sd: 0,
+    cells: Object.fromEntries(CELLS.map(c => [c, { cbOpp: 0, cb: 0, fcbOpp: 0, fcb: 0 }])) };
+}
 
 // One hand with real cards: the personas read their own two cards and the board (hand categories,
 // web/app/personas.js categorize); nobody sees another seat's cards.
-function playHand(players, button, rng, st) {
+// `track` = seats whose flop c-bet / fold-to-c-bet are counted per flop cell (#676); HUD stats are seat 0's.
+function playHand(players, button, rng, st, track = [0]) {
   const n = players.length;
   const deck = Array.from({ length: 52 }, (_, c) => c);
   for (let k = 51; k > 0; k--) { const j = Math.floor(rng() * (k + 1)); [deck[k], deck[j]] = [deck[j], deck[k]]; }
@@ -27,6 +32,7 @@ function playHand(players, button, rng, st) {
   const me = seats[0];
   st.hands++;
   let pot = 0, currentBet = 0, minRaise = BB, streetRaises = 0, prevAgg = null, lastAgg = null, prevBet = false, firstBettor = null, openerPos = null, openTo = 0;
+  let potRaises = 0, flopPlayers = 0;
   const live = () => seats.filter(s => !s.folded);
   const canAct = () => seats.filter(s => !s.folded && !s.allin);
   const post = (s, a) => { s.stack -= a; s.bet += a; };
@@ -37,6 +43,7 @@ function playHand(players, button, rng, st) {
     if (street > 0) {
       pot += seats.reduce((a, s) => a + s.bet, 0); for (const s of seats) { s.bet = 0; s.checked = false; s.raised = false; }
       prevBet = streetRaises > (street === 1 ? 1 : 0);
+      if (street === 1) { potRaises = streetRaises - 1; flopPlayers = seats.filter(o => !o.folded).length; }
       prevAgg = lastAgg; currentBet = 0; minRaise = BB; streetRaises = 0; firstBettor = null;
       if (street === 1 && !me.folded) { sawFlop = true; st.flops++; }
     }
@@ -62,10 +69,16 @@ function playHand(players, button, rng, st) {
           preflop: { raises: streetRaises - 1, limpers: seats.filter(o => o !== s && !o.folded && o.bet === BB && o.i !== bbI).length,
             limped: street === 0 && s.bet === BB && s.i !== bbI, iRaised: s.raised, openerPos, openTo },
           postflop: { aggressor: prevAgg === s.i, prevAggLive: prevAgg != null && prevAgg !== s.i && !seats[prevAgg].folded, prevBet,
-            betIsCbet: firstBettor != null && firstBettor === prevAgg && streetRaises === 1, checkedThisStreet: s.checked, streetRaises },
+            betIsCbet: firstBettor != null && firstBettor === prevAgg && streetRaises === 1, checkedThisStreet: s.checked, streetRaises,
+            potRaises, flopPlayers },
           hand: { cards: s.cards }, board: board.slice(0, street ? street + 2 : 0),
         };
         const a = P.decide(s.pl, sit, rng);
+        if (street === 1 && track.includes(s.i)) {
+          const c = st.cells[P.flopCell(flopPlayers, potRaises)];
+          if (sit.postflop.aggressor && streetRaises === 0) { c.cbOpp++; if (a.type === "raise") c.cb++; }
+          if (sit.postflop.betIsCbet && !s.cellFaced) { s.cellFaced = true; c.fcbOpp++; if (a.type === "fold") c.fcb++; }
+        }
         if (s === me) {
           if (street === 0) {
             if (sit.preflop.raises === 1 && !s.raised && !sit.preflop.limped) { st.tbOpp++; if (a.type === "raise") st.tb++; }
@@ -119,7 +132,7 @@ const TARGETS = {
   fish: { VPIP: [30, 45], PFR: [5, 12], "3bet": [1, 4], cbet: [40, 60], FCB: [30, 45], WTSD: [30, 36] },
   station: { VPIP: [40, 65], PFR: [2, 8], "3bet": [0.5, 3], cbet: [30, 50], FCB: [15, 35], WTSD: [35, 45] },
   maniac: { VPIP: [45, 80], PFR: [30, 60], "3bet": [15, 30], cbet: [80, 95], FCB: [25, 40], WTSD: [30, 40] },
-  pro: { VPIP: [22, 28], PFR: [18, 24], "3bet": [7, 11], cbet: [50, 70], FCB: [38, 52], WTSD: [26, 30] },
+  pro: { VPIP: [22, 28], PFR: [16, 21], "3bet": [7, 11], cbet: [50, 70], FCB: [38, 52], WTSD: [26, 30] },
 };
 // Tolerance in %p beyond the cited range: preflop stats are tight by construction, postflop ones
 // emerge from a simplified strength model and a TAG-only table.
@@ -128,6 +141,7 @@ const TOL = { VPIP: 3, PFR: 3, "3bet": 2, cbet: 6, FCB: 6, WTSD: 5 };
 // (real opponents do), so his pots end before showdown more often here: ±10.
 const TOL_OVERRIDE = { maniac: { WTSD: 10 } };
 const HANDS = 30000;
+const PRO_CELL_HANDS = 30000, PRO_CELL_SEATS = 3;
 
 const RESULTS = {};
 for (const type of P.TYPES) {
@@ -140,6 +154,121 @@ for (const type of P.TYPES) {
       if (!(m[k] >= lo - tol && m[k] <= hi + tol)) bad.push(`${k} ${m[k].toFixed(1)} not in [${lo}, ${hi}] ± ${tol}`);
     }
     assert.deepEqual(bad, [], `${type}: ${bad.join("; ")} — tune MEANS in web/app/personas.js (cite the note)`);
+  });
+}
+// ---------------------------------------------------------------- flop cells (#676)
+test("flopCell matches stalker/agents/persona_stats.py flop_cell", () => {
+  assert.equal(P.flopCell(2, 1), "hu_srp");
+  assert.equal(P.flopCell(2, 2), "hu_3bp");
+  assert.equal(P.flopCell(2, 3), "hu_3bp");
+  assert.equal(P.flopCell(3, 1), "mw_srp");
+  assert.equal(P.flopCell(6, 2), "mw_3bp");
+  assert.equal(P.flopCell(2, 0), "hu_3bp");   // limped pot: Python's rule too; no c-bet spot has 0 raises
+});
+
+// `nType` seats of `type` with 6 − nType neutral TAGs; per-cell flop c-bet and fold to c-bet of the type seats.
+function measureCells(type, hands, seed, nType) {
+  const rng = P.mulberry32(seed), st = newStats(), track = Array.from({ length: nType }, (_, i) => i);
+  let players = null;
+  for (let h = 0; h < hands; h++) {
+    if (h % 100 === 0) players = [...track.map(() => P.createPlayer(type, rng)), ...Array.from({ length: 6 - nType }, () => P.createPlayer("tag", rng))];
+    playHand(players, h % 6, rng, st, track);
+  }
+  return Object.fromEntries(CELLS.map(c => { const x = st.cells[c];
+    return [c, { cbet: 100 * x.cb / x.cbOpp, cbOpp: x.cbOpp, fcb: 100 * x.fcb / x.fcbOpp, fcbOpp: x.fcbOpp, cb: x.cb, fcbN: x.fcb }]; }));
+}
+// ADR 0023 (#750) rule for the web mirror (#787): one seed's cell value is partly seed luck, so each cell test runs
+// these seeds, sums the counts and opportunities per cell, and applies the tolerance once to the pooled rate.
+const CELL_SEEDS = [2000, 2001, 2002, 2003];
+function measureCellsPooled(type) {
+  const runs = CELL_SEEDS.map(sd => measureCells(type, PRO_CELL_HANDS, sd, PRO_CELL_SEATS));
+  const pooled = Object.fromEntries(CELLS.map(c => {
+    const cbOpp = runs.reduce((a, r) => a + r[c].cbOpp, 0), fcbOpp = runs.reduce((a, r) => a + r[c].fcbOpp, 0);
+    return [c, { cbet: 100 * runs.reduce((a, r) => a + r[c].cb, 0) / cbOpp, cbOpp,
+      fcb: 100 * runs.reduce((a, r) => a + r[c].fcbN, 0) / fcbOpp, fcbOpp }];
+  }));
+  const range = (c, k) => { const v = runs.map(r => r[c][k]).filter(Number.isFinite); return `${Math.min(...v).toFixed(1)}–${Math.max(...v).toFixed(1)}`; };
+  console.log(`${type} flop cells, ${CELL_SEEDS.length} seeds pooled (% (opps) [per-seed min–max]): ` + CELLS.map(c =>
+    `${c} cbet ${pooled[c].cbet.toFixed(1)} (${pooled[c].cbOpp}) [${range(c, "cbet")}] fold ${pooled[c].fcb.toFixed(1)} (${pooled[c].fcbOpp}) [${range(c, "fcb")}]`).join(" | "));
+  return pooled;
+}
+// Human pro cells (note §10.1): c-bet hu_srp 53.0 (581 opps), hu_3bp 62.0 (142), mw_srp 29.3 (82); fold to c-bet
+// hu_srp 43.9 (305). mw_3bp (5 opps) and mw fold (41) are too thin to target.
+const PRO_CELLS = { cbet: { hu_srp: 53, hu_3bp: 62, mw_srp: 29 }, fcb: { hu_srp: 44 } };
+// Seed 2000, 30,000 hands × 3 pro seats: c-bet opportunities hu_srp 4125, hu_3bp 1376, mw_srp 294; fold to c-bet
+// hu_srp 2307 (local run, note §10.1.3). The aggregate pro cbet/FCB in TARGETS still hold, so they stay checked.
+const CELL_TOL = 6, CELL_MIN_OPPS = 150;
+test("pro flop cells hit the human pro targets", () => {
+  const m = measureCellsPooled("pro");
+  const bad = [];
+  for (const [stat, cells] of Object.entries(PRO_CELLS)) for (const [c, want] of Object.entries(cells)) {
+    const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
+    if (n < CELL_MIN_OPPS) bad.push(`${stat} ${c}: ${n} opportunities < ${CELL_MIN_OPPS}, raise PRO_CELL_HANDS`);
+    else if (!(Math.abs(v - want) <= CELL_TOL)) bad.push(`${stat} ${c} ${v.toFixed(1)} not in ${want} ± ${CELL_TOL}`);
+  }
+  assert.deepEqual(bad, [], `pro: ${bad.join("; ")} — tune FLOP_CELL.pro / MEANS cbetF·foldCbF pro in web/app/personas.js`);
+});
+// ---------------------------------------------------------------- tag flop cells (#691)
+// Human tag cells (note §10.1.4), the same targets as tests/test_persona_v2.py::test_tag_flop_cells_hit_human_targets.
+const TAG_CELLS = { cbet: { hu_srp: 62, hu_3bp: 70, mw_srp: 42 }, fcb: { hu_srp: 48 } };
+test("web tag levers equal the Python tag levers of #684", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../../stalker/agents/persona.py", import.meta.url), "utf8");
+  const m = src.match(/PRESETS_V2\["tag"\] = dataclasses\.replace\([^)]*?cbet_flop=([\d.]+), cbet_flop_3bp_mult=([\d.]+), cbet_flop_mw_mult=([\d.]+),\s*fold_cbet_flop=([\d.]+), fold_cbet_flop_mw=([\d.]+)/);
+  assert.ok(m, "tag lever line not found in stalker/agents/persona.py: update this regex with the Python change");
+  const [cbet, c3, cmw, fold, fmw] = m.slice(1).map(Number);
+  // The web model realizes fewer heads-up folds at the same lever (texture/made-hand structure differs), so foldCbF is
+  // fitted on its own, as pro's multiway values were in #676 (note §10.1.5); Python's 0.40 stays the reference.
+  assert.equal(fold, 0.40);
+  assert.deepEqual([P.MEANS.cbetF.tag / 100, P.FLOP_CELL.tag.cbet3bp, P.FLOP_CELL.tag.cbetMw, P.MEANS.foldCbF.tag / 100, P.FLOP_CELL.tag.foldCbMw],
+    [cbet, c3, cmw, 0.46, fmw]);
+});
+test("tag flop cells hit the human tag targets", () => {
+  const m = measureCellsPooled("tag");
+  const bad = [];
+  for (const [stat, cells] of Object.entries(TAG_CELLS)) for (const [c, want] of Object.entries(cells)) {
+    const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
+    if (n < CELL_MIN_OPPS) bad.push(`${stat} ${c}: ${n} opportunities < ${CELL_MIN_OPPS}, raise PRO_CELL_HANDS`);
+    else if (!(Math.abs(v - want) <= CELL_TOL)) bad.push(`${stat} ${c} ${v.toFixed(1)} not in ${want} ± ${CELL_TOL}`);
+  }
+  assert.deepEqual(bad, [], `tag: ${bad.join("; ")} — tune FLOP_CELL.tag / MEANS cbetF·foldCbF tag in web/app/personas.js`);
+});
+// ---------------------------------------------------------------- fish flop cells (#760)
+// [가정] low-stakes fish cells (note §10.1.6), the same targets as
+// tests/test_persona_v2.py::test_fish_flop_cells_hit_lowstakes_targets. Web fish = Python loose_passive, station = calling_station.
+const FISH_CELLS = {
+  fish: { cbet: { hu_srp: 46, hu_3bp: 50, mw_srp: 38 }, fcb: { hu_srp: 36, mw_srp: 44 } },
+  station: { cbet: { hu_srp: 40, hu_3bp: 42, mw_srp: 34 }, fcb: { hu_srp: 25, mw_srp: 30 } },
+};
+// Python (#751) → web: the web value differs only where the note §10.1.6 「웹 미러」 says it is web-fitted.
+const FISH_PY = { fish: "loose_passive", station: "calling_station" };
+const FISH_WEB = {   // [Python value, web value] for cbet_flop_mw_mult·cbet_flop_3bp_mult·fold_cbet_flop_mw
+  fish: { cbetMw: [0.83, 1.1], cbet3bp: [1.09, 0.78], foldCbMw: [0.44, 0.44] },
+  station: { cbetMw: [0.82, 1.5], cbet3bp: [1.05, 0.92], foldCbMw: [0.28, 0.24] },
+};
+test("web fish levers track the Python loose_passive/calling_station levers of #751", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../../stalker/agents/persona.py", import.meta.url), "utf8");
+  for (const [type, py] of Object.entries(FISH_PY)) {
+    const m = src.match(new RegExp(`PRESETS_V2\\["${py}"\\] = dataclasses\\.replace\\(PRESETS_V2\\["${py}"\\],\\s*cbet_flop=[\\d.]+, cbet_flop_mw_mult=([\\d.]+),\\s*cbet_flop_3bp_mult=([\\d.]+), fold_cbet_flop=[\\d.]+, fold_cbet_flop_mw=([\\d.]+)`));
+    assert.ok(m, `${py} lever line not found in stalker/agents/persona.py: update this regex with the Python change`);
+    const want = FISH_WEB[type];
+    assert.deepEqual(m.slice(1).map(Number), [want.cbetMw[0], want.cbet3bp[0], want.foldCbMw[0]],
+      `${py} levers changed in Python: refit FLOP_CELL.${type} in web/app/personas.js and update FISH_WEB + note §10.1.6`);
+    assert.deepEqual(P.FLOP_CELL[type], { cbetMw: want.cbetMw[1], cbet3bp: want.cbet3bp[1], foldCbMw: want.foldCbMw[1] },
+      `FLOP_CELL.${type} differs from the web-fitted values in FISH_WEB (note §10.1.6 「웹 미러」)`);
+  }
+});
+for (const type of Object.keys(FISH_CELLS)) {
+  test(`${type} flop cells hit the low-stakes fish targets`, () => {
+    const m = measureCellsPooled(type);
+    const bad = [];
+    for (const [stat, cells] of Object.entries(FISH_CELLS[type])) for (const [c, want] of Object.entries(cells)) {
+      const v = m[c][stat], n = m[c][stat === "cbet" ? "cbOpp" : "fcbOpp"];
+      if (n < CELL_MIN_OPPS) bad.push(`${stat} ${c}: ${n} opportunities < ${CELL_MIN_OPPS}, raise PRO_CELL_HANDS`);
+      else if (!(Math.abs(v - want) <= CELL_TOL)) bad.push(`${stat} ${c} ${v.toFixed(1)} not in ${want} ± ${CELL_TOL}`);
+    }
+    assert.deepEqual(bad, [], `${type}: ${bad.join("; ")} — tune FLOP_CELL.${type} / MEANS cbetF·foldCbF ${type} in web/app/personas.js`);
   });
 }
 test("calibration table", () => {
@@ -354,5 +483,20 @@ test("13x13 BTN open ranges (report)", () => {
     // At the type's mean widths, so the picture shows the type's shape rather than one draw's looseness.
     const pl = P.createPlayer(type, rng, { p: { rfiBTN: P.MEANS.rfiBTN[type] / 100, limp: P.MEANS.limp[type] / 100 } });
     console.log(`${type} BTN open (R raise, L limp; lower case = part of the class), width ${(pl.p.rfiBTN * 100).toFixed(0)}%\n${P.gridOf(P.openLadder(pl, "BTN"), "rl")}`);
+  }
+});
+
+// ---------------------------------------------------------------- 3-bet+ pot aggressor range (#773)
+test("rangeShift: 3-bet+ pot aggressor uses the 3-bet/4-bet width, single-raised and caller paths are unchanged", () => {
+  const rng = P.mulberry32(773);
+  for (const type of ["pro", "fish", "station"]) {
+    const pl = P.createPlayer(type, rng);
+    for (const street of [1, 2, 3]) for (const facing of [false, true]) {
+      const srp = P.rangeShift(pl, street, facing, true, 1);
+      assert.equal(P.rangeShift(pl, street, facing, true), srp, `${type}: missing potRaises must mean single-raised`);
+      // Narrower range → the same hand ranks lower inside it → larger shift (weaker strength).
+      assert.ok(P.rangeShift(pl, street, facing, true, 2) > srp, `${type} street ${street}: 3-bet pot aggressor not weaker`);
+      for (const pr of [1, 2, 3]) assert.equal(P.rangeShift(pl, street, facing, false, pr), P.rangeShift(pl, street, facing, false, 1), `${type}: caller path changed`);
+    }
   }
 });

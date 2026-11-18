@@ -26,6 +26,7 @@ from stalker.jsonio import find_table, read_json, write_json_gz
 LBR_HANDS = 4000
 # E3 N-seat LBR hands per seat: 150 gave SE ~0.7 bb/hand (docs/research/2026-10-e3-lbr.md); 1000 gives ~0.3.
 E3_LBR_HANDS = 1000
+E3_LBR_HANDS_EVAL = 4000    # #589: evaluation-only variants (SE about half of E3_LBR_HANDS)
 # E3 field deals per configuration (each played in all 6 seat rotations): 500 locally gave a 95% CI of
 # about +-150 bb/100 (#295); about 0.08 s per deal per configuration, so 9 configs x 1000 is ~12 min.
 E3_FIELD_HANDS = 1000
@@ -182,8 +183,10 @@ def _e2_eq(iters: int, seed: int, out: Path, tier: str, name: str) -> dict:
 def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int = 6, resume: Path | None = None,
            workers: int = 1, menu: str = "v1", raise_cap: int | None = 3, ranges: str = "current",
            avg_rule: str = "legacy", key_variant: str = "", stacks: str = "uniform", probe: bool = False,
-           avg_cap: float | None = None) -> dict:
-    """`resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
+           avg_cap: float | None = None, eval_of: str = "", lbr_hands: int | None = None) -> dict:
+    """`eval_of` (#589): evaluation-only variant of the job of that name: read its checkpoint (needs `resume`), train 0 iters,
+    write no table, and run the LBR with `lbr_hands` hands, so a finished chain is re-measured with less noise.
+    `resume` (#301): a folder holding this seed's checkpoint from an earlier run; train `iters` more.
     `workers` > 1 trains one chain on that many processes, batch-synchronously (#318).
     `menu`/`raise_cap` (#339): the game rules; LBR and the field are dealt under the same rules.
     `ranges` (#405): which strategy moves the TP-feature ranges (`stalker.e3.mccfr`); a resumed run keeps its own.
@@ -200,8 +203,11 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     from stalker.e3.tp_key import TIER_DEPTH, TIER_K
     from stalker.tools.pod_bench import machine
 
-    ckpt = f"{name}-seed{seed}.ckpt.json"   # saved as .gz (#560); a plain one from an older run still resumes
-    ck_path = find_table(resume, f"{name}-seed{seed}.ckpt") if resume is not None else None
+    src = eval_of or name
+    if eval_of and resume is None:
+        raise SystemExit(f"{name} only re-evaluates a finished {eval_of} run: set resume_run to it (#589)")
+    ckpt = f"{src}-seed{seed}.ckpt.json"   # saved as .gz (#560); a plain one from an older run still resumes
+    ck_path = find_table(resume, f"{src}-seed{seed}.ckpt") if resume is not None else None
     if resume is None:
         m = E3MCCFR(seed, TIER_K[tier], players, TIER_DEPTH[tier], menu, raise_cap, ranges, avg_rule=avg_rule,
                     key_variant=key_variant, stacks=stacks, avg_cap=avg_cap)
@@ -222,12 +228,16 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
     if m.stacks != stacks:
         raise SystemExit(f"{resume / ckpt} trained with {m.stacks} stacks, but {name} uses {stacks} (#399)")
     prev = m.iterations
+    if eval_of:
+        iters = 0
     t0 = time.monotonic()
-    parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
+    if iters:
+        parallel.iterate(m, iters, workers, E3_SYNC_BATCH)
     train_s = time.monotonic() - t0
-    write_json_gz(out / f"{ckpt}.gz", m.state())
     avg, cur = m.policy(), m.current_policy()
-    write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", {"average": avg, "current": cur})
+    if not eval_of:     # the evaluation variant leaves the original run's tables as they are
+        write_json_gz(out / f"{ckpt}.gz", m.state())
+        write_json_gz(out / f"{name}-seed{seed}.policy.json.gz", {"average": avg, "current": cur})
     return {"iters": m.iterations, "chunk_iters": iters, "resumed_from": prev, "tier": tier, "depth": m.depth,
             "menu": m.menu, "raise_cap": m.raise_cap, "ranges": m.ranges, "range_every": m.range_every,
             "avg_rule": m.avg_rule, **({"avg_cap": m.avg_cap} if m.avg_cap is not None else {}),
@@ -237,9 +247,89 @@ def _e3_tp(iters: int, seed: int, out: Path, tier: str, name: str, players: int 
             "machine": machine(),
             # #447: the table's bits, so two runs that should match (same sha, seed, workers) can be checked
             "regret_sha256": m.regret_hash(),
+            "resume_chain": m.resume_chain(),   # #712
             "players": players, "workers": workers, "train_seconds": round(train_s, 1),
-            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur),
+            "iters_per_s": round(iters / max(train_s, 1e-6), 2), **e3_evaluate(m, seed, avg, cur, lbr_hands),
+            **_e3_model_card(m, lbr_hands), **_e3_visit_quantiles(m), "key_cells": _e3_key_cells(m),
+            **({"lbr_hands": lbr_hands} if eval_of else {}),
             **({"probe_average": e3_probe(m, avg, seed, workers)} if probe else {})}
+
+
+def _sha(d: dict) -> str:
+    return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
+
+
+def _trainer_commit() -> str:
+    """The commit that trained/evaluated: CI's GITHUB_SHA, else the checkout's HEAD; never fails the job."""
+    if os.environ.get("GITHUB_SHA"):
+        return os.environ["GITHUB_SHA"]
+    try:
+        import subprocess
+        r = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, encoding="utf-8", timeout=10,
+                           cwd=Path(__file__).resolve().parent)
+        return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _e3_model_card(m, lbr_hands: int | None = None) -> dict:
+    """#705: hashes that tell "the policy changed" from "the evaluation changed" (additive fields only).
+    `eval_config` lists what the evaluation read (hands, offsets, field files by sha), `rules` the game."""
+    from referee.e3.field import load_players
+    from stalker.e3 import tp_key as K
+    from stalker.e3.translate import TRANSLATION_VERSION
+
+    cfg = {"lbr_hands": E3_LBR_HANDS if lbr_hands is None else lbr_hands, "lbr_seed_offset": 10_000,
+           "k": m.k, "n": m.n, "depth": m.depth, "field_hands": E3_FIELD_HANDS, "field_seed_offset": 20_000}
+    if m.n == 6:
+        cfg["field_file_sha256"] = load_players(6)[1]
+    if getattr(m, "player_mix", ()):
+        cfg["by_players"] = {str(n): {"lbr_hands": E3_LBR_HANDS if n == m.n else _by_players_lbr_hands(n),
+                                      "field_hands": E3_BY_PLAYERS_FIELD_HANDS,
+                                      "field_file_sha256": load_players(n)[1]}
+                             for n in sorted(set(m.player_mix))}
+    rules = {"menu": m.menu, "raise_cap": m.raise_cap, "key_variant": m.key_variant,
+             "key_version": K.KEY_VERSIONS.get(m.key_variant),
+             "stacks": m.stacks, "translation_version": TRANSLATION_VERSION}
+    return {"eval_config": cfg, "eval_config_sha256": _sha(cfg), "rules_sha256": _sha(rules),
+            "translation_version": TRANSLATION_VERSION,
+            "trainer_commit": _trainer_commit()}
+
+
+def _e3_visit_quantiles(m) -> dict:
+    """#711: visit-count quantiles of the table (additive); per player count too for a mixed c1 run."""
+    from stalker.e3.mccfr import key_players, visit_quantiles
+
+    out = {"visit_quantiles": visit_quantiles(m)}
+    if getattr(m, "player_mix", ()):
+        by: dict[int, set] = {}
+        for k in m.visits:
+            n = key_players(k)
+            if n is not None:
+                by.setdefault(n, set()).add(k)
+        out["visit_quantiles_by_players"] = {str(n): visit_quantiles(m, ks) for n, ks in sorted(by.items())}
+    return out
+
+
+def _e3_key_cells(m) -> dict:
+    """#920: how many information sets sit in each tournament cell (`t<stage><ante>`, cash `tc0` left out) and
+    each player count (`n`), so a result's summary shows whether the run learned only the cells it meant to.
+    Only c1 keys carry the fields; the dict stays tiny so it survives the oversized-result summary strip."""
+    from stalker.e3.mccfr import key_players
+
+    t: dict[str, int] = {}
+    n: dict[str, int] = {}
+    if m.key_variant == "c1":
+        for k in m.visits:
+            for f in k.split("|"):
+                if len(f) == 3 and f[0] == "t" and f[1].isalpha() and f[2].isdigit():
+                    if f != "tc0":
+                        t[f[1:]] = t.get(f[1:], 0) + 1
+                    break
+            p = key_players(k)
+            if p is not None:
+                n[str(p)] = n.get(str(p), 0) + 1
+    return {"t": dict(sorted(t.items())), "n": dict(sorted(n.items(), key=lambda kv: int(kv[0])))}
 
 
 def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
@@ -260,7 +350,8 @@ def e3_probe(m, avg: dict, seed: int, workers: int = 1) -> dict:
             "seconds": round(time.monotonic() - t0, 1)}
 
 
-def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) -> dict:
+def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None,
+                lbr_hands: int | None = None) -> dict:
     """The CI E3 evaluation of a trained model: LBR of both policies, coverage, field (6-max only).
     Shared with the RunPod trainer (`stalker.tools.pod_train`, #333) so pod and CI numbers compare.
     `lbr_seconds` counts LBR and coverage only (before #333 it also counted the field evaluation).
@@ -274,16 +365,19 @@ def e3_evaluate(m, seed: int, avg: dict | None = None, cur: dict | None = None) 
     from stalker.e3 import tp_key as K
     from stalker.e3.mccfr import coverage
 
+    lbr_hands = E3_LBR_HANDS if lbr_hands is None else lbr_hands   # read late: tests shrink the module value
     avg = m.policy() if avg is None else avg
     cur = m.current_policy() if cur is None else cur
     t1 = time.monotonic()
     # Same LBR deals for both policies.
-    with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant):
-        lbr = {k: exploitability_lb(pol, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
+    # #899: a tournament model's rows live under its t<stage><ante> key slot, so LBR must look there
+    with G.rules(m.menu, m.raise_cap), K.using_variant(m.key_variant), \
+            K.using_env(getattr(m, "stage", "c"), getattr(m, "ante", 0) > 0):
+        lbr = {k: exploitability_lb(pol, lbr_hands, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth)
                for k, pol in (("average", avg), ("current", cur))}
         # #343: an independent estimate (same seed, but deals drift once the exploiter picks another line) whose
         # exploiter may also use sizes off the menu (the plain LBR undercounts what it can take)
-        offmenu = exploitability_lb(cur, E3_LBR_HANDS, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth,
+        offmenu = exploitability_lb(cur, lbr_hands, seed=10_000 + seed, k=m.k, n=m.n, depth=m.depth,
                                     extra_sizes=True)
         cov = coverage(m)
         t2 = time.monotonic()
@@ -335,6 +429,13 @@ def _tp_noise_sim(iters: int, seed: int, out: Path) -> dict:
     return {"iters": iters, "hands": NOISE_SIM_HANDS, "rows": rows, "wall_sim_seconds": round(time.monotonic() - t0, 1)}
 
 
+def _review_sched(iters: int, seed: int, out: Path) -> dict:
+    """#600: fixed 1·3·7 vs fixed+long vs Leitner on a simulated learner; `iters` is unused (kept for the CI interface)."""
+    from stalker.service.review_sched import seed_rows
+
+    return {"iters": iters, "rows": seed_rows(seed)}
+
+
 def _vcfr_fixed_point(iters: int, seed: int, out: Path) -> dict:
     """#411: range-policy fixed point arms A-D on two river menus and Leduc, exact best response."""
     from stalker.vcfr.fixed_point import run_seed
@@ -380,6 +481,15 @@ JOBS = {"e2-mccfr": _e2_mccfr,
                                             avg_rule="own", avg_cap=2.0),
         "e3-tp-mid-ownavg-cap8-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap8-w4", workers=4,
                                             avg_rule="own", avg_cap=8.0),
+        # #589: the three above re-measured from their checkpoints (resume_run), 0 more iters, 4000 LBR hands
+        "e3-tp-mid-ownavg-w4-eval": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-w4-eval", workers=4,
+                                            avg_rule="own", eval_of="e3-tp-mid-ownavg-w4", lbr_hands=E3_LBR_HANDS_EVAL),
+        "e3-tp-mid-ownavg-cap2-w4-eval": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap2-w4-eval", workers=4,
+                                                 avg_rule="own", avg_cap=2.0, eval_of="e3-tp-mid-ownavg-cap2-w4",
+                                                 lbr_hands=E3_LBR_HANDS_EVAL),
+        "e3-tp-mid-ownavg-cap8-w4-eval": partial(_e3_tp, tier="mid", name="e3-tp-mid-ownavg-cap8-w4-eval", workers=4,
+                                                 avg_rule="own", avg_cap=8.0, eval_of="e3-tp-mid-ownavg-cap8-w4",
+                                                 lbr_hands=E3_LBR_HANDS_EVAL),
         # #398: suit-aware hand.outs/vuln/block in the key (B1) vs e3-tp-mid-w4, same iterations and seeds
         "e3-tp-mid-b1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-b1-w4", workers=4, key_variant="b1"),
         # #460: b1 plus board.adv/opp.value/plan.foldeq (B2) vs e3-tp-mid-b1-w4, same iterations and seeds
@@ -397,6 +507,7 @@ JOBS = {"e2-mccfr": _e2_mccfr,
         "e3-tp-mid-c1-w4": partial(_e3_tp, tier="mid", name="e3-tp-mid-c1-w4", workers=4, menu="real", raise_cap=None,
                                    ranges="average", avg_rule="own", key_variant="c1", stacks="sampled"),
         "tp-noise-sim": _tp_noise_sim,                                                  # #261
+        "review-sched": _review_sched,                                                  # #600
         "vcfr-fixed-point": _vcfr_fixed_point,                                          # #411
         "e2-exploit-beginner": partial(_e2_exploit, tier="beginner", name="e2-exploit-beginner"),  # #299
         # #306: the same measurement on a policy trained against a mixed field
@@ -407,7 +518,8 @@ RESUMABLE = {"e3-tp-beginner", "e3-tp-mid", "e3-tp-beginner-w4", "e3-tp-mid-w4",
              "e3-tp-beginner9-w4", "e3-tp-mid9-w4", "e3-tp-mid-tp6-w4", "e3-tp-mid-tp6nc-w4",
              "e3-tp-mid-real-w4", "e3-tp-mid-real-avgrange-w4", "e3-tp-mid-avgrange-w4", "e3-tp-mid-ownavg-w4",
              "e3-tp-mid-b1-w4", "e3-tp-mid-b2-w4", "e3-tp-mid-b3-w4", "e3-tp-mid-s2-w4", "e3-tp-mid-s2me-w4",
-             "e3-tp-mid-c1-w4", "e3-tp-mid-ownavg-cap2-w4", "e3-tp-mid-ownavg-cap8-w4"}   # #301
+             "e3-tp-mid-c1-w4", "e3-tp-mid-ownavg-cap2-w4", "e3-tp-mid-ownavg-cap8-w4",
+             "e3-tp-mid-ownavg-w4-eval", "e3-tp-mid-ownavg-cap2-w4-eval", "e3-tp-mid-ownavg-cap8-w4-eval"}   # #301
 
 
 def run(job: str, iters: int, seed: int, out: Path, resume: Path | None = None) -> Path:
@@ -510,6 +622,12 @@ def summarize(job: str, folder: Path) -> dict:
             out["infosets_by_seed"] = [r["infosets"] for r in runs]
         if all("iters_per_s" in r for r in runs):       # #527: per-seed speed so runs can be compared per CPU model
             out["iters_per_s_by_seed"] = [r["iters_per_s"] for r in runs]
+        if all("chunk_iters" in r for r in runs):       # #628: eval-only jobs (chunk_iters=0) checkable without the artifact zip
+            out["chunk_iters_by_seed"] = [r["chunk_iters"] for r in runs]
+        if all("p50" in r.get("visit_quantiles", {}) for r in runs):   # #711
+            out["visit_p50_by_seed"] = [r["visit_quantiles"]["p50"] for r in runs]
+        if all("lbr_hands" in r for r in runs):
+            out["lbr_hands_by_seed"] = [r["lbr_hands"] for r in runs]
         if all(r.get("machine") for r in runs):         # #426: which runner each seed's table came from
             out["cpu_model_by_seed"] = [r["machine"]["cpu_model"] for r in runs]
         if all(r.get("regret_sha256") for r in runs):    # #447: drift between reruns shows as a changed hash
@@ -535,6 +653,8 @@ def summarize(job: str, folder: Path) -> dict:
         out["by_players_shared_keys_by_seed"] = [r["by_players_shared_keys"] for r in runs]
     if job in RESUMABLE and runs:
         out["resumed_from_iters_by_seed"] = [r.get("resumed_from", 0) for r in runs]
+        if runs[0].get("resume_chain"):   # #712
+            out["resume_chain_runs"] = [c["run_id"] for c in runs[0]["resume_chain"]]
     if job.startswith("e3-") and runs and all(r.get("field") for r in runs):  # #295: max loss vs the opponent set
         out.update({"field_sha256": runs[0]["field"]["sha256"], "field_deals": runs[0]["field"]["deals"],
                     "field_worst_by_seed": [r["field"]["worst"] for r in runs],
@@ -562,6 +682,9 @@ def summarize(job: str, folder: Path) -> dict:
         from stalker.vcfr.fixed_point import aggregate, table
         agg = aggregate(runs)
         out.update({"aggregate": agg, "table": table(agg)})
+    if job == "review-sched" and runs:
+        from stalker.service.review_sched import aggregate
+        out.update({"table": aggregate([r["rows"] for r in runs]) if len(runs) > 1 else None})
     if job == "tp-noise-sim" and runs:
         out.update({"iters": runs[0]["iters"], "hands": runs[0]["hands"], "rows_by_seed": [r["rows"] for r in runs]})
     return out

@@ -5,6 +5,8 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { coarseKey, l1Extra, TIER_K } from "../app/tpgto.js";
+import { createWatchdog, probePages, stallMsFrom } from "./watchdog.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // The page loads the TP-GTO engine and policies with import()/fetch, which file:// blocks: serve web/.
@@ -29,6 +31,11 @@ const failures = [];
 const must = (ok, msg) => { if (!ok) { failures.push(msg); console.error("FAIL: " + msg); } };
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
+// #724: no progress line or section start for GATE_U_STALL_MS → name where it hung and exit 1 before the CI job
+// timeout cancels the run with no output. Progress lines are the existing console.log lines (no extra output).
+const wd = createWatchdog({ stallMs: stallMsFrom(), probe: () => probePages(browser) }).start();
+wd.section("0 setup");
+{ const log = console.log.bind(console); console.log = (...a) => { wd.step(a.join(" ")); log(...a); }; }
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 page.setDefaultTimeout(60_000);
 page.on("pageerror", e => must(false, `page error: ${e.message}`));
@@ -136,6 +143,7 @@ async function inspect(tag, focus, pg = page) {
   must(critical.length === 0, `${tag}: axe critical ${critical.map(v => v.id + "×" + v.nodes.length).join(", ")}`);
 }
 
+wd.section("1");
 // 1. 시작 → 테이블 → 내 차례(Quick: 액션 먼저 → 진행 / 분석 보기 → 비교) → Guided TP 입력 → 제출 → 채점
 await page.goto(url);
 must(await page.locator("#set-play [data-v='quick'][aria-pressed='true']").count() === 1, "시작 화면: 플레이 모드 기본값이 Quick이 아님");
@@ -295,7 +303,12 @@ if (freeSized) {
       });
       must(chk.real.join() === chk.mine.join(), `실전 사이즈: 단축 버튼 금액 ${chk.mine}이 엔진 real 메뉴 ${chk.real}과 다름`);
       must(chk.missing.length === 0, `실전 사이즈: MENU_COL에 색이 없는 라벨 ${chk.missing}`);
-      must(chk.menu === "v1", `실전 사이즈: 정책 메타에 메뉴가 없으면 v1이어야 하는데 ${chk.menu}`);
+      must(chk.menu === "v1" || chk.menu === "real", `실전 사이즈: 메뉴는 v1(레거시 정책) 또는 real(c1 정책, #824 mid-6)이어야 하는데 ${chk.menu}`);
+      if (chk.menu === "real") {   // #824: the served mid-6 is a real-menu c1 policy, so every real size is its own label (nothing to translate)
+        console.log(`실전 사이즈: 단축 ${chk.mine.length}개 = 엔진 real 메뉴 (정책 메뉴 real, 번역 없음)`);
+        realBet = true;
+        continue;
+      }
       const idx = chk.mine.findIndex(t => !chk.v1.includes(t));
       if (idx >= 0) {
         const more = page.locator("[data-size-more]");
@@ -336,7 +349,7 @@ if (freeSized) {
   for (const d of log) {
     const row = file.policy[d.key], i = d.acts.indexOf(d.chosen);
     must(i >= 0, `정책 상대: AI가 합법 메뉴 밖 액션 ${d.chosen}을 고름 (${d.key})`);
-    if (!row) { must(!d.fromTable, `정책 상대: 파일에 없는 키인데 표에서 읽었다고 함 (${d.key})`); continue; }
+    if (!row) { must(d.fromTable !== "exact", `정책 상대: 파일에 없는 키인데 정확 행으로 읽었다고 함 (${d.key})`); continue; }   // c1 files (#824) back off to coarser keys: "L1".."L4" are fine
     inTable++;
     must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `정책 상대: 페이지가 쓴 확률이 정책 파일과 다름 (${d.key})`);
     must(row[i] > 0, `정책 상대: 정책 확률 0인 액션 ${d.chosen}을 고름 (${d.key})`);
@@ -356,7 +369,7 @@ const eqTruth = await page.evaluate(() => {
   if (!E?.ok || !CUR.g.model) return null;
   const seat = E.s.toAct, eq = tg.multiEquity(E.s, seat, E.ranges)[tg.comboIndex(E.s.hole[seat])];
   return { want: Math.round(eq * 100), got: CUR.g.v["hand.equity"], src: CUR.g.src?.["hand.equity"],
-           step: CUR.g.model.step, step2: tg.equityStepOf(E.s, seat, E.ranges, E.tier), key: CUR.g.model.d.key, key2: tg.decisionKey(E.s, E.ranges, E.tier).key };
+           step: CUR.g.model.step, step2: tg.equityStepOf(E.s, seat, E.ranges, E.tier), key: CUR.g.model.d.key, key2: tg.decisionKey(E.s, E.ranges, E.tier, CUR.g.model.d.variant).key };
 });
 must(eqTruth && eqTruth.src === "model" && eqTruth.got === eqTruth.want, `hand.equity 정답: 엔진 공개 레인지 에퀴티와 다름 (${JSON.stringify(eqTruth)})`);
 must(eqTruth && eqTruth.step === eqTruth.step2 && eqTruth.key === eqTruth.key2, `hand.equity 정답: 정책 키·단계가 엔진과 다름 (${JSON.stringify(eqTruth)})`);
@@ -568,6 +581,7 @@ must((await page.locator("#lv-left").count()) > 0, "토너먼트 레벨 시계(#
 }
 must((await page.textContent("#svc-pill")).includes("모의"), "토너먼트: 학습 정책이 없는데 모의 표시가 없음");
 
+wd.section("2");
 // 2. 학습 섹션: 갤러리 → 모듈 하나 열기 → 1문제
 await page.click(".tab[data-view='learn']");
 await page.waitForSelector("#mods .mod:not(.locked)");
@@ -668,6 +682,7 @@ await inspect("learn", "#dr-res");
   must(d.res.includes(`${want}점`) && (d.ans < 18 || want <= 48), `학습 에퀴티: 0 입력 점수가 ${want}점이 아님 (정답 ${d.ans})`);
 }
 
+wd.section("3");
 // 3. 복기: 단계(포지션 → 핸드 → 프리플랍 …) → 비교
 await page.click(".tab[data-view='review']");
 await page.waitForSelector("#rv-next");
@@ -744,6 +759,7 @@ await inspect("review", "#rv-body h2");
   await page.evaluate(s => { Object.assign(RV, JSON.parse(s)); renderReview(); window.__hold = false; }, saved);
 }
 
+wd.section("4 #117");
 // 4. #117 기록 옮기기: 내보내기 → 초기화 → 가져오기 → 같은 통계
 await page.click(".tab[data-view='home']");
 await page.click("#move summary");
@@ -769,6 +785,7 @@ must(await page.evaluate(() => window.STALKER_RECORDS.exportRecords()) === expor
 must(await page.evaluate(() => { renderEqab(); return document.querySelector("#ab-box").innerHTML; }) === abBefore, "기록 옮기기: 왕복 뒤 질문 형태 실험 표가 다름");
 await inspect("home-move", "#move");
 
+wd.section("5 #337");
 // 5. #337 정책을 못 불러올 때: 오류 화면(이유·다시 시도·모의로 계속) → 다시 시도 성공 / 모의로 계속
 {
   const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -803,6 +820,7 @@ await inspect("home-move", "#move");
   await p2.close();
 }
 
+wd.section("6 #360");
 // 6. #360 고수 등급: 상대 5명이 pro-6.json 정책(board.nut 키 포함)을 두고, 한 핸드를 끝까지 치며 모델 비교가 보인다.
 {
   const p3 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -847,6 +865,7 @@ await inspect("home-move", "#move");
   await p3.close();
 }
 
+wd.section("7 #364");
 // 7. #364 핸드 도중 등급 변경: 그 핸드는 중수 키로 끝나고, 다음 핸드부터 상대·질문·비교가 모두 고수 정책이다.
 {
   const p4 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -897,7 +916,7 @@ await inspect("home-move", "#move");
     let n = 0;
     for (const d of xs) {
       const row = file.policy[d.key];
-      if (!row) { must(!d.fromTable, `등급 변경: 파일에 없는 키인데 표에서 읽었다고 함 (${d.tier} ${d.key})`); continue; }
+      if (!row) { must(d.fromTable !== "exact", `등급 변경: 파일에 없는 키인데 정확 행으로 읽었다고 함 (${d.tier} ${d.key})`); continue; }
       n++;
       must(row.length === d.acts.length && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `등급 변경: 페이지 확률이 ${d.tier} 정책 파일과 다름 (${d.key})`);
     }
@@ -909,6 +928,7 @@ await inspect("home-move", "#move");
   await p4.close();
 }
 
+wd.section("8 #441");
 // 8. #441 known leaks: a forced AA first-in decision in a cell the probe flagged (mid-6.leaks.json) shows the
 // strong warning instead of a frequency grade, and the home model card names the known preflop leak.
 {
@@ -960,6 +980,7 @@ await inspect("home-move", "#move");
   await p5.close();
 }
 
+wd.section("9 #444");
 // 9. #444 딜 시드: 고정하지 않은 두 로드는 시드가 다르고, ?seed=N은 두 로드 모두 N으로 고정한다.
 {
   const base = url.replace(/&seed=\d+/, "");
@@ -978,6 +999,7 @@ await inspect("home-move", "#move");
   must(Number.isInteger(e) && e !== 0, `딜 시드: 숫자가 아닌 seed에서 무작위 시드로 돌아가지 않음 (${e})`);
 }
 
+wd.section("10 #464");
 // 10. #464 Guided: the game waits on the grading after every decision; every hand the hero played ends with
 // that hand's analysis and waits; plan.pot is a slider; 종료·분석 stops the game and the report counts match.
 {
@@ -997,6 +1019,7 @@ await inspect("home-move", "#move");
   let decided = 0, hands = 0, slider = false, foldViews = 0, closedHand = -1, targetSeen = false;
   const dials = new Set();
   for (let guard = 0; guard < 80 && (decided < 4 || hands < 2 || foldViews < 2); guard++) {
+    console.log(`Guided 흐름: 반복 ${guard} (결정 ${decided}·핸드 분석 ${hands}·폴드 화면 ${foldViews})`);   // progress for the stall watchdog (#724)
     await p6.waitForSelector("#tp-body .tpc:not([hidden]), #tp-resume, #tp-next-hand, #sd-muck, #fold-close");
     if (await p6.locator("#sd-muck").count()) { await p6.click("#sd-muck"); continue; }
     if (await p6.locator("#fold-close").count()) {
@@ -1038,8 +1061,12 @@ await inspect("home-move", "#move");
       const card = p6.locator("#tp-body .tpc:not([hidden])");
       for (const q of await card.locator(".q:not(.na)").all()) {
         if (await q.locator("[data-act]").count()) {
+          // Later decisions end hands cheaply (fold), but until two hands were played to their analysis they
+          // check or call, so the hero stays in (#824: the c1 mid-6 opponents raise often enough that "fold first"
+          // never left a hand to analyse).
+          const stay = q.locator("[data-act='check']:not([disabled]), [data-act='call']:not([disabled])");
           const pick = decided ? "[data-act='fold']:not([disabled]), [data-act='check']:not([disabled])" : "[data-act]:not([disabled]):not([data-act='fold'])";
-          await q.locator(pick).first().click();
+          await (decided && hands < 2 && await stay.count() ? stay : q.locator(pick)).first().click();
           if (await p6.locator("[data-sizes]:not([hidden]) [data-size]").count()) await p6.locator("[data-sizes]:not([hidden]) [data-size]").first().click();
         } else if (await q.locator("[data-dial]").count()) {
           // Judgment items are sliders (#464); plan.pot is checked by name, the others by the ends.
@@ -1091,6 +1118,7 @@ await inspect("home-move", "#move");
   console.log(`세션 분석: 결정 ${r.dec}회 · 핸드 ${r.hands}개 · 항목 ${r.items}개`);
   await p6.click("#rp-close");
   must((await p6.textContent("#end-game")).includes("분석 다시 보기"), "종료 뒤 헤더 버튼이 '분석 다시 보기'가 아님");
+  wd.section("11 #465");
   // 11. #465 내 게임: every played hand is saved, survives a reload, and the replay steps through the saved
   // action list; a hero decision shows its label and the reasons; a broken record never breaks the page.
   const saved = await p6.evaluate(() => { const d = JSON.parse(localStorage.getItem("stalker.games") || "null"); return { n: d?.games?.reduce((a, g) => a + g.hands.length, 0) ?? 0, played: G.hands.length, an: d?.games?.flatMap(g => g.hands).flatMap(h => h.acts).filter(a => a.an && a.an.p != null).length ?? 0 }; });
@@ -1125,11 +1153,14 @@ await inspect("home-move", "#move");
   await p6.close();
 }
 
-// 7. #397 임시 정책·미학습 표시: (a) 6인 100BB → 임시 배지, (b) 4인 → 미학습(규칙 봇), (c) placeholder:false 픽스처 → 배지 없음
+wd.section("7 #397");
+// 7. #397 임시 정책·미학습 표시: (a) 6인 100BB → 임시 배지, (b) 초보 4인(정책 없음, 중수 4인은 #604부터 있음) → 미학습(규칙 봇),
+// (c) placeholder:false 픽스처 → 배지 없음
 {
-  const open = async (pg, seats) => {
+  const open = async (pg, seats, tier) => {
     await pg.goto(url);
     await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    if (tier) await pg.click(`#set-tier [data-v='${tier}']`);
     if (seats) await pg.selectOption("#c-seats", seats);
     await pg.click("#start-btn");
     await pg.waitForSelector("#tp-body [data-card='quick-act']");
@@ -1142,10 +1173,10 @@ await inspect("home-move", "#move");
   await autoContinue(p7);
   p7.setDefaultTimeout(60_000);
   p7.on("pageerror", e => must(false, `page error (임시 표시): ${e.message}`));
-  await open(p7);
+  await open(p7, null, "pro");   // #824: mid-6 is a trained c1 policy now, so the placeholder badge is read on the pro table
   const a = await info(p7);
   must(a.badge.length === 1 && /임시 AI/.test(a.badge[0].t) && /실전 규칙 정책 학습 중/.test(a.badge[0].t) && a.badge[0].role === "note" && a.untrained === 0
-    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 중수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
+    && a.seats.every(t => t.includes("임시")), `임시 배지: 6인 100BB 고수 테이블에 임시 AI 배지·좌석 표시가 없음 (${JSON.stringify(a)})`);
   for (const [name, width, height] of VIEWPORTS) { await p7.setViewportSize({ width, height }); await p7.screenshot({ path: `${shots}/placeholder-${name}.png` }); }
   await p7.setViewportSize({ width: 1440, height: 900 });
   await inspect("placeholder-badge", "#infobar [data-placeholder]", p7);
@@ -1155,7 +1186,7 @@ await inspect("home-move", "#move");
   await autoContinue(p8);
   p8.setDefaultTimeout(60_000);
   p8.on("pageerror", e => must(false, `page error (미학습): ${e.message}`));
-  await open(p8, "4");
+  await open(p8, "4", "beginner");
   const b = await info(p8);
   must(b.untrained === 1 && b.badge.length === 0 && b.seats.length === 3 && b.seats.every(t => t.includes("규칙 봇")), `미학습 표시: 4인 테이블에 미학습(규칙 봇) 표시가 없음 (${JSON.stringify(b)})`);
   for (const [name, width, height] of VIEWPORTS) {
@@ -1188,6 +1219,7 @@ await inspect("home-move", "#move");
   console.log("임시 정책·미학습 표시 ok");
 }
 
+wd.section("11 #541");
 // 11. #541 (등급, 인원)별 정책: index.json의 tiers.beginner.by_players에 2·4인 픽스처(web/e2e/fixtures, run
 // fixture)를 붙여 내준다. 헤즈업·4인은 AI 결정이 픽스처 행이고 엔진 거울을 켠 채 핸드가 끝까지 가며, 3인(픽스처
 // 없음)은 지금처럼 미학습(규칙 봇)이다. 화면 3종 검사와 콘솔 오류 없음.
@@ -1300,6 +1332,662 @@ await inspect("home-move", "#move");
   console.log("인원별 정책 ok");
 }
 
+wd.section("12 #604");
+// 12. #604 2–5인 중수 = c1 정책(#739·#753·#840부터 모두 120k run 42591543123): 시작 화면 모델 목록이 그 정책을 보여 주고, 첫 핸드의 상대 프리플랍
+// 결정이 c1 키로 mid-<n>.json 행을 읽는다(레거시 키로 읽으면 한 번도 맞지 않아 균등 분포가 된다). #608: 포스트플랍도
+// c1+b1 키(`|o…v…k…` 칸)로 읽어 엔진 거울을 켠 채 핸드가 끝난다 — 3인에서 플랍 이상 간 핸드 1개(체크·콜로 진행)의
+// AI 포스트플랍 키 형식, 표에 있는 키의 확률, 거울 유지 종료, 거울 꺼짐 경고 없음, 긴 작업(b1 계산) 한도.
+{
+  // #739: mid-5 is the 120k export (run 42591543123, ops 18409fb6); 4 (#753) too; 2·3인 since #840 (ops 3b86e734).
+  const C1_RUNS = { 2: "42591543123", 3: "42591543123", 4: "42591543123", 5: "42591543123" };
+  const C1_LONG_TASK_MS = 2000;
+  const C1_COARSE_MS = 1500;   // building the L1/L2/L3 coarse tables of the largest c1 file (mid-2, 3 MB since #840) at load, #623
+  const C1_LOAD_MS = 30000;    // click on the mid tier -> policy parsed (mid-2·mid-3 are 3 MB since #840), #640
+  // #623 (ADR 0022): a c1 miss reads the mean of the file's rows with the same coarse key. Same mean as the page.
+  const coarseRow = (file, k, lv, m) => {
+    if (lv === 4) {   // L4 (#652): the L3 means at the equity steps next to the key's, averaged (tpgto.js neighborRow)
+      const parts = k.split("|"), at = parts.findLastIndex(f => /^e\d+$/.test(f)), e = +parts[at].slice(1);   // L3 keeps e<n>
+      const near = [e - 1, e + 1].filter(v => v >= 0 && v < TIER_K.mid).map(v => coarseRow(file, [...parts.slice(0, at), `e${v}`, ...parts.slice(at + 1)].join("|"), 3, m)).filter(Boolean);
+      return near.length ? Array.from({ length: m }, (_, j) => near.reduce((a, r) => a + r[j], 0) / near.length) : null;
+    }
+    const ck = coarseKey(k, lv), rows = Object.entries(file.policy).filter(([x, r]) => r.length === m && coarseKey(x, lv) === ck).map(([, r]) => r);
+    if (rows.length) return Array.from({ length: m }, (_, j) => rows.reduce((a, r) => a + r[j] / file.q, 0) / rows.length);
+    // #840: the 120k files ship `l1_rows` (#803); the page uses one at L1 only where the table builds no row of that length.
+    const extra = lv === 1 ? l1Extra(file.l1_rows, file.q).get(ck)?.get(m) : null;
+    return extra ? [...extra] : null;
+  };   // one AI turn on a 3-handed c1 flop (b1Code + equity), CI runner headroom included
+  // 2인: the model list only (no policy download, no hand: the web job has 15 minutes, #604). The node test
+  // c1policy.test.mjs checks that its first preflop c1 keys hit mid-<n>.json. 3·4·5인 play a hand below (#739, #753).
+  {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    pg.setDefaultTimeout(60_000);
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    for (const n of [2]) {
+      await pg.selectOption("#c-seats", String(n));
+      const row = () => [...document.querySelectorAll("#model-status .ms")].map(e => e.textContent).find(t => t.startsWith("중수")) || "";
+      await pg.waitForFunction(r => new Function(`return (${r})()`)().includes("run "), row.toString()).catch(() => {});
+      const mid = await pg.evaluate(r => new Function(`return (${r})()`)(), row.toString());
+      must(mid.includes(`상대 ${n - 1}명 = TP-GTO 중수 정책`) && mid.includes(`run ${C1_RUNS[n]}`),
+        `c1 ${n}인: 중수 모델 목록이 c1 정책(run ${C1_RUNS[n]})이 아님 (${JSON.stringify(mid)}) — index.json tiers.mid.by_players 확인 (#604)`);
+    }
+    await pg.close();
+  }
+  for (const n of [2, 3, 4, 5]) {
+    const C1_RUN = C1_RUNS[n];
+    wd.section(`12 #604 c1 ${n}인`);
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(120_000);
+    const errs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    const warns = [];
+    pg.on("console", m => { if (m.type() === "warning") warns.push(m.text()); });
+    const polReqs = [];
+    pg.on("request", r => { const m = r.url().match(/\/policy\/(mid-\d)\.json$/); if (m) polReqs.push(m[1]); });
+    await pg.goto(url);
+    await pg.waitForFunction(() => /학습 중간본/.test(document.querySelector("#svc-pill")?.textContent || ""), null, { timeout: 60_000 });
+    // #739: a 2–3 MB c1 file is fetched only after its mid table is chosen, so the first screen does not pay for it (2·3인 since #840).
+    must(!polReqs.includes(`mid-${n}`), `c1 ${n}인: 첫 화면이 테이블 선택 전에 mid-${n}.json을 받음 (${polReqs.join(",")}) — 지연 로드 확인 (#739, #753, #840)`);
+    await pg.selectOption("#c-seats", String(n));
+    const loadT0 = Date.now();
+    await pg.click("#set-tier [data-v='mid']");
+    await pg.waitForFunction(k => TPG.pol[k], `mid-${n}`, { timeout: 120_000 });
+    const loadMs = Date.now() - loadT0;
+    {   // #640·#739·#753·#840: every 2–5인 c1 file (2–3 MB) loads and builds its coarse tables inside the budgets
+      const cms = await pg.evaluate(k => TPG.coarseMs?.[k], `mid-${n}`);
+      must(loadMs < C1_LOAD_MS, `c1 ${n}인: mid-${n} 로드 ${loadMs}ms ≥ ${C1_LOAD_MS}ms — 파일 크기·파싱 확인 (#640)`);
+      must(Number.isFinite(cms) && cms < C1_COARSE_MS, `c1 ${n}인: 거친 표 생성 ${cms}ms (예산 ${C1_COARSE_MS}ms) (#640)`);
+      console.log(`c1 ${n}인 mid-${n} 성능: 로드 ${loadMs}ms, 거친 표 ${Number(cms).toFixed(0)}ms`);
+    }
+    const ms = await pg.evaluate(() => [...document.querySelectorAll("#model-status .ms")].map(e => e.textContent));
+    const mid = ms.find(t => t.startsWith("중수")) || "";
+    must(mid.includes(`상대 ${n - 1}명 = TP-GTO 중수 정책`) && mid.includes(`run ${C1_RUN}`) && !mid.includes("학습 중 ·"),
+      `c1 ${n}인: 중수 모델 목록이 c1 정책(run ${C1_RUN})이 아님 (${JSON.stringify(mid)}) — index.json tiers.mid.by_players 확인 (#604)`);
+    if (n === 3) await pg.screenshot({ path: `${shots}/c1-models-3-laptop.png` });
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const a = await pg.evaluate(() => ({ n: G.n, eng: !!G.eng, run: G.eng?.meta?.run_id ?? null, kv: G.eng?.meta?.key_variant ?? null,
+      untrained: document.querySelectorAll("#infobar [data-untrained]").length,
+      seats: [...document.querySelectorAll(".seat:not(.hero) .persona")].map(e => e.textContent) }));
+    must(a.n === n && a.eng && a.run === C1_RUN && a.kv === "c1" && a.untrained === 0 && a.seats.length === n - 1 && a.seats.every(t => t.includes("TP-GTO 중수") && !t.includes("규칙 봇")),
+      `c1 ${n}인: 중수 c1 정책 테이블이 아님 (${JSON.stringify(a)})`);
+    const file = JSON.parse(readFileSync(resolve(here, `../app/policy/mid-${n}.json`), "utf8"));
+    const h0 = await pg.evaluate(() => G.handNo);
+    const mine = () => pg.evaluate(h => TPG.botLog.filter(x => x.tier === "mid" && x.hand === h), h0);
+    if (!(await mine()).length) {   // the hero opened the action: call or check once so the opponents act
+      await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first().click();
+      await pg.click("#tp-go");
+      await pg.waitForFunction(h => TPG.botLog.some(x => x.hand === h) || G.handNo !== h, h0, { timeout: 60_000 })
+        .catch(() => must(false, `c1 ${n}인: 내 콜·체크 뒤 60초 안에 상대 결정도 다음 핸드도 오지 않음 — 봇 차례 진행·TPG.botLog 확인 (#724)`));
+    }
+    const log = await mine();
+    let hit = 0;
+    for (const d of log) {
+      must(/\|n\d\|/.test(d.key) || d.key.startsWith("call|"), `c1 ${n}인: AI 결정 키가 c1 형식이 아님 (${d.key})`);
+      const row = file.policy[d.key];
+      if (!row) continue;
+      hit++;
+      must(d.fromTable === "exact" && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 ${n}인: 페이지 확률이 mid-${n}.json 행과 다름 (${d.key})`);
+    }
+    must(log.length >= 1 && hit >= 1,
+      `c1 ${n}인: 첫 핸드 상대 프리플랍 결정이 정책 표에서 나오지 않음 (결정 ${log.length}, 적중 ${hit}) — decisionKey variant 확인 (#604)`);
+    if (n === 3) {
+      await pg.screenshot({ path: `${shots}/c1-table-3-laptop.png` });
+      await inspect("c1-table-3", "#infobar", pg);
+      // #608 postflop: play on with check/call until a hand where an AI acted after the flop ends (normally the
+      // first). b1Code is the slow step (~250 ms on a 6-max flop locally), so the longest main-thread task while
+      // playing is bounded: the page must still answer the hero's input.
+      await pg.evaluate(() => {
+        window.__c1Long = 0;
+        new PerformanceObserver(l => { for (const e of l.getEntries()) window.__c1Long = Math.max(window.__c1Long, e.duration); })
+          .observe({ type: "longtask", buffered: false });
+      });
+      const streetOf = k => +k.split("|")[k.startsWith("call|") ? 1 : 2];
+      let done = null;
+      for (let guard = 0; guard < 40 && !done; guard++) {
+        done = await pg.evaluate(() => {
+          const L = G.eng?.lastHand;
+          return L && L.done && TPG.botLog.some(x => x.hand === L.hand && x.tier === "mid" && x.key.split("|")[x.key.startsWith("call|") ? 1 : 2] > 0) ? L : null;
+        });
+        if (done) break;
+        const hand = await pg.evaluate(() => G.handNo);
+        await pg.waitForSelector(QUICK).catch(() => {});
+        const btn = pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first();
+        if (await btn.count()) { await btn.click(); await pg.click("#tp-go"); }
+        await pg.waitForFunction(h => G.handNo !== h || G.eng?.lastHand?.hand === h || document.querySelector("#tp-body [data-card='quick-act']"), hand).catch(() => {});
+      }
+      must(!!done && done.ok, `c1 3인: 플랍 이상 간 핸드가 엔진 거울을 켠 채 끝나지 않음 (${JSON.stringify(done)}) — decisionKey c1 포스트플랍 확인 (#608)`);
+      const post = done ? (await pg.evaluate(h => TPG.botLog.filter(x => x.hand === h && x.tier === "mid"), done.hand)).filter(d => streetOf(d.key) > 0) : [];
+      let postHit = 0, postNear = 0;
+      for (const d of post) {
+        must(d.key.startsWith("call|") || (/\|n3\|/.test(d.key) && /\|o[-0-3]v[-0-2]k[-0-2]$/.test(d.key)), `c1 3인: 포스트플랍 AI 키가 c1+b1 형식이 아님 (${d.key})`);
+        const row = file.policy[d.key];
+        if (!row || row.length !== d.acts.length) {
+          must(d.fromTable !== "exact", `c1 3인: 표에 없는 포스트플랍 키를 표에서 읽었다고 함 (${d.key})`);
+          if (d.fromTable) {   // L1/L2/L3: the mean row of the same coarse key (#623, #645); L4: its equity neighbors (#652)
+            postNear++;
+            const want = coarseRow(file, d.key, Number(d.fromTable.slice(1)), d.acts.length);
+            must(!!want && want.every((v, j) => Math.abs(v - d.probs[j]) < 1e-9), `c1 3인: ${d.fromTable} 백오프 확률이 mid-3.json 거친 키 평균과 다름 (${d.key})`);
+          } else must(d.probs.every(p => Math.abs(p - 1 / d.acts.length) < 1e-12), `c1 3인: 어느 단계에도 없는 키가 균등이 아님 (${d.key})`);
+          continue;
+        }
+        postHit++;
+        must(d.fromTable === "exact" && row.every((v, j) => Math.abs(v / file.q - d.probs[j]) < 1e-9), `c1 3인: 포스트플랍 확률이 mid-3.json 행과 다름 (${d.key})`);
+      }
+      const longMs = await pg.evaluate(() => window.__c1Long);
+      must(longMs < C1_LONG_TASK_MS, `c1 3인: 포스트플랍 중 메인 스레드 작업 ${longMs.toFixed(0)}ms ≥ ${C1_LONG_TASK_MS}ms — b1Code 캐시 확인, 넘으면 워커 이슈로 (#608)`);
+      must(!warns.some(w => w.includes("mirror off")), `c1 3인: 거울 꺼짐 경고 ${warns.filter(w => w.includes("mirror off")).slice(0, 2).join(" | ")}`);
+      const bots = await pg.evaluate(() => document.querySelectorAll("#infobar [data-untrained]").length + [...document.querySelectorAll(".seat:not(.hero) .persona")].filter(e => e.textContent.includes("규칙 봇")).length);
+      must(bots === 0, "c1 3인: 포스트플랍 핸드 뒤 규칙 봇 배지가 보임");
+      await pg.screenshot({ path: `${shots}/c1-postflop-3-laptop.png` });
+      console.log(`c1 3인 포스트플랍: 핸드 #${done?.hand} 거울 유지 종료, AI 포스트플랍 결정 ${post.length}개(표 적중 ${postHit}, 거친 키 ${postNear}), 최장 작업 ${longMs.toFixed(0)}ms`);
+      // #623: the coarse tables are built once at load, inside the load budget.
+      const coarseMs = await pg.evaluate(() => TPG.coarseMs?.["mid-3"]);
+      must(Number.isFinite(coarseMs) && coarseMs < C1_COARSE_MS, `c1 3인: 거친 표 생성 ${coarseMs}ms (예산 ${C1_COARSE_MS}ms) — tpgto.js coarseTables 확인 (#623)`);
+      // #623 review: drop every exact postflop row from the loaded table (the coarse tables were built at load and
+      // keep them), so the hero's next postflop decision backs off. Its comparison must say it is a nearby
+      // situation's average and must not grade the hero's frequency; the hand table and replay record say so too.
+      await pg.evaluate(() => { const pol = TPG.pol["mid-3"]; for (const k of [...pol.keys()]) if (!k.startsWith("call|") && +k.split("|")[2] > 0) pol.delete(k); });
+      wd.section("12 #623 c1 3인 근사");
+      let near = null;
+      for (let guard = 0; guard < 60 && !near; guard++) {
+        const hand = await pg.evaluate(() => G.handNo);
+        await pg.waitForSelector(QUICK).catch(() => {});
+        const st = await pg.evaluate(() => ({ street: G.eng?.s?.street ?? -1, from: CUR?.g?.model?.fromTable ?? null }));
+        const btn = pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='call']:not([disabled])`).first();
+        if (!(await btn.count())) { await pg.waitForTimeout(200); continue; }
+        await btn.click();
+        if (st.street > 0 && ["L1", "L2", "L3", "L4"].includes(st.from)) {
+          await pg.evaluate(() => { window.__hold = true; });
+          await pg.click("#tp-go");
+          near = st;
+          break;
+        }
+        await pg.click("#tp-go");
+        await pg.waitForFunction(h => G.handNo !== h || G.eng?.lastHand?.hand === h || document.querySelector("#tp-body [data-card='quick-act']"), hand).catch(() => {});
+      }
+      must(!!near, "c1 3인: 정확 행을 지운 뒤에도 근사(L1–L4) 내 포스트플랍 결정이 오지 않음 (#623)");
+      if (near) {
+        const tag = pg.locator("#tp-body [data-model-action] [data-near]");
+        await tag.waitFor();
+        must((await tag.getAttribute("data-near")) === near.from && (await tag.textContent()).includes("비슷한 상황 평균(근사)"), `근사 표시: 문구·단계가 다름 (${await tag.textContent()})`);
+        must((await pg.locator("#tp-body [data-model-action] .t").first().textContent()).includes("채점 안 함"), "근사 표시: 근사 행인데 내 선택 빈도를 채점처럼 보여 줌 (#623)");
+        const rec = await pg.evaluate(() => ({ near: G.decs?.at(-1)?.act?.near ?? null, row: handReviewHTML(G.handNo, true).includes("data-near"), report: sessionReport() }));
+        must(rec.near === near.from && rec.row, `근사 표시: 핸드 결정 표·기록에 근사 표시가 없음 (${JSON.stringify({ near: rec.near, row: rec.row })})`);
+        must(rec.report.near >= 1 && rec.report.low.every(d => !d.act.near), "근사 표시: 세션 리포트가 근사 결정을 빈도 비교에 셈");
+        await inspect("near-review", "#tp-body [data-model-action] [data-near]", pg);
+        console.log(`근사 표시: 내 포스트플랍 결정 ${near.from}, 핸드 표·리포트에서 제외`);
+      }
+    }
+    must(!errs.length, `c1 ${n}인: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    console.log(`c1 ${n}인: 모델 목록 run ${C1_RUN}, 첫 핸드 AI 결정 ${log.length}개 중 표 적중 ${hit}`);
+    await pg.close();
+  }
+  console.log("c1 인원별 중수 정책 ok");
+}
+
+// #987: a single-table SNG now drops busted seats, so a 6-seat policy stops fitting when a bot busts. Flows that are not
+// about eliminations top busted bots up at the next hand start; `chairs` (original chair numbers, s.ring) bust there
+// instead. After the blinds (recStart) each hand's button chair is recorded in window.__btns.
+const seatGuard = (pg, chairs = null) => pg.evaluate(cs => {
+  window.__bust = cs;
+  if (window.__phWrapped) return;
+  window.__phWrapped = true; window.__btns = [];
+  const orig = playHand, rec = recStart;
+  window.playHand = tok => {
+    const out = window.__bust || [];
+    if (G?.tour) for (const s of G.seats) if (!s.isHero) { if (out.includes(s.ring ?? s.i)) s.stack = 0; else if (s.stack <= 0) s.stack = 30 * G.bb; }
+    window.__bust = null;
+    return orig(tok);
+  };
+  window.recStart = () => { window.__btns.push({ hand: G.handNo, n: G.n, ring: G.seats[G.button].ring ?? G.button, sb: G.sbI === G.button }); return rec(); };
+}, chairs);
+
+wd.section("13 #956");
+// 13. #956 (ADR 0029 H2) 토너먼트 정책 로드·단계 매핑: 합성 인덱스 v2(tournament 맵)와 6인 SNG 초반·BB앤티 정책 파일 하나(web/e2e/tour-fixture.mjs)를 내준다.
+// (a) 정책 있는 단계: 시작할 때 그 파일 하나만 요청하고, AI 결정은 t<단계><앤티> 키로 파일 행을 읽는다(미스는 백오프).
+// (b) 생존자 수가 바뀌어 정책 없는 단계(버블)가 되면 규칙 봇, 돌아오면 이미 받은 정책으로(재요청 없음).
+// (c) 다음 핸드의 정책 파일이 로드 중이면 이전 정책으로 계속하고, 로드가 끝나면 전환한다.
+// (d) 정책이 없는 프리셋(9인 SNG)은 규칙 봇이며 캐시 정책 파일을 요청하지 않는다.
+{
+  const { tourPolicy } = await import("./tour-fixture.mjs");
+  const ENV = "0ea12574372e3e94";   // env_id of 6max_sng_topheavy (TOUR_ENV_ID in index.html)
+  const fixes = { e1: tourPolicy({ players: 6, stage: "e", ante: 1 }), e0: tourPolicy({ players: 6, stage: "e", ante: 0, hands: 200 }) };
+  const open = async (delayMs = 0) => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [], reqs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    pg.on("request", r => { const m = /\/policy\/([^/?]+)$/.exec(r.url()); if (m) reqs.push(m[1]); });
+    await pg.route("**/policy/index.json", async r => {
+      const res = await r.fetch(), j = await res.json();
+      j.schema_version = 2;
+      j.tournament = { [ENV]: { e: { ante: Object.fromEntries(Object.entries(fixes).map(([k, f]) => [k[1], { file: `t-${ENV}-${k}.json`, bytes: f.bytes.length, env_id: ENV, stage: "e", ante: +k[1], payoff: "icm", players: 6, tier: "beginner", key_variant: "c1", run_id: f.doc.run_id, iterations: 400, lbr_bb: null }])) } } };
+      await r.fulfill({ response: res, json: j });
+    });
+    for (const [k, f] of Object.entries(fixes)) await pg.route(`**/policy/t-${ENV}-${k}.json`, async r => { if (k === "e0" && delayMs) await new Promise(res => setTimeout(res, delayMs)); await r.fulfill({ status: 200, contentType: "application/json", body: f.bytes }); });
+    await pg.goto(url);
+    await seatGuard(pg);
+    await pg.waitForSelector("#set-mode [data-v='tournament']");
+    await pg.click("#set-mode [data-v='tournament']");
+    await pg.click("#set-play [data-v='quick']");
+    return { pg, errs, reqs };
+  };
+  const state = pg => pg.evaluate(() => ({ n: G.n, players: G.players, eng: !!G.eng, env: G.eng?.env ?? null, run: G.eng?.meta?.run_id ?? null, polTable: G.polTable,
+    tags: G.seats.filter(s => !s.isHero).map(s => s.tag || "") }));
+  const playHands = async (pg, hands) => {
+    const from = await pg.evaluate(() => G.handNo);
+    for (let g = 0; g < 80 && (await pg.evaluate(() => G.handNo)) < from + hands; g++) {
+      // check or fold: a hero who calls every all-in busts out of the tournament (bust modal) before the stage checks
+      if (await pg.locator(QUICK).count()) { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); }
+      else await pg.waitForTimeout(200);
+    }
+  };
+  {
+    const { pg, errs, reqs } = await open();
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    reqs.length = 0;   // the start screen reads the cash tier's policy for its model list; this check is about what the table asks for
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const a = await state(pg);
+    must(a.eng && a.env?.stage === "e" && a.env?.ante === true && a.run === "fixture-e1" && a.tags.every(t => t.includes("TP-GTO")), `토너먼트 정책: 정책 있는 단계인데 AI가 정책 좌석이 아님 (${JSON.stringify(a)})`);
+    must(reqs.filter(r => r !== "index.json").join() === `t-${ENV}-e1.json`, `토너먼트 정책: 시작 때 해당 파일 하나만 요청해야 함 (${reqs.join(", ")})`);
+    await playHands(pg, 2);
+    const file = fixes.e1.doc, log = await pg.evaluate(() => TPG.botLog.slice());
+    let hit = 0;
+    for (const d of log) {
+      must(d.key.startsWith("call|") || /\|te1\|/.test(d.key), `토너먼트 정책: AI 결정 키에 te1 칸이 없음 (${d.key})`);
+      const row = file.policy[d.key];
+      if (!row) continue;
+      hit++;
+      must(row.every((v, j) => Math.abs(v / 255 - d.probs[j]) < 1e-9), `토너먼트 정책: 페이지가 쓴 확률이 파일 행과 다름 (${d.key})`);
+    }
+    must(log.length >= 6 && hit >= 1, `토너먼트 정책: 검사할 AI 결정이 모자람 (전체 ${log.length}, 파일 키 ${hit})`);
+    // (b) bubble: no policy for the stage -> rule bot; back to the table -> the loaded policy, no new request
+    const n0 = reqs.length;
+    await pg.evaluate(() => { G.players = 3; });
+    await playHands(pg, 1);
+    const b = await state(pg);
+    must(!b.eng && !b.polTable && b.tags.every(t => !t.includes("TP-GTO")), `토너먼트 정책: 정책 없는 단계(버블)인데 규칙 봇이 아님 (${JSON.stringify(b)})`);
+    await pg.evaluate(() => { G.players = 6; });
+    await playHands(pg, 1);
+    const c = await state(pg);
+    must(c.eng && c.env?.stage === "e" && reqs.length === n0, `토너먼트 정책: 정책 있는 단계로 돌아왔는데 전환·재사용이 아님 (${JSON.stringify(c)}, 새 요청 ${reqs.length - n0})`);
+    must(!errs.length, `토너먼트 정책: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await inspect("tour-policy", "#infobar", pg);
+    console.log(`토너먼트 정책: 파일 1개 요청, AI 결정 ${log.length}개(파일 키 ${hit}) 모두 te1 키, 버블 규칙 봇 → 복귀`);
+    await pg.close();
+  }
+  {
+    // (c) the next hand's file (ante 0) is slow: the table keeps the ante-1 policy until it is in
+    const { pg, errs } = await open(2500);
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    await pg.evaluate(() => { window.__hold = true; G.ante = 0; tourSelect(); });
+    const mid = await state(pg);
+    must(mid.eng && mid.env?.ante === true, `토너먼트 정책: 로드 중에 이전 정책을 유지하지 않음 (${JSON.stringify(mid)})`);
+    await pg.waitForFunction(() => !!TPG.tpol[Object.keys(TPG.tpol).find(k => k.endsWith("e0.json"))], null, { timeout: 20_000 });
+    await pg.evaluate(() => { tourSelect(); window.__hold = false; });
+    const done = await state(pg);
+    must(done.eng && done.env?.ante === false && done.run === "fixture-e0", `토너먼트 정책: 로드가 끝났는데 새 정책으로 전환하지 않음 (${JSON.stringify(done)})`);
+    must(!errs.length, `토너먼트 정책 로드 중 전환: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  {
+    // (d) no tournament policy for this preset: rule bot, and the cash tiers are not read for it
+    const { pg, errs, reqs } = await open();
+    await pg.selectOption("#t-format", "9");
+    reqs.length = 0;
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const d = await state(pg);
+    must(!d.eng && !d.polTable && d.tags.every(t => !t.includes("TP-GTO")), `토너먼트 정책 없는 프리셋: 규칙 봇이 아님 (${JSON.stringify(d)})`);
+    must(!reqs.some(r => r !== "index.json"), `토너먼트 정책 없는 프리셋: 정책 파일을 요청함 — 캐시 정책으로 대신하면 안 됨 (${reqs.join(", ")})`);
+    must(!errs.length, `토너먼트 정책 없는 프리셋: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  console.log("토너먼트 정책 ok");
+}
+
+wd.section("14 #968");
+// 14. #968 (ADR 0029 결정 4, H3) 토너먼트 pill·툴팁과 복기: 합성 6인 SNG 버블 전·BB앤티 정책(web/e2e/tour-fixture.mjs) 하나로
+// 결정 4 표의 다섯 경우를 한 장면씩 `#svc-pill`의 textContent·title로 검사한다.
+// (a) 정책 있음 → `토너먼트 · 버블 전 · TP-GTO`, 툴팁에 ICM 보상·modelLine. (b) 미스(파일에 없는 포스트플랍 키) → pill 그대로, 툴팁 n/m = botLog의 미스/전체.
+// (c) 생존자 수로 단계가 버블 → 머니인으로 바뀌면 전환 뒤 첫 AI 결정 시점의 pill이 `미학습(규칙 봇)`. (d) 복기: 판 당시 정책이 있던 핸드는 TP-GTO 비교,
+// 없던 핸드는 `복기 · 모의 정답`이고 화면 어디에도 "TP-GTO"가 없다. (e) 정책 없는 프리셋(9인)은 지금 문구. (f) 로드 실패 → 재시도·모의로 계속.
+{
+  const { tourPolicy } = await import("./tour-fixture.mjs");
+  // Without the rows for calling an all-in (`call|` keys) those spots have no row at any backoff level: the misses of (b).
+  const ENV = "0ea12574372e3e94" /* 6max_sng_topheavy */, FILE = `t-${ENV}-e1.json`, full = tourPolicy({ players: 6, stage: "e", ante: 1 }).doc;
+  const policy = Object.fromEntries(Object.entries(full.policy).filter(([k]) => !k.startsWith("call|")));
+  const fixDoc = { ...full, policy, keys: Object.keys(policy).length }, fix = { doc: fixDoc, bytes: Buffer.from(JSON.stringify(fixDoc)) };
+  const UNTRAINED = "이 단계의 TP-GTO는 아직 학습 중이에요. 상대·정답은 규칙 기반입니다.";
+  const open = async (fileRoute, policyEnv = ENV) => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico|policy\/t-[^/]+\.json)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    await pg.route("**/policy/index.json", async r => {
+      const res = await r.fetch(), j = await res.json();
+      j.schema_version = 2;
+      j.tournament = { [policyEnv]: { e: { ante: { 1: { file: FILE, bytes: fix.bytes.length, env_id: policyEnv, stage: "e", ante: 1, payoff: "icm", players: 6, tier: "beginner", key_variant: "c1", run_id: fix.doc.run_id, iterations: 400, lbr_bb: null } } } } };
+      await r.fulfill({ response: res, json: j });
+    });
+    await pg.route(`**/policy/${FILE}`, fileRoute || (r => r.fulfill({ status: 200, contentType: "application/json", body: fix.bytes })));
+    await pg.goto(url);
+    await seatGuard(pg);
+    await pg.waitForSelector("#set-mode [data-v='tournament']");
+    await pg.click("#set-mode [data-v='tournament']");
+    await pg.click("#set-play [data-v='quick']");
+    return { pg, errs };
+  };
+  const pill = pg => pg.evaluate(() => ({ text: $("#svc-pill").textContent, title: $("#svc-pill").title }));
+  // #978: the info bar's first pill ("토너먼트 · <단계>") with the setup select's stage name for comparison.
+  const infoStage = pg => pg.evaluate(() => ({ text: $("#infobar .pill").textContent, setup: `토너먼트 · ${STAGE_NAMES[G.stage]}` }));
+  // check when free, otherwise fold: calling everything busts the hero in a few tournament hands (bust modal)
+  const quickAct = async pg => { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); };
+  // pin: survivors to hold (a seat that busts lowers G.players, and a 6-seat policy then no longer fits: players_mismatch)
+  const playUntil = async (pg, done, what, pin = 0) => {
+    for (let g = 0; g < 400; g++) {
+      if (pin) await pg.evaluate(p => { G.players = p; }, pin);
+      if (await pg.evaluate(done)) return true;
+      if (await pg.locator(QUICK).count()) await quickAct(pg); else await pg.waitForTimeout(150);
+    }
+    must(false, `토너먼트 pill: ${what}까지 진행하지 못함`);
+    return false;
+  };
+  // The badge at the first AI decision of the first hand after `players` changes the stage.
+  const pillAfterStage = async (pg, players, what) => {
+    await pg.evaluate(p => {
+      window.__pillAt = null; window.__pillFrom = G.handNo; G.players = p;
+      if (!window.__botWrapped) { const orig = botTurn; window.__botWrapped = true; window.botTurn = s => { if (!window.__pillAt && G.handNo > window.__pillFrom) window.__pillAt = { hand: G.handNo, text: $("#svc-pill").textContent, title: $("#svc-pill").title, stage: G.tpol?.stage }; return orig(s); }; }
+    }, players);
+    await playUntil(pg, () => !!window.__pillAt, what, players);
+    return pg.evaluate(() => window.__pillAt);
+  };
+  {
+    const { pg, errs } = await open();
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    // (a)
+    const a = await pill(pg);
+    must(a.text === "토너먼트 · 버블 전 · TP-GTO" && a.title.includes("버블 전(ICM 보상)") && a.title.includes("반복 400회") && a.title.includes(`run ${fix.doc.run_id}`) && !a.title.includes("대신했어요"),
+      `토너먼트 pill 정책 있음: ${JSON.stringify(a)}`);
+    const ia = await infoStage(pg);
+    must(ia.text === "토너먼트 · 버블 전" && ia.text !== ia.setup, `정보 막대 단계명(#978): 정책 단계 '버블 전'이어야 함 (${JSON.stringify(ia)})`);
+    await inspect("tour-pill-policy", "#infobar", pg);
+    // (b) postflop keys are not in the file: each such AI decision is the rule bot's and counted
+    await playUntil(pg, () => TPG.botLog.some(d => d.miss) && G.handNo >= 3, "정책 미스", 6);
+    await pg.evaluate(() => { window.__hold = true; });
+    const b = await pill(pg), cnt = await pg.evaluate(f => { const l = TPG.botLog.filter(d => d.file === f); return { n: l.filter(d => d.miss).length, m: l.length, rowsHit: l.filter(d => !d.miss).length }; }, FILE);
+    must(b.text === "토너먼트 · 버블 전 · TP-GTO" && b.title.includes(`일부 스팟은 규칙 봇이 대신했어요(${cnt.n}/${cnt.m}).`) && cnt.n >= 1 && cnt.rowsHit >= 1,
+      `토너먼트 pill 미스: 툴팁 n/m이 실제 미스 ${cnt.n}/${cnt.m}와 다름 (${JSON.stringify(b)})`);
+    await pg.evaluate(() => { window.__hold = false; });
+    await inspect("tour-pill-miss", "#infobar", pg);
+    // (c) bubble (3 left, 2 paid: the 6-seat policy cannot drive it) then in the money (2 left)
+    const c1 = await pillAfterStage(pg, 3, "버블 전환");
+    must(c1?.stage === "b" && c1.text === "토너먼트 · 버블 · 미학습(규칙 봇)" && c1.title === UNTRAINED, `토너먼트 pill 단계 전환(버블): 첫 AI 결정 때 ${JSON.stringify(c1)}`);
+    const c2 = await pillAfterStage(pg, 2, "머니인 전환");
+    must(c2?.stage === "m" && c2.text === "토너먼트 · 머니인 · 미학습(규칙 봇)" && c2.title === UNTRAINED, `토너먼트 pill 단계 전환(머니인): 첫 AI 결정 때 ${JSON.stringify(c2)}`);
+    must(!(await pg.evaluate(() => !!G.eng)), "토너먼트 pill 단계 전환: 정책 없는 단계인데 정책 좌석이 남음");
+    must((await infoStage(pg)).text === "토너먼트 · 머니인", `정보 막대 단계명(#978): 머니인 전환 뒤 '머니인'이어야 함 (${JSON.stringify(await infoStage(pg))})`);
+    await inspect("tour-pill-untrained", "#infobar", pg);
+    // the hand being played when the stage changed back is saved too; finish it so both kinds are on record
+    await playUntil(pg, () => { const d = JSON.parse(localStorage.getItem("stalker.games") || "null"); const hs = d?.games?.[0]?.hands || []; return hs.some(h => h.tour?.policy && h.acts.some(a => a.hero && a.an?.p != null)) && hs.some(h => h.tour?.stage === "m" && !h.tour.policy && h.acts.some(a => a.hero)); }, "정책 있는/없는 핸드 저장", 2);
+    must(!errs.length, `토너먼트 pill: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    // (d) review: each saved hand is compared with the policy of its own stage
+    const recs = await pg.evaluate(() => { const g = JSON.parse(localStorage.getItem("stalker.games")).games[0]; return { v: JSON.parse(localStorage.getItem("stalker.games")).schema_version,
+      pol: g.hands.find(h => h.tour?.policy && h.acts.some(a => a.hero && a.an?.p != null)), none: g.hands.find(h => h.tour?.stage === "m" && !h.tour.policy && h.acts.some(a => a.hero)) }; });
+    must(recs.v === 2 && recs.pol?.tour.env === ENV && recs.pol.tour.stage === "e" && recs.pol.tour.ante === 1 && recs.pol.tour.policy.file === FILE && recs.pol.tour.policy.run_id === fix.doc.run_id,
+      `토너먼트 복기 기록: 정책 핸드의 tour가 판 당시 값이 아님 (${JSON.stringify(recs.pol?.tour)})`);
+    must(recs.none?.tour.stage === "m" && recs.none.tour.policy === null && recs.none.acts.every(a => !a.an), `토너먼트 복기 기록: 정책 없는 단계 핸드 (${JSON.stringify(recs.none?.tour)})`);
+    await pg.evaluate(() => { G.dead = true; gameToken++; });
+    await pg.click("[data-view='review']");
+    await pg.waitForSelector("[data-mg-game]");
+    await pg.click("[data-mg-game]");
+    const showHand = async h => {
+      await pg.click(`[data-mg-hand='${h.no}']`);
+      const k = h.acts.findIndex(a => a.hero && a.an?.p != null);
+      await pg.click(`[data-mg-step='${(k >= 0 ? k : h.acts.findIndex(a => a.hero)) + 1}']`);
+      return pg.evaluate(() => ({ text: $("#svc-pill").textContent, title: $("#svc-pill").title, body: $("#mg-body").innerText }));
+    };
+    const rp = await showHand(recs.pol);
+    must(rp.text === "복기 · 토너먼트 버블 전 · TP-GTO 비교" && rp.title.includes("버블 전(ICM 보상)") && rp.title.includes(`run ${fix.doc.run_id}`) && /정책/.test(rp.body),
+      `토너먼트 복기(정책 있는 단계): ${JSON.stringify({ text: rp.text, title: rp.title })}`);
+    await pg.click("[data-mg-back]");
+    const rn = await showHand(recs.none);
+    must(rn.text === "복기 · 모의 정답" && !rn.title.includes("TP-GTO") && !rn.body.includes("TP-GTO") && /규칙 봇이 상대/.test(rn.body),
+      `토너먼트 복기(정책 없는 단계): "TP-GTO"가 보임 ${JSON.stringify({ text: rn.text, title: rn.title, body: rn.body.slice(0, 300) })}`);
+    await inspect("tour-review-untrained", "[data-mg-table]", pg);
+    await pg.click("[data-mg-back]");
+    await pg.click("[data-mg-back]");
+    const rv = await pill(pg);
+    must(rv.text === "복기 · 모의 정답" || rv.text.startsWith("복기 · TP-GTO"), `토너먼트 복기: 핸드를 닫으면 기존 복기 문구로 돌아와야 함 (${rv.text})`);
+    console.log(`토너먼트 pill: 정책·미스 ${cnt.n}/${cnt.m}·버블/머니인 미학습·복기 정책 핸드 #${recs.pol.no}/정책 없는 핸드 #${recs.none.no}`);
+    await pg.close();
+  }
+  {
+    // (e) no tournament policy for this preset (the index has one for another preset only): today's wording, unchanged.
+    // 6-max, because the 9-max phone table already overflows by a persona tag (follow-up of #968, not this badge).
+    const { pg, errs } = await open(null, "1261657cabcdc1ad" /* 9max_sng_503020 */);
+    await pg.selectOption("#t-format", "6");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const e = await pill(pg);
+    must(e.text === "토너먼트 · 모의 정답" && e.title === "이 설정의 TP-GTO는 아직 학습 중이에요. 정답은 규칙 기반 모의값입니다.", `토너먼트 pill 정책 없는 프리셋: 지금 문구가 아님 ${JSON.stringify(e)}`);
+    const ie = await infoStage(pg);
+    must(ie.text === ie.setup, `정보 막대 단계명(#978): 정책 없는 프리셋은 설정 단계명이어야 함 (${JSON.stringify(ie)})`);
+    await inspect("tour-pill-noenv", "#infobar", pg);
+    must(!errs.length, `토너먼트 pill 정책 없는 프리셋: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  {
+    // (g) #977: the 9-max SNG table at phone width. A seat's persona tag ("UTG · 콜링 스테이션 · 규칙 봇") is wider than the seat:
+    // it must ellipsize inside the seat (full text stays in title) instead of pushing the page sideways. With and without a policy.
+    const ENV9 = "9max_sng_503020", FILE9 = `t-${ENV9}-e1.json`, fix9 = tourPolicy({ players: 9, stage: "e", ante: 1 });
+    for (const withPolicy of [true, false]) {
+      const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      await autoContinue(pg);
+      pg.setDefaultTimeout(60_000);
+      await pg.route("**/policy/index.json", async r => {
+        const res = await r.fetch(), j = await res.json();
+        j.schema_version = 2;
+        j.tournament = withPolicy ? { [ENV9]: { e: { ante: { 1: { file: FILE9, bytes: fix9.bytes.length, env_id: ENV9, stage: "e", ante: 1, payoff: "icm", players: 9, tier: "beginner", key_variant: "c1", run_id: fix9.doc.run_id, iterations: 400, lbr_bb: null } } } } } : {};
+        await r.fulfill({ response: res, json: j });
+      });
+      await pg.route(`**/policy/${FILE9}`, r => r.fulfill({ status: 200, contentType: "application/json", body: fix9.bytes }));
+      await pg.goto(url);
+      await pg.waitForSelector("#set-mode [data-v='tournament']");
+      await pg.click("#set-mode [data-v='tournament']");
+      await pg.click("#set-play [data-v='quick']");
+      await pg.selectOption("#t-format", "9");
+      await pg.selectOption("#t-ante", "bb");
+      await pg.click("#start-btn");
+      await pg.waitForSelector(QUICK);
+      const tag = `tour-9max-${withPolicy ? "policy" : "nopolicy"}`;
+      await inspect(tag, ".table-wrap", pg);
+      // persona tags: the full text is kept in title; clipped only on the phone, never on tablet/laptop
+      for (const [name, width, height] of VIEWPORTS) {
+        await pg.setViewportSize({ width, height });
+        const r = await pg.evaluate(() => [...document.querySelectorAll(".seat .persona")].filter(e => e.offsetParent !== null).map(e => ({ t: e.textContent, title: e.title, clip: e.scrollWidth > e.clientWidth, out: e.getBoundingClientRect().right > e.closest(".seat").getBoundingClientRect().right + 1 })));
+        // 820 (two-column, 430px felt): every seat and tag stays inside the table, and tags never overlap each other
+        const geo = await pg.evaluate(() => {
+          const W = document.querySelector(".view.active .table-wrap").getBoundingClientRect(), R = e => e.getBoundingClientRect();
+          const seats = [...document.querySelectorAll(".view.active .seat")].filter(e => e.offsetParent !== null), tags = seats.map(s => s.querySelector(".persona"));
+          const inside = e => R(e).left >= W.left - 1 && R(e).right <= W.right + 1;   // sideways only: the hero seat hangs below the felt by design
+          const hit = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+          const out = [...seats, ...tags].filter(e => !inside(e)).map(e => (e.querySelector(".nm") || e.closest(".seat").querySelector(".nm")).textContent);
+          const ov = []; tags.forEach((a, i) => tags.slice(i + 1).forEach(b => { if (hit(R(a), R(b))) ov.push(a.textContent + " / " + b.textContent); }));
+          return { out, ov };
+        });
+        if (name === "tablet") must(!geo.out.length, `${tag} ${width}: 좌석·페르소나 태그가 테이블 밖 ${geo.out.join(", ")}`);
+        if (name === "tablet") must(!geo.ov.length, `${tag} ${width}: 페르소나 태그끼리 겹침 ${geo.ov.join(", ")}`);
+        must(r.length >= 8, `${tag} ${width}: 페르소나 태그가 ${r.length}개뿐`);
+        must(r.every(x => x.title === x.t), `${tag} ${width}: 페르소나 태그 title이 전체 텍스트가 아님 ${JSON.stringify(r.find(x => x.title !== x.t))}`);
+        if (name === "phone") must(r.every(x => !x.out), `${tag} ${width}: 페르소나 태그가 좌석 밖으로 넘침 ${JSON.stringify(r.find(x => x.out))}`);
+        if (name !== "phone") must(r.every(x => !x.clip), `${tag} ${width}: 말줄임이 없어야 함 ${JSON.stringify(r.find(x => x.clip))}`);
+      }
+      await pg.close();
+    }
+  }
+  {
+    // (f) the policy file 404s: same retry / mock choice as the cash path; the retry loads it, mock plays without it
+    let fail = true;
+    const { pg, errs } = await open(r => fail ? r.fulfill({ status: 404, body: "" }) : r.fulfill({ status: 200, contentType: "application/json", body: fix.bytes }));
+    await pg.selectOption("#t-format", "6");
+    await pg.selectOption("#t-ante", "bb");
+    await pg.click("#start-btn");
+    await pg.waitForSelector("#tpg-again");
+    const f = await pill(pg);
+    must(f.text === "모의 정답 · 정책 연결 실패" && f.title.includes("응답 404") && (await pg.locator("#tpg-mock").isVisible()), `토너먼트 pill 로드 실패: ${JSON.stringify(f)}`);
+    await inspect("tour-pill-error", "#tpg-again", pg);
+    fail = false;
+    await pg.click("#tpg-again");
+    await pg.waitForSelector(QUICK);
+    const g = await pill(pg);
+    must(g.text === "토너먼트 · 버블 전 · TP-GTO" && (await pg.evaluate(() => !!G.eng)), `토너먼트 로드 실패 → 다시 시도: 정책으로 시작하지 않음 ${JSON.stringify(g)}`);
+    fail = true;
+    await pg.evaluate(() => { TPG.tpol = {}; G.dead = true; G = null; startGame(); });
+    await pg.waitForSelector("#tpg-mock");
+    await pg.click("#tpg-mock");
+    await pg.waitForSelector(QUICK);
+    const h = await pg.evaluate(() => ({ eng: !!G.eng, mock: G.mock, tags: G.seats.filter(s => !s.isHero).map(s => s.tag || "") }));
+    must(!h.eng && h.mock && h.tags.every(t => !t.includes("TP-GTO")), `토너먼트 로드 실패 → 모의로 계속: 정책 없이 진행해야 함 ${JSON.stringify(h)}`);
+    must(!errs.length, `토너먼트 pill 로드 실패: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+  console.log("토너먼트 pill·복기 ok");
+}
+
+wd.section("15 #969 #987");
+// 15. #969 (ADR 0029 H4) 실제 토너먼트 정책(run 43735226442, 9max_sng_503020 버블 4인, `t-1261657cabcdc1ad-b0.json`)과
+// 실제 index.json(라우팅 없음)으로 9인 SNG에 들어간다. (a) 인덱스가 페이지의 env_id(TOUR_ENV["9"])·버블·앤티 0으로 그 항목을 찾는다.
+// (b) 시작(9명, 버블 전)은 정책 파일을 요청하지 않는다(그 단계 정책 없음 → 미학습).
+// #987: (c) 다음 판 시작에 비영웅 5명을 탈락시키면(칩 0) 단일 테이블 SNG는 그 좌석을 테이블에서 뺀다: G.n = G.players = 4, 좌석 DOM 4개,
+// 탈락자 이름표·칩 없음. 버블(생존 4 = paid+1)이므로 그 4인 정책 파일을 정확히 1건 요청하고, pill은 `토너먼트 · 버블 · TP-GTO`, AI 결정은 정책 행.
+// (d) 버튼은 남은 좌석(원래 의자 번호 ring)만 돈다. (e) #995: 한 명 더 탈락 → 상금권 3인(stage m), 또 한 명 → 헤즈업. 장면마다 단계 2 정책
+// 파일(`t-…-m0-n3.json`·`-n2.json`)을 정확히 1건 요청하고 pill `토너먼트 · 머니인 · TP-GTO`. 헤즈업 버튼 = SB. 3종 화면 겹침 검사. (f) MTT는 지금처럼 다른 테이블에서 이동해 좌석 수 유지.
+{
+  const FILE = "t-1261657cabcdc1ad-b0.json", M3 = "t-1261657cabcdc1ad-m0-n3.json", M2 = "t-1261657cabcdc1ad-m0-n2.json";
+  const quickAct = async pg => { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); };
+  const playUntil = async (pg, done, what, tries = 600, arg = null) => {
+    for (let g = 0; g < tries; g++) {
+      if (await pg.evaluate(done, arg)) return true;
+      if (await pg.locator(QUICK).count()) await quickAct(pg).catch(() => {}); else await pg.waitForTimeout(150);
+    }
+    must(false, `SNG 탈락 좌석: ${what}까지 진행하지 못함`);
+    return false;
+  };
+  const open = async () => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [], reqs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    pg.on("request", r => { const m = /\/policy\/([^/?]+)$/.exec(r.url()); if (m) reqs.push(m[1]); });
+    await pg.goto(url);
+    await pg.waitForSelector("#set-mode [data-v='tournament']");
+    await pg.click("#set-mode [data-v='tournament']");
+    await pg.click("#set-play [data-v='quick']");
+    return { pg, errs, reqs };
+  };
+  {
+    const { pg, errs, reqs } = await open();
+    await pg.selectOption("#t-format", "9");
+    await pg.selectOption("#t-ante", "none");
+    reqs.length = 0;
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const a = await pg.evaluate(f => {
+      const r = TPG.mod.tournamentPolicyFor(TPG.index, { envId: TOUR_ENV["9"], players: 4, paid: 3, field: 9, tableSize: 9, ante: 0 });
+      return { idxV: TPG.index.schema_version, env: TOUR_ENV["9"], stage: r.stage, file: r.entry?.file ?? null, run: r.entry?.run_id ?? null, players: r.entry?.players ?? null,
+        start: { ...G.tpol }, pill: $("#svc-pill").textContent, eng: !!G.eng, want: f };
+    }, FILE);
+    must(a.idxV === 2 && a.env === "1261657cabcdc1ad" && a.stage === "b" && a.file === FILE && a.run === "43735226442" && a.players === 4,
+      `실제 토너먼트 정책: 인덱스가 9인 SNG 버블 항목을 찾지 못함 (${JSON.stringify(a)})`);
+    must(a.start.stage === "e" && !a.start.file && !a.eng && a.pill === "토너먼트 · 버블 전 · 미학습(규칙 봇)",
+      `실제 토너먼트 정책: 버블 전은 정책 없는 단계(미학습)여야 함 (${JSON.stringify(a)})`);
+    must(!reqs.some(r => r !== "index.json"), `실제 토너먼트 정책: 버블 전에 정책 파일을 요청함 (${reqs.join(", ")})`);
+    // (c) five busts at once: chairs 1, 3, 4, 6, 7 leave; 0 (hero), 2, 5, 8 stay
+    const busted = await pg.evaluate(() => G.seats.filter(s => [1, 3, 4, 6, 7].includes(s.i)).map(s => s.name));
+    await seatGuard(pg, [1, 3, 4, 6, 7]);
+    await playUntil(pg, () => G.n === 4 && G.eng?.rulesKey === "t-1261657cabcdc1ad-b0.json" && TPG.botLog.some(d => d.file === "t-1261657cabcdc1ad-b0.json"), "4인 버블 정책 결정");
+    await pg.evaluate(() => { window.__hold = true; });
+    const c = await pg.evaluate(() => ({ n: G.n, players: G.players, paid: G.paid, rings: G.seats.map(s => s.ring), idx: G.seats.map(s => s.i), dom: document.querySelectorAll("#layer .seat").length,
+      names: [...document.querySelectorAll("#layer .seat .nm")].map(e => e.textContent), tpol: { ...G.tpol }, pill: $("#svc-pill").textContent,
+      tags: G.seats.filter(s => !s.isHero).map(s => s.tag || ""), engN: G.eng?.s?.n ?? null }));
+    must(c.n === 4 && c.players === 4 && c.dom === 4 && c.rings.join() === "0,2,5,8" && c.idx.join() === "0,1,2,3",
+      `SNG 탈락 좌석: 9인에서 5명 탈락이면 4석 테이블이어야 함 (${JSON.stringify(c)})`);
+    must(!busted.some(nm => c.names.includes(nm)), `SNG 탈락 좌석: 탈락자 이름표가 남음 (${busted.join(",")} / ${c.names.join(",")})`);
+    must(c.tpol.stage === "b" && c.tpol.file === FILE && c.pill === "토너먼트 · 버블 · TP-GTO" && c.tags.every(t => t.includes("TP-GTO")),
+      `SNG 버블 4인: 반입 정책이 쓰여야 함 (${JSON.stringify(c)})`);
+    must(reqs.filter(r => r !== "index.json").join() === FILE, `SNG 버블 4인: 정책 파일 요청이 정확히 1건(${FILE})이어야 함 (${reqs.join(", ")})`);
+    await inspect("sng-bubble-4", ".table-wrap", pg);
+    // (d) the button walks the survivors' chairs only, in order
+    await playUntil(pg, () => window.__btns.filter(b => b.n === 4).length >= 6, "버튼 5판");
+    const btns = (await pg.evaluate(() => window.__btns)).filter(b => b.n === 4).slice(-5);
+    const order = [0, 2, 5, 8], seq = btns.map(b => b.ring);
+    must(seq.length === 5 && seq.every(r => order.includes(r)) && seq.every((r, i) => !i || order[(order.indexOf(seq[i - 1]) + 1) % 4] === r),
+      `SNG 버튼: 빈 의자(1,3,4,6,7)를 건너뛰고 남은 좌석을 차례로 돌아야 함 (${JSON.stringify(btns)})`);
+    // (e) #995: one more bust leaves 3 = paid (in the money, stage m): the 3-handed stage 2 policy, then one more is heads-up
+    // with the 2-handed one. Each scene asks for its own file exactly once and the badge is TP-GTO, not the rule bot.
+    const scene = async (chairs, n, file, label) => {
+      const before = reqs.length;
+      await seatGuard(pg, chairs);
+      await playUntil(pg, f => G.n === f.n && G.eng?.rulesKey === f.file && TPG.botLog.some(d => d.file === f.file), `${label} 정책 결정`, 600, { n, file });
+      await pg.evaluate(() => { window.__hold = true; });
+      const r = await pg.evaluate(() => ({ n: G.n, players: G.players, tpol: { ...G.tpol }, pill: $("#svc-pill").textContent, tags: G.seats.filter(s => !s.isHero).map(s => s.tag || "") }));
+      const got = reqs.slice(before).filter(x => x !== "index.json");
+      must(r.n === n && r.players === n && r.tpol.stage === "m" && r.tpol.file === file && r.pill === "토너먼트 · 머니인 · TP-GTO" && r.tags.every(t => t.includes("TP-GTO")),
+        `SNG ${label}: 단계 2 정책(${file})이 쓰여야 함 (${JSON.stringify(r)})`);
+      must(got.join() === file, `SNG ${label}: 정책 파일 요청이 정확히 1건(${file})이어야 함 (${got.join(", ")})`);
+      return r;
+    };
+    await scene([2], 3, M3, "상금권 3인");
+    await inspect("sng-itm-3", ".table-wrap", pg);
+    // the button posts the small blind heads-up
+    await scene([5], 2, M2, "헤즈업");
+    await playUntil(pg, () => G.n === 2 && window.__btns.filter(b => b.n === 2).length >= 2, "헤즈업 2판");
+    const hu = (await pg.evaluate(() => window.__btns)).filter(b => b.n === 2);
+    must(hu.length >= 2 && hu.every(b => b.sb) && hu[0].ring !== hu[1].ring && hu.every(b => [0, 8].includes(b.ring)),
+      `SNG 헤즈업: 버튼 = SB이고 두 좌석을 번갈아야 함 (${JSON.stringify(hu)})`);
+    const p2 = await pg.evaluate(() => ({ players: G.players, dom: document.querySelectorAll("#layer .seat").length }));
+    must(p2.players === 2 && p2.dom === 2, `SNG 헤즈업: 좌석 2개여야 함 (${JSON.stringify(p2)})`);
+    await inspect("sng-headsup", ".table-wrap", pg);
+    must(!errs.length, `SNG 탈락 좌석: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    console.log(`SNG 탈락 좌석: 9→4석(의자 ${c.rings.join(",")}), 버블 정책 ${FILE} 요청 1건·pill TP-GTO, 버튼 ${seq.join("→")}, 상금권 3인·헤즈업 단계 2 정책 각 1건·pill TP-GTO, 헤즈업 버튼=SB`);
+    await pg.close();
+  }
+  {
+    // (f) multi-table (field 180 > table): a bust is still refilled from another table, the seat count stays
+    const { pg, errs } = await open();
+    await pg.selectOption("#t-format", "mtt");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const before = await pg.evaluate(() => ({ n: G.n, players: G.players }));
+    await seatGuard(pg, [1, 2]);
+    await playUntil(pg, () => window.__btns.length >= 1, "MTT 다음 판");
+    const after = await pg.evaluate(() => ({ n: G.n, players: G.players, dom: document.querySelectorAll("#layer .seat").length }));
+    must(after.n === before.n && after.dom === before.n && after.players === before.players - 2,
+      `MTT 탈락: 다른 테이블에서 이동해 좌석 수를 유지해야 함 (${JSON.stringify({ before, after })})`);
+    must(!errs.length, `MTT 탈락: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
+}
+
+wd.stop();
 await browser.close();
 server.close();
 if (failures.length) { console.error(`Gate U: ${failures.length}건 실패`); process.exit(1); }

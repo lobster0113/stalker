@@ -1,0 +1,24 @@
+# #957 (ADR 0027 decision 2 step 2, F11a): 9-max 50/30/20 SNG in the money, 2 survivors (r=2), c1 key slot tm0, pure ICM
+# reward (lam 0: g = 0 off the bubble, so lam does nothing), cold start (the #937 step-1 A/B chose cold in all 3 pairs,
+# ADR 0027 decision 4 carries it to steps 2-3). Flags as e3-tp-mid-c1-sng-bubble-pod32 except --players, --stage m,
+# --out/result_path/name, --lbr-hands and median_iters_per_s. --stacks bubble:skewed kept (the bubble job's profile).
+# Heads-up ICM with 50/30/20 is 0.3 + 0.2 * chip share, so the reward is 0.2 * chip change / table chips: chip EV up to
+# a per-hand scale (tests/test_sng_mid_jobs.py). Trained anyway so the m stage has its own r=2 table in the same frame.
+# --minutes 60 / --max-iters 20000 kept from the bubble job (same budget per stage); the result's stopped_by says which
+# one ended training. Measured (#965, run 44139238381): 7.28 it/s, 20000 iters in 2745.9 s (~46 min, stopped_by max_iters).
+# --lbr-hands 2000 = train_jobs.E3_BY_PLAYERS_LBR_HANDS_BY_N[2] (#556: at 600 the 2-3 seat LBR se was the seed sd).
+# median_iters_per_s 7: measured, not estimated (#984). #965 run 44139238381 trained at 7.28 it/s (train_seconds 2745.9).
+# The first estimate (9) was too high: a normal host's first pod ran 4.7 it/s and the launcher's 0.6x threshold
+# (4.2 it/s at median 7) is under the measured normal rate, so a normal host is no longer discarded as slow.
+# Dispatch alone (#877), after the #935 and #950 runs. Worst case = 1.2 * 180 / 60 = $3.60.
+# Unpack: python -m stalker.tools.pod_train --unpack r.json --out dir
+name: e3-tp-mid-c1-sng-mid2-pod32
+image: python:3.12-slim
+command: set -e; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data'); open('/src/SHA','w').write(t.pax_headers.get('comment',''))"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.pod_train --tier mid --players 2 --workers 16 --minutes 60 --max-iters 20000 --batch 500 --seed 1 --menu real --no-raise-cap --ranges average --avg-rule own --key-variant c1 --payoff icm --preset 9max_sng_503020 --stage m --level-index 0 --lam 0 --stacks bubble:skewed --lbr-hands 2000 --sha-file /src/SHA ${STALKER_RESUME:+--resume-result "$STALKER_RESUME"} --out /result/e3-tp-mid-c1-sng-mid2-pod32.json
+cpu_flavor: cpu3c
+vcpu: 32
+disk_gb: 10
+max_minutes: 180
+hourly_usd: 1.2
+median_iters_per_s: [7]
+result_path: /result/e3-tp-mid-c1-sng-mid2-pod32.json

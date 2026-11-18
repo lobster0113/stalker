@@ -1,11 +1,15 @@
+import json
+import subprocess
+from pathlib import Path
+
 import pytest
 
 from referee import metrics
 from referee.gate_l import Report
 
 
-def test_gate_l_snapshot_keys_and_ranges():
-    snap = metrics.gate_l()
+def test_gate_l_snapshot_keys_and_ranges(gate_l_report):
+    snap = metrics.gate_l(gate_l_report)
     assert 0.0 <= snap["gate_l_pass_rate"] <= 1.0
     assert isinstance(snap["gate_l_checks"], int) and snap["gate_l_checks"] > 0
     items = snap["gate_l_items"]
@@ -31,24 +35,92 @@ def test_gate_l_empty_report_is_not_a_pass():
     assert metrics.gate_l(Report())["gate_l_pass_rate"] == 0.0
 
 
+def test_gate_t_runs_every_registered_check_within_budget():
+    import time
+
+    from referee.gate_t import CHECKS, REGISTRY, run_checks
+
+    t0 = time.monotonic()
+    rows = run_checks()
+    snap = metrics.gate_t()
+    assert time.monotonic() - t0 < 120  # ADR 0028 part budget
+    assert {(r[0], r[1]) for r in rows} == {(n, c) for n in REGISTRY for c in CHECKS}
+    assert set(snap) == {"gate_t_pass_rate", "gate_t_checks"}
+    assert isinstance(snap["gate_t_checks"], int) and snap["gate_t_checks"] == sum(r[3] for r in rows) > 0
+    assert 0.0 <= snap["gate_t_pass_rate"] <= 1.0
+    assert snap["gate_t_pass_rate"] == round(sum(r[2] for r in rows) / snap["gate_t_checks"], 6)
+
+
+def test_gate_t_failed_checks_lower_the_pass_rate():
+    rows = [("a", "T1", 8, 8, []), ("a", "T2", 6, 8, ["x", "y"]), ("b", "T4", 0, 0, [])]
+    assert metrics.gate_t(rows) == {"gate_t_pass_rate": 0.875, "gate_t_checks": 16}
+    assert metrics.gate_t([])["gate_t_pass_rate"] == 0.0
+
+
+def test_gate_t_part_failure_is_a_note_and_none(monkeypatch):
+    import referee.gate_t as gt
+
+    def boom():
+        raise RuntimeError("spots missing")
+
+    monkeypatch.setattr(gt, "run_checks", boom)
+    snap = metrics.gate_t()
+    assert snap["gate_t_pass_rate"] is None and snap["gate_t_checks"] is None
+    assert "spots missing" in snap["gate_t_error"]
+
+
+def test_sim_throughput_is_a_positive_float():
+    snap = metrics.sim_throughput(seconds=0.5)
+    assert set(snap) == {"sim_hands_per_sec"}
+    assert isinstance(snap["sim_hands_per_sec"], float) and snap["sim_hands_per_sec"] > 0
+
+
+def test_sim_throughput_caps_the_run_and_uses_the_fixed_setup():
+    seen = {}
+
+    def fake(engine, players, seconds, seed=0):
+        seen.update(engine=engine, players=players, seconds=seconds, seed=seed)
+        return {"hands_per_s": 123.4}
+
+    assert metrics.sim_throughput(seconds=600, bench=fake) == {"sim_hands_per_sec": 123.4}
+    assert seen == {"engine": "fast", "players": 9, "seconds": 60.0, "seed": 0}
+
+
+def test_sim_throughput_failure_is_a_note_and_none():
+    def broken(*a, **k):
+        raise RuntimeError("engine down")
+
+    snap = metrics.sim_throughput(bench=broken)
+    assert snap["sim_hands_per_sec"] is None and "engine down" in snap["sim_hands_per_sec_error"]
+
+
+@pytest.mark.slow
 def test_snapshot_includes_gate_l(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
+    monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "tournament_ab", lambda: {})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     assert {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"} <= set(snap)
 
 
+@pytest.mark.slow
 def test_snapshot_has_no_retired_keys(monkeypatch):
     monkeypatch.setattr(metrics, "test_counts", lambda: {})
     monkeypatch.setattr(metrics, "gate_r", lambda: {})
     monkeypatch.setattr(metrics, "gate_s_e1", lambda: {})  # trains three tiers; covered by its own slow test
+    monkeypatch.setattr(metrics, "e3_web_lbr", lambda: {"e3_web_lbr": None})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "tournament_ab", lambda: {})  # reads ops; covered below
+    monkeypatch.setattr(metrics, "sim_throughput", lambda: {})  # 10s bench; covered by its own tests
     snap = metrics.snapshot()
     retired = [k for k in snap if k.startswith(("gate_a_", "gate_b_", "suff_")) or k == "d1_preliminary"]
     assert not retired, retired
     assert not any(hasattr(metrics, f) for f in ("gate_a", "gate_b_pilot", "sufficiency"))
 
 
+@pytest.mark.slow
 def test_training_metrics_are_exact_and_deterministic():
     import time
 
@@ -73,6 +145,7 @@ def test_gate_s_record_has_types_ranges_and_is_reproducible():
         assert isinstance(r["passed"], bool) and r["stab_regret_p99_pct"] >= 0, name
 
 
+@pytest.mark.slow
 def test_gate_f_metrics_are_deterministic_and_ordered():
     a = metrics.gate_f_e1()
     assert a == metrics.gate_f_e1()
@@ -91,6 +164,12 @@ def test_test_counts_read_the_junit_report_of_the_tests_job(tmp_path):
     assert metrics.test_counts(str(tmp_path / "junit.xml")) == {"tests_passed": 14, "tests_failed": 3}
 
 
+def test_test_counts_sum_every_shard_junit_in_a_directory(tmp_path):
+    (tmp_path / "junit-tests-1.xml").write_text(JUNIT, encoding="utf-8")
+    (tmp_path / "junit-tests-2.xml").write_text(JUNIT, encoding="utf-8")
+    assert metrics.test_counts(str(tmp_path)) == {"tests_passed": 28, "tests_failed": 6}
+
+
 def test_test_counts_missing_junit_report_fails_loudly(tmp_path):
     with pytest.raises(SystemExit, match="METRICS_JUNIT"):
         metrics.test_counts(str(tmp_path / "none.xml"))
@@ -101,12 +180,17 @@ PARTS = {
     "test_counts": {"tests_passed", "tests_failed"},
     "gate_r": {"gate_r_pass_rate", "gate_r_checks", "gate_r_cash_pass_rate", "gate_r_cash_checks",
                "gate_r_e3_pass_rate", "gate_r_e3_checks"},
+    "gate_t": {"gate_t_pass_rate", "gate_t_checks"},
+    "sim_throughput": {"sim_hands_per_sec"},
     "gate_l": {"gate_l_pass_rate", "gate_l_checks", "gate_l_items"},
     "gate_s_e1": {"gate_s_e1"},
     "e0": {"e0_kuhn_iters", "e0_leduc_iters", "e0_kuhn_cfr_exploitability", "e0_leduc_cfr_exploitability"},
     "e1": {"e1_stacks", "e1_iters", "e1_tp_beginner_exploitability", "e1_tp_mid_exploitability",
            "e1_tp_pro_exploitability", "e1_nash_fp_exploitability", "e1_tp_uniform_beginner_exploitability"},
     "gate_f_e1": {f"gate_f_e1_{t}_{k}" for t in ("beginner", "mid", "pro") for k in ("nash_loss", "nash_loss_added")},
+    "e3_web_lbr": {"e3_web_lbr"},
+    "tournament_ab": {"tournament_primary_ci_low", "tournament_primary_mean", "tournament_pairs", "tournament_verdict",
+                      "tournament_runs"},
 }
 
 
@@ -120,3 +204,364 @@ def test_snapshot_key_set_and_stage_timings(monkeypatch, capsys):
     err = capsys.readouterr().err
     for name in [*PARTS, "code_size"]:
         assert f"metrics: {name} " in err, err
+
+
+def _git(cwd, *args):
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=cwd, check=True,
+                   capture_output=True)
+
+
+def _lbr_result(run_policy, lbr_on_3, pass_on_3=True):
+    cell = lambda lbr, limit, ok: {"hands": 600, "lbr_bb": lbr, "lbr_stderr_bb": 0.3, "limit": limit,
+                                   "pass": ok, "policy_sha256": "x", "seeds": [1, 2, 3]}
+    return {"schema": "stalker.web.policy-lbr", "schema_version": 1, "policy_run": run_policy,
+            "backoff": {"on": {"2": cell(5.5, 9.0, True), "3": cell(lbr_on_3, 6.4, pass_on_3)},
+                        "off": {"2": cell(6.8, 9.0, True), "3": cell(4.4, 6.4, True)}},
+            "rows": [], "thresholds": "referee/e3/lbr_thresholds_v2.json"}
+
+
+@pytest.fixture
+def ops_clone(tmp_path):
+    """A clone whose origin has an ops branch with two policy-lbr results and newer unrelated ones."""
+    origin = tmp_path / "origin"
+    (origin / "cloud" / "results").mkdir(parents=True)
+    _git(origin, "init", "-q", "-b", "ops")
+    res = origin / "cloud" / "results"
+    (res / "100.json").write_text(json.dumps(_lbr_result("p1", 9.9, False)), encoding="utf-8")
+    (res / "200.json").write_text(json.dumps(_lbr_result("p2", 4.5)), encoding="utf-8")
+    (res / "300.json").write_text(json.dumps({"schema": "stalker.cloud.other", "by_players": {}}), encoding="utf-8")
+    (res / "400.summary.json").write_text(json.dumps(_lbr_result("p4", 1.0)), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "ops")
+    clone = tmp_path / "clone"
+    _git(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
+    return origin, clone
+
+
+def _pages(repo, **run_ids):
+    """Write web page policies `mid-<n>.json` with the given run ids (key `p<n>`)."""
+    d = repo / "web" / "app" / "policy"
+    d.mkdir(parents=True, exist_ok=True)
+    for key, run_id in run_ids.items():
+        (d / f"mid-{key[1:]}.json").write_text(json.dumps({"schema": "stalker.web.policy", "run_id": run_id}),
+                                              encoding="utf-8")
+
+
+def test_e3_web_lbr_copies_the_newest_policy_lbr_result(ops_clone):
+    _, clone = ops_clone
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["policy_run"] == "p2"
+    assert got["by_players"]["3"]["on"] == {"lbr_bb": 4.5, "lbr_stderr_bb": 0.3, "limit": 6.4, "pass": True}
+    assert got["by_players"]["2"]["off"]["lbr_bb"] == 6.8
+    assert list(got["by_players"]) == ["2", "3"]
+    assert set(got["by_players"]["2"]) == {"on", "off", "page_run"}
+    assert got["all_pass_on"] is True
+    assert got["by_players"]["2"]["page_run"] == "p2" and got["fresh"] is True
+
+
+def test_e3_web_lbr_is_stale_when_one_page_has_another_run(ops_clone):
+    _, clone = ops_clone
+    _pages(clone, p2="p2", p3="older", p6="older")  # 6 is not measured, so it does not count
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["by_players"]["3"]["page_run"] == "older"
+    assert "6" not in got["by_players"]
+    assert got["fresh"] is False
+
+
+def test_e3_web_lbr_is_stale_when_a_page_file_is_missing(ops_clone):
+    _, clone = ops_clone
+    _pages(clone, p2="p2")
+    (clone / "web" / "app" / "policy" / "mid-3.json").write_text("{not json", encoding="utf-8")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["by_players"]["3"]["page_run"] is None and got["fresh"] is False
+    (clone / "web" / "app" / "policy" / "mid-3.json").unlink()
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["by_players"]["3"]["page_run"] is None and got["fresh"] is False
+
+
+def test_e3_web_lbr_page_run_matches_across_str_and_int(ops_clone):
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "250.json").write_text(json.dumps(_lbr_result(41813684540, 4.0)),
+                                                         encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "int policy run")
+    _pages(clone, p2="41813684540", p3="41813684540")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is True
+
+
+def test_e3_web_lbr_fetches_new_results_and_reports_failures(ops_clone):
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "250.json").write_text(json.dumps(_lbr_result("p3", 7.0, False)), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "newer")
+    assert metrics.e3_web_lbr(repo=clone, fetch=False)["e3_web_lbr"]["run"] == 200
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 250 and got["all_pass_on"] is False
+
+
+def test_e3_web_lbr_is_null_without_ops(tmp_path):
+    _git(tmp_path, "init", "-q")
+    assert metrics.e3_web_lbr(repo=tmp_path) == {"e3_web_lbr": None}
+    assert metrics.e3_web_lbr(repo=tmp_path / "missing") == {"e3_web_lbr": None}
+
+
+def _per_player_result(runs):
+    doc = _lbr_result("mixed", 4.5)
+    for mode in doc["backoff"].values():
+        for n, cell in mode.items():
+            cell["policy_run"] = runs[n]
+    return doc
+
+
+def _ops_with(origin, doc):
+    (origin / "cloud" / "results" / "500.json").write_text(json.dumps(doc), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "per-player result")
+
+
+def test_e3_web_lbr_fresh_compares_per_player_policy_run(ops_clone):
+    origin, clone = ops_clone
+    _ops_with(origin, _per_player_result({"2": "A", "3": "B"}))
+    _pages(clone, p2="A", p3="B")  # mixed runs, each page equals its own measured run
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is True
+    _pages(clone, p3="C")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False
+
+
+def test_e3_web_lbr_old_result_without_per_player_run_uses_top_level(ops_clone):
+    _, clone = ops_clone
+    _pages(clone, p2="p2", p3="other")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False
+    _pages(clone, p3="p2")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is True
+
+
+def test_e3_web_lbr_without_on_cell_for_a_legacy_count(ops_clone):
+    """#702: a legacy page has only an off cell; fresh still compares its own run, all_pass_on looks at on cells only."""
+    origin, clone = ops_clone
+    doc = _per_player_result({"2": "A", "3": "B"})
+    del doc["backoff"]["on"]["3"]
+    _ops_with(origin, doc)
+    _pages(clone, p2="A", p3="B")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["fresh"] is True and got["all_pass_on"] is True and "on" not in got["by_players"]["3"]
+    _pages(clone, p3="C")
+    assert metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["fresh"] is False
+
+
+def test_e3_web_lbr_single_seed_three_player_cell_is_not_a_pass(ops_clone):
+    # ADR 0024: 3 players need 2 seeds, so a 1-seed result carries pass=None -> all_pass_on False, metric intact
+    origin, clone = ops_clone
+    _pages(clone, p2="p9", p3="p9")
+    _ops_with(origin, _lbr_result("p9", 4.5, None))
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 500 and got["by_players"]["3"]["on"]["pass"] is None
+    assert got["all_pass_on"] is False and got["fresh"] is True
+
+
+def test_e3_web_lbr_reads_a_schema2_result_like_schema1(tmp_path):
+    """#781: schema 2 adds aivat_* cell keys; the four verdict keys and all_pass_on are unchanged (#797 copies aivat_* on top)."""
+    out = {}
+    for ver in (1, 2):
+        origin = tmp_path / f"o{ver}"
+        (origin / "cloud" / "results").mkdir(parents=True)
+        _git(origin, "init", "-q", "-b", "ops")
+        doc = _lbr_result("p2", 4.5)
+        if ver == 2:
+            doc["schema_version"], doc["aivat_samples"] = 2, 8
+            for cells in doc["backoff"].values():
+                for c in cells.values():
+                    c.update(aivat_lbr_bb=c["lbr_bb"] - 1, aivat_stderr_bb=0.1)
+        (origin / "cloud" / "results" / "200.json").write_text(json.dumps(doc), encoding="utf-8")
+        _git(origin, "add", "-A")
+        _git(origin, "commit", "-qm", "ops")
+        clone = tmp_path / f"c{ver}"
+        _git(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
+        _pages(clone, p2="p2", p3="p2")
+        out[ver] = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    strip = lambda d: {n: {m: {k: v for k, v in c.items() if not k.startswith("aivat_")} if isinstance(c, dict) else c
+                           for m, c in cells.items()} for n, cells in d["by_players"].items()}
+    assert strip(out[1]) == strip(out[2]) and out[2]["all_pass_on"] is True
+    assert out[2]["by_players"]["2"]["on"]["aivat_lbr_bb"] == 4.5
+
+
+def test_e3_web_lbr_copies_aivat_columns_when_present(ops_clone):
+    origin, clone = ops_clone
+    doc = _lbr_result("p5", 4.0)
+    doc["backoff"]["on"]["3"].update(aivat_lbr_bb=3.9, aivat_stderr_bb=0.1)
+    _ops_with(origin, doc)
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]["by_players"]
+    assert got["3"]["on"]["aivat_lbr_bb"] == 3.9 and got["3"]["on"]["aivat_stderr_bb"] == 0.1
+    assert "aivat_lbr_bb" not in got["2"]["on"]
+
+
+def test_e3_web_lbr_v3_judges_the_fixture(ops_clone):
+    origin, clone = ops_clone
+    fixture = Path(__file__).parent / "fixtures" / "web_policy_lbr_43111293721.json"
+    _ops_with(origin, json.loads(fixture.read_text(encoding="utf-8")))
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert {n: r["verdict"] for n, r in got["v3"].items()} == dict.fromkeys("23456", "pass")
+    assert [got["v3"][n]["mean"] for n in "23456"] == [5.781, 4.677, 2.646, 1.950, 0.766]
+    assert got["all_pass_v3"] is True
+
+
+def test_e3_web_lbr_v3_error_for_schema_1_keeps_the_rest(ops_clone):
+    origin, clone = ops_clone
+    doc = _lbr_result("p6", 4.0)
+    doc["rows"] = [{"players": 3, "backoff": True, "seed": 1, "hands": 2000, "lbr_bb": 4.0}]
+    _ops_with(origin, doc)
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert "aivat_lbr_bb" in got["v3"]["error"] and got["all_pass_v3"] is None
+    assert got["run"] == 500 and got["all_pass_on"] is True
+
+
+def test_all_pass_v3_rolls_up_fail_and_insufficient():
+    row = lambda n, a: {"players": n, "backoff": True, "seed": 1, "hands": 2000, "lbr_bb": a, "aivat_lbr_bb": a}
+    base = {"schema": "stalker.web.policy-lbr", "legacy_pages": []}
+    fail = metrics._web_lbr_v3({**base, "rows": [row(2, 99.0)]})
+    assert fail[0]["2"]["verdict"] == "fail" and fail[1] is False
+
+
+def test_e3_web_lbr_skips_a_stage_failure_result(ops_clone):
+    """#847: run_stages writes stalker.cloud.stage-failure for a failed LBR job; it is not an LBR snapshot."""
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "900.json").write_text(json.dumps(
+        {"schema": "stalker.cloud.stage-failure", "schema_version": 1, "stage": "lbr", "exit": 1}), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "stage failure")
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["fresh"] is True
+
+
+def test_e3_web_lbr_skips_a_v2_stage_failure_result(ops_clone):
+    """#853: stage-failure v2 (deadline timeout, stage_elapsed_s) is still not an LBR snapshot."""
+    origin, clone = ops_clone
+    (origin / "cloud" / "results" / "900.json").write_text(json.dumps(
+        {"schema": "stalker.cloud.stage-failure", "schema_version": 2, "stage": "lbr", "exit": "timeout",
+         "stage_elapsed_s": {"lbr": 7200.0}, "deadline_s": 7200.0}), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "stage failure v2")
+    _pages(clone, p2="p2", p3="p2")
+    got = metrics.e3_web_lbr(repo=clone)["e3_web_lbr"]
+    assert got["run"] == 200 and got["fresh"] is True
+
+
+# --- tournament_ab (#976, ADR 0030 follow-up 2) ---------------------------------------------------------
+
+AB_ARGS = {"a": "/a.bin", "b": "/b.bin", "presets": ["9max_sng_503020"], "remaining": [4],
+           "profiles": ["even", "random", "skewed"], "level_indexes": [0], "layouts": 3, "games": 400,
+           "sym_games": 200, "seed": 10001, "field": "persona:tag"}
+
+
+def _ab_result(a, b, mean, se=0.0029, **args):
+    return {"schema_version": 1, "args": {**AB_ARGS, **args}, "agents": {"A": {"sha256": a}, "B": {"sha256": b}},
+            "unit": "prize_pool_fraction", "verdict": "A", "adopted": "cold", "cells": [],
+            "primary": {"metric": "learner sim prize - ICM equity (B - A)", "mean": mean, "se": se, "cells": 9}}
+
+
+def _ops_results(tmp_path, docs: dict):
+    """A clone whose origin's ops branch has `cloud/results/<name>` = docs[name]."""
+    origin = tmp_path / "origin"
+    res = origin / "cloud" / "results"
+    res.mkdir(parents=True)
+    _git(origin, "init", "-q", "-b", "ops")
+    for name, doc in docs.items():
+        (res / name).write_text(doc if isinstance(doc, str) else json.dumps(doc), encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-qm", "ops")
+    clone = tmp_path / "clone"
+    _git(tmp_path, "clone", "-q", "--no-checkout", str(origin), str(clone))
+    return clone
+
+
+def test_tournament_ab_pass_over_newest_run_per_pair(tmp_path):
+    clone = _ops_results(tmp_path, {
+        "100.json": _ab_result("a1", "b1", -0.05),           # pair 1, superseded by run 400
+        "200.json": _ab_result("a2", "b2", 0.0007),
+        "300.json": _ab_result("a3", "b3", -0.0019),
+        "400.json": _ab_result("a1", "b1", 0.0013),
+        "50.json": _ab_result("a9", "b9", 0.001, games=100),  # older setup: not mixed in
+        "500.json": _lbr_result("p", 4.0),                   # other schemas are ignored
+        "600.summary.json": _ab_result("a8", "b8", -0.9),    # not a result file
+        "700.json": "{not json",
+    })
+    got = metrics.tournament_ab(repo=clone)
+    assert got["tournament_verdict"] == "pass" and got["tournament_pairs"] == 3
+    assert got["tournament_runs"] == [200, 300, 400]
+    assert got["tournament_primary_mean"] == round((0.0013 + 0.0007 - 0.0019) / 3, 7)
+    assert -0.0075 < got["tournament_primary_ci_low"] < got["tournament_primary_mean"]
+    assert "tournament_error" not in got
+
+
+def test_tournament_ab_newest_setup_decides_and_few_pairs_are_insufficient(tmp_path):
+    clone = _ops_results(tmp_path, {"100.json": _ab_result("a1", "b1", 0.001),
+                                    "200.json": _ab_result("a2", "b2", 0.001),
+                                    "300.json": _ab_result("a3", "b3", 0.002, remaining=[3])})
+    got = metrics.tournament_ab(repo=clone)
+    assert got["tournament_verdict"] == "insufficient" and got["tournament_pairs"] == 1
+    assert got["tournament_runs"] == [300] and got["tournament_primary_ci_low"] is not None
+
+
+def test_tournament_ab_fail_verdict_is_recorded_not_raised():
+    docs = {i: _ab_result(f"a{i}", f"b{i}", -0.0075) for i in (1, 2, 3)}
+    got = metrics.tournament_judge(docs)
+    assert got["tournament_verdict"] == "fail" and got["tournament_pairs"] == 3
+
+
+def test_tournament_ab_judge_error_is_a_note_and_none():
+    def broken(results):
+        raise ValueError("x" * 1000)
+
+    got = metrics.tournament_judge({1: _ab_result("a", "b", 0.0)}, judge=broken)
+    assert all(got[k] is None for k in metrics.TOURNAMENT_KEYS) and got["tournament_runs"] is None
+    assert got["tournament_error"].startswith("ValueError: x") and len(got["tournament_error"]) <= 300
+
+
+def test_tournament_ab_real_judge_error_on_missing_primary_se():
+    doc = _ab_result("a", "b", 0.0)
+    del doc["primary"]["se"]
+    got = metrics.tournament_judge({1: doc})
+    assert got["tournament_verdict"] is None and "ThresholdError" in got["tournament_error"]
+
+
+@pytest.mark.parametrize("schema_version", [1, 2])
+def test_tournament_ab_consumers_accept_schema_v1_and_v2(schema_version):
+    """#1004 bumped tournament_ab to schema 2 (per-cell policy without missing_keys); the protected consumers
+    (`_is_tournament_ab`, `tournament_thresholds.judge`) read neither, so both versions must keep working."""
+    from referee.e3 import tournament_thresholds as tt
+
+    docs = {r: {**_ab_result(a, a, 0.001, se=0.0001), "schema_version": schema_version}
+            for r, a in ((1, "p1"), (2, "p2"), (3, "p3"))}
+    assert all(metrics._is_tournament_ab(d) for d in docs.values())
+    res = tt.judge(list(docs.values()))
+    assert res["pairs"] == 3 and res["verdict"] in ("pass", "fail", "insufficient")
+    got = metrics.tournament_judge(docs)
+    assert got["tournament_pairs"] == 3 and got["tournament_verdict"] == res["verdict"]
+
+
+def test_tournament_ab_without_results_or_ops_is_none(tmp_path):
+    clone = _ops_results(tmp_path, {"100.json": _lbr_result("p", 4.0)})
+    got = metrics.tournament_ab(repo=clone)
+    assert got["tournament_verdict"] is None and "no tournament_ab" in got["tournament_error"]
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    _git(bare, "init", "-q")
+    got = metrics.tournament_ab(repo=bare)
+    assert all(got[k] is None for k in metrics.TOURNAMENT_KEYS) and got["tournament_error"]
+    got = metrics.tournament_ab(repo=tmp_path / "missing")
+    assert got["tournament_verdict"] is None and got["tournament_error"]
+
+
+def test_tournament_trend_reads_history_mixed_with_rows_before_976():
+    old = {"ts": "2026-11-16T00:00:00Z", "sha": "old", "tests_passed": 1, "e3_web_lbr": None}
+    empty = {"ts": "2026-11-17T00:00:00Z", "sha": "empty", **dict.fromkeys(metrics.TOURNAMENT_KEYS),
+             "tournament_runs": None, "tournament_error": "no tournament_ab result in ops:cloud/results"}
+    new = {"ts": "2026-11-18T00:00:00Z", "sha": "new", **metrics.tournament_judge(
+        {i: _ab_result(f"a{i}", f"b{i}", 0.001) for i in (1, 2, 3)})}
+    lines = "\n".join(json.dumps(r) for r in (old, empty, new)) + "\n"
+    rows = [json.loads(line) for line in lines.splitlines()]
+    trend = metrics.tournament_trend(rows)
+    assert [t["sha"] for t in trend] == ["new"] and trend[0]["tournament_verdict"] == "pass"
+    assert metrics.tournament_trend([old]) == []

@@ -24,7 +24,7 @@ function seqSum(a) { let s = 0.0; for (const v of a) s += v; return s; }
 
 test("schema and constants match the Python side", () => {
   assert.equal(V.schema, "stalker.web.tpgto.vectors");
-  assert.equal(V.schema_version, 4);
+  assert.equal(V.schema_version, 7);
   const c = V.constants;
   assert.deepEqual(c.TIER_K, T.TIER_K, "TIER_K differs: update tpgto.js to stalker/e3/tp_key.py");
   assert.deepEqual(c.TIER_DEPTH, T.TIER_DEPTH);
@@ -379,10 +379,44 @@ test("rangeResponse (#465): a bet that makes every weaker combo fold reports ~10
   assert.equal(rf.reply, null);
 });
 
+test("BB ante (#887): deal, passive and shove lines, side-pot payoff and c1 key equal Python; ante 0 is unchanged", () => {
+  assert.ok(V.ante.length >= 8, "ante vectors missing: python -m stalker.tools.web_vectors");
+  let pots = 0;
+  for (const h of V.ante) {
+    const tag = `${h.n}p ${h.style} stacks ${JSON.stringify(h.stacks)}`;
+    let s = T.dealFromPermutation(h.perm, h.n, { stacks: h.stacks ?? undefined, ante: h.ante });
+    assert.deepEqual({ stack: s.stack, bet: s.bet, total: s.total, ante: s.ante, pot: T.pot(s) }, h.dealt, `deal ${tag}`);
+    for (const d of h.decisions) {
+      assert.deepEqual(T.legal(s), d.legal, `legal ${tag} after ${s.history.join(" ")}`);
+      assert.equal(T.publicKeyC1(s, s.toAct, "full"), d.public, `c1 key ${tag}`);
+      assert.match(d.public.startsWith("call|") ? "tx1|" : d.public, /\|?t[cebmf]1\||^tx1\|/, `ante slot ${tag}`);
+      s = T.apply(s, d.a);
+    }
+    assert.ok(s.done, tag);
+    assert.deepEqual(s.history, h.history, tag);
+    const pay = T.payoff(s);
+    assert.deepEqual(pay, h.payoff, `payoff ${tag}`);
+    assert.equal(pay.reduce((x, y) => x + y, 0), 0, `zero sum ${tag}`);
+    pots += T.pot(s) > 0 ? 1 : 0;
+  }
+  assert.equal(pots, V.ante.length);
+  // ante 0: the same fields as before (no ante), cash key has the t c0 slot.
+  const d = V.c1_keys.hands[0];
+  const s0 = T.dealFromPermutation(d.perm, d.n, { stacks: d.stacks });
+  assert.equal(s0.ante, 0);
+  assert.deepEqual(s0.total, s0.bet);
+  assert.ok(T.publicKeyC1(s0, s0.toAct, "full").includes("|tc0|"));
+  // an ante deal reads ante 1 whatever env says; an explicit env ante is still honoured
+  const a = V.ante[0], sa = T.dealFromPermutation(a.perm, a.n, { ante: a.ante });
+  assert.ok(T.publicKeyC1(sa, sa.toAct, "full", { stage: "c", ante: false }).includes("|tc1|"));
+  assert.ok(T.publicKeyC1(s0, s0.toAct, "full", { stage: "e", ante: true }).includes("|te1|"));
+  assert.throws(() => T.newHand({ n: 2, holes: [[0, 1], [2, 3]], ante: -1 }), /ante=-1/);
+});
+
 test("c1 keys (#583): public key string equals Python at every depth; every c1 element appears for 2, 4 and 6 players", () => {
   const C = V.c1_keys, DEPTHS = ["basic", "full", "pro"];
   assert.equal(C.version, T.C1_VERSION, "KEY_VERSIONS.c1 differs: update tpgto.js to stalker/e3/tp_key.py");
-  for (const n of [2, 4, 6]) assert.deepEqual(T.c1PositionNames(n), C.positions[String(n)]);
+  for (const n of [2, 3, 4, 5, 6, 7, 8, 9]) assert.deepEqual(T.c1PositionNames(n), C.positions[String(n)]);   // #940: 7-9 too
   const parts = {};
   let total = 0, bad = 0;
   const first = [];
@@ -411,4 +445,58 @@ test("c1 keys (#583): public key string equals Python at every depth; every c1 e
   assert.equal(bad, 0);
   for (const n of [2, 4, 6]) for (const [k, v] of Object.entries(parts[n])) assert.ok(v > 0, `no ${k} element in the ${n}-player c1 vectors`);
   assert.ok(C.hands.every((h) => h.decisions.length > 0) && C.hands.length >= 24);
+});
+
+test("b1 hand fields (#606): b1Code at full and basic depth and b1Label equal Python for every combo", () => {
+  const B = V.b1;
+  assert.equal(B.radix, T.B1_RADIX); assert.equal(B.na, T.B1_NA); assert.equal(B.none, T.B1_NONE);
+  assert.deepEqual(B.edges, { outs: T.OUTS_EDGES, vuln: T.VULN_EDGES, block: T.BLOCK_EDGES }, "b1 bucket edges differ: update tpgto.js to stalker/e3/tp_key.py");
+  assert.equal(B.out_gain, T.OUT_GAIN);
+  // web_vectors.b1_update: the actor's range times a factor from (combo, update id), integers below 2^53.
+  const factor = (i, u) => B.factors[Math.floor(((i * 2654435761 + u * 40503 + 12345) % 4294967296) / 128) % B.factors.length];
+  const decode = (str) => Int32Array.from({ length: str.length / 2 }, (_, i) => parseInt(str.slice(2 * i, 2 * i + 2), 36));
+  let states = 0, bad = 0, labels = 0, sixFlopMs = null;
+  const seen = { river: 0, basic: 0, multiway: 0, headsUp: 0 }, first = [];
+  const c1Seen = { river: 0, multiway: 0, headsUp: 0 };
+  let c1Keys = 0;
+  for (const h of B.hands) {
+    let s = T.dealFromPermutation(h.perm, h.n), ranges = T.initialRanges(h.n);
+    for (const d of h.decisions) {
+      if (d.full !== undefined) {
+        states++;
+        const t0 = performance.now();
+        const full = T.b1Code(s, s.toAct, ranges, "full");
+        const ms = performance.now() - t0;
+        if (h.n === 6 && s.street === 1 && T.live(s).length >= 3 && sixFlopMs === null) sixFlopMs = ms;
+        const basic = T.b1Code(s, s.toAct, ranges, "basic");
+        for (const [name, got, want] of [["full", full, decode(d.full)], ["basic", basic, decode(d.basic)]]) {
+          for (let i = 0; i < T.N; i++) if (got[i] !== want[i]) { bad++; if (first.length < 5) first.push({ n: h.n, street: s.street, name, combo: i, want: want[i], got: got[i] }); }
+        }
+        for (const [c, lab] of Object.entries(d.labels)) { labels++; assert.equal(T.b1Label(Number(c)), lab); }
+        const mine = full[T.comboIndex(s.hole[s.toAct])];
+        if (s.street === 3) { seen.river++; assert.ok(T.b1Label(mine).startsWith("o-v-"), T.b1Label(mine)); }
+        if (/^o[-0-3]$/.test(T.b1Label(basic[T.comboIndex(s.hole[s.toAct])]))) seen.basic++;
+        if (T.live(s).length >= 3) seen.multiway++; else seen.headsUp++;
+        // #608: decisionKey(variant "c1") postflop = tp_key.key of equity_steps(variant="c1") for the real hole.
+        for (const [tier, want] of Object.entries(d.c1)) {
+          c1Keys++;
+          const got = T.decisionKey(s, ranges, tier, "c1").key;
+          if (got !== want) { bad++; if (first.length < 5) first.push({ n: h.n, street: s.street, tier, want, got }); }
+          if (/\|o[-0-3](v[-0-2]k[-0-2])?$/.test(want)) c1Seen[T.live(s).length >= 3 ? "multiway" : "headsUp"]++;
+          if (s.street === 3) c1Seen.river++;
+        }
+      }
+      const f = Float64Array.from({ length: T.N }, (_, i) => factor(i, d.u));
+      ranges = T.updateRange(ranges, s.toAct, f);
+      s = T.apply(s, d.a);
+    }
+  }
+  console.log(`tpgto b1: ${states} postflop states x 1326 combos x 2 depths; mismatches ${bad}; labels ${labels}; ${JSON.stringify(seen)}; ` +
+    `6-max multiway flop b1Code ${sixFlopMs === null ? "n/a" : sixFlopMs.toFixed(0) + " ms"} (local, reference only); ` +
+    `c1 postflop keys ${c1Keys} ${JSON.stringify(c1Seen)}`);
+  assert.deepEqual(first, []);
+  assert.equal(bad, 0);
+  assert.ok(seen.river > 0 && seen.basic > 0 && seen.multiway > 0 && seen.headsUp > 0, JSON.stringify(seen));
+  assert.ok(sixFlopMs !== null, "no 6-handed multiway flop state in the b1 vectors");
+  assert.ok(c1Keys > 0 && c1Seen.river > 0 && c1Seen.multiway > 0 && c1Seen.headsUp > 0, `c1 postflop key cases ${JSON.stringify(c1Seen)}`);
 });

@@ -1,6 +1,6 @@
 {
  "schema": "stalker.web.policy-index",
- "schema_version": 1,
+ "schema_version": 2,
  "tiers": {
   "beginner": {
    "file": "beginner-6.json",
@@ -34,29 +34,139 @@
   },
   "mid": {
    "file": "mid-6.json",
-   "bytes": 2320553,
+   "bytes": 3145713,
    "tier": "mid",
    "players": 6,
    "k": 11,
    "depth": "full",
-   "iterations": 1904000,
-   "run_id": "40919207457",
-   "sha": "eb8758cc7b74fd98b5cecfeb1b33152938011602",
-   "lbr_bb": 0.1353,
-   "lbr_stderr_bb": 0.2118,
-   "field_worst": null,
-   "job": "e3-tp-mid-pod",
-   "strategy": "average",
+   "iterations": 120000,
+   "run_id": "42591543123",
+   "sha": "9660453c545a0910efb6dd9315cf85cdbe031a71",
+   "lbr_bb": 1.223,
+   "lbr_stderr_bb": 0.3099,
+   "field_worst": {
+    "name": "station5",
+    "bb100": -1453.15,
+    "ci95_low": -1689.88
+   },
+   "job": "e3-tp-mid-c1-mixn-pod",
+   "strategy": "current",
+   "menu": "real",
+   "raise_cap": null,
+   "key_variant": "c1",
    "q": 255,
-   "min_visits": 0,
-   "keys": 62724,
-   "keys_dropped": 0,
-   "placeholder": true,
-   "trained_on": {
-    "game": "cash",
-    "players": 6,
-    "stack_bb": 100,
-    "menu": "v1"
+   "min_visits": 4,
+   "keys": 42365,
+   "keys_dropped": 413959,
+   "by_players": {
+    "2": {
+     "file": "mid-2.json",
+     "bytes": 3145723,
+     "tier": "mid",
+     "players": 2,
+     "k": 11,
+     "depth": "full",
+     "iterations": 120000,
+     "run_id": "42591543123",
+     "sha": "9660453c545a0910efb6dd9315cf85cdbe031a71",
+     "lbr_bb": 5.5493,
+     "lbr_stderr_bb": 0.8544,
+     "field_worst": {
+      "name": "station1",
+      "bb100": -283.04,
+      "ci95_low": -490.69
+     },
+     "job": "e3-tp-mid-c1-mixn-pod",
+     "strategy": "current",
+     "menu": "real",
+     "raise_cap": null,
+     "key_variant": "c1",
+     "q": 255,
+     "min_visits": 15,
+     "keys": 35922,
+     "keys_dropped": 543713
+    },
+    "3": {
+     "file": "mid-3.json",
+     "bytes": 3145705,
+     "tier": "mid",
+     "players": 3,
+     "k": 11,
+     "depth": "full",
+     "iterations": 120000,
+     "run_id": "42591543123",
+     "sha": "9660453c545a0910efb6dd9315cf85cdbe031a71",
+     "lbr_bb": 5.0838,
+     "lbr_stderr_bb": 0.5728,
+     "field_worst": {
+      "name": "maniac2",
+      "bb100": -757.08,
+      "ci95_low": -1013.01
+     },
+     "job": "e3-tp-mid-c1-mixn-pod",
+     "strategy": "current",
+     "menu": "real",
+     "raise_cap": null,
+     "key_variant": "c1",
+     "q": 255,
+     "min_visits": 15,
+     "keys": 33446,
+     "keys_dropped": 680083
+    },
+    "4": {
+     "file": "mid-4.json",
+     "bytes": 2266547,
+     "tier": "mid",
+     "players": 4,
+     "k": 11,
+     "depth": "full",
+     "iterations": 120000,
+     "run_id": "42591543123",
+     "sha": "9660453c545a0910efb6dd9315cf85cdbe031a71",
+     "lbr_bb": 2.718,
+     "lbr_stderr_bb": 0.6318,
+     "field_worst": {
+      "name": "mixed_styles",
+      "bb100": -999.32,
+      "ci95_low": -1235.35
+     },
+     "job": "e3-tp-mid-c1-mixn-pod",
+     "strategy": "current",
+     "menu": "real",
+     "raise_cap": null,
+     "key_variant": "c1",
+     "q": 255,
+     "min_visits": 10,
+     "keys": 33616,
+     "keys_dropped": 652660
+    },
+    "5": {
+     "file": "mid-5.json",
+     "bytes": 3060099,
+     "tier": "mid",
+     "players": 5,
+     "k": 11,
+     "depth": "full",
+     "iterations": 120000,
+     "run_id": "42591543123",
+     "sha": "9660453c545a0910efb6dd9315cf85cdbe031a71",
+     "lbr_bb": 2.6118,
+     "lbr_stderr_bb": 0.5305,
+     "field_worst": {
+      "name": "station4",
+      "bb100": -1451.3,
+      "ci95_low": -1767.89
+     },
+     "job": "e3-tp-mid-c1-mixn-pod",
+     "strategy": "current",
+     "menu": "real",
+     "raise_cap": null,
+     "q": 255,
+     "min_visits": 5,
+     "keys": 46281,
+     "keys_dropped": 512526,
+     "key_variant": "c1"
+    }
    }
   },
   "pro": {
@@ -85,6 +195,130 @@
     "players": 6,
     "stack_bb": 100,
     "menu": "v1"
+   }
+  }
+ },
+ "tournament": {
+  "1261657cabcdc1ad": {
+   "b": {
+    "ante": {
+     "0": {
+      "file": "t-1261657cabcdc1ad-b0.json",
+      "bytes": 3145723,
+      "tier": "mid",
+      "players": 4,
+      "k": 11,
+      "depth": "full",
+      "iterations": 20000,
+      "run_id": "43735226442",
+      "sha": "16b8941e01b282512f7b88c59c12476d0f7fd918",
+      "lbr_bb": 3.161,
+      "lbr_stderr_bb": 0.6711,
+      "field_worst": null,
+      "job": "e3-tp-mid4-c1-pod",
+      "strategy": "current",
+      "menu": "real",
+      "raise_cap": null,
+      "key_variant": "c1",
+      "q": 255,
+      "min_visits": 10,
+      "keys": 15936,
+      "keys_dropped": 636875,
+      "env_id": "1261657cabcdc1ad",
+      "stage": "b",
+      "ante": 0,
+      "payoff": "icm",
+      "lam": 0.0,
+      "stacks": "bubble:skewed",
+      "level_index": 0,
+      "trained_on": {
+       "game": "tournament",
+       "env_id": "1261657cabcdc1ad",
+       "stage": "b",
+       "players": 4
+      }
+     }
+    }
+   },
+   "m": {
+    "ante": {
+     "0": {
+      "by_players": {
+       "2": {
+        "file": "t-1261657cabcdc1ad-m0-n2.json",
+        "bytes": 3145728,
+        "tier": "mid",
+        "players": 2,
+        "k": 11,
+        "depth": "full",
+        "iterations": 20000,
+        "run_id": "44139238381",
+        "sha": "d098ba07d64d7ce4ebbece4dfd218eac554c9c33",
+        "lbr_bb": 6.1116,
+        "lbr_stderr_bb": 0.89,
+        "field_worst": null,
+        "job": "e3-tp-mid2-c1-pod",
+        "strategy": "current",
+        "menu": "real",
+        "raise_cap": null,
+        "key_variant": "c1",
+        "q": 255,
+        "min_visits": 10,
+        "keys": 37545,
+        "keys_dropped": 421247,
+        "env_id": "1261657cabcdc1ad",
+        "stage": "m",
+        "ante": 0,
+        "payoff": "icm",
+        "lam": 0.0,
+        "stacks": "bubble:skewed",
+        "level_index": 0,
+        "trained_on": {
+         "game": "tournament",
+         "env_id": "1261657cabcdc1ad",
+         "stage": "m",
+         "players": 2
+        }
+       },
+       "3": {
+        "file": "t-1261657cabcdc1ad-m0-n3.json",
+        "bytes": 3145721,
+        "tier": "mid",
+        "players": 3,
+        "k": 11,
+        "depth": "full",
+        "iterations": 20000,
+        "run_id": "44121220524",
+        "sha": "d098ba07d64d7ce4ebbece4dfd218eac554c9c33",
+        "lbr_bb": 4.8744,
+        "lbr_stderr_bb": 0.5391,
+        "field_worst": null,
+        "job": "e3-tp-mid3-c1-pod",
+        "strategy": "current",
+        "menu": "real",
+        "raise_cap": null,
+        "key_variant": "c1",
+        "q": 255,
+        "min_visits": 10,
+        "keys": 30315,
+        "keys_dropped": 627669,
+        "env_id": "1261657cabcdc1ad",
+        "stage": "m",
+        "ante": 0,
+        "payoff": "icm",
+        "lam": 0.0,
+        "stacks": "bubble:skewed",
+        "level_index": 0,
+        "trained_on": {
+         "game": "tournament",
+         "env_id": "1261657cabcdc1ad",
+         "stage": "m",
+         "players": 3
+        }
+       }
+      }
+     }
+    }
    }
   }
  }

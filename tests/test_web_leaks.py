@@ -69,3 +69,43 @@ def test_node_leak_warnings_pass(node):
     r = subprocess.run([node, "--test", str(ROOT / "web" / "app" / "test" / "leaks.test.mjs")],
                        capture_output=True, text=True, encoding="utf-8", timeout=120)
     assert r.returncode == 0, r.stdout[-4000:] + r.stderr[-2000:]
+
+
+def _old_confirm(table, screen, deals, seed, workers):
+    """The pre-#854 implementation: one probe call (and Pool) per candidate cell."""
+    pos = PL.POSITIONS[screen["players"]]
+    cells = []
+    for i, c in enumerate(PL.candidates(screen)):
+        r = PL.P.probe(table, deals, seed * 100_000 + i, (c["spot"],), [pos.index(c["seat"])], (c["group"],), workers)
+        cells += r["cells"]
+    z = PL.P.flag(cells, screen["threshold_bb"])
+    return cells, round(z, 3), sum(c["leak"] for c in cells)
+
+
+def _confirm_fixture(monkeypatch, n_cands):
+    from tests.test_e3_preflop_probe import _policy, _table
+    from stalker.e3 import game as G
+    monkeypatch.setitem(PL.POSITIONS, 3, tuple(G.position_names(3)))
+    table = _table(_policy(limp_top=True))
+    pos = PL.POSITIONS[3]
+    cells = []
+    for seat, group in [(pos[0], "AA"), (pos[1], "AA"), (pos[0], "KK")][:n_cands]:
+        cells.append({"spot": "first_in", "seat": seat, "group": group, "best": "r", "leak": False,
+                      "actions": {"r": {"vs_row_bb": 3.0, "vs_row_ci": [1.0, 5.0]}}})
+    return table, {"players": 3, "threshold_bb": 1.0, "menu": "v1", "cells": cells}
+
+
+@pytest.mark.parametrize("workers", [1, 2])
+def test_confirm_one_pool_matches_per_cell_probe(monkeypatch, capsys, workers):
+    table, screen = _confirm_fixture(monkeypatch, 3)
+    new = PL.confirm(table, screen, 100, 7, workers)
+    cells, z, leaks = _old_confirm(table, screen, 100, 7, workers)
+    assert new["cells"] == cells and new["z_corrected"] == z and new["leaks"] == leaks
+    err = capsys.readouterr().err
+    assert "[confirm] candidates 3, jobs 6" in err and "[confirm] 3/3 first_in" in err
+
+
+def test_confirm_without_candidates(monkeypatch):
+    table, screen = _confirm_fixture(monkeypatch, 0)
+    out = PL.confirm(table, screen, 100, 7, 2)
+    assert out["cells"] == [] and out["leaks"] == 0

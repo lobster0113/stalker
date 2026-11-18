@@ -1,0 +1,18 @@
+# #935 (F7a follow-up): the random half of a CI-grounded lambda-grid baseline on exactly the F7a cells. The icm_grid flags
+# equal jobs/e3-sng-bubble-lambda-policy.yaml (run 43778587487) except --agents/--out, so the F7a doc can compare
+# policy / random / tag cell by cell (same seed 10001 -> same stacks). The #877 baselines used seed 0 and 54 cells.
+# One preset x remaining 4 x 3 profiles x 3 layouts = 9 cells, 9000 games, single process -> 2 vCPU.
+# Local reference (not CI): tag 9 cells 8m55s single process (#935); random is faster. max_minutes 90 is generous for a slow host.
+# run_stages --deadline-s 3600 (= 90*60 - 1800 s) stops the grid 30 min before the pod limit so a slow pod still
+# yields a stage-failure result; the measurement stage first prints `t0=... stage_start=...` to stderr.
+# Worst case = 0.12 * 90 / 60 = $0.18. Dispatch alone, one job at a time (#877: two jobs at once got a 429).
+# Result: ops:cloud/results/<run id>.json, schema stalker.icm.lambda-grid-pair with the single agent `random`.
+name: icm-lambda-grid-random-f7
+image: python:3.12-slim
+command: set -e; mkdir -p /src; date -u +%s > /src/t0; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e .; python3 -m stalker.tools.run_stages --out /result/icm-lambda-grid-random-f7.json --deadline-s 3600 --stage 'random=echo t0=$(cat /src/t0) stage_start=$(date -u +%s) >&2; python3 -m stalker.tools.icm_grid --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --level-index 0 --games 1000 --seed 10001 --agents random --lambda-grid --out /src/random.json' --stage 'pair=python3 -m stalker.tools.icm_grid_pair --out /result/icm-lambda-grid-random-f7.json random=/src/random.json'
+cpu_flavor: cpu3c
+vcpu: 2
+disk_gb: 10
+max_minutes: 90
+hourly_usd: 0.12
+result_path: /result/icm-lambda-grid-random-f7.json

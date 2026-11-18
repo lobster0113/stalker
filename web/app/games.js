@@ -1,11 +1,16 @@
 // 내 게임 저장·리플레이 (#465): pure helpers, no DOM. The page keeps `stalker.games` in localStorage.
-// Shape: {schema:"stalker.games", schema_version:1, games:[{id, ts, tier, mode, n, hands:[hand]}]}
-// hand: {no, cards, net, folded, board:[text], seats:[{i,name,pos,hero,stack}], acts:[act]}
+// Shape: {schema:"stalker.games", schema_version:2, games:[{id, ts, tier, mode, n, hands:[hand]}]}
+// hand: {no, cards, net, folded, board:[text], seats:[{i,name,pos,hero,stack}], acts:[act], tour?}
+// tour (v2, tournament hands, #968): {env, stage: e|b|m|f, ante: 0|1, policy: {file, stage, ante, run_id, iterations,
+//       lbr_bb, lbr_stderr_bb}|null} — the preset and stage the hand was played at and the policy that was serving
+//       (null: no policy, the review must not call its answers TP-GTO). v1 records have no `tour` and load unchanged.
 // act:  {st, seat, hero, type, txt, to, pot, board, bets:[], stacks:[], folded:[], an?}
 // an (hero decision on a TP-GTO table): {name, p, approx, top, topP, mix:[{name,p}], leak, eq, need, beats,
 //       opps, reply:{canFold, weakFold, strongFold, strongOfContinuing, fold, weakShare}|null, tp:{total, worst:[{k,score}]}|null}
 export const GAMES_SCHEMA = "stalker.games";
-export const GAMES_VERSION = 1;
+export const GAMES_VERSION = 2;
+/** Versions loadGames reads. v1 → v2 only added the optional hand.tour, so a v1 record is a valid v2 record. */
+export const GAMES_READS = Object.freeze([1, 2]);
 export const LIMITS = { games: 30, hands: 300, bytes: 1_500_000 };
 export const GOOD_P = 0.25, WARN_P = 0.10;
 
@@ -23,7 +28,7 @@ export function validHand(h) {
 export function loadGames(raw) {
   let d = raw;
   if (typeof raw === "string") { try { d = JSON.parse(raw); } catch { return []; } }
-  if (!isObj(d) || d.schema !== GAMES_SCHEMA || d.schema_version !== GAMES_VERSION || !Array.isArray(d.games)) return [];
+  if (!isObj(d) || d.schema !== GAMES_SCHEMA || !GAMES_READS.includes(d.schema_version) || !Array.isArray(d.games)) return [];
   return d.games.filter((g) => isObj(g) && typeof g.id === "string" && Array.isArray(g.hands))
     .map((g) => ({ ...g, hands: g.hands.filter(validHand) })).filter((g) => g.hands.length);
 }
@@ -56,6 +61,8 @@ export function serialize(games) { return JSON.stringify(wrap(games)); }
 export function verdict(an) {
   if (!an || an.p == null) return null;
   if (an.leak) return { key: "skip", text: "채점 안 함" };
+  // #623: the row was a nearby situation's average (c1 coarse-key backoff), not this spot's answer.
+  if (an.near) return { key: "skip", text: "근사 · 채점 안 함" };
   if (an.p >= GOOD_P) return { key: "good", text: "잘함" };
   if (an.p >= WARN_P) return { key: "warn", text: "아쉬움" };
   return { key: "bad", text: "실수" };
@@ -65,12 +72,14 @@ const pc = (x) => Math.round(x * 100) + "%";
 
 /** Reason lines computed from the stored numbers (never canned): [{kind, text}]. */
 export function reasons(an, act, names = {}) {
-  if (!an) return [{ kind: "note", text: "이 테이블은 학습된 TP-GTO 정책이 없어 모의 상대였어요. 계산할 수 있는 것(액션 기록)만 보여요." }];
+  if (!an) return [{ kind: "note", text: names.noModel || "이 테이블은 학습된 TP-GTO 정책이 없어 모의 상대였어요. 계산할 수 있는 것(액션 기록)만 보여요." }];
   const out = [];
   const aggressive = act.type === "raise";
   if (an.p != null) {
     const top = an.top && an.top !== an.name ? ` 정책이 가장 자주 고르는 건 ${an.top}(${pc(an.topP)})이에요.` : "";
-    out.push({ kind: "freq", text: `내 선택 ${an.name}은 정책이 ${an.approx ? "대략 " : ""}${pc(an.p)} 쓰는 액션이에요.${top}` });
+    out.push({ kind: "freq", text: an.near
+      ? `이 상황 그대로의 학습 표본이 없어 비슷한 상황 평균(근사)으로 비교했어요: 내 선택 ${an.name}은 그 평균에서 ${pc(an.p)}예요. 채점하지 않아요.${top}`
+      : `내 선택 ${an.name}은 정책이 ${an.approx ? "대략 " : ""}${pc(an.p)} 쓰는 액션이에요.${top}` });
   }
   const r = an.reply;
   if (aggressive && r) {
