@@ -4,7 +4,7 @@ ADR 0030 후속 3(임계값 ADR)의 근거 데이터. **값은 클라우드 run 
 
 ## 방법
 - 잡 `jobs/e3-sng-bubble-lbr-icm-eval.yaml`(#997): `tournament_eval --games 200 --seed 10001 --lbr-hands 2000`, 칸 3개(spots v1), schema_version 2.
-- 단위: `lbr_pool.mean`은 상금 풀 대비 비율(`referee.e3.lbr.lbr_icm`, `tournament_eval.py` 머리말), se는 평균의 표준오차. 핸드 수는 칸당 2000.
+- 단위: `lbr_pool.mean`은 핸드당 상금 풀 대비 비율(`referee.e3.lbr.lbr_icm`, `tournament_eval.py` 머리말: 보정 에퀴티 변화), se는 배분된 N핸드에 대한 평균의 표준오차. 핸드 수는 칸당 2000.
 - 칸: A = 플레이어 `[2,3,6,7]`(학습 좌석 2), B = `[2,3,5,7]`(학습 좌석 7), C = `[2,3,6,7]`(세 번째 칸, 결과 JSON의 칸 순서).
 - 시드 = 평가 대상 cold A 학습 run. dry_run 선행 후 실제 run을 하나씩 디스패치(#877).
 
