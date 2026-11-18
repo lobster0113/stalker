@@ -12,6 +12,8 @@ normal 95% CI. Adoption rule: B when the CI's lower bound is above 0, otherwise 
 Auxiliary, per cell and arm: the ADR 0026 metrics of a policy-symmetric field (the arm on every seat, via
 `icm_calibration.calibrate` and `icm_grid.lambda_metrics` at lambda = 0; summary (i) significant bubble cells and
 (ii) mean bubble |diff|/pool), and the #900 backoff counts of the learning seat (`policy`) and of the symmetric field.
+The unvisited-key list (`missing_keys`, #990) is kept only in the per-arm totals `policy.<arm>`; per-cell `policy`
+entries drop it (schema 2, #1004) so the result stays under the ops upload limit whatever the cell count.
 
     python -m stalker.tools.tournament_ab --a cold.json --b prior.json --presets 9max_sng_503020 --remaining 4 \
         --profiles even,random,skewed --layouts 3 --games 200 --seed 10001 --out ab.json
@@ -44,7 +46,7 @@ from stalker.tournament.config import load_preset
 from stalker.tournament.director import run_game
 from stalker.tournament.start_state import STACK_PROFILES, make_start_state
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: per-cell policy counts without missing_keys (#1004)
 DEFAULT_SEED = 10001
 DEFAULT_FIELD = "persona:tag"
 Z95 = 1.959963984540054
@@ -103,12 +105,19 @@ def _play_arm(config, ss, arm: PolicyAgents, field, learner: int, seeds: np.ndar
     return out
 
 
+def _cell_counts(arm: PolicyAgents) -> dict:
+    """Per-cell counts: 36 copies of the top-N key lists pushed a 9-cell run past ops' 1 MiB (#1004)."""
+    c = arm.counts()
+    c.pop("missing_keys", None)
+    return c
+
+
 def _symmetric(config, ss, arm: PolicyAgents, games: int, seed: int) -> dict:
     arm.reset()
     raw = calibrate(config, ss, arm, games, np.random.default_rng(seed))
     (m,) = lambda_metrics(raw, [0.0])
     return {"games": games, "zone": zone(raw), **summarize(raw), "significant": m["significant"],
-            "lambda_metrics": [m], "policy": arm.counts()}
+            "lambda_metrics": [m], "policy": _cell_counts(arm)}
 
 
 def run_ab(a: str, b: str, presets: Sequence[str], remainings: Sequence[int], profiles: Sequence[str], games: int,
@@ -165,7 +174,7 @@ def run_ab(a: str, b: str, presets: Sequence[str], remainings: Sequence[int], pr
                             rel[name] = _play_arm(config, ss, arm, field_factory, learner, seeds, pool, icm)
                             learners[name] += arm.agents
                             x = np.asarray(rel[name])
-                            entry = {"mean": float(x.mean()), "sd": float(x.std(ddof=1)), "policy": arm.counts()}
+                            entry = {"mean": float(x.mean()), "sd": float(x.std(ddof=1)), "policy": _cell_counts(arm)}
                             if sym_games:
                                 entry["symmetric"] = _symmetric(config, ss, arm, sym_games, sym_seed)
                             cell["arms"][name] = entry
