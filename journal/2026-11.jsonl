@@ -1917,3 +1917,4 @@
 {"ts":"2026-11-18T14:16:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer)","friction":""}
 {"ts":"2026-11-18T14:41:42Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT CHANGES on head d723a9c, no new commits","friction":""}
 {"ts":"2026-11-18T15:14:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer)","friction":""}
+{"ts":"2026-11-18T15:41:27Z","role":"reviewer","outcome":"no_work","issue":null,"pr":599,"notes":"sweep: only open PR #599 already has VERDICT CHANGES on head d723a9c, no new commits","friction":"PR #599 idle since 11-06 CHANGES; sweeps keep re-checking it"}
