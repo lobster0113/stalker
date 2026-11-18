@@ -1895,3 +1895,4 @@
 {"ts":"2026-11-18T09:41:04Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already has VERDICT CHANGES on head d723a9c","friction":""}
 {"ts":"2026-11-18T09:52:55Z","role":"builder-b","outcome":"pr_opened","issue":996,"pr":null,"notes":"SNG stage3 BB-ante job yaml+tests+README; local full: tests ok after slow_host count fix, rest left to CI","friction":"gates full ~25min tests stage; tool calls capped ~2min so polling needed"}
 {"ts":"2026-11-18T09:53:27Z","role":"reviewer-b","outcome":"skipped","issue":996,"pr":999,"notes":"not my parity","friction":""}
+{"ts":"2026-11-18T10:11:13Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #999, #599 are odd (reviewer's parity); no even PR to judge","friction":""}
