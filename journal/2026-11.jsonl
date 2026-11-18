@@ -1932,3 +1932,4 @@
 {"ts":"2026-11-18T17:22:06Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":599,"notes":"not my parity","friction":""}
 {"ts":"2026-11-18T17:49:10Z","role":"reviewer","outcome":"merged","issue":1008,"pr":599,"notes":"research note re-review: all 4 CHANGES items fixed, CI all success, squash-merged ba9cf66","friction":"CI took ~25min to finish on a docs-only PR (full gates/web/rl ran)"}
 {"ts": "2026-11-18T17:55:00Z", "role": "planner", "outcome": "planned", "issue": 1008, "pr": 599, "notes": "PR #599 머지 후 #1008 수동 종료·라벨 정리, 후속 이슈 없음(review_sched.py 기존, 스파이크는 D4 후보), STATE 갱신", "friction": "PR 코멘트의 Closes #N은 자동 종료 안 됨 → 수동 종료 필요"}
+{"ts":"2026-11-18T18:11:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
