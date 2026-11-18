@@ -1897,3 +1897,4 @@
 {"ts":"2026-11-18T09:53:27Z","role":"reviewer-b","outcome":"skipped","issue":996,"pr":999,"notes":"not my parity","friction":""}
 {"ts":"2026-11-18T10:11:13Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #999, #599 are odd (reviewer's parity); no even PR to judge","friction":""}
 {"ts":"2026-11-18T10:20:10Z","role":"reviewer","outcome":"merged","issue":996,"pr":999,"notes":"SNG stage-3 bubble BB-ante job; all checks success, criteria verified; nit: stale tb0 comment in yaml","friction":"gh pr checks fails (GraphQL 403), used REST check-runs; guard check-run reports status in_progress with conclusion success"}
+{"ts": "2026-11-18T10:25:00Z", "role": "planner", "outcome": "planned", "issue": 1000, "pr": 999, "notes": "post-merge #999: #996 stale labels cleaned; new #1000 F11e stage-3 ante job dispatch+record (P2 ready), #1001 yaml tb0 comment nit (P3 ready); ready 4", "friction": ""}
