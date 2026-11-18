@@ -48,4 +48,5 @@
 
 ## 되돌리는 조건
 - 새 시드 3쌍의 평균 CI가 서로 겹치지 않거나, 쌍 간 sd가 쌍 안 se의 2배를 넘으면(잡음 모델이 틀림) δ와 min_seeds를 새 측정으로 다시 정한다.
+- 검사 경로(#983): `python -m referee.e3.tournament_thresholds --recheck` (`recheck()`가 위 두 조건을 기계적으로 낸다).
 - ADR 0026의 λ·보상 정의, 또는 `tournament_eval`의 지표 정의가 바뀌면 새 버전 파일로 판정한다.
