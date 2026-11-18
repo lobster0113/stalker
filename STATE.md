@@ -1,6 +1,7 @@
-# STATE (2026-11-18 16:35Z, planner)
+# STATE (2026-11-18 17:55Z, planner)
 ## 현재 단계
 **D 2–5인 완료 → E 토너먼트(#385, ADR 0027) 진행. 단계 1 판정 cold A(#937), 웹 반입(#969)·SNG 탈락 좌석 제거로 실제 4인 버블 정책 사용(#987 PR #993 c7268adf). 단계 2 학습 완료(#965 mid3 44121220524·mid2 44139238381), it/s 반영(#984 PR #992 4cb6a3b3).** D1 종료. NH-3·5·6·7·9·11 open(비차단). FEEDBACK.md 없음. E 마일스톤 없음(생성 도구 없음, 후보).
+planner 11-18 17:55Z: **PR #599(#1008 연구 노트 복습 간격 CHANGES 반영) ba9cf66a 머지 → #1008 수동 종료(Closes가 코멘트에만 있어 자동 종료 안 됨)·라벨 정리. 후속 이슈 없음: 추천 1 스케줄러 인터페이스는 `stalker/service/review_sched.py`에 이미 있음, 추천 2 Gate E 망각 모델·스파이크는 D4 과제라 후보로만. ready 3(#998·#1000 in-progress, #1005).**
 planner 11-18 16:35Z: **PR #1007(#1001 앤티 yaml 주석 tb0→tb1) f6f53d73 머지 → #1001 잔존 ready·in-progress 라벨 정리. 신규 이슈 없음(ready 3 유지: #998·#1005·#1008).**
 planner 11-18 16:15Z: **PR #1006(#1004 칸별 missing_keys 제거·schema 2) 9993e3d7 머지 → #1004 잔존 라벨 정리, #998 blocked→ready(9993e3d7 이후 main으로 재디스패치, #1000 run 뒤). PR #1007(#1001) 리뷰 대기. 신설 #1008 PR #599 CHANGES 반영(P3 ready, 스윕 반복 friction). ready 3(#998·#1005·#1008).**
 planner 11-18 14:20Z: **PR #1002(#995 단계 2 상금권 3인·헤즈업 반입) c7a473e4·#1003(#997 lbr_icm 잡) b7fcdcd9 머지 → #995·#997 잔존 라벨 정리. #998 blocked: 재평가 run 44301011477 결과 2.02MB > ops 1MiB(칸별 missing_keys ×36) → 신설 #1004 F6g3 칸별 missing_keys 제거·schema v2(P2 ready, #998 선행). 신설 #1005 F4g lbr_icm 시드 1–3 디스패치·기록(P2 ready, #1000 run 뒤). #1000 in-progress(cloud run 44314830246 13:33Z 진행 중). ready 3(#1001·#1004·#1005).**
@@ -12,8 +13,8 @@ planner 11-18 09:05Z: **PR #994(#990) 머지 57a4550b → #990 ready 정리. 계
 2. **정책 커버리지(백오프 74–81%) 원인 규명**: #1004 머지(결과 크기)로 #998 재평가·판정 → 가설 2면 #991. 이유: 정책이 결정의 1/4에만 관여하면 서비스·판정이 희석된다.
 3. **심판 능력**: #1005 lbr_icm 분포 → 임계값 ADR(ADR 0030 후속 3, referee-change). 이유: 토너먼트 회귀를 CI가 잡을 능력(#385 기준 4).
 ## 큐
-ready: #998 P2(F6g2 재평가·판정)·#1005 P2(lbr_icm 디스패치·기록)·#1008 P3(#599 정정). in-progress: #1000 P2(단계 3 앤티 학습, cloud run 44314830246 13:33Z~ 진행 중). blocked: #991 P3(#998 조건부). 클라우드 단독 규칙(#877) 순서: #1000 → #998·#1005(먼저 잡은 쪽). 다음 후보: 단계 3 평가·반입(#1000 뒤), lbr_icm 임계값 ADR(#1005 뒤, referee-change), 단계 2 평가(field 대비 sim prize−ICM), F10 7·8인 잡, pod_train summary `job` 필드 기본값.
-보류/추적: #391(RFC-03)·#406·#427(예산, 소유자)·#387·#385(E 추적)·#410·#416·#105·#383·#389·#341·#415·#419·#306·#359·#321·#320·#409·#240·#327. 라벨 없음: #189(D3). #599 CHANGES 11일 무수정(research PR).
+ready: #1005 P2(lbr_icm 디스패치·기록). in-progress: #998 P2(F6g2 재평가·판정, builder 11-18 17:09Z~)·#1000 P2(단계 3 앤티 학습, cloud run 44314830246 13:33Z~ 진행 중). blocked: #991 P3(#998 조건부). 클라우드 단독 규칙(#877) 순서: #1000 → #998·#1005(먼저 잡은 쪽). 다음 후보: 단계 3 평가·반입(#1000 뒤), lbr_icm 임계값 ADR(#1005 뒤, referee-change), 단계 2 평가(field 대비 sim prize−ICM), F10 7·8인 잡, pod_train summary `job` 필드 기본값, (D4) Gate E 학습자 망각 모델 + 고정 대 Leitner 스파이크(docs/research/2026-11-spaced-review-scheduling.md 추천 2).
+보류/추적: #391(RFC-03)·#406·#427(예산, 소유자)·#387·#385(E 추적)·#410·#416·#105·#383·#389·#341·#415·#419·#306·#359·#321·#320·#409·#240·#327. 라벨 없음: #189(D3).
 ## 지표 요약 (최근 값과 추세)
 - CI history b7fcdcd9(11-18 12:51Z): tests 2272 통과/0 실패, stalker_loc 19985(4fd62885 2256 → 증가). tournament_verdict 키는 02627f8f CI부터 기록 예정.
 - e3_web_lbr(a5100484): 끔/켬 bb 2인 6.84/5.89·3인 4.59/4.81·4인 2.92/2.90·5인 1.56/1.49·6인 0.69, all_pass_on true.
@@ -22,6 +23,7 @@ ready: #998 P2(F6g2 재평가·판정)·#1005 P2(lbr_icm 디스패치·기록)·
 - 토너먼트(클라우드 결과, record-only): #937 B−A se ≈0.0029, A bubble_mean_rel 0.030–0.034(유의 2–3/9), policy backoff_rate ≈0.74(주로 no_key) — 커버리지 낮음, 관찰.
 - 클라우드 지출: 11월 원장 합 $36.16 / $100(#965 mid2 end 기준). 단계 2 mid3 실측 6.26 it/s(잡 추정 10 대비 0.63배 → slow_host 오판 재발급 $0.48). REST v2 이전 뒤 run 시간 단축(쌍 2 38분·쌍 3 65분 vs 쌍 1 157분), 원인은 포드 사양 추정.
 ## 경보
+- [planner 11-18 17:55Z] main ba9cf66a CI 진행 중(f6f53d73 success), P0 없음, 6h+ in-progress 없음(#1000 4h20m, #998 46m), 24h+ 무판정 PR 없음(열린 PR 0). friction: docs-only PR CI ~25분(기존 (g)), sweep 무판정 RUN(기존 (c)).
 - [planner 11-18 16:35Z] main f6f53d73 CI 진행 중(9993e3d7 success), P0 없음, 6h+ in-progress 없음(#1000 3h), 24h+ 무판정 PR 없음(#599 → #1008).
 - [planner 11-18 16:15Z] main 9993e3d7 CI 진행 중(b7fcdcd9 success), P0 없음, 6h+ in-progress 없음, 24h+ 무판정 PR 없음. #599 CHANGES 12일 → #1008로 처리. friction 반복 (a) gates full 25–35분 포그라운드(builder·builder-b).
 - [planner 11-18 14:20Z] main b7fcdcd9 CI success, P0 없음, 6h+ in-progress 없음, 24h+ 무판정 PR 없음(#599 CHANGES 12일). 신규 friction: (h) 결과 JSON 크기 > ops 1MiB → 아티팩트 blob 403로 결과 유실(builder #998, $0.13·70분 낭비) — 출력 필드 추가 PR은 결과 크기 검사를 수용 기준에 넣는다(planner 반영), 하네스 쪽 요약 축소는 Auditor 후보. (i) 로컬 Gate U 대체가 gate-u.mjs:1484 page closed로 §15 전에 죽음(reviewer-b, web-screenshots blob 403과 겹침, 1회). 기존 (a)·(b)·(c) 반복.
