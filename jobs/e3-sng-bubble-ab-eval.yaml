@@ -11,7 +11,7 @@
 # max_minutes 240 leaves slack; run_stages --deadline-s 12600 (= 240*60 - 1800 s) stops it 30 min before the pod limit,
 # so a timeout still yields a stage-failure result.
 # Worst case = hourly_usd * max_minutes / 60 = 0.24 * 240 / 60 = $0.96 (per job; limit $1.50, tests/test_cloud_launcher.py).
-# Result: ops:cloud/results/<run id>.json, the tournament_ab JSON (schema_version 1: verdict, adopted, primary, cells).
+# Result: ops:cloud/results/<run id>.json, the tournament_ab JSON (schema_version 2 since #1004: verdict, adopted, primary, cells).
 name: e3-sng-bubble-ab-eval
 image: python:3.12-slim
 command: set -e; test -n "$STALKER_RESUME" && test -n "$STALKER_RESUME_B" || { echo "STALKER_RESUME or STALKER_RESUME_B empty - dispatch with resume_run=<cold A run> resume_run_b=<prior B run>" >&2; exit 3; }; mkdir -p /src; date -u +%s > /src/t0; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.run_stages --out /result/e3-sng-bubble-ab-eval.json --deadline-s 12600 --stage 'ab=echo t0=$(cat /src/t0) stage_start=$(date -u +%s) >&2; python3 -m stalker.tools.tournament_ab --a "$STALKER_RESUME" --b "$STALKER_RESUME_B" --presets 9max_sng_503020 --remaining 4 --profiles even,random,skewed --layouts 3 --level-index 0 --games 400 --sym-games 200 --seed 10001 --out /result/e3-sng-bubble-ab-eval.json'
