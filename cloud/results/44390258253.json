@@ -1,0 +1,257 @@
+{
+  "cells": [
+    {
+      "bubble": true,
+      "corrected_equity": {
+        "mean": 0.25,
+        "se": 0.0
+      },
+      "games": 200,
+      "icm_equity": {
+        "mean": 0.25,
+        "se": 0.0
+      },
+      "lbr_pool": {
+        "ante": 0,
+        "hands": 2000,
+        "mean": 0.024929945107585838,
+        "se": 0.0010804304409594379,
+        "stage": "b"
+      },
+      "learner": 2,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        6,
+        7
+      ],
+      "policy": {
+        "backoff_rate": 0.7456445993031359,
+        "backoff_reasons": {
+          "no_key": 3937,
+          "short_stack": 343
+        },
+        "backoffs": 4280,
+        "by_street": {
+          "0": {
+            "decisions": 4858,
+            "hit_rate": 0.2799505969534788,
+            "policy_hits": 1360
+          },
+          "1": {
+            "decisions": 440,
+            "hit_rate": 0.11818181818181818,
+            "policy_hits": 52
+          },
+          "2": {
+            "decisions": 274,
+            "hit_rate": 0.08029197080291971,
+            "policy_hits": 22
+          },
+          "3": {
+            "decisions": 168,
+            "hit_rate": 0.15476190476190477,
+            "policy_hits": 26
+          }
+        },
+        "decisions": 5740,
+        "policy_hits": 1460
+      },
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "even",
+      "remaining": 4,
+      "sim_minus_corrected": {
+        "mean": -0.0795,
+        "se": 0.012716417987474334
+      },
+      "sim_prize": {
+        "mean": 0.1705,
+        "se": 0.012716417987474334
+      },
+      "stacks": [
+        3375,
+        3375,
+        3375,
+        3375
+      ]
+    },
+    {
+      "bubble": true,
+      "corrected_equity": {
+        "mean": 0.3168970043433943,
+        "se": 0.0
+      },
+      "games": 200,
+      "icm_equity": {
+        "mean": 0.3168970043433943,
+        "se": 0.0
+      },
+      "lbr_pool": {
+        "ante": 0,
+        "hands": 2000,
+        "mean": 0.010353397180698717,
+        "se": 0.001194740986279686,
+        "stage": "b"
+      },
+      "learner": 7,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        5,
+        7
+      ],
+      "policy": {
+        "backoff_rate": 0.7550028587764437,
+        "backoff_reasons": {
+          "no_key": 5000,
+          "short_stack": 282
+        },
+        "backoffs": 5282,
+        "by_street": {
+          "0": {
+            "decisions": 5858,
+            "hit_rate": 0.27074086719016727,
+            "policy_hits": 1586
+          },
+          "1": {
+            "decisions": 561,
+            "hit_rate": 0.09803921568627451,
+            "policy_hits": 55
+          },
+          "2": {
+            "decisions": 350,
+            "hit_rate": 0.09428571428571429,
+            "policy_hits": 33
+          },
+          "3": {
+            "decisions": 227,
+            "hit_rate": 0.1762114537444934,
+            "policy_hits": 40
+          }
+        },
+        "decisions": 6996,
+        "policy_hits": 1714
+      },
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "random",
+      "remaining": 4,
+      "sim_minus_corrected": {
+        "mean": -0.07839700434339429,
+        "se": 0.013103329202187685
+      },
+      "sim_prize": {
+        "mean": 0.23850000000000002,
+        "se": 0.013103329202187684
+      },
+      "stacks": [
+        2238,
+        4122,
+        2229,
+        4911
+      ]
+    },
+    {
+      "bubble": true,
+      "corrected_equity": {
+        "mean": 0.07268846006555202,
+        "se": 0.0
+      },
+      "games": 200,
+      "icm_equity": {
+        "mean": 0.07268846006555202,
+        "se": 0.0
+      },
+      "lbr_pool": {
+        "ante": 0,
+        "hands": 2000,
+        "mean": 0.021277696627489177,
+        "se": 0.0018992902827663402,
+        "stage": "b"
+      },
+      "learner": 7,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        6,
+        7
+      ],
+      "policy": {
+        "backoff_rate": 0.7053091397849462,
+        "backoff_reasons": {
+          "no_key": 1845,
+          "short_stack": 254
+        },
+        "backoffs": 2099,
+        "by_street": {
+          "0": {
+            "decisions": 2536,
+            "hit_rate": 0.32452681388012616,
+            "policy_hits": 823
+          },
+          "1": {
+            "decisions": 223,
+            "hit_rate": 0.08071748878923767,
+            "policy_hits": 18
+          },
+          "2": {
+            "decisions": 140,
+            "hit_rate": 0.15714285714285714,
+            "policy_hits": 22
+          },
+          "3": {
+            "decisions": 77,
+            "hit_rate": 0.18181818181818182,
+            "policy_hits": 14
+          }
+        },
+        "decisions": 2976,
+        "policy_hits": 877
+      },
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "skewed",
+      "remaining": 4,
+      "sim_minus_corrected": {
+        "mean": -0.0011884600655520138,
+        "se": 0.008692904170331849
+      },
+      "sim_prize": {
+        "mean": 0.07150000000000001,
+        "se": 0.008692904170331849
+      },
+      "stacks": [
+        5467,
+        6403,
+        1192,
+        438
+      ]
+    }
+  ],
+  "field": "persona:tag",
+  "games": 200,
+  "lam": 0.0,
+  "lam_source": "train_env",
+  "policy": {
+    "path": "/stalker-resume/resume.bin",
+    "sha256": "2e9d38f96ce9b75aeeafca7b6ea85a137719cb2abfbd34550cba9366107351d0"
+  },
+  "schema_version": 2,
+  "seed": 10001,
+  "spots": {
+    "path": "tournament_spots_v1.json",
+    "sha256": "1696f5b61c593201aabc829470d9626024719262bebd2b4a6286f25ff5dee6f2"
+  },
+  "train_env": {
+    "env_id": "1261657cabcdc1ad",
+    "lam": 0.0,
+    "level_index": 0,
+    "stacks": "bubble:skewed",
+    "stage": "b"
+  },
+  "unit": "prize_pool_fraction"
+}
