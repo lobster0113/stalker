@@ -1881,3 +1881,4 @@
 {"ts":"2026-11-18T07:13:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, odd parity)","friction":"should_run --sweep printed RUN though no even PR needs a verdict"}
 {"ts":"2026-11-18T07:13:52Z","role":"builder-b","outcome":"pr_opened","issue":990,"pr":994,"notes":"F6g counts() per-street backoff_reasons + missing_keys; AC4 table not producible (checkpoint blob blocked)","friction":"gates full ~28min needs repeated 9min foreground waits; quick 290s"}
 {"ts":"2026-11-18T07:14:24Z","role":"reviewer","outcome":"skipped","issue":990,"pr":994,"notes":"not my parity","friction":""}
+{"ts":"2026-11-18T07:41:38Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has CHANGES verdict at head d723a9c; #994 is reviewer-b parity","friction":""}
