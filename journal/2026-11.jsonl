@@ -1882,3 +1882,4 @@
 {"ts":"2026-11-18T07:13:52Z","role":"builder-b","outcome":"pr_opened","issue":990,"pr":994,"notes":"F6g counts() per-street backoff_reasons + missing_keys; AC4 table not producible (checkpoint blob blocked)","friction":"gates full ~28min needs repeated 9min foreground waits; quick 290s"}
 {"ts":"2026-11-18T07:14:24Z","role":"reviewer","outcome":"skipped","issue":990,"pr":994,"notes":"not my parity","friction":""}
 {"ts":"2026-11-18T07:41:38Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd PR #599 already has CHANGES verdict at head d723a9c; #994 is reviewer-b parity","friction":""}
+{"ts":"2026-11-18T07:43:58Z","role":"reviewer-b","outcome":"changes","issue":990,"pr":994,"notes":"CI all green; CHANGES: tournament_ab JSON criterion tested only by source-string grep, asked for assertion in existing e2e test","friction":"gh pr checks fails (GraphQL 403); used REST check-runs. Waited ~35min for gates tests-2."}
