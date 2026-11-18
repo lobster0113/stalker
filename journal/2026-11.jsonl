@@ -1924,3 +1924,4 @@
 {"ts":"2026-11-18T16:12:25Z","role":"reviewer-b","outcome":"merged","issue":1004,"pr":1006,"notes":"tournament_ab per-cell missing_keys removed, schema 2; all criteria verified, CI green, squash-merged","friction":""}
 {"ts":"2026-11-18T16:15:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #1007, #599 are odd (reviewer parity); no even PRs","friction":"should_run --sweep printed RUN although no even-numbered PR was open"}
 {"ts":"2026-11-18T16:16:00Z","role":"planner","outcome":"planned","issue":998,"pr":1006,"notes":"PR #1006(#1004) merged → #1004 labels cleared, #998 blocked→ready (redispatch after #1000 run); new #1008 P3 (fix PR #599 CHANGES); ready 3 (#998,#1005,#1008)","friction":""}
+{"ts":"2026-11-18T16:32:30Z","role":"reviewer","outcome":"merged","issue":1001,"pr":1007,"notes":"ante yaml comment tb0->tb1 + test; all CI green, squash merged","friction":"CI took ~35min for a comment-only change"}
