@@ -1528,6 +1528,23 @@ wd.section("12 #604");
   console.log("c1 인원별 중수 정책 ok");
 }
 
+// #987: a single-table SNG now drops busted seats, so a 6-seat policy stops fitting when a bot busts. Flows that are not
+// about eliminations top busted bots up at the next hand start; `chairs` (original chair numbers, s.ring) bust there
+// instead. After the blinds (recStart) each hand's button chair is recorded in window.__btns.
+const seatGuard = (pg, chairs = null) => pg.evaluate(cs => {
+  window.__bust = cs;
+  if (window.__phWrapped) return;
+  window.__phWrapped = true; window.__btns = [];
+  const orig = playHand, rec = recStart;
+  window.playHand = tok => {
+    const out = window.__bust || [];
+    if (G?.tour) for (const s of G.seats) if (!s.isHero) { if (out.includes(s.ring ?? s.i)) s.stack = 0; else if (s.stack <= 0) s.stack = 30 * G.bb; }
+    window.__bust = null;
+    return orig(tok);
+  };
+  window.recStart = () => { window.__btns.push({ hand: G.handNo, n: G.n, ring: G.seats[G.button].ring ?? G.button, sb: G.sbI === G.button }); return rec(); };
+}, chairs);
+
 wd.section("13 #956");
 // 13. #956 (ADR 0029 H2) 토너먼트 정책 로드·단계 매핑: 합성 인덱스 v2(tournament 맵)와 6인 SNG 초반·BB앤티 정책 파일 하나(web/e2e/tour-fixture.mjs)를 내준다.
 // (a) 정책 있는 단계: 시작할 때 그 파일 하나만 요청하고, AI 결정은 t<단계><앤티> 키로 파일 행을 읽는다(미스는 백오프).
@@ -1554,6 +1571,7 @@ wd.section("13 #956");
     });
     for (const [k, f] of Object.entries(fixes)) await pg.route(`**/policy/t-${ENV}-${k}.json`, async r => { if (k === "e0" && delayMs) await new Promise(res => setTimeout(res, delayMs)); await r.fulfill({ status: 200, contentType: "application/json", body: f.bytes }); });
     await pg.goto(url);
+    await seatGuard(pg);
     await pg.waitForSelector("#set-mode [data-v='tournament']");
     await pg.click("#set-mode [data-v='tournament']");
     await pg.click("#set-play [data-v='quick']");
@@ -1666,6 +1684,7 @@ wd.section("14 #968");
     });
     await pg.route(`**/policy/${FILE}`, fileRoute || (r => r.fulfill({ status: 200, contentType: "application/json", body: fix.bytes })));
     await pg.goto(url);
+    await seatGuard(pg);
     await pg.waitForSelector("#set-mode [data-v='tournament']");
     await pg.click("#set-mode [data-v='tournament']");
     await pg.click("#set-play [data-v='quick']");
@@ -1851,51 +1870,105 @@ wd.section("14 #968");
   console.log("토너먼트 pill·복기 ok");
 }
 
-wd.section("15 #969");
+wd.section("15 #969 #987");
 // 15. #969 (ADR 0029 H4) 실제 토너먼트 정책(run 43735226442, 9max_sng_503020 버블 4인, `t-1261657cabcdc1ad-b0.json`)과
 // 실제 index.json(라우팅 없음)으로 9인 SNG에 들어간다. (a) 인덱스가 페이지의 env_id(TOUR_ENV["9"])·버블·앤티 0으로 그 항목을 찾는다.
-// (b) 시작(9명, 버블 전)은 정책 파일을 요청하지 않는다(그 단계 정책 없음 → 미학습). (c) 버블(생존 4)에서 페이지 테이블은 9석 그대로라
-// 4인 정책을 쓸 수 없다(`players_mismatch`): 파일 요청 0, 캐시 정책으로 대신하지 않음, pill은 `토너먼트 · 버블 · 미학습(규칙 봇)`.
-// (c)는 수용 기준 4("정확히 1건")와 다르다 — 웹 SNG는 탈락 좌석을 다른 테이블 인원으로 채워 4인 테이블이 생기지 않는다(PR #969 본문 "후속").
+// (b) 시작(9명, 버블 전)은 정책 파일을 요청하지 않는다(그 단계 정책 없음 → 미학습).
+// #987: (c) 다음 판 시작에 비영웅 5명을 탈락시키면(칩 0) 단일 테이블 SNG는 그 좌석을 테이블에서 뺀다: G.n = G.players = 4, 좌석 DOM 4개,
+// 탈락자 이름표·칩 없음. 버블(생존 4 = paid+1)이므로 그 4인 정책 파일을 정확히 1건 요청하고, pill은 `토너먼트 · 버블 · TP-GTO`, AI 결정은 정책 행.
+// (d) 버튼은 남은 좌석(원래 의자 번호 ring)만 돈다. (e) 더 탈락시켜 헤즈업: 버튼 = SB. 3종 화면 겹침 검사. (f) MTT는 지금처럼 다른 테이블에서 이동해 좌석 수 유지.
 {
   const FILE = "t-1261657cabcdc1ad-b0.json";
-  const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await autoContinue(pg);
-  pg.setDefaultTimeout(60_000);
-  const errs = [], reqs = [];
-  pg.on("pageerror", e => errs.push(e.message));
-  pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
-  pg.on("request", r => { const m = /\/policy\/([^/?]+)$/.exec(r.url()); if (m) reqs.push(m[1]); });
-  await pg.goto(url);
-  await pg.waitForSelector("#set-mode [data-v='tournament']");
-  await pg.click("#set-mode [data-v='tournament']");
-  await pg.click("#set-play [data-v='quick']");
-  await pg.selectOption("#t-format", "9");
-  await pg.selectOption("#t-ante", "none");
-  reqs.length = 0;
-  await pg.click("#start-btn");
-  await pg.waitForSelector(QUICK);
-  const a = await pg.evaluate(f => {
-    const r = TPG.mod.tournamentPolicyFor(TPG.index, { envId: TOUR_ENV["9"], players: 4, paid: 3, field: 9, tableSize: 9, ante: 0 });
-    return { idxV: TPG.index.schema_version, env: TOUR_ENV["9"], stage: r.stage, file: r.entry?.file ?? null, run: r.entry?.run_id ?? null, players: r.entry?.players ?? null,
-      start: { ...G.tpol }, pill: $("#svc-pill").textContent, eng: !!G.eng, want: f };
-  }, FILE);
-  must(a.idxV === 2 && a.env === "1261657cabcdc1ad" && a.stage === "b" && a.file === FILE && a.run === "43735226442" && a.players === 4,
-    `실제 토너먼트 정책: 인덱스가 9인 SNG 버블 항목을 찾지 못함 (${JSON.stringify(a)})`);
-  must(a.start.stage === "e" && !a.start.file && !a.eng && a.pill === "토너먼트 · 버블 전 · 미학습(규칙 봇)",
-    `실제 토너먼트 정책: 버블 전은 정책 없는 단계(미학습)여야 함 (${JSON.stringify(a)})`);
-  must(!reqs.some(r => r !== "index.json"), `실제 토너먼트 정책: 버블 전에 정책 파일을 요청함 (${reqs.join(", ")})`);
-  await pg.evaluate(() => { G.players = 4; tourSelect(); });
-  await pg.waitForTimeout(300);
-  const b = await pg.evaluate(() => ({ tpol: { ...G.tpol }, eng: !!G.eng, polTable: G.polTable, pill: $("#svc-pill").textContent }));
-  must(b.tpol.stage === "b" && b.tpol.reason === "players_mismatch" && !b.eng && !b.polTable && b.pill === "토너먼트 · 버블 · 미학습(규칙 봇)",
-    `실제 토너먼트 정책: 9석 테이블 버블은 4인 정책을 쓰지 않는 미학습이어야 함 (${JSON.stringify(b)})`);
-  must(!reqs.some(r => r !== "index.json"), `실제 토너먼트 정책: 쓸 수 없는 정책 파일이나 캐시 정책을 요청함 (${reqs.join(", ")})`);
-  must(!errs.length, `실제 토너먼트 정책: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
-  console.log(`실제 토너먼트 정책: 인덱스 항목 ${FILE} 찾음, 9석 버블은 players_mismatch(요청 0)`);
-  await pg.close();
+  const quickAct = async pg => { await pg.locator(`${QUICK} [data-act='check']:not([disabled]), ${QUICK} [data-act='fold']:not([disabled])`).first().click(); await pg.click("#tp-go"); };
+  const playUntil = async (pg, done, what, tries = 600) => {
+    for (let g = 0; g < tries; g++) {
+      if (await pg.evaluate(done)) return true;
+      if (await pg.locator(QUICK).count()) await quickAct(pg).catch(() => {}); else await pg.waitForTimeout(150);
+    }
+    must(false, `SNG 탈락 좌석: ${what}까지 진행하지 못함`);
+    return false;
+  };
+  const open = async () => {
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await autoContinue(pg);
+    pg.setDefaultTimeout(60_000);
+    const errs = [], reqs = [];
+    pg.on("pageerror", e => errs.push(e.message));
+    pg.on("console", m => { if (m.type() === "error" && !/\/(demo\/strategy\.html|favicon\.ico)$/.test(m.location()?.url || "")) errs.push(`${m.text()} ${m.location()?.url || ""}`); });
+    pg.on("request", r => { const m = /\/policy\/([^/?]+)$/.exec(r.url()); if (m) reqs.push(m[1]); });
+    await pg.goto(url);
+    await pg.waitForSelector("#set-mode [data-v='tournament']");
+    await pg.click("#set-mode [data-v='tournament']");
+    await pg.click("#set-play [data-v='quick']");
+    return { pg, errs, reqs };
+  };
+  {
+    const { pg, errs, reqs } = await open();
+    await pg.selectOption("#t-format", "9");
+    await pg.selectOption("#t-ante", "none");
+    reqs.length = 0;
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const a = await pg.evaluate(f => {
+      const r = TPG.mod.tournamentPolicyFor(TPG.index, { envId: TOUR_ENV["9"], players: 4, paid: 3, field: 9, tableSize: 9, ante: 0 });
+      return { idxV: TPG.index.schema_version, env: TOUR_ENV["9"], stage: r.stage, file: r.entry?.file ?? null, run: r.entry?.run_id ?? null, players: r.entry?.players ?? null,
+        start: { ...G.tpol }, pill: $("#svc-pill").textContent, eng: !!G.eng, want: f };
+    }, FILE);
+    must(a.idxV === 2 && a.env === "1261657cabcdc1ad" && a.stage === "b" && a.file === FILE && a.run === "43735226442" && a.players === 4,
+      `실제 토너먼트 정책: 인덱스가 9인 SNG 버블 항목을 찾지 못함 (${JSON.stringify(a)})`);
+    must(a.start.stage === "e" && !a.start.file && !a.eng && a.pill === "토너먼트 · 버블 전 · 미학습(규칙 봇)",
+      `실제 토너먼트 정책: 버블 전은 정책 없는 단계(미학습)여야 함 (${JSON.stringify(a)})`);
+    must(!reqs.some(r => r !== "index.json"), `실제 토너먼트 정책: 버블 전에 정책 파일을 요청함 (${reqs.join(", ")})`);
+    // (c) five busts at once: chairs 1, 3, 4, 6, 7 leave; 0 (hero), 2, 5, 8 stay
+    const busted = await pg.evaluate(() => G.seats.filter(s => [1, 3, 4, 6, 7].includes(s.i)).map(s => s.name));
+    await seatGuard(pg, [1, 3, 4, 6, 7]);
+    await playUntil(pg, () => G.n === 4 && G.eng?.rulesKey === "t-1261657cabcdc1ad-b0.json" && TPG.botLog.some(d => d.file === "t-1261657cabcdc1ad-b0.json"), "4인 버블 정책 결정");
+    await pg.evaluate(() => { window.__hold = true; });
+    const c = await pg.evaluate(() => ({ n: G.n, players: G.players, paid: G.paid, rings: G.seats.map(s => s.ring), idx: G.seats.map(s => s.i), dom: document.querySelectorAll("#layer .seat").length,
+      names: [...document.querySelectorAll("#layer .seat .nm")].map(e => e.textContent), tpol: { ...G.tpol }, pill: $("#svc-pill").textContent,
+      tags: G.seats.filter(s => !s.isHero).map(s => s.tag || ""), engN: G.eng?.s?.n ?? null }));
+    must(c.n === 4 && c.players === 4 && c.dom === 4 && c.rings.join() === "0,2,5,8" && c.idx.join() === "0,1,2,3",
+      `SNG 탈락 좌석: 9인에서 5명 탈락이면 4석 테이블이어야 함 (${JSON.stringify(c)})`);
+    must(!busted.some(nm => c.names.includes(nm)), `SNG 탈락 좌석: 탈락자 이름표가 남음 (${busted.join(",")} / ${c.names.join(",")})`);
+    must(c.tpol.stage === "b" && c.tpol.file === FILE && c.pill === "토너먼트 · 버블 · TP-GTO" && c.tags.every(t => t.includes("TP-GTO")),
+      `SNG 버블 4인: 반입 정책이 쓰여야 함 (${JSON.stringify(c)})`);
+    must(reqs.filter(r => r !== "index.json").join() === FILE, `SNG 버블 4인: 정책 파일 요청이 정확히 1건(${FILE})이어야 함 (${reqs.join(", ")})`);
+    await inspect("sng-bubble-4", ".table-wrap", pg);
+    // (d) the button walks the survivors' chairs only, in order
+    await playUntil(pg, () => window.__btns.filter(b => b.n === 4).length >= 6, "버튼 5판");
+    const btns = (await pg.evaluate(() => window.__btns)).filter(b => b.n === 4).slice(-5);
+    const order = [0, 2, 5, 8], seq = btns.map(b => b.ring);
+    must(seq.length === 5 && seq.every(r => order.includes(r)) && seq.every((r, i) => !i || order[(order.indexOf(seq[i - 1]) + 1) % 4] === r),
+      `SNG 버튼: 빈 의자(1,3,4,6,7)를 건너뛰고 남은 좌석을 차례로 돌아야 함 (${JSON.stringify(btns)})`);
+    // (e) two more busts: heads-up, the button posts the small blind
+    await seatGuard(pg, [2, 5]);
+    await playUntil(pg, () => G.n === 2 && window.__btns.filter(b => b.n === 2).length >= 2, "헤즈업 2판");
+    const hu = (await pg.evaluate(() => window.__btns)).filter(b => b.n === 2);
+    must(hu.length >= 2 && hu.every(b => b.sb) && hu[0].ring !== hu[1].ring && hu.every(b => [0, 8].includes(b.ring)),
+      `SNG 헤즈업: 버튼 = SB이고 두 좌석을 번갈아야 함 (${JSON.stringify(hu)})`);
+    const p2 = await pg.evaluate(() => ({ players: G.players, dom: document.querySelectorAll("#layer .seat").length }));
+    must(p2.players === 2 && p2.dom === 2, `SNG 헤즈업: 좌석 2개여야 함 (${JSON.stringify(p2)})`);
+    await inspect("sng-headsup", ".table-wrap", pg);
+    must(!errs.length, `SNG 탈락 좌석: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    console.log(`SNG 탈락 좌석: 9→4석(의자 ${c.rings.join(",")}), 버블 정책 ${FILE} 요청 1건·pill TP-GTO, 버튼 ${seq.join("→")}, 헤즈업 버튼=SB`);
+    await pg.close();
+  }
+  {
+    // (f) multi-table (field 180 > table): a bust is still refilled from another table, the seat count stays
+    const { pg, errs } = await open();
+    await pg.selectOption("#t-format", "mtt");
+    await pg.click("#start-btn");
+    await pg.waitForSelector(QUICK);
+    const before = await pg.evaluate(() => ({ n: G.n, players: G.players }));
+    await seatGuard(pg, [1, 2]);
+    await playUntil(pg, () => window.__btns.length >= 1, "MTT 다음 판");
+    const after = await pg.evaluate(() => ({ n: G.n, players: G.players, dom: document.querySelectorAll("#layer .seat").length }));
+    must(after.n === before.n && after.dom === before.n && after.players === before.players - 2,
+      `MTT 탈락: 다른 테이블에서 이동해 좌석 수를 유지해야 함 (${JSON.stringify({ before, after })})`);
+    must(!errs.length, `MTT 탈락: 콘솔 오류 ${errs.slice(0, 3).join(" | ")}`);
+    await pg.close();
+  }
 }
-
 
 wd.stop();
 await browser.close();
