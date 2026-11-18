@@ -69,6 +69,9 @@
 - `median_iters_per_s`: 3인 `[6]`·2인 `[7]`. 근거는 #965 실측(#984): mid3 run 44121220524 6.26 it/s(train_seconds 3195.6)·mid2 run 44139238381 7.28 it/s(2745.9), 둘 다 `stopped_by: max_iters`로 60분 전에 끝났다. 처음 추정 10·9는 정상 호스트(첫 pod 4.7 it/s)를 slow_host(0.6배 = 6.0)로 오판해 재발급($0.48)했다. 새 slow_host 기준은 3.6·4.2 it/s.
 - 각 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분), 둘 $7.20. `resume_run` 없이 **단독** 디스패치, 순서 #935 → #950 → mid3 → mid2(#877). 디스패치·기록은 F11b.
 
+## lbr_icm 분포 수집 잡 (`e3-sng-bubble-lbr-icm-eval.yaml`, #997, ADR 0030 후속 3 준비)
+- cold A 학습 결과 하나를 `python3 -m referee.e3.tournament_eval --policy "$STALKER_RESUME" --games 200 --seed 10001 --lbr-hands 2000`으로 평가해 칸 3개(spots v1)마다 `lbr_pool`을 모은다(schema_version 2). `resume_run`=A run으로 디스패치하고 비면 종료 코드 3. A run 3개를 **하나씩**(#877) 디스패치한다: 시드 1 = 43735226442, 시드 2 = 43842144620, 시드 3 = 43847129076(`docs/research/2026-11-e-f6-warm-start-ab.md` 쌍 표). 런처가 다듬은 결과는 `load_table`이 그대로 읽는다(새 읽기 경로 없음, 테스트로 고정). 로컬 참고(CI 아님): LBR ≈0.25초/핸드·칸, 정책 ≈0.6초/판 → 약 35분. 4 vCPU, `max_minutes 120`, `--deadline-s 5400`, 최악 $0.48. 디스패치·분포 기록·임계값 ADR은 후속.
+
 ## SNG 단계 3(b, BB 앤티) 학습 잡 (`e3-tp-mid-c1-sng-bubble-ante-pod32.yaml`, #996, ADR 0027 결정 2 단계 3)
 - 같은 프리셋 버블(4인 생존, c1 `tb1` 슬롯, 순수 ICM `--lam 0`)에 BB 앤티를 더한 cold 잡(#937 cold A, 결정 4). `9max_sng_503020`은 앤티 모드가 `none`이라 `--ante 100`(E3 BB = 100 칩)을 명시한다. `e3-tp-mid-c1-sng-bubble-pod32.yaml`과 `--ante 100`·출력 이름만 다르다(`median_iters_per_s [12]` 포함 그대로: 버블 잡 실측 근거).
 - 최악 $3.60(cpu3c 32 vCPU $1.2/h × 180분). `resume_run` 없이 **단독** 디스패치(#877). `tests/test_sng_bubble_ante_job.py`가 차이·파싱·비용·반복 예산을 고정하고 2반복 실행(slow)으로 `ante == 100`·`tb1`을 확인한다. 디스패치·기록은 F11e.
