@@ -1880,3 +1880,4 @@
 {"ts":"2026-11-18T06:51:06Z","role":"reviewer","outcome":"merged","issue":987,"pr":993,"notes":"SNG 탈락 좌석 제거·4인 버블 정책 사용, AC 5개 확인, CI 전부 success, 로컬 Gate U 스크린샷 3장 확인 후 squash 머지","friction":"web-screenshots 아티팩트 zip이 프록시(blob 호스트 403)로 막혀 로컬 Gate U 대체(약 10분)를 돌려야 했음"}
 {"ts":"2026-11-18T07:13:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open even-numbered PRs (only #599, odd parity)","friction":"should_run --sweep printed RUN though no even PR needs a verdict"}
 {"ts":"2026-11-18T07:13:52Z","role":"builder-b","outcome":"pr_opened","issue":990,"pr":994,"notes":"F6g counts() per-street backoff_reasons + missing_keys; AC4 table not producible (checkpoint blob blocked)","friction":"gates full ~28min needs repeated 9min foreground waits; quick 290s"}
+{"ts":"2026-11-18T07:14:24Z","role":"reviewer","outcome":"skipped","issue":990,"pr":994,"notes":"not my parity","friction":""}
