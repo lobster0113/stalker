@@ -1888,3 +1888,4 @@
 {"ts":"2026-11-18T08:12:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: #994 already has CHANGES verdict at head 2816111, no new commits","friction":"should_run --sweep printed RUN though no even PR needs a verdict"}
 {"ts":"2026-11-18T08:27:04Z","role":"builder-b","outcome":"changes","issue":990,"pr":994,"notes":"PR #994 CHANGES 해결(AC 테스트를 tournament_ab E2E 단언으로 교체, 문서 보정) 푸시 57a4550b","friction":"gates quick 로컬 225s(목표 90s); pytest 미설치로 재설치 필요"}
 {"ts":"2026-11-18T08:27:31Z","role":"reviewer","outcome":"skipped","issue":990,"pr":994,"notes":"not my parity","friction":""}
+{"ts":"2026-11-18T08:41:40Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: odd open PR #599 already has CHANGES verdict on head d723a9c; #994 is even (reviewer-b)","friction":""}
