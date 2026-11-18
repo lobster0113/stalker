@@ -1,0 +1,5855 @@
+{
+  "adopted": "cold",
+  "agents": {
+    "A": {
+      "path": "/stalker-resume/resume.bin",
+      "sha256": "f6d7acb1365b2b4ee2263a911ef65d7e465660af7b351aefd1c3901c1cbbdb7c"
+    },
+    "B": {
+      "path": "/stalker-resume/resume_b.bin",
+      "sha256": "2334f58c575cc1dfb181df876626f3ec4fed9f3c4d0034198d1c497baf53fd77"
+    }
+  },
+  "args": {
+    "a": "/stalker-resume/resume.bin",
+    "b": "/stalker-resume/resume_b.bin",
+    "field": "persona:tag",
+    "games": 400,
+    "layouts": 3,
+    "level_indexes": [
+      0
+    ],
+    "presets": [
+      "9max_sng_503020"
+    ],
+    "profiles": [
+      "even",
+      "random",
+      "skewed"
+    ],
+    "remaining": [
+      4
+    ],
+    "seed": 10001,
+    "sym_games": 200
+  },
+  "cells": [
+    {
+      "arms": {
+        "A": {
+          "mean": -0.07925,
+          "policy": {
+            "backoff_rate": 0.7443377761207941,
+            "backoff_reasons": {
+              "no_key": 7260,
+              "short_stack": 726
+            },
+            "backoffs": 7986,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 5812,
+                  "short_stack": 666
+                },
+                "decisions": 9015,
+                "policy_hits": 2537
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 687,
+                  "short_stack": 39
+                },
+                "decisions": 816,
+                "policy_hits": 90
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 466,
+                  "short_stack": 14
+                },
+                "decisions": 535,
+                "policy_hits": 55
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 295,
+                  "short_stack": 7
+                },
+                "decisions": 363,
+                "policy_hits": 61
+              }
+            },
+            "decisions": 10729,
+            "policy_hits": 2743
+          },
+          "sd": 0.17591703871790873,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.03350000000000001,
+                "max_abs_z": 2.618248130631106,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 30.150000000000006,
+            "max_abs_diff_rel": 0.03350000000000001,
+            "max_abs_z": 2.618248130631106,
+            "policy": {
+              "backoff_rate": 0.837530146120017,
+              "backoff_reasons": {
+                "no_key": 22021,
+                "short_stack": 1594
+              },
+              "backoffs": 23615,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18573,
+                    "short_stack": 1444
+                  },
+                  "decisions": 24190,
+                  "policy_hits": 4173
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1661,
+                    "short_stack": 84
+                  },
+                  "decisions": 1929,
+                  "policy_hits": 184
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1123,
+                    "short_stack": 41
+                  },
+                  "decisions": 1277,
+                  "policy_hits": 113
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 664,
+                    "short_stack": 25
+                  },
+                  "decisions": 800,
+                  "policy_hits": 111
+                }
+              },
+              "decisions": 28196,
+              "policy_hits": 4581
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.08425,
+          "policy": {
+            "backoff_rate": 0.7534879507157094,
+            "backoff_reasons": {
+              "no_key": 7687,
+              "short_stack": 630
+            },
+            "backoffs": 8317,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 6194,
+                  "short_stack": 589
+                },
+                "decisions": 9293,
+                "policy_hits": 2510
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 723,
+                  "short_stack": 28
+                },
+                "decisions": 845,
+                "policy_hits": 94
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 485,
+                  "short_stack": 8
+                },
+                "decisions": 547,
+                "policy_hits": 54
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 285,
+                  "short_stack": 5
+                },
+                "decisions": 353,
+                "policy_hits": 63
+              }
+            },
+            "decisions": 11038,
+            "policy_hits": 2721
+          },
+          "sd": 0.1832645690133232,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.03,
+                "max_abs_z": 2.2461234210379475,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 27.0,
+            "max_abs_diff_rel": 0.03,
+            "max_abs_z": 2.2461234210379475,
+            "policy": {
+              "backoff_rate": 0.8556579511358765,
+              "backoff_reasons": {
+                "no_key": 22393,
+                "short_stack": 1562
+              },
+              "backoffs": 23955,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18944,
+                    "short_stack": 1452
+                  },
+                  "decisions": 23981,
+                  "policy_hits": 3585
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1738,
+                    "short_stack": 76
+                  },
+                  "decisions": 2005,
+                  "policy_hits": 191
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1083,
+                    "short_stack": 19
+                  },
+                  "decisions": 1246,
+                  "policy_hits": 144
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 628,
+                    "short_stack": 15
+                  },
+                  "decisions": 764,
+                  "policy_hits": 121
+                }
+              },
+              "decisions": 27996,
+              "policy_hits": 4041
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": -0.005000000000000002,
+        "sd": 0.17607528578896064,
+        "se": 0.008803764289448032
+      },
+      "games": 400,
+      "layout": 0,
+      "learner": 2,
+      "learner_icm_rel": 0.25,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        6,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "even",
+      "remaining": 4,
+      "stacks": [
+        3375,
+        3375,
+        3375,
+        3375
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.0785,
+          "policy": {
+            "backoff_rate": 0.7467434396828393,
+            "backoff_reasons": {
+              "no_key": 7214,
+              "out_of_sync": 1,
+              "short_stack": 696
+            },
+            "backoffs": 7911,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 5787,
+                  "short_stack": 645
+                },
+                "decisions": 8908,
+                "policy_hits": 2476
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 680,
+                  "out_of_sync": 1,
+                  "short_stack": 29
+                },
+                "decisions": 809,
+                "policy_hits": 99
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 471,
+                  "short_stack": 15
+                },
+                "decisions": 538,
+                "policy_hits": 52
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 276,
+                  "short_stack": 7
+                },
+                "decisions": 339,
+                "policy_hits": 56
+              }
+            },
+            "decisions": 10594,
+            "policy_hits": 2683
+          },
+          "sd": 0.17496938507717774,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.01,
+                "max_abs_z": 0.7837075544258825,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 9.0,
+            "max_abs_diff_rel": 0.01,
+            "max_abs_z": 0.7837075544258825,
+            "policy": {
+              "backoff_rate": 0.8523932253313696,
+              "backoff_reasons": {
+                "no_key": 21424,
+                "short_stack": 1727
+              },
+              "backoffs": 23151,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18149,
+                    "short_stack": 1582
+                  },
+                  "decisions": 23368,
+                  "policy_hits": 3637
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1608,
+                    "short_stack": 88
+                  },
+                  "decisions": 1852,
+                  "policy_hits": 156
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1046,
+                    "short_stack": 42
+                  },
+                  "decisions": 1203,
+                  "policy_hits": 115
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 621,
+                    "short_stack": 15
+                  },
+                  "decisions": 737,
+                  "policy_hits": 101
+                }
+              },
+              "decisions": 27160,
+              "policy_hits": 4009
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.0765,
+          "policy": {
+            "backoff_rate": 0.7494070425104908,
+            "backoff_reasons": {
+              "no_key": 7572,
+              "short_stack": 643
+            },
+            "backoffs": 8215,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 6113,
+                  "short_stack": 586
+                },
+                "decisions": 9232,
+                "policy_hits": 2533
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 729,
+                  "short_stack": 32
+                },
+                "decisions": 851,
+                "policy_hits": 90
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 453,
+                  "short_stack": 18
+                },
+                "decisions": 532,
+                "policy_hits": 61
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 277,
+                  "short_stack": 7
+                },
+                "decisions": 347,
+                "policy_hits": 63
+              }
+            },
+            "decisions": 10962,
+            "policy_hits": 2747
+          },
+          "sd": 0.17966203303783532,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.025499999999999988,
+                "max_abs_z": 1.9969217213744461,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 22.94999999999999,
+            "max_abs_diff_rel": 0.025499999999999988,
+            "max_abs_z": 1.9969217213744461,
+            "policy": {
+              "backoff_rate": 0.835983325340318,
+              "backoff_reasons": {
+                "no_key": 20924,
+                "short_stack": 1737
+              },
+              "backoffs": 22661,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 17645,
+                    "short_stack": 1611
+                  },
+                  "decisions": 23266,
+                  "policy_hits": 4010
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1608,
+                    "short_stack": 73
+                  },
+                  "decisions": 1890,
+                  "policy_hits": 209
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1070,
+                    "short_stack": 36
+                  },
+                  "decisions": 1214,
+                  "policy_hits": 108
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 601,
+                    "short_stack": 17
+                  },
+                  "decisions": 737,
+                  "policy_hits": 119
+                }
+              },
+              "decisions": 27107,
+              "policy_hits": 4446
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.0019999999999999974,
+        "sd": 0.1709357996999096,
+        "se": 0.00854678998499548
+      },
+      "games": 400,
+      "layout": 1,
+      "learner": 2,
+      "learner_icm_rel": 0.25,
+      "level_index": 0,
+      "players": [
+        0,
+        2,
+        5,
+        8
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "even",
+      "remaining": 4,
+      "stacks": [
+        3375,
+        3375,
+        3375,
+        3375
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.083,
+          "policy": {
+            "backoff_rate": 0.7409251987357532,
+            "backoff_reasons": {
+              "no_key": 7037,
+              "short_stack": 699
+            },
+            "backoffs": 7736,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 5723,
+                  "short_stack": 637
+                },
+                "decisions": 8881,
+                "policy_hits": 2521
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 666,
+                  "short_stack": 38
+                },
+                "decisions": 789,
+                "policy_hits": 85
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 421,
+                  "short_stack": 15
+                },
+                "decisions": 480,
+                "policy_hits": 44
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 227,
+                  "short_stack": 9
+                },
+                "decisions": 291,
+                "policy_hits": 55
+              }
+            },
+            "decisions": 10441,
+            "policy_hits": 2705
+          },
+          "sd": 0.17843934965068495,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.021499999999999995,
+                "max_abs_z": 1.663601064763254,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 19.349999999999994,
+            "max_abs_diff_rel": 0.021499999999999995,
+            "max_abs_z": 1.663601064763254,
+            "policy": {
+              "backoff_rate": 0.842340924196313,
+              "backoff_reasons": {
+                "no_key": 22353,
+                "short_stack": 1727
+              },
+              "backoffs": 24080,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18742,
+                    "short_stack": 1618
+                  },
+                  "decisions": 24423,
+                  "policy_hits": 4063
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1765,
+                    "short_stack": 69
+                  },
+                  "decisions": 2035,
+                  "policy_hits": 201
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1180,
+                    "short_stack": 31
+                  },
+                  "decisions": 1327,
+                  "policy_hits": 116
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 666,
+                    "short_stack": 9
+                  },
+                  "decisions": 802,
+                  "policy_hits": 127
+                }
+              },
+              "decisions": 28587,
+              "policy_hits": 4507
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.08349999999999999,
+          "policy": {
+            "backoff_rate": 0.7291079812206572,
+            "backoff_reasons": {
+              "no_key": 7190,
+              "short_stack": 575
+            },
+            "backoffs": 7765,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 5752,
+                  "short_stack": 526
+                },
+                "decisions": 8966,
+                "policy_hits": 2688
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 724,
+                  "short_stack": 30
+                },
+                "decisions": 848,
+                "policy_hits": 94
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 459,
+                  "short_stack": 13
+                },
+                "decisions": 514,
+                "policy_hits": 42
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 255,
+                  "short_stack": 6
+                },
+                "decisions": 322,
+                "policy_hits": 61
+              }
+            },
+            "decisions": 10650,
+            "policy_hits": 2885
+          },
+          "sd": 0.17735949643998095,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.022000000000000013,
+                "max_abs_z": 1.8508552352146395,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 19.80000000000001,
+            "max_abs_diff_rel": 0.022000000000000013,
+            "max_abs_z": 1.8508552352146395,
+            "policy": {
+              "backoff_rate": 0.8458662528216704,
+              "backoff_reasons": {
+                "no_key": 22532,
+                "short_stack": 1450
+              },
+              "backoffs": 23982,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18948,
+                    "short_stack": 1361
+                  },
+                  "decisions": 24259,
+                  "policy_hits": 3950
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1762,
+                    "short_stack": 61
+                  },
+                  "decisions": 2006,
+                  "policy_hits": 183
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1161,
+                    "short_stack": 21
+                  },
+                  "decisions": 1304,
+                  "policy_hits": 122
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 661,
+                    "short_stack": 7
+                  },
+                  "decisions": 783,
+                  "policy_hits": 115
+                }
+              },
+              "decisions": 28352,
+              "policy_hits": 4370
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": -0.0005000000000000011,
+        "sd": 0.19298408520615667,
+        "se": 0.009649204260307834
+      },
+      "games": 400,
+      "layout": 2,
+      "learner": 2,
+      "learner_icm_rel": 0.25,
+      "level_index": 0,
+      "players": [
+        1,
+        2,
+        6,
+        8
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "even",
+      "remaining": 4,
+      "stacks": [
+        3375,
+        3375,
+        3375,
+        3375
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.08314700434339428,
+          "policy": {
+            "backoff_rate": 0.7529468201754386,
+            "backoff_reasons": {
+              "no_key": 10335,
+              "short_stack": 652
+            },
+            "backoffs": 10987,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 8300,
+                  "short_stack": 594
+                },
+                "decisions": 12224,
+                "policy_hits": 3330
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 1015,
+                  "short_stack": 37
+                },
+                "decisions": 1174,
+                "policy_hits": 122
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 643,
+                  "short_stack": 14
+                },
+                "decisions": 728,
+                "policy_hits": 71
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 377,
+                  "short_stack": 7
+                },
+                "decisions": 466,
+                "policy_hits": 82
+              }
+            },
+            "decisions": 14592,
+            "policy_hits": 3605
+          },
+          "sd": 0.18431186793490573,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.01956733110859141,
+                "max_abs_z": 1.6217219283549378,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 17.61059799773227,
+            "max_abs_diff_rel": 0.01956733110859141,
+            "max_abs_z": 1.6217219283549378,
+            "policy": {
+              "backoff_rate": 0.8231116397858868,
+              "backoff_reasons": {
+                "no_key": 21473,
+                "short_stack": 2054
+              },
+              "backoffs": 23527,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18142,
+                    "short_stack": 1860
+                  },
+                  "decisions": 24632,
+                  "policy_hits": 4630
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1649,
+                    "short_stack": 117
+                  },
+                  "decisions": 1975,
+                  "policy_hits": 209
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1045,
+                    "short_stack": 53
+                  },
+                  "decisions": 1206,
+                  "policy_hits": 108
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 637,
+                    "short_stack": 24
+                  },
+                  "decisions": 770,
+                  "policy_hits": 109
+                }
+              },
+              "decisions": 28583,
+              "policy_hits": 5056
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.07764700434339429,
+          "policy": {
+            "backoff_rate": 0.7548073633066448,
+            "backoff_reasons": {
+              "no_key": 10292,
+              "short_stack": 738
+            },
+            "backoffs": 11030,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 8236,
+                  "short_stack": 692
+                },
+                "decisions": 12201,
+                "policy_hits": 3273
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 1051,
+                  "short_stack": 34
+                },
+                "decisions": 1213,
+                "policy_hits": 128
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 639,
+                  "short_stack": 8
+                },
+                "decisions": 727,
+                "policy_hits": 80
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 366,
+                  "short_stack": 4
+                },
+                "decisions": 472,
+                "policy_hits": 102
+              }
+            },
+            "decisions": 14613,
+            "policy_hits": 3583
+          },
+          "sd": 0.18874187728376948,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.013067331108591419,
+                "max_abs_z": 1.1640433378466242,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 11.760597997732276,
+            "max_abs_diff_rel": 0.013067331108591419,
+            "max_abs_z": 1.1640433378466242,
+            "policy": {
+              "backoff_rate": 0.8396435741203818,
+              "backoff_reasons": {
+                "no_key": 21862,
+                "short_stack": 1978
+              },
+              "backoffs": 23840,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18361,
+                    "short_stack": 1789
+                  },
+                  "decisions": 24237,
+                  "policy_hits": 4087
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1737,
+                    "short_stack": 116
+                  },
+                  "decisions": 2056,
+                  "policy_hits": 203
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1129,
+                    "short_stack": 52
+                  },
+                  "decisions": 1315,
+                  "policy_hits": 134
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 635,
+                    "short_stack": 21
+                  },
+                  "decisions": 785,
+                  "policy_hits": 129
+                }
+              },
+              "decisions": 28393,
+              "policy_hits": 4553
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.0055000000000000005,
+        "sd": 0.18413177693759294,
+        "se": 0.009206588846879648
+      },
+      "games": 400,
+      "layout": 0,
+      "learner": 7,
+      "learner_icm_rel": 0.3168970043433943,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        5,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "random",
+      "remaining": 4,
+      "stacks": [
+        2238,
+        4122,
+        2229,
+        4911
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.06286423309606319,
+          "policy": {
+            "backoff_rate": 0.7669310955221924,
+            "backoff_reasons": {
+              "no_key": 11069,
+              "short_stack": 629
+            },
+            "backoffs": 11698,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 8884,
+                  "short_stack": 555
+                },
+                "decisions": 12741,
+                "policy_hits": 3302
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 1053,
+                  "short_stack": 44
+                },
+                "decisions": 1209,
+                "policy_hits": 112
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 719,
+                  "short_stack": 21
+                },
+                "decisions": 805,
+                "policy_hits": 65
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 413,
+                  "short_stack": 9
+                },
+                "decisions": 498,
+                "policy_hits": 76
+              }
+            },
+            "decisions": 15253,
+            "policy_hits": 3555
+          },
+          "sd": 0.1927092164512719,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.026975579121673674,
+                "max_abs_z": 2.1448002493390086,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 24.278021209506306,
+            "max_abs_diff_rel": 0.026975579121673674,
+            "max_abs_z": 2.1448002493390086,
+            "policy": {
+              "backoff_rate": 0.820101291104929,
+              "backoff_reasons": {
+                "no_key": 21432,
+                "short_stack": 1562
+              },
+              "backoffs": 22994,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18016,
+                    "short_stack": 1460
+                  },
+                  "decisions": 24028,
+                  "policy_hits": 4552
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1697,
+                    "short_stack": 59
+                  },
+                  "decisions": 1991,
+                  "policy_hits": 235
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1087,
+                    "short_stack": 28
+                  },
+                  "decisions": 1248,
+                  "policy_hits": 133
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 632,
+                    "short_stack": 15
+                  },
+                  "decisions": 771,
+                  "policy_hits": 124
+                }
+              },
+              "decisions": 28038,
+              "policy_hits": 5044
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.08411423309606318,
+          "policy": {
+            "backoff_rate": 0.7524799244213509,
+            "backoff_reasons": {
+              "no_key": 10526,
+              "off_menu": 1,
+              "out_of_sync": 3,
+              "short_stack": 621
+            },
+            "backoffs": 11151,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 8428,
+                  "off_menu": 1,
+                  "short_stack": 571
+                },
+                "decisions": 12380,
+                "policy_hits": 3380
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 1013,
+                  "out_of_sync": 1,
+                  "short_stack": 34
+                },
+                "decisions": 1177,
+                "policy_hits": 129
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 692,
+                  "out_of_sync": 2,
+                  "short_stack": 14
+                },
+                "decisions": 773,
+                "policy_hits": 65
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 393,
+                  "short_stack": 2
+                },
+                "decisions": 489,
+                "policy_hits": 94
+              }
+            },
+            "decisions": 14819,
+            "policy_hits": 3668
+          },
+          "sd": 0.18413909284501342,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.028975579121673655,
+                "max_abs_z": 2.2125044688727984,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 26.07802120950629,
+            "max_abs_diff_rel": 0.028975579121673655,
+            "max_abs_z": 2.2125044688727984,
+            "policy": {
+              "backoff_rate": 0.8321352042579664,
+              "backoff_reasons": {
+                "no_key": 22363,
+                "short_stack": 1714
+              },
+              "backoffs": 24077,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18624,
+                    "short_stack": 1542
+                  },
+                  "decisions": 24522,
+                  "policy_hits": 4356
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1823,
+                    "short_stack": 94
+                  },
+                  "decisions": 2142,
+                  "policy_hits": 225
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1203,
+                    "short_stack": 40
+                  },
+                  "decisions": 1381,
+                  "policy_hits": 138
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 713,
+                    "short_stack": 38
+                  },
+                  "decisions": 889,
+                  "policy_hits": 138
+                }
+              },
+              "decisions": 28934,
+              "policy_hits": 4857
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": -0.02125,
+        "sd": 0.19317538487941024,
+        "se": 0.009658769243970512
+      },
+      "games": 400,
+      "layout": 1,
+      "learner": 5,
+      "learner_icm_rel": 0.3288642330960632,
+      "level_index": 0,
+      "players": [
+        0,
+        2,
+        3,
+        5
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "random",
+      "remaining": 4,
+      "stacks": [
+        3508,
+        2188,
+        2483,
+        5321
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.06398887214628082,
+          "policy": {
+            "backoff_rate": 0.6271267673136832,
+            "backoff_reasons": {
+              "no_key": 4850,
+              "short_stack": 384
+            },
+            "backoffs": 5234,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 3718,
+                  "short_stack": 352
+                },
+                "decisions": 6986,
+                "policy_hits": 2916
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 566,
+                  "short_stack": 21
+                },
+                "decisions": 680,
+                "policy_hits": 93
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 374,
+                  "short_stack": 8
+                },
+                "decisions": 441,
+                "policy_hits": 59
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 192,
+                  "short_stack": 3
+                },
+                "decisions": 239,
+                "policy_hits": 44
+              }
+            },
+            "decisions": 8346,
+            "policy_hits": 3112
+          },
+          "sd": 0.16357457505373513,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.014011127853719168,
+                "max_abs_z": 1.2780253646480035,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 12.610015068347252,
+            "max_abs_diff_rel": 0.014011127853719168,
+            "max_abs_z": 1.2780253646480035,
+            "policy": {
+              "backoff_rate": 0.8273874380513866,
+              "backoff_reasons": {
+                "no_key": 21973,
+                "short_stack": 1567
+              },
+              "backoffs": 23540,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18393,
+                    "short_stack": 1425
+                  },
+                  "decisions": 24329,
+                  "policy_hits": 4511
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1806,
+                    "short_stack": 70
+                  },
+                  "decisions": 2051,
+                  "policy_hits": 175
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1129,
+                    "short_stack": 49
+                  },
+                  "decisions": 1293,
+                  "policy_hits": 115
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 645,
+                    "short_stack": 23
+                  },
+                  "decisions": 778,
+                  "policy_hits": 110
+                }
+              },
+              "decisions": 28451,
+              "policy_hits": 4911
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.059488872146280826,
+          "policy": {
+            "backoff_rate": 0.6376489834073381,
+            "backoff_reasons": {
+              "no_key": 5071,
+              "short_stack": 386
+            },
+            "backoffs": 5457,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 3893,
+                  "short_stack": 367
+                },
+                "decisions": 7160,
+                "policy_hits": 2900
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 589,
+                  "short_stack": 14
+                },
+                "decisions": 672,
+                "policy_hits": 69
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 390,
+                  "short_stack": 3
+                },
+                "decisions": 456,
+                "policy_hits": 63
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 199,
+                  "short_stack": 2
+                },
+                "decisions": 270,
+                "policy_hits": 69
+              }
+            },
+            "decisions": 8558,
+            "policy_hits": 3101
+          },
+          "sd": 0.1668670474624096,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.008210037036684178,
+                "max_abs_z": 0.6763811924595399,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 7.38903333301576,
+            "max_abs_diff_rel": 0.008210037036684178,
+            "max_abs_z": 0.6763811924595399,
+            "policy": {
+              "backoff_rate": 0.8340278519784877,
+              "backoff_reasons": {
+                "no_key": 21670,
+                "short_stack": 1747
+              },
+              "backoffs": 23417,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 18199,
+                    "short_stack": 1616
+                  },
+                  "decisions": 24088,
+                  "policy_hits": 4273
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1779,
+                    "short_stack": 76
+                  },
+                  "decisions": 2032,
+                  "policy_hits": 177
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1076,
+                    "short_stack": 36
+                  },
+                  "decisions": 1218,
+                  "policy_hits": 106
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 616,
+                    "short_stack": 19
+                  },
+                  "decisions": 739,
+                  "policy_hits": 104
+                }
+              },
+              "decisions": 28077,
+              "policy_hits": 4660
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.004499999999999997,
+        "sd": 0.1686738782176495,
+        "se": 0.008433693910882476
+      },
+      "games": 400,
+      "layout": 2,
+      "learner": 6,
+      "learner_icm_rel": 0.17448887214628084,
+      "level_index": 0,
+      "players": [
+        0,
+        4,
+        6,
+        8
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "random",
+      "remaining": 4,
+      "stacks": [
+        5695,
+        2419,
+        1874,
+        3512
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": 0.0015615399344479878,
+          "policy": {
+            "backoff_rate": 0.6725649350649351,
+            "backoff_reasons": {
+              "no_key": 3628,
+              "short_stack": 515
+            },
+            "backoffs": 4143,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 2882,
+                  "short_stack": 479
+                },
+                "decisions": 5247,
+                "policy_hits": 1886
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 394,
+                  "short_stack": 22
+                },
+                "decisions": 467,
+                "policy_hits": 51
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 232,
+                  "short_stack": 12
+                },
+                "decisions": 283,
+                "policy_hits": 39
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 120,
+                  "short_stack": 2
+                },
+                "decisions": 163,
+                "policy_hits": 41
+              }
+            },
+            "decisions": 6160,
+            "policy_hits": 2017
+          },
+          "sd": 0.11936312827241688,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.07031153993444797,
+                "max_abs_z": 6.604960815987148,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 63.280385941003175,
+            "max_abs_diff_rel": 0.07031153993444797,
+            "max_abs_z": 6.604960815987148,
+            "policy": {
+              "backoff_rate": 0.8179896213722853,
+              "backoff_reasons": {
+                "no_key": 19422,
+                "short_stack": 1858
+              },
+              "backoffs": 21280,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 16242,
+                    "short_stack": 1749
+                  },
+                  "decisions": 22309,
+                  "policy_hits": 4318
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1610,
+                    "short_stack": 61
+                  },
+                  "decisions": 1822,
+                  "policy_hits": 151
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 1016,
+                    "short_stack": 31
+                  },
+                  "decisions": 1193,
+                  "policy_hits": 146
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 554,
+                    "short_stack": 17
+                  },
+                  "decisions": 691,
+                  "policy_hits": 120
+                }
+              },
+              "decisions": 26015,
+              "policy_hits": 4735
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": 0.007561539934447989,
+          "policy": {
+            "backoff_rate": 0.6783227848101265,
+            "backoff_reasons": {
+              "no_key": 3671,
+              "out_of_sync": 2,
+              "short_stack": 614
+            },
+            "backoffs": 4287,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 2883,
+                  "short_stack": 574
+                },
+                "decisions": 5356,
+                "policy_hits": 1899
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 398,
+                  "out_of_sync": 1,
+                  "short_stack": 25
+                },
+                "decisions": 475,
+                "policy_hits": 51
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 255,
+                  "out_of_sync": 1,
+                  "short_stack": 11
+                },
+                "decisions": 310,
+                "policy_hits": 43
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 135,
+                  "short_stack": 4
+                },
+                "decisions": 179,
+                "policy_hits": 40
+              }
+            },
+            "decisions": 6320,
+            "policy_hits": 2033
+          },
+          "sd": 0.12358446625993043,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.04531153993444799,
+                "max_abs_z": 4.754273852052614,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 40.78038594100319,
+            "max_abs_diff_rel": 0.04531153993444799,
+            "max_abs_z": 4.754273852052614,
+            "policy": {
+              "backoff_rate": 0.840242857674973,
+              "backoff_reasons": {
+                "no_key": 20316,
+                "short_stack": 2242
+              },
+              "backoffs": 22558,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 17182,
+                    "short_stack": 2050
+                  },
+                  "decisions": 23084,
+                  "policy_hits": 3852
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1651,
+                    "short_stack": 117
+                  },
+                  "decisions": 1956,
+                  "policy_hits": 188
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 962,
+                    "short_stack": 50
+                  },
+                  "decisions": 1153,
+                  "policy_hits": 141
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 521,
+                    "short_stack": 25
+                  },
+                  "decisions": 654,
+                  "policy_hits": 108
+                }
+              },
+              "decisions": 26847,
+              "policy_hits": 4289
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.006,
+        "sd": 0.12886238312425063,
+        "se": 0.006443119156212531
+      },
+      "games": 400,
+      "layout": 0,
+      "learner": 7,
+      "learner_icm_rel": 0.07268846006555202,
+      "level_index": 0,
+      "players": [
+        2,
+        3,
+        6,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "skewed",
+      "remaining": 4,
+      "stacks": [
+        5467,
+        6403,
+        1192,
+        438
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.07910854997816646,
+          "policy": {
+            "backoff_rate": 0.6850309630578689,
+            "backoff_reasons": {
+              "no_key": 5989,
+              "short_stack": 427
+            },
+            "backoffs": 6416,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 4696,
+                  "short_stack": 399
+                },
+                "decisions": 7847,
+                "policy_hits": 2752
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 625,
+                  "short_stack": 19
+                },
+                "decisions": 742,
+                "policy_hits": 98
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 422,
+                  "short_stack": 7
+                },
+                "decisions": 480,
+                "policy_hits": 51
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 246,
+                  "short_stack": 2
+                },
+                "decisions": 297,
+                "policy_hits": 49
+              }
+            },
+            "decisions": 9366,
+            "policy_hits": 2950
+          },
+          "sd": 0.17209893989441644,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.026391450021833532,
+                "max_abs_z": 2.149826281240624,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 23.75230501965018,
+            "max_abs_diff_rel": 0.026391450021833532,
+            "max_abs_z": 2.149826281240624,
+            "policy": {
+              "backoff_rate": 0.8157875457875458,
+              "backoff_reasons": {
+                "no_key": 20542,
+                "short_stack": 1729
+              },
+              "backoffs": 22271,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 17502,
+                    "short_stack": 1648
+                  },
+                  "decisions": 23799,
+                  "policy_hits": 4649
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1551,
+                    "short_stack": 54
+                  },
+                  "decisions": 1784,
+                  "policy_hits": 179
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 950,
+                    "short_stack": 18
+                  },
+                  "decisions": 1085,
+                  "policy_hits": 117
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 539,
+                    "short_stack": 9
+                  },
+                  "decisions": 632,
+                  "policy_hits": 84
+                }
+              },
+              "decisions": 27300,
+              "policy_hits": 5029
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.06435854997816647,
+          "policy": {
+            "backoff_rate": 0.6980117670927166,
+            "backoff_reasons": {
+              "no_key": 6483,
+              "short_stack": 398
+            },
+            "backoffs": 6881,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 5106,
+                  "short_stack": 370
+                },
+                "decisions": 8250,
+                "policy_hits": 2774
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 655,
+                  "short_stack": 17
+                },
+                "decisions": 772,
+                "policy_hits": 100
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 459,
+                  "short_stack": 10
+                },
+                "decisions": 519,
+                "policy_hits": 50
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 263,
+                  "short_stack": 1
+                },
+                "decisions": 317,
+                "policy_hits": 53
+              }
+            },
+            "decisions": 9858,
+            "policy_hits": 2977
+          },
+          "sd": 0.16961828736466272,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.013468900743286112,
+                "max_abs_z": 1.1575177401907821,
+                "significant": false
+              }
+            ],
+            "max_abs_diff": 12.1220106689575,
+            "max_abs_diff_rel": 0.013468900743286112,
+            "max_abs_z": 1.1575177401907821,
+            "policy": {
+              "backoff_rate": 0.8269823746621493,
+              "backoff_reasons": {
+                "no_key": 20150,
+                "out_of_sync": 5,
+                "short_stack": 1569
+              },
+              "backoffs": 21724,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 17180,
+                    "short_stack": 1491
+                  },
+                  "decisions": 22856,
+                  "policy_hits": 4185
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1526,
+                    "out_of_sync": 5,
+                    "short_stack": 57
+                  },
+                  "decisions": 1762,
+                  "policy_hits": 174
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 919,
+                    "short_stack": 13
+                  },
+                  "decisions": 1034,
+                  "policy_hits": 102
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 525,
+                    "short_stack": 8
+                  },
+                  "decisions": 617,
+                  "policy_hits": 84
+                }
+              },
+              "decisions": 26269,
+              "policy_hits": 4545
+            },
+            "significant": false,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.014749999999999996,
+        "sd": 0.15432750872697545,
+        "se": 0.007716375436348772
+      },
+      "games": 400,
+      "layout": 1,
+      "learner": 5,
+      "learner_icm_rel": 0.21310854997816647,
+      "level_index": 0,
+      "players": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "skewed",
+      "remaining": 4,
+      "stacks": [
+        1692,
+        2352,
+        5866,
+        3590
+      ]
+    },
+    {
+      "arms": {
+        "A": {
+          "mean": -0.047309160042268934,
+          "policy": {
+            "backoff_rate": 0.8019399588165167,
+            "backoff_reasons": {
+              "no_key": 13850,
+              "short_stack": 949
+            },
+            "backoffs": 14799,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 11100,
+                  "short_stack": 846
+                },
+                "decisions": 15285,
+                "policy_hits": 3339
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 1355,
+                  "short_stack": 56
+                },
+                "decisions": 1536,
+                "policy_hits": 125
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 881,
+                  "short_stack": 31
+                },
+                "decisions": 995,
+                "policy_hits": 83
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 514,
+                  "short_stack": 16
+                },
+                "decisions": 638,
+                "policy_hits": 108
+              }
+            },
+            "decisions": 18454,
+            "policy_hits": 3655
+          },
+          "sd": 0.16736027352057659,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.06797643779004697,
+                "max_abs_z": 7.323724990790792,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 61.17879401104228,
+            "max_abs_diff_rel": 0.06797643779004697,
+            "max_abs_z": 7.323724990790792,
+            "policy": {
+              "backoff_rate": 0.8291742370870259,
+              "backoff_reasons": {
+                "no_key": 20182,
+                "short_stack": 2180
+              },
+              "backoffs": 22362,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 17165,
+                    "short_stack": 2012
+                  },
+                  "decisions": 23383,
+                  "policy_hits": 4206
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1533,
+                    "short_stack": 97
+                  },
+                  "decisions": 1807,
+                  "policy_hits": 177
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 970,
+                    "short_stack": 44
+                  },
+                  "decisions": 1131,
+                  "policy_hits": 117
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 514,
+                    "short_stack": 27
+                  },
+                  "decisions": 648,
+                  "policy_hits": 107
+                }
+              },
+              "decisions": 26969,
+              "policy_hits": 4607
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        },
+        "B": {
+          "mean": -0.04180916004226892,
+          "policy": {
+            "backoff_rate": 0.807435968052878,
+            "backoff_reasons": {
+              "no_key": 13765,
+              "short_stack": 894
+            },
+            "backoffs": 14659,
+            "by_street": {
+              "0": {
+                "backoff_reasons": {
+                  "no_key": 11038,
+                  "short_stack": 825
+                },
+                "decisions": 15027,
+                "policy_hits": 3164
+              },
+              "1": {
+                "backoff_reasons": {
+                  "no_key": 1320,
+                  "short_stack": 41
+                },
+                "decisions": 1500,
+                "policy_hits": 139
+              },
+              "2": {
+                "backoff_reasons": {
+                  "no_key": 885,
+                  "short_stack": 18
+                },
+                "decisions": 990,
+                "policy_hits": 87
+              },
+              "3": {
+                "backoff_reasons": {
+                  "no_key": 522,
+                  "short_stack": 10
+                },
+                "decisions": 638,
+                "policy_hits": 106
+              }
+            },
+            "decisions": 18155,
+            "policy_hits": 3496
+          },
+          "sd": 0.16946011130442548,
+          "symmetric": {
+            "games": 200,
+            "lambda_metrics": [
+              {
+                "lambda": 0.0,
+                "max_abs_diff_rel": 0.07647643779004698,
+                "max_abs_z": 7.956721975882885,
+                "significant": true
+              }
+            ],
+            "max_abs_diff": 68.82879401104228,
+            "max_abs_diff_rel": 0.07647643779004698,
+            "max_abs_z": 7.956721975882885,
+            "policy": {
+              "backoff_rate": 0.8377558166679636,
+              "backoff_reasons": {
+                "no_key": 19751,
+                "short_stack": 1781
+              },
+              "backoffs": 21532,
+              "by_street": {
+                "0": {
+                  "backoff_reasons": {
+                    "no_key": 16813,
+                    "short_stack": 1607
+                  },
+                  "decisions": 22188,
+                  "policy_hits": 3768
+                },
+                "1": {
+                  "backoff_reasons": {
+                    "no_key": 1475,
+                    "short_stack": 88
+                  },
+                  "decisions": 1740,
+                  "policy_hits": 177
+                },
+                "2": {
+                  "backoff_reasons": {
+                    "no_key": 940,
+                    "short_stack": 64
+                  },
+                  "decisions": 1119,
+                  "policy_hits": 115
+                },
+                "3": {
+                  "backoff_reasons": {
+                    "no_key": 523,
+                    "short_stack": 22
+                  },
+                  "decisions": 655,
+                  "policy_hits": 110
+                }
+              },
+              "decisions": 25702,
+              "policy_hits": 4170
+            },
+            "significant": true,
+            "zone": "bubble"
+          }
+        }
+      },
+      "diff_b_minus_a": {
+        "mean": 0.005499999999999998,
+        "sd": 0.1621279237489578,
+        "se": 0.008106396187447889
+      },
+      "games": 400,
+      "layout": 2,
+      "learner": 0,
+      "learner_icm_rel": 0.39405916004226893,
+      "level_index": 0,
+      "players": [
+        0,
+        1,
+        2,
+        4
+      ],
+      "preset": "9max_sng_503020",
+      "prize_pool": 900.0,
+      "profile": "skewed",
+      "remaining": 4,
+      "stacks": [
+        7513,
+        547,
+        2880,
+        2560
+      ]
+    }
+  ],
+  "policy": {
+    "A": {
+      "backoff_rate": 0.7399817193438206,
+      "backoff_reasons": {
+        "no_key": 71232,
+        "out_of_sync": 1,
+        "short_stack": 5677
+      },
+      "backoffs": 76910,
+      "by_street": {
+        "0": {
+          "backoff_reasons": {
+            "no_key": 56902,
+            "short_stack": 5173
+          },
+          "decisions": 87134,
+          "policy_hits": 25059
+        },
+        "1": {
+          "backoff_reasons": {
+            "no_key": 7041,
+            "out_of_sync": 1,
+            "short_stack": 305
+          },
+          "decisions": 8222,
+          "policy_hits": 875
+        },
+        "2": {
+          "backoff_reasons": {
+            "no_key": 4629,
+            "short_stack": 137
+          },
+          "decisions": 5285,
+          "policy_hits": 519
+        },
+        "3": {
+          "backoff_reasons": {
+            "no_key": 2660,
+            "short_stack": 62
+          },
+          "decisions": 3294,
+          "policy_hits": 572
+        }
+      },
+      "decisions": 103935,
+      "missing_keys": {
+        "0": [
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e10",
+            "n": 425,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e10"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e2",
+            "n": 385,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e2"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e8",
+            "n": 359,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e8"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e1",
+            "n": 357,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e1"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e5",
+            "n": 354,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e5"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e3",
+            "n": 350,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e3"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e7",
+            "n": 350,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e7"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e6",
+            "n": 340,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e6"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e0",
+            "n": 336,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e0"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e4",
+            "n": 336,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e4"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e9",
+            "n": 336,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e9"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e3",
+            "n": 284,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e3"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e2",
+            "n": 275,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e2"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e7",
+            "n": 269,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e7"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e0",
+            "n": 268,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e0"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e8",
+            "n": 263,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e8"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e10",
+            "n": 257,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e10"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e8",
+            "n": 257,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e8"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e2",
+            "n": 256,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e2"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e10",
+            "n": 253,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e10"
+            ]
+          }
+        ],
+        "1": [
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v1k0",
+            "n": 10,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v1k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e1|o1v2k0",
+            "n": 6,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e3|o1v2k0",
+            "n": 6,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BTN|n2|1|1|0|0|0|2|tm0|s2:2|u10|hn|gn|kb20b75b100b150b200b300a|e9|o1v1k2",
+            "n": 6,
+            "parts": [
+              "BTN",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s2:2",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e9",
+              "o1v1k2"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s2:2|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v2k0",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v2k0",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v2k0",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e9|o1v1k2",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e9",
+              "o1v1k2"
+            ]
+          },
+          {
+            "key": "BB|n3|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b50b75b100b150b200b300a|e9|o1v1k2",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n3",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b50b75b100b150b200b300a",
+              "e9",
+              "o1v1k2"
+            ]
+          },
+          {
+            "key": "BTN|n2|1|1|0|0|0|2|tm0|s1:1|u10|hn|gn|kb20b75b100b150b200b300a|e9|o1v0k2",
+            "n": 5,
+            "parts": [
+              "BTN",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e9",
+              "o1v0k2"
+            ]
+          },
+          {
+            "key": "BTN|n2|1|1|0|0|0|3|tm0|s3:3|u10|hn|gn|kb20b75b100b150b200b300a|e6|o1v2k0",
+            "n": 5,
+            "parts": [
+              "BTN",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e6",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v0k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e2|o2v2k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e5|o1v2k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e5",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e8|o1v1k1",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e8",
+              "o1v1k1"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s2:2|u01|hn|gn|kb20b75b100b150b200b300a|e10|o0v1k2",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e10",
+              "o0v1k2"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s2:2|u01|hn|gn|kb20b75b100b150b200b300a|e1|o1v2k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e1|o2v2k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e4|o1v2k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e4",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e8|o1v0k1",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e8",
+              "o1v0k1"
+            ]
+          }
+        ],
+        "2": [
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v2k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e4|o2v2k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e4",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e1|o1v2k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|1|0|1|tm0|s1:1|u01|hn|gn|kb20b33b50b75b100a|e3|o1v2k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "1",
+              "0",
+              "1",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100a",
+              "e3",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|2|0|2|tm0|s3:3|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e0|o1v0k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "2",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e0",
+              "o1v0k0"
+            ]
+          },
+          {
+            "key": "BTN|n2|2|1|0|2|0|3|tm0|s4:4|u10|hn|gn|kb20b33b50b75b100b150b200b300a|e9|o1v0k2",
+            "n": 3,
+            "parts": [
+              "BTN",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "2",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e9",
+              "o1v0k2"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|1|tm0|s0:0|u01|hn|gn|kb20b75b100b150b200b300a|e5|o2v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e5",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v1k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v1k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s2:2|u01|hn|gn|kb20b75b100b150b200b300a|e0|o1v0k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o1v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s2:2|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e0|o1v0k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o1v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e10|o0v1k2",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e10",
+              "o0v1k2"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e1|o1v0k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o1v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e1|o1v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e1|o2v0k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o2v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e2|o3v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o3v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e3|o2v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e0|o1v0k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o1v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e2|o2v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o2v2k0"
+            ]
+          }
+        ],
+        "3": [
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e0|o-v-k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|0|tm0|s0:0|u01|hn|gn|ka|e2|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "0",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gn",
+              "ka",
+              "e2",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s3:3|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e1|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e1",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BTN|n3|3|1|0|0|0|2|tm0|s2:2|u10|hn|gn|kb20b50b75b100b150b200b300a|e3|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BTN",
+              "n3",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s2:2",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b50b75b100b150b200b300a",
+              "e3",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BTN|n3|3|1|0|0|0|3|tm0|s3:3|u10|hn|gn|kb20b50b75b100b150b200b300a|e4|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BTN",
+              "n3",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b50b75b100b150b200b300a",
+              "e4",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "SB|n3|3|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e4|o-v-k0",
+            "n": 3,
+            "parts": [
+              "SB",
+              "n3",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e4",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "SB|n4|3|1|0|0|0|3|tb0|s5:5|u01|hn|gn|kb20b75b100b150b200b300a|e4|o-v-k0",
+            "n": 3,
+            "parts": [
+              "SB",
+              "n4",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tb0",
+              "s5:5",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e4",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|0|tm0|s0:0|u01|hn|go|ka|e8|o-v-k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "0",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "go",
+              "ka",
+              "e8",
+              "o-v-k1"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|1|tm0|s0:0|u01|hn|gn|kb20b75b100b150b200b300a|e3|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|1|tm0|s2:2|u01|hn|gn|kb20b33b50b75b100b150b200a|e0|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200a",
+              "e0",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|1|tm0|s2:2|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e1|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e1",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200a|e2|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200a",
+              "e2",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s3:3|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e2|o-v-k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e2",
+              "o-v-k1"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s3:3|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e6|o-v-k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e6",
+              "o-v-k1"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s3:3|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e7|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e7",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e1|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e2|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e3|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e3",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e5|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e5",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e4|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e4",
+              "o-v-k0"
+            ]
+          }
+        ]
+      },
+      "policy_hits": 27025
+    },
+    "B": {
+      "backoff_rate": 0.740780962723748,
+      "backoff_reasons": {
+        "no_key": 72257,
+        "off_menu": 1,
+        "out_of_sync": 5,
+        "short_stack": 5499
+      },
+      "backoffs": 77762,
+      "by_street": {
+        "0": {
+          "backoff_reasons": {
+            "no_key": 57643,
+            "off_menu": 1,
+            "short_stack": 5100
+          },
+          "decisions": 87865,
+          "policy_hits": 25121
+        },
+        "1": {
+          "backoff_reasons": {
+            "no_key": 7202,
+            "out_of_sync": 2,
+            "short_stack": 255
+          },
+          "decisions": 8353,
+          "policy_hits": 894
+        },
+        "2": {
+          "backoff_reasons": {
+            "no_key": 4717,
+            "out_of_sync": 3,
+            "short_stack": 103
+          },
+          "decisions": 5368,
+          "policy_hits": 545
+        },
+        "3": {
+          "backoff_reasons": {
+            "no_key": 2695,
+            "short_stack": 41
+          },
+          "decisions": 3387,
+          "policy_hits": 651
+        }
+      },
+      "decisions": 104973,
+      "missing_keys": {
+        "0": [
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e10",
+            "n": 404,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e10"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e4",
+            "n": 369,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e4"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e9",
+            "n": 368,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e9"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e1",
+            "n": 355,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e1"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e8",
+            "n": 353,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e8"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e5",
+            "n": 351,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e5"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e3",
+            "n": 350,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e3"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e7",
+            "n": 349,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e7"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e2",
+            "n": 342,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e2"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e0",
+            "n": 332,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e0"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s3:3|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e6",
+            "n": 319,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e6"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e3",
+            "n": 288,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e3"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e2",
+            "n": 268,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e2"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e10",
+            "n": 262,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e10"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e9",
+            "n": 257,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e9"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e0",
+            "n": 256,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e0"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e8",
+            "n": 255,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e8"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s4:4|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e2",
+            "n": 253,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e2"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e8",
+            "n": 250,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e8"
+            ]
+          },
+          {
+            "key": "BTN|n2|0|1|0|0|2|0|tm0|s2:2|u01|hn|fcr2r22rr3r35r4r5r6r8r10a|e3",
+            "n": 248,
+            "parts": [
+              "BTN",
+              "n2",
+              "0",
+              "1",
+              "0",
+              "0",
+              "2",
+              "0",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "fcr2r22rr3r35r4r5r6r8r10a",
+              "e3"
+            ]
+          }
+        ],
+        "1": [
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v0k0",
+            "n": 8,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v1k0",
+            "n": 6,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v1k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e1|o1v2k0",
+            "n": 6,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v2k0",
+            "n": 6,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e3|o1v2k0",
+            "n": 6,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e4|o1v2k0",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e4",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e3|o1v2k0",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e9|o1v1k2",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e9",
+              "o1v1k2"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e4|o1v2k0",
+            "n": 5,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e4",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BTN|n2|1|1|0|0|0|3|tm0|s3:3|u10|hn|gn|kb20b75b100b150b200b300a|e9|o1v0k2",
+            "n": 5,
+            "parts": [
+              "BTN",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e9",
+              "o1v0k2"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|1|tm0|s0:0|u01|hn|gn|kb20b75b100a|e7|o1v2k1",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100a",
+              "e7",
+              "o1v2k1"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e2|o1v2k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|2|tm0|s2:2|u01|hn|gn|kb20b75b100b150b200b300a|e0|o3v0k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o3v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e3|o2v1k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o2v1k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e8|o1v1k1",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e8",
+              "o1v1k1"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e2|o2v1k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o2v1k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e3|o1v1k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o1v1k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e5|o1v2k1",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e5",
+              "o1v2k1"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|0|0|3|tm0|s5:5|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v0k0",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s5:5",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|1|1|0|1|0|0|tm0|s0:0|u01|hn|gm|ka|e8|o1v2k1",
+            "n": 4,
+            "parts": [
+              "BB",
+              "n2",
+              "1",
+              "1",
+              "0",
+              "1",
+              "0",
+              "0",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gm",
+              "ka",
+              "e8",
+              "o1v2k1"
+            ]
+          }
+        ],
+        "2": [
+          {
+            "key": "BB|n2|2|1|0|0|0|1|tm0|s0:0|u01|hn|gn|kb20b75b100b150b200b300a|e0|o1v0k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o1v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|1|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e0|o1v0k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o1v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e3|o2v2k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e1|o1v2k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e1",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BTN|n2|2|1|0|2|0|0|tm0|s1:1|u10|hn|gn|kb20b33b50a|e9|o1v1k2",
+            "n": 3,
+            "parts": [
+              "BTN",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "2",
+              "0",
+              "0",
+              "tm0",
+              "s1:1",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b33b50a",
+              "e9",
+              "o1v1k2"
+            ]
+          },
+          {
+            "key": "BTN|n2|2|1|0|2|0|2|tm0|s3:3|u10|hn|gn|kb20b33b50b75b100b150b200b300a|e10|o0v0k2",
+            "n": 3,
+            "parts": [
+              "BTN",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "2",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u10",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e10",
+              "o0v0k2"
+            ]
+          },
+          {
+            "key": "BTN|n2|2|1|1|0|2|2|tm0|s3:3|u10|hb|gn|fcr25rr4r5r7r10a|e10|o0v0k2",
+            "n": 3,
+            "parts": [
+              "BTN",
+              "n2",
+              "2",
+              "1",
+              "1",
+              "0",
+              "2",
+              "2",
+              "tm0",
+              "s3:3",
+              "u10",
+              "hb",
+              "gn",
+              "fcr25rr4r5r7r10a",
+              "e10",
+              "o0v0k2"
+            ]
+          },
+          {
+            "key": "SB|n3|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e9|o1v0k2",
+            "n": 3,
+            "parts": [
+              "SB",
+              "n3",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e9",
+              "o1v0k2"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|0|tm0|s0:0|u01|hn|go|ka|e4|o2v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "0",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "go",
+              "ka",
+              "e4",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|1|tm0|s0:0|u01|hn|gn|kb20b75b100a|e2|o2v1k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100a",
+              "e2",
+              "o2v1k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|1|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e10|o0v0k2",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e10",
+              "o0v0k2"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200a|e3|o3v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200a",
+              "e3",
+              "o3v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e3|o2v2k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e3",
+              "o2v2k1"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e5|o1v2k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e5",
+              "o1v2k1"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e6|o1v2k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e6",
+              "o1v2k1"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|2|tm0|s1:1|u01|hn|gn|kb20b75b100b150b200b300a|e9|o1v2k2",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e9",
+              "o1v2k2"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s2:2|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e0|o1v2k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o1v2k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e0|o2v0k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e0",
+              "o2v0k0"
+            ]
+          },
+          {
+            "key": "BB|n2|2|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e10|o0v1k2",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "2",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e10",
+              "o0v1k2"
+            ]
+          }
+        ],
+        "3": [
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s3:3|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e1|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e1",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e2|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e2",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s3:3|u01|hn|gn|kb20b75b100b150b200b300a|e6|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e6",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e3|o-v-k0",
+            "n": 3,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e3",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "SB|n3|3|1|0|1|0|3|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e8|o-v-k1",
+            "n": 3,
+            "parts": [
+              "SB",
+              "n3",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e8",
+              "o-v-k1"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|0|tm0|s0:0|u01|hn|gn|ka|e2|o-v-k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "0",
+              "tm0",
+              "s0:0",
+              "u01",
+              "hn",
+              "gn",
+              "ka",
+              "e2",
+              "o-v-k1"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|1|tm0|s2:2|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e1|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "1",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e1",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s3:3|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e7|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s3:3",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e7",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|2|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e0|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "2",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e0",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e5|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e5",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s4:4|u01|hn|gn|kb20b75b100b150b200b300a|e8|o-v-k1",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b75b100b150b200b300a",
+              "e8",
+              "o-v-k1"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|0|0|3|tm0|s5:5|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e0|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "0",
+              "0",
+              "3",
+              "tm0",
+              "s5:5",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e0",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|0|tm0|s1:1|u01|hn|gn|ka|e0|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "0",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "ka",
+              "e0",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|0|tm0|s1:1|u01|hn|gn|kb20a|e2|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "0",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20a",
+              "e2",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|0|tm0|s1:1|u01|hn|gn|kb20b33a|e3|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "0",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33a",
+              "e3",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|1|tm0|s1:1|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e1|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "1",
+              "tm0",
+              "s1:1",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e1",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|1|tm0|s2:2|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e9|o-v-k2",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "1",
+              "tm0",
+              "s2:2",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e9",
+              "o-v-k2"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|2|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e2|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "2",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e2",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|3|tm0|s4:4|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e2|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "3",
+              "tm0",
+              "s4:4",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e2",
+              "o-v-k0"
+            ]
+          },
+          {
+            "key": "BB|n2|3|1|0|1|0|3|tm0|s5:5|u01|hn|gn|kb20b33b50b75b100b150b200b300a|e3|o-v-k0",
+            "n": 2,
+            "parts": [
+              "BB",
+              "n2",
+              "3",
+              "1",
+              "0",
+              "1",
+              "0",
+              "3",
+              "tm0",
+              "s5:5",
+              "u01",
+              "hn",
+              "gn",
+              "kb20b33b50b75b100b150b200b300a",
+              "e3",
+              "o-v-k0"
+            ]
+          }
+        ]
+      },
+      "policy_hits": 27211
+    }
+  },
+  "primary": {
+    "cells": 9,
+    "ci_high": 0.006870839310661461,
+    "ci_low": -0.004315283755105909,
+    "mean": 0.0012777777777777761,
+    "metric": "learner sim prize - ICM equity (B - A)",
+    "se": 0.002853655259484889
+  },
+  "schema_version": 2,
+  "skipped": [],
+  "symmetric_summary": {
+    "A": {
+      "bubble_cells": 9,
+      "bubble_mean_rel": 0.03224816287003475,
+      "bubble_significant": 2,
+      "i_bubble_significant": 2,
+      "ii_bubble_mean_rel": 0.03224816287003475,
+      "in_prize_cells": 0,
+      "in_prize_significant": 0,
+      "lambda": 0.0
+    },
+    "B": {
+      "bubble_cells": 9,
+      "bubble_mean_rel": 0.02922331397052559,
+      "bubble_significant": 2,
+      "i_bubble_significant": 2,
+      "ii_bubble_mean_rel": 0.02922331397052559,
+      "in_prize_cells": 0,
+      "in_prize_significant": 0,
+      "lambda": 0.0
+    }
+  },
+  "unit": "prize_pool_fraction",
+  "verdict": "A"
+}
