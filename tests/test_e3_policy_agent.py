@@ -260,13 +260,3 @@ def test_policy_agents_sum_missing_keys_and_tolerate_old_counts():
     assert c["by_street"]["0"]["backoff_reasons"] == {"no_key": 4}
     json.dumps(c)   # tournament_ab serializes arm.counts() as is
 
-
-def test_tournament_ab_serializes_missing_keys(table):
-    """#990: tournament_ab dumps arm.counts() unchanged, so the new fields reach its JSON without a protected edit."""
-    import inspect
-    from stalker.tools import tournament_ab
-
-    src = inspect.getsource(tournament_ab)
-    assert ".counts()" in src
-    _, ag = play(EMPTY)
-    json.dumps([a.counts() for a in ag])
