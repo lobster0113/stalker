@@ -14,6 +14,9 @@ Auxiliary, per cell and arm: the ADR 0026 metrics of a policy-symmetric field (t
 (ii) mean bubble |diff|/pool), and the #900 backoff counts of the learning seat (`policy`) and of the symmetric field.
 The unvisited-key list (`missing_keys`, #990) is kept only in the per-arm totals `policy.<arm>`; per-cell `policy`
 entries drop it (schema 2, #1004) so the result stays under the ops upload limit whatever the cell count.
+Every `policy` entry (totals and cells) also splits decisions, hits and reasons by the hand's player count,
+`by_players` ({"2": {...}, "4": {...}}, schema 3, #1010): a few small cells, so the bubble's own backoff can be
+told apart from a bubble-only table used heads-up.
 
     python -m stalker.tools.tournament_ab --a cold.json --b prior.json --presets 9max_sng_503020 --remaining 4 \
         --profiles even,random,skewed --layouts 3 --games 200 --seed 10001 --out ab.json
@@ -46,7 +49,7 @@ from stalker.tournament.config import load_preset
 from stalker.tournament.director import run_game
 from stalker.tournament.start_state import STACK_PROFILES, make_start_state
 
-SCHEMA_VERSION = 2   # 2: per-cell policy counts without missing_keys (#1004)
+SCHEMA_VERSION = 3   # 2: per-cell policy counts without missing_keys (#1004); 3: policy.by_players (#1010)
 DEFAULT_SEED = 10001
 DEFAULT_FIELD = "persona:tag"
 Z95 = 1.959963984540054

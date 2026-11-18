@@ -81,6 +81,14 @@ def policies(tmp_path_factory):
     return a, b
 
 
+def _without(doc, key):
+    if isinstance(doc, dict):
+        return {k: _without(v, key) for k, v in doc.items() if k != key}
+    if isinstance(doc, list):
+        return [_without(v, key) for v in doc]
+    return doc
+
+
 @pytest.mark.slow
 def test_cli_runs_two_r4_cells_and_is_byte_reproducible(tmp_path, policies):
     a, b = policies
@@ -119,6 +127,14 @@ def test_cli_runs_two_r4_cells_and_is_byte_reproducible(tmp_path, policies):
         if no_key0:
             assert pol["missing_keys"]["0"]
     assert one.decode().count('"missing_keys"') == 2   # one per arm total, none per cell (#1004)
+    for arm in ("A", "B"):   # #1010: by_players in totals and cells, summing to the decisions
+        pol = out["policy"][arm]
+        assert sum(v["decisions"] for v in pol["by_players"].values()) == pol["decisions"]
+        for c in out["cells"]:
+            cp = c["arms"][arm]["policy"]
+            assert sum(v["decisions"] for v in cp["by_players"].values()) == cp["decisions"]
+    # #1010 size guard (#1004 was a 2x blow-up): by_players at most doubles the output
+    assert len(one) <= 2 * len(json.dumps(_without(out, "by_players"), ensure_ascii=False, indent=2, sort_keys=True))
 
 
 @pytest.mark.slow

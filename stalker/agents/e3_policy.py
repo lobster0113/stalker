@@ -19,7 +19,10 @@ Backoff: when the table has no row for the key (`no_key`) or the row length diff
 not SB = BB / 2, a stack under 2 BB, blinds not just after the button, more than 9 seats, a replay out of step with
 the real hand), the decision goes to the fallback rule bot (`persona:tag` by default), which sees every event so
 its own state stays right. `decisions`, `policy_hits`, `backoffs` and `backoff_reasons` count what happened; `by_street`
-({street: {decisions, policy_hits}}, 0 preflop .. 3 river) splits decisions and hits by street.
+({street: {decisions, policy_hits, backoff_reasons}}, 0 preflop .. 3 river) splits them by street, and `by_players`
+(same shape, keyed by the players dealt into the hand, "2".."9", or "unknown" when the hand's NEW_HAND was not seen)
+splits them by the hand's player count (#1010): a bubble-only table backs off on every heads-up hand, and this tells
+that mismatch apart from misses inside the bubble.
 """
 from __future__ import annotations
 
@@ -39,6 +42,28 @@ from stalker.e3 import translate as T
 FALLBACK = "tag"   # the rule bot a miss goes to (ADR 0027 decision 4 field)
 _STREET = {0: 0, 3: 1, 4: 2, 5: 3}   # board cards -> street (0 preflop .. 3 river), for `by_street`
 MAX_SEATS = 9      # E3 deals 2..9 players
+
+
+def _cell() -> dict:
+    return {"decisions": 0, "policy_hits": 0, "backoff_reasons": {}}
+
+
+def sorted_cells(cells: dict[str, dict]) -> dict[str, dict]:
+    """Cells in key order with their reasons sorted, so the JSON is deterministic. Numeric keys sort by value
+    ("2" < "10"), "unknown" last."""
+    order = sorted(cells, key=lambda k: (not k.isdigit(), int(k) if k.isdigit() else 0, k))
+    return {k: {**cells[k], "backoff_reasons": dict(sorted(cells[k]["backoff_reasons"].items()))} for k in order}
+
+
+def add_cells(total: dict[str, dict], cells: dict[str, dict]) -> None:
+    """Add `cells` ({key: {decisions, policy_hits, backoff_reasons?}}) into `total` in place; older counts without
+    `backoff_reasons` (#990) add nothing there."""
+    for k, cell in cells.items():
+        tot = total.setdefault(str(k), _cell())
+        tot["decisions"] += cell["decisions"]
+        tot["policy_hits"] += cell["policy_hits"]
+        for r, n in cell.get("backoff_reasons", {}).items():
+            tot["backoff_reasons"][r] = tot["backoff_reasons"].get(r, 0) + n
 
 
 def e3_stage(remaining: int, paid_places: int, players: int | None = None, table_size: int | None = None) -> str:
@@ -131,7 +156,8 @@ class E3PolicyAgent(Agent):
         self.players, self.table_size = players, table_size
         self.decisions = self.policy_hits = self.backoffs = 0
         self.backoff_reasons: dict[str, int] = {}
-        self.by_street: dict[str, dict[str, int]] = {}
+        self.by_street: dict[str, dict] = {}
+        self.by_players: dict[str, dict] = {}
         self._missing: dict[str, dict[str, int]] = {}   # street -> unvisited key -> count (#990)
         self._new_hand: dict | None = None
         self._mirror: dict | None = None
@@ -152,10 +178,10 @@ class E3PolicyAgent(Agent):
     # ---- acting ----
     def act(self, obs: Observation) -> Action:
         self.decisions += 1
-        cell = self.by_street.setdefault(str(_STREET.get(len(obs.board), 0)),
-                                         {"decisions": 0, "policy_hits": 0, "backoff_reasons": {}})
-        cell["decisions"] += 1
         street = str(_STREET.get(len(obs.board), 0))
+        cells = [self.by_street.setdefault(street, _cell()), self.by_players.setdefault(self._hand_players(obs), _cell())]
+        for cell in cells:
+            cell["decisions"] += 1
         try:
             action = self._policy_act(obs)
         except BackoffError as e:
@@ -165,12 +191,21 @@ class E3PolicyAgent(Agent):
                 miss[e.key] = miss.get(e.key, 0) + 1
         else:
             self.policy_hits += 1
-            cell["policy_hits"] += 1
+            for cell in cells:
+                cell["policy_hits"] += 1
             return action
         self.backoffs += 1
         self.backoff_reasons[reason] = self.backoff_reasons.get(reason, 0) + 1
-        cell["backoff_reasons"][reason] = cell["backoff_reasons"].get(reason, 0) + 1
+        for cell in cells:
+            cell["backoff_reasons"][reason] = cell["backoff_reasons"].get(reason, 0) + 1
         return self.fallback.act(obs)
+
+    def _hand_players(self, obs: Observation) -> str:
+        """Players dealt into this hand (the E3 `n` of its key), from the hand's NEW_HAND; "unknown" without it."""
+        nh = self._new_hand
+        if nh is None or (nh["game"], nh["hand"]) != (obs.game_id, obs.hand_id) or "stacks" not in nh:
+            return "unknown"
+        return str(len(nh["stacks"]))
 
     def missing_counts(self) -> dict[str, dict[str, int]]:
         """Full street -> {unvisited key: count}; `counts()` carries only the top N of it."""
@@ -179,8 +214,8 @@ class E3PolicyAgent(Agent):
     def counts(self) -> dict:
         return {"decisions": self.decisions, "policy_hits": self.policy_hits, "backoffs": self.backoffs,
                 "backoff_reasons": dict(sorted(self.backoff_reasons.items())),
-                "by_street": {k: {**v, "backoff_reasons": dict(sorted(v["backoff_reasons"].items()))}
-                              for k, v in sorted(self.by_street.items())},
+                "by_street": sorted_cells(self.by_street),
+                "by_players": sorted_cells(self.by_players),
                 "missing_keys": top_missing(self.missing_counts())}
 
     def decision_key(self, obs: Observation) -> str:

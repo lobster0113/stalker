@@ -260,3 +260,77 @@ def test_policy_agents_sum_missing_keys_and_tolerate_old_counts():
     assert c["by_street"]["0"]["backoff_reasons"] == {"no_key": 4}
     json.dumps(c)   # tournament_ab serializes arm.counts() as is
 
+
+
+def test_by_players_sums_to_totals():
+    """#1010: per-player-count cells sum to the totals, like `by_street`."""
+    _, agents = play(EMPTY)
+    for a in agents:
+        c = a.counts()
+        cells = c["by_players"]
+        assert sum(v["decisions"] for v in cells.values()) == c["decisions"]
+        assert sum(v["policy_hits"] for v in cells.values()) == c["policy_hits"]
+        tot: dict[str, int] = {}
+        for k, cell in cells.items():
+            assert k == "unknown" or 2 <= int(k) <= 9
+            for r, n in cell["backoff_reasons"].items():
+                tot[r] = tot.get(r, 0) + n
+        assert tot == c["backoff_reasons"]
+
+
+def test_by_players_splits_bubble_from_heads_up():
+    """#1010: a 4-handed bubble start played to heads-up fills "4" and "2"; a table with only n4 keys hits in "4"
+    and never in "2" (a heads-up hand has no n4 key)."""
+    _, rec = play(EMPTY, cls=Recorder)
+    keys = {k: m for a in rec for k, m in a.keys if k.split("|")[1:2] == ["n4"]}
+    assert keys
+    n4 = PolicyTable({k: [1.0 / m] * m for k, m in keys.items()}, k=5, depth="basic", menu="v1", raise_cap=3)
+    _, agents = play(n4)
+    tot: dict[str, dict] = {}
+    for a in agents:
+        for k, cell in a.counts()["by_players"].items():
+            t = tot.setdefault(k, {"decisions": 0, "policy_hits": 0})
+            t["decisions"] += cell["decisions"]
+            t["policy_hits"] += cell["policy_hits"]
+    assert tot["4"]["decisions"] > 0 and tot["2"]["decisions"] > 0
+    assert tot["4"]["policy_hits"] > 0
+    assert tot["2"]["policy_hits"] == 0
+
+
+def test_by_players_unknown_without_new_hand():
+    """No NEW_HAND seen for the hand: the decision goes to the "unknown" cell (and backs off as `no_new_hand`)."""
+    a = E3PolicyAgent(EMPTY, np.random.default_rng(0))
+
+    class Obs:
+        game_id, hand_id = "g", 1
+
+    assert a._hand_players(Obs()) == "unknown"
+
+
+def test_policy_agents_sum_by_players_and_tolerate_old_counts():
+    from stalker.tools.icm_calibration import PolicyAgents
+
+    class New:
+        def counts(self):
+            return {"decisions": 3, "policy_hits": 1, "backoffs": 2, "backoff_reasons": {"no_key": 2},
+                    "by_players": {"2": {"decisions": 2, "policy_hits": 0, "backoff_reasons": {"no_key": 2}},
+                                   "4": {"decisions": 1, "policy_hits": 1, "backoff_reasons": {}}}}
+
+    class Old:
+        def counts(self):
+            return {"decisions": 1, "policy_hits": 1, "backoffs": 0, "backoff_reasons": {}}
+
+    pa = PolicyAgents.__new__(PolicyAgents)
+    pa.agents = [New(), New(), Old()]
+    c = pa.counts()
+    assert list(c["by_players"]) == ["2", "4"]
+    assert c["by_players"]["2"] == {"decisions": 4, "policy_hits": 0, "backoff_reasons": {"no_key": 4}}
+    assert c["by_players"]["4"]["policy_hits"] == 2
+
+
+def test_sorted_cells_orders_numerically_with_unknown_last():
+    from stalker.agents.e3_policy import sorted_cells
+
+    cell = {"decisions": 1, "policy_hits": 0, "backoff_reasons": {"b": 1, "a": 1}}
+    out = sorted_cells({"unknown": cell, "10": cell, "2": cell})
+    assert list(out) == ["2", "10", "unknown"] and list(out["2"]["backoff_reasons"]) == ["a", "b"]

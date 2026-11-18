@@ -63,9 +63,10 @@ class PolicyAgents:
     def counts(self) -> dict:
         """Decisions, policy hits and backoffs summed over the agents made since `reset`; `backoff_rate` =
         backoffs / decisions (None before any decision)."""
-        from stalker.agents.e3_policy import top_missing
+        from stalker.agents.e3_policy import sorted_cells, add_cells, top_missing
 
-        out = {"decisions": 0, "policy_hits": 0, "backoffs": 0, "backoff_reasons": {}, "by_street": {}}
+        out = {"decisions": 0, "policy_hits": 0, "backoffs": 0, "backoff_reasons": {}, "by_street": {},
+               "by_players": {}}
         missing: dict[str, dict[str, int]] = {}
         for a in self.agents:
             c = a.counts()
@@ -73,20 +74,16 @@ class PolicyAgents:
                 out[k] += c[k]
             for r, n in c["backoff_reasons"].items():
                 out["backoff_reasons"][r] = out["backoff_reasons"].get(r, 0) + n
-            for st, cell in c.get("by_street", {}).items():   # older agents lack it (#961)
-                tot = out["by_street"].setdefault(st, {"decisions": 0, "policy_hits": 0, "backoff_reasons": {}})
-                tot["decisions"] += cell["decisions"]
-                tot["policy_hits"] += cell["policy_hits"]
-                for r, n in cell.get("backoff_reasons", {}).items():   # older agents lack it (#990)
-                    tot["backoff_reasons"][r] = tot["backoff_reasons"].get(r, 0) + n
+            add_cells(out["by_street"], c.get("by_street", {}))     # older agents lack it (#961)
+            add_cells(out["by_players"], c.get("by_players", {}))   # and this (#1010)
             full = a.missing_counts() if hasattr(a, "missing_counts") else {}
             for st, m in full.items():   # full counts, so the top N is exact across agents
                 tot_m = missing.setdefault(st, {})
                 for k, n in m.items():
                     tot_m[k] = tot_m.get(k, 0) + n
         out["backoff_reasons"] = dict(sorted(out["backoff_reasons"].items()))
-        out["by_street"] = {st: {**c, "backoff_reasons": dict(sorted(c["backoff_reasons"].items()))}
-                            for st, c in sorted(out["by_street"].items())}
+        out["by_street"] = sorted_cells(out["by_street"])
+        out["by_players"] = sorted_cells(out["by_players"])
         out["missing_keys"] = top_missing(missing)
         out["backoff_rate"] = out["backoffs"] / out["decisions"] if out["decisions"] else None
         return out
