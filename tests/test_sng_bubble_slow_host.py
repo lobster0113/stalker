@@ -8,8 +8,8 @@ JOBS = sorted((ROOT / "jobs").glob("e3-tp-mid-c1-sng-bubble-*pod32.yaml"))
 SLOWEST_SLOW, SLOWEST_NORMAL = 6.25, 11.36
 
 
-def test_all_six_training_jobs_found():
-    assert len(JOBS) == 6
+def test_all_seven_training_jobs_found():   # #996 added the BB-ante job
+    assert len(JOBS) == 7
 
 
 @pytest.mark.parametrize("path", JOBS, ids=lambda p: p.stem)
