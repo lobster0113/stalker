@@ -1934,3 +1934,4 @@
 {"ts": "2026-11-18T17:55:00Z", "role": "planner", "outcome": "planned", "issue": 1008, "pr": 599, "notes": "PR #599 머지 후 #1008 수동 종료·라벨 정리, 후속 이슈 없음(review_sched.py 기존, 스파이크는 D4 후보), STATE 갱신", "friction": "PR 코멘트의 Closes #N은 자동 종료 안 됨 → 수동 종료 필요"}
 {"ts":"2026-11-18T18:11:29Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: no open PRs","friction":""}
 {"ts":"2026-11-18T18:19:50Z","role":"reviewer-b","outcome":"skipped","issue":998,"pr":1009,"notes":"not my parity","friction":""}
+{"ts":"2026-11-18T18:23:51Z","role":"builder-b","outcome":"blocked","issue":1000,"pr":null,"notes":"#1000 run 44314830246 results recorded (7.55 it/s, $0.7848, Nov total $37.70); tb1 key presence unverifiable from summary (no key list), commented follow-up","friction":"Large result (48MB) leaves only a summary on ops with no key list, so slot checks need the blob (proxy 403). quick gate in this session was slow (>120s) and unused."}
