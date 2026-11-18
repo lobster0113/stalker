@@ -579,11 +579,11 @@ def test_tournament_export_refuses_cash_and_non_icm_runs(tmp_path):
 def test_tournament_export_refuses_a_total_over_12mib_and_replaces_its_own_slot(tmp_path):
     res, env, _ = _tournament_result(tmp_path)
     base = _shipped()
-    other = {"file": "t-x-m0.json", "bytes": W.X.TOURNAMENT_MAX_BYTES - 10, "env_id": "x", "stage": "m", "ante": 0}
+    other = {"file": "t-x-m0-n3.json", "bytes": W.X.TOURNAMENT_MAX_BYTES - 10, "env_id": "x", "stage": "m", "ante": 0, "players": 3}
     base = W.X.upsert_tournament(base, other)
     with pytest.raises(SystemExit, match="12|total"):
         _export_t(tmp_path, res, base)
-    base["tournament"]["x"]["m"]["ante"]["0"]["bytes"] = 100
+    base["tournament"]["x"]["m"]["ante"]["0"]["by_players"]["3"]["bytes"] = 100
     assert _export_t(tmp_path, res, base)[0] == 0
     # the same slot again: its old bytes do not count twice
     big = W.X.upsert_tournament(_shipped(), {"file": "old", "bytes": W.X.TOURNAMENT_MAX_BYTES, "env_id": env["env_id"], "stage": "b", "ante": 0})
@@ -622,3 +622,21 @@ def test_index_v1_reads_as_v2_without_tournament_and_cash_upsert_changes_only_th
     assert t["tiers"] == v2["tiers"] and t["tournament"]["e"]["b"]["ante"]["1"]["file"] == "f"
     again = X.upsert_tournament(copy.deepcopy(t), {"env_id": "e", "stage": "b", "ante": 0, "file": "g", "bytes": 5})
     assert set(again["tournament"]["e"]["b"]["ante"]) == {"0", "1"} and again["tiers"] == v2["tiers"]
+
+
+def test_per_count_stage_keeps_one_entry_per_survivor_count():
+    # #995: the SNG in-the-money stage (m) is trained 3- and 2-handed with the same train_env; the bubble pins r = K+1.
+    import copy
+    X, base = W.X, _shipped()
+    b0 = copy.deepcopy(base["tournament"]["1261657cabcdc1ad"]["b"])
+    m = lambda n: {"file": W.tournament_file_name("e", "m", 0, n), "bytes": 7, "env_id": "e", "stage": "m", "ante": 0, "players": n}
+    idx = X.upsert_tournament(X.upsert_tournament(copy.deepcopy(base), m(3)), m(2))
+    slot = idx["tournament"]["e"]["m"]["ante"]["0"]
+    assert list(slot) == ["by_players"] and list(slot["by_players"]) == ["2", "3"]
+    assert [slot["by_players"][k]["file"] for k in ("2", "3")] == ["t-e-m0-n2.json", "t-e-m0-n3.json"]
+    assert W.tournament_file_name("e", "b", 0, 4) == "t-e-b0.json"   # the bubble name is unchanged
+    assert idx["tournament"]["1261657cabcdc1ad"]["b"] == b0 and idx["tiers"] == base["tiers"]
+    again = X.upsert_tournament(copy.deepcopy(idx), {**m(3), "bytes": 9})
+    assert again["tournament"]["e"]["m"]["ante"]["0"]["by_players"]["3"]["bytes"] == 9
+    assert X.tournament_bytes(again) == X.tournament_bytes(base) + 7 + 9
+    assert X.tournament_bytes(again, ("e", "m", 0, 3)) == X.tournament_bytes(base) + 7   # only the replaced count is skipped

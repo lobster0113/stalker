@@ -334,8 +334,9 @@ def export_all_players(st: dict, summary: dict, run: str, out_dir: Path, tier: s
             "index": {"file": "index.json", "bytes": len(ib), "sha256": hashlib.sha256(ib).hexdigest()}}
 
 
-def tournament_file_name(env_id: str, stage: str, ante: int) -> str:
-    return f"t-{env_id}-{stage}{ante}.json"
+def tournament_file_name(env_id: str, stage: str, ante: int, players: int | None = None) -> str:
+    """`t-<env_id>-<stage><ante>.json`; a stage that spans several survivor counts adds `-n<players>` (#995)."""
+    return f"t-{env_id}-{stage}{ante}.json" if X.stage_fixes_players(stage) else f"t-{env_id}-{stage}{ante}-n{int(players)}.json"
 
 
 def export_tournament(st: dict, summary: dict, run: str, out_dir: Path, index_base: dict | None = None,
@@ -372,8 +373,9 @@ def export_tournament(st: dict, summary: dict, run: str, out_dir: Path, index_ba
         if fit:
             doc[L1_FIELD] = fit
             body = json.dumps(doc, separators=(",", ":")).encode()
-    name = tournament_file_name(env["env_id"], env["stage"], ante)
-    total = X.tournament_bytes(index_base, (env["env_id"], env["stage"], ante)) + len(body)
+    name = tournament_file_name(env["env_id"], env["stage"], ante, doc["players"])
+    slot = (env["env_id"], env["stage"], ante) + (() if X.stage_fixes_players(env["stage"]) else (int(doc["players"]),))
+    total = X.tournament_bytes(index_base, slot) + len(body)
     if total > total_max_bytes:
         raise SystemExit(f"run {run}: tournament policy files would total {total} bytes > {total_max_bytes}; "
                          "raise --min-visits or drop a stage (ADR 0029 decision 3)")

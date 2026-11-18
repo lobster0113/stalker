@@ -26,7 +26,8 @@ ADR 0027이 정한 학습 단위: 정책 하나 = (프리셋 env_id, stage, 앤�
 - **호환**: v1 리더는 `tournament`를 모르고 무시한다(기존 코드는 `idx.tiers`만 읽는다). v2 리더는 `schema_version`이 1이면 `tournament`를 `{}`로 본다. `upsert_index`는 `tiers`를 건드리지 않고 `tournament`만 갱신한다(기존 6인 키 보존 규칙과 같은 방식). 따라서 기존 캐시 파일·인덱스 바이트는 토너먼트 정책이 없는 한 **`schema_version` 숫자 하나만** 다르다. 이 한 글자 차이는 마이그레이션 테스트(v1 → v2 읽기, v2에서 `tiers` 불변)로 고정한다(CLAUDE.md 스키마 규칙).
 - 대안(별도 `tournament-index.json`) 기각: 페이지가 인덱스를 이미 한 번 받아 모델 목록을 그린다. 파일이 둘이면 요청이 하나 늘고 두 파일이 어긋날 수 있다. 토너먼트 항목은 작아(항목당 수백 바이트) 합쳐도 부담이 없다.
 - 학습 λ·스택은 키가 아니라 **메타**다. 같은 (env, stage, ante)에 정책이 둘이면(예: λ 0 대 선택값) 인덱스에는 **채택된 하나만** 싣는다(채택 판정은 F7). 후보 비교는 ops 기록에 둔다.
-- 파일 이름: `web/app/policy/t-<env_id>-<stage><ante>.json`(예 `t-<env_id>-b0.json`). 학습 key는 같은 c1 key이므로 `key_variant: "c1"`, 정책 파일 스키마(`stalker.web.policy`)는 **바꾸지 않는다**(메타 필드만 더 붙는다; 파일 `schema_version` 2 유지, 리더는 모르는 메타를 무시).
+- **인원별 단계(#995 보강)**: 버블(`b`)만 생존자 수가 단계로 정해진다(r = K+1). `e`·`m`·`f`는 여러 r에 걸치므로(예: SNG 상금권 안 3인·헤즈업을 따로 학습, ADR 0027 단계 2) 그 칸은 `ante["<a>"] = {"by_players": {"<n>": <entry>}}`(캐시 `tiers[tier].by_players`와 같은 모양)이고 파일 이름에 `-n<players>`를 붙인다(`t-<env_id>-m0-n3.json`). 버블 칸·파일 이름은 그대로다. 리더(`tpgto.js` `tournamentEntry`)는 두 모양을 다 읽고, 그 인원 항목이 없으면 `players_mismatch`(미학습)다.
+- 파일 이름: `web/app/policy/t-<env_id>-<stage><ante>.json`(예 `t-<env_id>-b0.json`; `b` 밖 단계는 위처럼 `-n<players>`). 학습 key는 같은 c1 key이므로 `key_variant: "c1"`, 정책 파일 스키마(`stalker.web.policy`)는 **바꾸지 않는다**(메타 필드만 더 붙는다; 파일 `schema_version` 2 유지, 리더는 모르는 메타를 무시).
 
 ## 결정 2. 내보내기 경로
 **결정: 같은 `cloud.yml`의 `mode=export`를 넓히되, 입력 `export_kind`(기본 `cash`)를 더해 `cash`(지금 동작)와 `tournament`를 분기한다. 새 모드는 만들지 않는다. 변경은 `.github/`와 `export_web_players.py`에 걸치므로 구현은 `harness-change` 후속 이슈(H1)로 분리한다.**
