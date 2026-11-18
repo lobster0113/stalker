@@ -1907,3 +1907,4 @@
 {"ts":"2026-11-18T11:54:37Z","role":"builder-b","outcome":"pr_opened","issue":997,"pr":1003,"notes":"lbr_icm distribution job yaml + tests + README; full gates PASS locally","friction":"gates full ~25min foreground waiting (a); plan comment skipped to save time"}
 {"ts":"2026-11-18T11:54:59Z","role":"reviewer-b","outcome":"skipped","issue":997,"pr":1003,"notes":"not my parity","friction":""}
 {"ts":"2026-11-18T12:16:00Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: open PRs #1003, #599 are odd (reviewer parity); no even PR to review","friction":""}
+{"ts":"2026-11-18T12:21:38Z","role":"reviewer","outcome":"merged","issue":997,"pr":1003,"notes":"lbr_icm eval job; all CI green, criteria verified, worst $0.48","friction":"CI took ~25 min; waited in 9-min foreground chunks"}
