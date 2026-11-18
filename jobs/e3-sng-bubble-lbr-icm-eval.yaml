@@ -1,0 +1,21 @@
+# #997 (ADR 0030 follow-up 3 prep, F4f): collect the lbr_icm distribution. One job takes one cold (A) training result and runs
+# referee.e3.tournament_eval with --lbr-hands on the 3 cells of tournament_spots_v1 (503020 bubble, 4 survivors; even/random/skewed),
+# so every cell gets lbr_pool (schema_version 2). Dispatch resume_run=<A run> (#929): the launcher trims it to RESUME_FIELDS,
+# gzips it and hands it over as $STALKER_RESUME; load_table reads that file as it is (no new reader). Empty -> exit 3 at once.
+# Three dispatches, one per cold A seed, alone (#877): seed 1 = 43735226442, seed 2 = 43842144620, seed 3 = 43847129076
+# (docs/research/2026-11-e-f6-warm-start-ab.md pair table). Dispatch and the distribution record are follow-ups.
+# Sizes (local reference, not CI; small cash policy, 1 process): ~0.25 s per LBR hand and cell, ~0.6 s per policy game (#916).
+# --lbr-hands 2000 x 3 cells = ~25 min, --games 200 x 3 cells = ~6 min, plus start-up: ~35 min. The real mid policy is larger,
+# so max_minutes 120 leaves ~3x slack; run_stages --deadline-s 5400 (= 120*60 - 1800 s) stops it 30 min before the pod limit,
+# so a timeout still yields a stage-failure result.
+# Worst case = hourly_usd * max_minutes / 60 = 0.24 * 120 / 60 = $0.48 per job (limit $1.50, tests/test_cloud_launcher.py).
+# Result: ops:cloud/results/<run id>.json, the tournament_eval JSON (schema_version 2, cells[].lbr_pool {mean, se, hands, stage, ante}).
+name: e3-sng-bubble-lbr-icm-eval
+image: python:3.12-slim
+command: set -e; test -n "$STALKER_RESUME" || { echo "STALKER_RESUME empty - dispatch with resume_run=<cold A run>" >&2; exit 3; }; mkdir -p /src; date -u +%s > /src/t0; python3 -c "import io,tarfile,urllib.request as u; t=tarfile.open(fileobj=io.BytesIO(u.urlopen('https://codeload.github.com/lobster0113/stalker/tar.gz/refs/heads/main').read())); t.extractall('/src', filter='data')"; cd /src/stalker-main; pip install -q -e '.[fast]'; python3 -m stalker.tools.run_stages --out /result/e3-sng-bubble-lbr-icm-eval.json --deadline-s 5400 --stage 'lbr=echo t0=$(cat /src/t0) stage_start=$(date -u +%s) >&2; python3 -m referee.e3.tournament_eval --policy "$STALKER_RESUME" --games 200 --seed 10001 --lbr-hands 2000 --out /result/e3-sng-bubble-lbr-icm-eval.json'
+cpu_flavor: cpu3c
+vcpu: 4
+disk_gb: 10
+max_minutes: 120
+hourly_usd: 0.24
+result_path: /result/e3-sng-bubble-lbr-icm-eval.json
