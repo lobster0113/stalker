@@ -1930,3 +1930,4 @@
 {"ts":"2026-11-18T17:11:59Z","role":"reviewer-b","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR is #599 (odd parity, reviewer)","friction":"should_run --sweep printed RUN although no even-numbered PR was open (repeat)"}
 {"ts":"2026-11-18T17:25:00Z","role":"builder-b","outcome":"changes","issue":1008,"pr":599,"notes":"PR #599 CHANGES 4건 반영·main merge 푸시 dba6f193, CI 대기","friction":"#599 브랜치가 shallow clone에서 merge base 없음(unshallow 필요); docs-only라 gates full 생략"}
 {"ts":"2026-11-18T17:22:06Z","role":"reviewer-b","outcome":"skipped","issue":null,"pr":599,"notes":"not my parity","friction":""}
+{"ts":"2026-11-18T17:49:10Z","role":"reviewer","outcome":"merged","issue":1008,"pr":599,"notes":"research note re-review: all 4 CHANGES items fixed, CI all success, squash-merged ba9cf66","friction":"CI took ~25min to finish on a docs-only PR (full gates/web/rl ran)"}
