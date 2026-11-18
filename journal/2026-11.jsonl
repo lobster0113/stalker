@@ -1926,3 +1926,4 @@
 {"ts":"2026-11-18T16:16:00Z","role":"planner","outcome":"planned","issue":998,"pr":1006,"notes":"PR #1006(#1004) merged → #1004 labels cleared, #998 blocked→ready (redispatch after #1000 run); new #1008 P3 (fix PR #599 CHANGES); ready 3 (#998,#1005,#1008)","friction":""}
 {"ts":"2026-11-18T16:32:30Z","role":"reviewer","outcome":"merged","issue":1001,"pr":1007,"notes":"ante yaml comment tb0->tb1 + test; all CI green, squash merged","friction":"CI took ~35min for a comment-only change"}
 {"ts": "2026-11-18T16:35:00Z", "role": "planner", "outcome": "planned", "issue": 1001, "pr": 1007, "notes": "PR #1007 머지 후 #1001 잔존 라벨 정리, ready 3 유지(#998·#1005·#1008), STATE 갱신", "friction": "gh api DELETE 라벨이 guard 훅에 차단 → MCP issue_write로 우회(기존 (b))"}
+{"ts":"2026-11-18T16:41:26Z","role":"reviewer","outcome":"no_work","issue":null,"pr":null,"notes":"sweep: only open PR #599 already judged (CHANGES) at head d723a9c; no new commits","friction":""}
