@@ -1,0 +1,298 @@
+{
+ "job": "e3-tp-mid4-c1-pod",
+ "tier": "mid",
+ "players": 4,
+ "seed": 1,
+ "workers": 16,
+ "batch": 500,
+ "iters": 20000,
+ "resumed_from_run": null,
+ "chunk_iters": 20000,
+ "max_iters": 20000,
+ "stopped_by": "max_iters",
+ "resumed_from": 0,
+ "train_seconds": 2650.5,
+ "iters_per_s": 7.55,
+ "sync_frac": 0.005,
+ "field": null,
+ "field_seconds": 0.0,
+ "infosets": 651373,
+ "coverage": {
+  "fc": {
+   "keys": 528,
+   "under10": 0
+  },
+  "fcr25ra": {
+   "keys": 34397,
+   "under10": 34365
+  },
+  "ka": {
+   "keys": 58437,
+   "under10": 55481
+  },
+  "fca": {
+   "keys": 152834,
+   "under10": 148433
+  },
+  "kb20b33a": {
+   "keys": 34783,
+   "under10": 33638
+  },
+  "fcr25rr35r4r5a": {
+   "keys": 8413,
+   "under10": 8025
+  },
+  "kb20b33b50a": {
+   "keys": 34810,
+   "under10": 33687
+  },
+  "kb20a": {
+   "keys": 36602,
+   "under10": 35355
+  },
+  "kb20b33b50b75a": {
+   "keys": 29624,
+   "under10": 29158
+  },
+  "fcr25rr4a": {
+   "keys": 22954,
+   "under10": 22945
+  },
+  "kb20b33b50b75b100b150b200b300a": {
+   "keys": 28537,
+   "under10": 28418
+  },
+  "kb20b33b50b75b100a": {
+   "keys": 34188,
+   "under10": 33606
+  },
+  "fcr2r22r25ra": {
+   "keys": 10493,
+   "under10": 9196
+  },
+  "fcr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 3330,
+   "under10": 2693
+  },
+  "fcr25rr35a": {
+   "keys": 737,
+   "under10": 737
+  },
+  "fcr2r22a": {
+   "keys": 2398,
+   "under10": 2360
+  },
+  "kb20b33b50b75b100b150b200a": {
+   "keys": 23137,
+   "under10": 22975
+  },
+  "fcr25rr4r5a": {
+   "keys": 27106,
+   "under10": 27095
+  },
+  "fcr25rr4r5r7a": {
+   "keys": 21321,
+   "under10": 21318
+  },
+  "fcr25a": {
+   "keys": 26335,
+   "under10": 26327
+  },
+  "kb20b33b50b75b100b150a": {
+   "keys": 22675,
+   "under10": 22500
+  },
+  "fcr2r22rr3r35r4r5r6a": {
+   "keys": 340,
+   "under10": 340
+  },
+  "fcr2r22r25a": {
+   "keys": 2984,
+   "under10": 2924
+  },
+  "fcr25rr4r5r7r10a": {
+   "keys": 29849,
+   "under10": 29847
+  },
+  "fcr2a": {
+   "keys": 1835,
+   "under10": 1813
+  },
+  "fcr25rr35r4a": {
+   "keys": 1258,
+   "under10": 1258
+  },
+  "fcr2r22rr3r35r4r5r6r8a": {
+   "keys": 418,
+   "under10": 418
+  },
+  "fcr2r22rr3a": {
+   "keys": 141,
+   "under10": 141
+  },
+  "fcr2r22rr3r35r4a": {
+   "keys": 232,
+   "under10": 232
+  },
+  "fcr2r22rr3r35r4r5a": {
+   "keys": 226,
+   "under10": 226
+  },
+  "fcr2r22rr3r35a": {
+   "keys": 158,
+   "under10": 158
+  },
+  "fcr2r22ra": {
+   "keys": 150,
+   "under10": 150
+  },
+  "kb20b50b75b100b150b200b300a": {
+   "keys": 33,
+   "under10": 33
+  },
+  "cr2r22rr3r35r4r5r6r8r10a": {
+   "keys": 96,
+   "under10": 96
+  },
+  "ca": {
+   "keys": 4,
+   "under10": 4
+  },
+  "kb20b50b75b100b150a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "kb20b50b75b100a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "kb20b50b75a": {
+   "keys": 1,
+   "under10": 1
+  },
+  "cr2r22rr3r35r4r5r6r8a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "cr2r22rr3r35r4a": {
+   "keys": 3,
+   "under10": 3
+  },
+  "cr2r22rr3a": {
+   "keys": 1,
+   "under10": 1
+  }
+ },
+ "lbr": {
+  "lbr_bb": 4.5175,
+  "stderr_bb": 0.7612,
+  "by_seat": {
+   "EP0": 3.5271,
+   "BTN": 4.1675,
+   "SB": 3.4184,
+   "BB": 6.9572
+  },
+  "hands": 600
+ },
+ "lbr_average": {
+  "lbr_bb": 1.6765,
+  "stderr_bb": 0.6182,
+  "by_seat": {
+   "EP0": 0.0167,
+   "BTN": 2.4603,
+   "SB": 1.6148,
+   "BB": 2.6143
+  },
+  "hands": 600
+ },
+ "lbr_offmenu": {
+  "lbr_bb": 4.4615,
+  "stderr_bb": 0.7572,
+  "by_seat": {
+   "EP0": 3.5271,
+   "BTN": 4.1675,
+   "SB": 3.4184,
+   "BB": 6.7329
+  },
+  "hands": 600
+ },
+ "lbr_seconds": 157.9,
+ "policy_sha256": "d6ae62d34ccea9eabc7cbe78e63bdb980d00f2b6e63a6fdba6b7f1633b110f56",
+ "model": {
+  "k": 11,
+  "n": 4,
+  "depth": "full",
+  "iterations": 20000,
+  "nodes": 10630610,
+  "menu": "real",
+  "raise_cap": null,
+  "avg_rule": "own",
+  "rng": {
+   "bit_generator": "PCG64",
+   "state": {
+    "state": 207037337047313282661142340656591920366,
+    "inc": 194290289479364712180083596243593368443
+   },
+   "has_uint32": 0,
+   "uinteger": 0
+  },
+  "key_variant": "c1",
+  "stacks": "bubble:skewed",
+  "key_version": 1,
+  "train_env": {
+   "env_id": "1261657cabcdc1ad",
+   "stage": "b",
+   "level_index": 0,
+   "lam": 0.0,
+   "stacks": "bubble:skewed"
+  },
+  "ante": 100,
+  "stage": "b",
+  "player_mix": [],
+  "payoff": "icm",
+  "payouts": [
+   0.5,
+   0.3,
+   0.2
+  ],
+  "lam": 0.0,
+  "stack_preset": "9max_sng_503020",
+  "stack_remaining": 4,
+  "stack_level": 0,
+  "ranges": "average",
+  "range_every": 2000,
+  "snap_at": 16000
+ },
+ "train_env": {
+  "env_id": "1261657cabcdc1ad",
+  "stage": "b",
+  "level_index": 0,
+  "lam": 0.0,
+  "stacks": "bubble:skewed"
+ },
+ "checkpoint": {
+  "format": "npz",
+  "dtype": "float64",
+  "b64": {
+   "omitted_chars": 48755836,
+   "sha256": "a8bab9e5dae1aebf4ac81b35a7f45ea0dcf40ffa86f5dc3fb5e8f41955dd0774"
+  }
+ },
+ "max_rss_mb": 2218.7,
+ "max_child_rss_mb": 1052.1,
+ "machine": {
+  "cpu_model": "AMD EPYC 9754 128-Core Processor",
+  "cpu_count": 256,
+  "affinity_cpus": 32,
+  "cgroup_cpu_max": "",
+  "mem_total_mb": 773271,
+  "python": "3.12.16",
+  "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.41"
+ },
+ "regret_sha256": "18d9b02d6c94da0491135bbd03efbd92602f4edc01d175712377601d85ba10ba",
+ "sha": "b7fcdcd98b33f555380f474e8cacc1d8299fab9f",
+ "_summary_of": {
+  "result_bytes": 48760087,
+  "result_sha256": "aa0ea2a784558683a1a54cc461692fcd0daf6d8aaa3113b35161b63e69214c13"
+ }
+}
